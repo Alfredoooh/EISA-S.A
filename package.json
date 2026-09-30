@@ -1,0 +1,24 @@
+{
+  "name": "news-api",
+  "version": "1.0.0",
+  "description": "API de notícias agregada",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0-rc.12",
+    "rss-parser": "^3.13.0",
+    "node-cache": "^5.1.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "xml2js": "^0.6.2",
+    "node-fetch": "^2.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

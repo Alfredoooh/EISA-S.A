@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">app ao</string>
+    <string name="ask_ai">Pergunte à IA</string>
+    <string name="ai_title">Inteligência Artificial</string>
+    <string name="comentar">Comentar…</string>
+    <string name="app_titulo">Notícia</string>
+</resources>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#FFFFFF</color>
+    <color name="bgElevated">#FFFFFF</color>
+    <color name="card">#F2F2F2</color>
+    <color name="card2">#EBEBEB</color>
+    <color name="text">#000000</color>
+    <color name="dim">#666666</color>
+    <color name="line">#EEEEEE</color>
+    <color name="border">#E5E5E5</color>
+    <color name="accent">#E8890C</color>
+    <color name="pri">#000000</color>
+    <color name="onpri">#FFFFFF</color>
+    <color name="scrim">#1F000000</color>
+    <color name="progressStart">#1565C0</color>
+    <color name="progressEnd">#00E5FF</color>
+    <color name="bubbleBlue">#1976D2</color>
+    <color name="bubbleCyan">#0097A7</color>
+    <color name="dotGreen">#00E676</color>
+    <color name="pillBg">#AAFFFFFF</color>
+    <color name="pillBorder">#10000000</color>
+</resources>

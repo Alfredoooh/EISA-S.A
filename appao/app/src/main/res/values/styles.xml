@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="BubbleUser">
+        <item name="android:background">@drawable/bg_bubble_user</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:paddingStart">15dp</item>
+        <item name="android:paddingEnd">15dp</item>
+        <item name="android:paddingTop">11dp</item>
+        <item name="android:paddingBottom">11dp</item>
+        <item name="android:textSize">14.5sp</item>
+        <item name="android:lineSpacingMultiplier">1.4</item>
+    </style>
+
+    <style name="BubbleAi">
+        <item name="android:background">@drawable/bg_bubble_ai</item>
+        <item name="android:textColor">@color/text</item>
+        <item name="android:paddingStart">15dp</item>
+        <item name="android:paddingEnd">15dp</item>
+        <item name="android:paddingTop">11dp</item>
+        <item name="android:paddingBottom">11dp</item>
+        <item name="android:textSize">14.5sp</item>
+        <item name="android:lineSpacingMultiplier">1.4</item>
+    </style>
+
+    <style name="DrawerItem">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:padding">14dp</item>
+        <item name="android:layout_marginStart">8dp</item>
+        <item name="android:layout_marginEnd">8dp</item>
+        <item name="android:background">?attr/selectableItemBackground</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+    </style>
+</resources>

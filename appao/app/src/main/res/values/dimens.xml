@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="appbar_height">56dp</dimen>
+    <dimen name="progress_height">5dp</dimen>
+    <dimen name="pill_height">45dp</dimen>
+    <dimen name="pill_width">320dp</dimen>
+    <dimen name="pill_width_focused">340dp</dimen>
+</resources>

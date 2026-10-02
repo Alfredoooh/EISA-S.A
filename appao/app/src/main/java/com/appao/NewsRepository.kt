@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit
 object NewsRepository {
 
     private const val BASE = "https://eisa-sa-servers.onrender.com"
-    private const val KEY = ""
+    private const val KEY = "sk_live_168c3937133560729e5c18a7f1a5183fd3a8a3b351a833b692224a00ef5b45a3"
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)

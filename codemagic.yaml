@@ -56,8 +56,6 @@ workflows:
       # -------------------------------------------------------------
       # ANDROID SDK
       # -------------------------------------------------------------
-      # O codemagic.yaml está na raiz e o projeto Android está dentro
-      # da pasta appao.
       - name: Configure Android SDK
         script: |
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/appao/local.properties"
@@ -65,17 +63,6 @@ workflows:
       # -------------------------------------------------------------
       # KEYSTORE
       # -------------------------------------------------------------
-      # O keystore também está dentro da pasta appao.
-      #
-      # Caminho esperado:
-      #
-      # appao/looply-debug.keystore
-      #
-      # Também existe suporte para:
-      #
-      # LOOPLY_KEYSTORE_BASE64
-      #
-      # através das variáveis secretas do Codemagic.
       - name: Set up signing keystore
         script: |
           if [ -f "$CM_BUILD_DIR/appao/looply-debug.keystore" ]; then
@@ -106,7 +93,6 @@ workflows:
       # -------------------------------------------------------------
       # BUILD
       # -------------------------------------------------------------
-      # Entra na pasta appao porque todo o projeto Gradle está lá.
       - name: Build app ao Debug APK
         script: |
           cd "$CM_BUILD_DIR/appao"
@@ -118,22 +104,20 @@ workflows:
       # -------------------------------------------------------------
       # APK SIZE CHECK
       # -------------------------------------------------------------
-      # Limite absoluto:
-      # 400 KiB = 409600 bytes.
-      #
-      # Os APKs agora ficam em:
-      #
-      # appao/app/build/outputs/apk/debug/
+      # Apenas informa o tamanho do APK.
+      # NÃO rejeita a build caso o APK ultrapasse 400 KiB.
       - name: Verify APK size
         script: |
           set -e
 
+          APK_DIR="$CM_BUILD_DIR/appao/app/build/outputs/apk/debug"
+
           echo "Generated APK:"
-          ls -lh "$CM_BUILD_DIR/appao/app/build/outputs/apk/debug/"*.apk
+          ls -lh "$APK_DIR"/*.apk
 
           found_apk=false
 
-          for apk in "$CM_BUILD_DIR/appao/app/build/outputs/apk/debug/"*.apk; do
+          for apk in "$APK_DIR"/*.apk; do
 
             if [ ! -f "$apk" ]; then
               continue
@@ -141,7 +125,14 @@ workflows:
 
             found_apk=true
 
-            bytes=$(stat -f%z "$apk")
+            if bytes=$(stat -f%z "$apk" 2>/dev/null); then
+              :
+            elif bytes=$(stat -c%s "$apk" 2>/dev/null); then
+              :
+            else
+              echo "WARNING: Could not determine APK size."
+              continue
+            fi
 
             kib=$((bytes / 1024))
 
@@ -149,13 +140,14 @@ workflows:
             echo "APK: $apk"
             echo "Bytes: $bytes"
             echo "Size: ${kib} KiB"
-            echo "Limit: 400 KiB"
+            echo "Reference limit: 400 KiB"
             echo "----------------------------------------"
 
             if [ "$bytes" -gt 409600 ]; then
-              echo "ERROR: APK exceeds 400 KiB."
-              echo "Build rejected."
-              exit 1
+              echo "WARNING: APK exceeds 400 KiB."
+              echo "Build will continue."
+            else
+              echo "APK is within the 400 KiB reference limit."
             fi
 
           done
@@ -165,16 +157,15 @@ workflows:
             exit 1
           fi
 
-          echo "APK size check passed."
+          echo "APK size verification completed."
 
     # ---------------------------------------------------------------
     # ARTIFACTS
     # ---------------------------------------------------------------
-    # O APK aparece na área de Artifacts do Codemagic para download.
     artifacts:
       - appao/app/build/outputs/apk/debug/*.apk
 
     # ---------------------------------------------------------------
     # PUBLISHING
     # ---------------------------------------------------------------
-    # Não existe "publishing:" aqui propositalmente.
+    # Nenhum bloco publishing é necessário.

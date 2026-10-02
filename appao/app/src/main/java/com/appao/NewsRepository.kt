@@ -1,6 +1,8 @@
 package com.appao
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -18,9 +20,33 @@ object NewsRepository {
         .readTimeout(20, TimeUnit.SECONDS)
         .build()
 
-    suspend fun fetchGeneral(): List<NewsItem> = withContext(Dispatchers.IO) {
+    private val categories = listOf(
+        "general", "business", "sports", "technology",
+        "entertainment", "health", "politics"
+    )
+
+    suspend fun fetchGeneral(page: Int = 1): List<NewsItem> = withContext(Dispatchers.IO) {
+        val groups = coroutineScope {
+            categories.map { c -> async(Dispatchers.IO) { fetchByCategory(c, page) } }
+                .map { it.await() }
+        }
+        val max = groups.maxOfOrNull { it.size } ?: 0
+        val out = ArrayList<NewsItem>()
+        val seen = HashSet<String>()
+        for (i in 0 until max) {
+            for (g in groups) {
+                if (i < g.size) {
+                    val it = g[i]
+                    if (seen.add(it.id)) out.add(it)
+                }
+            }
+        }
+        out
+    }
+
+    suspend fun fetchByCategory(category: String, page: Int = 1): List<NewsItem> = withContext(Dispatchers.IO) {
         try {
-            val url = "$BASE/news?lang=pt&country=AO&category=general"
+            val url = "$BASE/news?lang=pt&country=AO&category=$category&page=$page"
             val req = Request.Builder().url(url).header("x-api-key", KEY).build()
             val body = client.newCall(req).execute().use { it.body?.string() ?: return@withContext emptyList() }
             val arr = JSONObject(body).optJSONArray("articles") ?: return@withContext emptyList()

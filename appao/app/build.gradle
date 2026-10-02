@@ -6,6 +6,7 @@ plugins {
 android {
     namespace 'com.appao'
     compileSdk 34
+
     defaultConfig {
         applicationId "com.appao"
         minSdk 23
@@ -13,12 +14,15 @@ android {
         versionCode 1
         versionName "1.0"
     }
+
     buildFeatures { viewBinding true }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = '17' }
+
     buildTypes {
         release { minifyEnabled false }
     }
@@ -34,6 +38,7 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'com.github.bumptech.glide:glide:4.16.0'
+    implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'org.json:json:20231013'
     implementation 'com.caverock:androidsvg-aar:1.4'
 }

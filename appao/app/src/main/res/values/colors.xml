@@ -11,7 +11,7 @@
     <color name="accent">#E8890C</color>
     <color name="pri">#000000</color>
     <color name="onpri">#FFFFFF</color>
-    <color name="scrim">#1F000000</color>
+    <color name="scrim">#38000000</color>
     <color name="progressStart">#1565C0</color>
     <color name="progressEnd">#00E5FF</color>
     <color name="bubbleBlue">#1976D2</color>
@@ -19,4 +19,5 @@
     <color name="dotGreen">#00E676</color>
     <color name="pillBg">#AAFFFFFF</color>
     <color name="pillBorder">#10000000</color>
+    <color name="iconTint">#000000</color>
 </resources>

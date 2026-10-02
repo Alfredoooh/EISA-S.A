@@ -5,6 +5,7 @@
     android:background="@color/bg">
 
     <LinearLayout
+        android:id="@+id/header"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
@@ -106,7 +107,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:clipToPadding="false"
-                android:paddingBottom="110dp"
+                android:paddingBottom="130dp"
                 android:overScrollMode="never"/>
         </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
     </LinearLayout>
@@ -122,7 +123,8 @@
         android:background="@drawable/bg_pill_blur"
         android:paddingStart="6dp"
         android:paddingEnd="6dp"
-        android:elevation="12dp">
+        android:elevation="26dp"
+        android:translationZ="26dp">
 
         <FrameLayout
             android:id="@+id/biAdd"
@@ -242,7 +244,9 @@
         android:layout_gravity="end"
         android:orientation="vertical"
         android:background="@color/bgElevated"
-        android:translationX="300dp">
+        android:translationX="300dp"
+        android:elevation="24dp"
+        android:translationZ="24dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -350,9 +354,10 @@
     <View
         android:id="@+id/appProgress"
         android:layout_width="0dp"
-        android:layout_height="5dp"
+        android:layout_height="3dp"
         android:layout_gravity="top|start"
         android:background="@drawable/progress_gradient"
         android:alpha="0"
-        android:elevation="20dp"/>
+        android:elevation="30dp"
+        android:translationZ="30dp"/>
 </FrameLayout>

@@ -9,6 +9,7 @@
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="false"
         android:theme="@style/Theme.AppAo"
@@ -28,6 +29,19 @@
             android:name=".ArticleActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize"/>
+
+        <activity
+            android:name=".ImageViewerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppAo.ImageViewer"/>
+
+        <activity
+            android:name=".LibraryActivity"
+            android:exported="false"/>
+
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"/>
 
         <activity
             android:name=".AppViewerActivity"

@@ -189,7 +189,6 @@
         android:orientation="vertical"
         android:background="@drawable/bg_sheet_top"
         android:visibility="gone"
-        android:translationY="100%"
         android:paddingBottom="12dp">
 
         <FrameLayout

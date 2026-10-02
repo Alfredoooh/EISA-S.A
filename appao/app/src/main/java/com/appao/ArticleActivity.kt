@@ -94,9 +94,15 @@ class ArticleActivity : AppCompatActivity() {
         }
         if (itemLogo.isNotBlank()) Glide.with(this).load(itemLogo).into(favicon)
 
+        // === Barra começa escondida em baixo e entra com slide (igual ao HTML) ===
         articleBar.post {
-            articleBar.animate().translationY(0f).setDuration(350)
-                .setInterpolator(Curves.SMOOTH).start()
+            val h = articleBar.height.toFloat().coerceAtLeast(120f)
+            articleBar.translationY = h + 40f
+            articleBar.animate()
+                .translationY(0f)
+                .setDuration(350)
+                .setInterpolator(Curves.SMOOTH)
+                .start()
         }
 
         commentsAdapter = CommentAdapter(comments) { idx, r ->

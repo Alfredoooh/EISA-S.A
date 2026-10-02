@@ -31,17 +31,17 @@ class NewsAdapter(
     }
 
     override fun onBindViewHolder(h: VH, position: Int) {
-        val it = list[position]
-        h.source.text = it.source
-        h.title.text = it.title
-        h.time.text = if (it.date.isBlank()) "" else "· ${ago(it.date)}"
-        if (it.logo.isNotEmpty()) Glide.with(h.favicon).load(it.logo).into(h.favicon)
+        val item = list[position]
+        h.source.text = item.source
+        h.title.text = item.title
+        h.time.text = ago(item.date)
+        if (item.logo.isNotEmpty()) Glide.with(h.favicon).load(item.logo).into(h.favicon)
         else h.favicon.setImageDrawable(null)
-        if (it.image.isNotEmpty()) {
+        if (item.image.isNotEmpty()) {
             h.image.visibility = View.VISIBLE
-            Glide.with(h.image).load(it.image).into(h.image)
+            Glide.with(h.image).load(item.image).into(h.image)
         } else h.image.visibility = View.GONE
-        h.itemView.setOnClickListener { onClick(it) }
+        h.itemView.setOnClickListener { onClick(item) }
     }
 
     override fun getItemCount() = list.size
@@ -61,17 +61,16 @@ class NewsAdapter(
     private fun ago(v: String): String {
         if (v.isBlank()) return ""
         return try {
-            val normalized = v.replace("Z", "")
             val fmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
             fmt.timeZone = TimeZone.getTimeZone("UTC")
-            val t = fmt.parse(normalized.substring(0, normalized.length.coerceAtMost(19)))?.time ?: return ""
+            val t = fmt.parse(v.substring(0, 19))?.time ?: return ""
             val m = ((System.currentTimeMillis() - t) / 60000).coerceAtLeast(0)
             when {
                 m < 1 -> "agora"
                 m < 60 -> "$m min"
                 m < 1440 -> "${m / 60} h"
                 m < 10080 -> "${m / 1440} d"
-                else -> SimpleDateFormat("dd MMM", Locale("pt", "PT")).format(Date(t))
+                else -> SimpleDateFormat("dd MMM", Locale("pt")).format(Date(t))
             }
         } catch (e: Exception) { "" }
     }

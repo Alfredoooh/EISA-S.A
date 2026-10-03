@@ -7,6 +7,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.util.Calendar
+import java.util.concurrent.TimeUnit
 
 object WeatherHelper {
 
@@ -26,7 +27,12 @@ object WeatherHelper {
 
     data class Result(val icon: String, val temp: Int, val prov: String)
 
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .callTimeout(8, TimeUnit.SECONDS)
+        .connectTimeout(4, TimeUnit.SECONDS)
+        .readTimeout(6, TimeUnit.SECONDS)
+        .writeTimeout(6, TimeUnit.SECONDS)
+        .build()
 
     fun nearest(lat: Double, lon: Double): Prov {
         var best = provinces[0]; var d = Double.MAX_VALUE

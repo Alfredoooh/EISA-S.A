@@ -14,7 +14,9 @@ import com.caverock.androidsvg.SVG
 
 object IconLoader {
 
-    private val cache = LruCache<String, Bitmap>(128)
+    private val cache = LruCache<String, Bitmap>(32)
+
+    fun clearMemory() { cache.evictAll() }
 
     fun svgBitmap(context: Context, name: String, sizePx: Int): Bitmap? {
         val key = "svg:$name:$sizePx"

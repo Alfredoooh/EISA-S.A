@@ -19,14 +19,14 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
 
 class ArticleActivity : AppCompatActivity() {
@@ -56,9 +56,9 @@ class ArticleActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, true)
-        ThemeManager.syncSystemBars(this)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(R.layout.activity_article)
+        SystemBarHelper.sync(this)
 
         itemImage = intent.getStringExtra("image") ?: ""
         itemLink = intent.getStringExtra("link") ?: ""
@@ -85,13 +85,26 @@ class ArticleActivity : AppCompatActivity() {
         acEmoji = findViewById(R.id.acEmoji)
 
         val topbar = findViewById<View>(R.id.aTopBar)
-        topbar.layoutParams.height = dp(56)
-        val scrollLp = scroll.layoutParams as FrameLayout.LayoutParams
-        scrollLp.topMargin = dp(56)
-        scroll.layoutParams = scrollLp
-        val articleLp = articleBar.layoutParams as FrameLayout.LayoutParams
-        articleLp.bottomMargin = 0
-        articleBar.layoutParams = articleLp
+
+        ViewCompat.setOnApplyWindowInsetsListener(topbar) { v, insets ->
+            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.updatePadding(top = sys.top + dp(6))
+            v.layoutParams.height = dp(56) + sys.top
+            insets
+        }
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val bottom = maxOf(ime, sys.bottom)
+            val lp = articleBar.layoutParams as FrameLayout.LayoutParams
+            lp.bottomMargin = bottom
+            articleBar.layoutParams = lp
+            val topTotal = sys.top + dp(56)
+            val sLp = scroll.layoutParams as FrameLayout.LayoutParams
+            sLp.topMargin = topTotal
+            scroll.layoutParams = sLp
+            insets
+        }
 
         IconLoader.applySvg(findViewById(R.id.aBackIcon), "close", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.acSendIcon), "send", R.color.onpri)
@@ -162,7 +175,7 @@ class ArticleActivity : AppCompatActivity() {
         findViewById<View>(R.id.aCopy).setOnClickListener {
             val cm = getSystemService(ClipboardManager::class.java)
             cm.setPrimaryClip(ClipData.newPlainText("link", itemLink))
-            Snackbar.make(root, "Link copiado", Snackbar.LENGTH_SHORT).show()
+            AppAoToast.show(this, "Link copiado")
         }
         findViewById<View>(R.id.aShare).setOnClickListener {
             startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
@@ -171,24 +184,19 @@ class ArticleActivity : AppCompatActivity() {
             }, "Partilhar"))
         }
         findViewById<View>(R.id.aSave).setOnClickListener {
-            Snackbar.make(root, "Guardado", Snackbar.LENGTH_SHORT).show()
+            AppAoToast.show(this, "Guardado")
         }
 
         lifecycleScope.launch {
-            val full = NewsRepository.fetchArticleFull(itemLink)
+            val full = try {
+                NewsRepository.fetchArticleFull(itemLink)
+            } catch (_: Exception) {
+                null
+            }
+            if (isFinishing || isDestroyed) return@launch
             body.text = if (!full.isNullOrBlank()) full
             else itemSummary.ifBlank { "Não foi possível carregar o artigo completo." }
         }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        ThemeManager.syncSystemBars(this)
-    }
-
-    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
-        super.onConfigurationChanged(newConfig)
-        ThemeManager.syncSystemBars(this)
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
@@ -204,9 +212,8 @@ class ArticleActivity : AppCompatActivity() {
     }
 
     private fun showReactSheet() {
-        val sheet = BottomSheetDialog(this, R.style.AppAo_BottomSheet)
         val view = layoutInflater.inflate(R.layout.sheet_reactions, null)
-        sheet.setContentView(view)
+        val sheet = NativeSheetDialog.show(this, view)
 
         val row1 = view.findViewById<LinearLayout>(R.id.reactRow1)
         val row2 = view.findViewById<LinearLayout>(R.id.reactRow2)
@@ -224,7 +231,6 @@ class ArticleActivity : AppCompatActivity() {
             }
             if (i < 3) row1.addView(item) else row2.addView(item)
         }
-        sheet.show()
     }
 
     private fun sendComment() {
@@ -241,7 +247,7 @@ class ArticleActivity : AppCompatActivity() {
         currentReact = kind
         reactSlot.visibility = View.VISIBLE
         IconLoader.applyPng(reactSlot, kind)
-        Snackbar.make(root, "Reagiste: $kind", Snackbar.LENGTH_SHORT).show()
+        AppAoToast.show(this, "Reagiste: $kind")
     }
 
     private fun prettyTime(value: String): String {
@@ -260,6 +266,19 @@ class ArticleActivity : AppCompatActivity() {
                 else -> java.text.SimpleDateFormat("dd MMM", java.util.Locale("pt", "PT")).format(date)
             }
         } catch (_: Exception) { "" }
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        SystemBarHelper.sync(this)
+        try {
+            window.decorView.setBackgroundColor(androidx.core.content.ContextCompat.getColor(this, R.color.bg))
+        } catch (_: Exception) {}
+    }
+
+    override fun onResume() {
+        super.onResume()
+        SystemBarHelper.sync(this)
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {

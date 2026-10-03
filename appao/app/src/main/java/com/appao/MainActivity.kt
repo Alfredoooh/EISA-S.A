@@ -24,11 +24,11 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-import com.google.android.material.bottomsheet.BottomSheetDialog
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -58,14 +58,14 @@ class MainActivity : AppCompatActivity() {
     private var lastScrollY = 0
     private var headerHidden = false
     private var headerHeight = 0
-    private var lastThemeMode = ""
+    private var headerAnimator: android.view.ViewPropertyAnimator? = null
+    private var pillAnimator: android.view.ViewPropertyAnimator? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, true)
-        ThemeManager.syncSystemBars(this)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(R.layout.activity_main)
-        lastThemeMode = ThemeManager.current(this)
+        SystemBarHelper.sync(this)
 
         progress = findViewById(R.id.appProgress)
         recycler = findViewById(R.id.recycler)
@@ -79,16 +79,46 @@ class MainActivity : AppCompatActivity() {
         drawerScrim = findViewById(R.id.drawerScrim)
 
         val root = findViewById<View>(R.id.rootMain)
-        header.post { headerHeight = header.height }
+
+        ViewCompat.setOnApplyWindowInsetsListener(progress) { v, insets ->
+            val sys = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+            val lp = v.layoutParams as FrameLayout.LayoutParams
+            lp.topMargin = sys.top
+            v.layoutParams = lp
+            insets
+        }
+
+        ViewCompat.setOnApplyWindowInsetsListener(header) { v, insets ->
+            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.updatePadding(top = sys.top + dp(4))
+            val lp = v.layoutParams
+            lp.height = dp(56) + sys.top
+            v.layoutParams = lp
+            headerHeight = lp.height
+            insets
+        }
+
+        ViewCompat.setOnApplyWindowInsetsListener(biPill) { v, insets ->
+            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val bottom = maxOf(ime, sys.bottom)
+            val lp = v.layoutParams as FrameLayout.LayoutParams
+            lp.bottomMargin = bottom + dp(16)
+            v.layoutParams = lp
+            insets
+        }
+
+        ViewCompat.setOnApplyWindowInsetsListener(drawerPanel) { v, insets ->
+            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.updatePadding(top = sys.top, bottom = sys.bottom)
+            insets
+        }
 
         adapter = NewsAdapter(items.toMutableList<Any>()) { openArticle(it) }
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
         recycler.setHasFixedSize(true)
-        recycler.itemAnimator?.apply {
-            addDuration = 220; changeDuration = 180
-            moveDuration = 220; removeDuration = 180
-        }
+        recycler.itemAnimator = null
         recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
                 val y = rv.computeVerticalScrollOffset()
@@ -141,7 +171,18 @@ class MainActivity : AppCompatActivity() {
         setupDrawerDrag()
 
         adapter.showSkeleton(8)
-        loadNews(false)
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val cached = NewsRepository.readCache(this@MainActivity)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                if (isFinishing || isDestroyed) return@withContext
+                if (cached.isNotEmpty() && items.isEmpty()) {
+                    items.clear()
+                    items.addAll(cached)
+                    adapter.submit(cached)
+                }
+                loadNews(false)
+            }
+        }
         initWeather()
     }
 
@@ -150,36 +191,28 @@ class MainActivity : AppCompatActivity() {
     private fun hideAppBar() {
         if (headerHidden) return
         headerHidden = true
-        header.animate().cancel()
-        biPill.animate().cancel()
-        val h = header.height.coerceAtLeast(headerHeight)
-        header.animate()
-            .translationY(-h.toFloat())
-            .setDuration(300)
-            .setInterpolator(Curves.IOS)
-            .start()
-        biPill.animate()
-            .translationY(biPill.height.toFloat() + dp(28))
-            .setDuration(300)
-            .setInterpolator(Curves.IOS)
-            .start()
+        headerAnimator?.cancel()
+        pillAnimator?.cancel()
+        val headerDistance = if (headerHeight > 0) headerHeight.toFloat() else header.height.toFloat()
+        headerAnimator = header.animate().translationY(-headerDistance)
+            .setDuration(260).setInterpolator(Curves.SMOOTH)
+        headerAnimator?.start()
+        val pillDistance = biPill.height.toFloat() + dp(120)
+        pillAnimator = biPill.animate().translationY(pillDistance)
+            .setDuration(260).setInterpolator(Curves.SMOOTH)
+        pillAnimator?.start()
     }
 
     private fun showAppBar() {
         if (!headerHidden) return
         headerHidden = false
-        header.animate().cancel()
-        biPill.animate().cancel()
-        header.animate()
-            .translationY(0f)
-            .setDuration(360)
-            .setInterpolator(Curves.SMOOTH)
-            .start()
-        biPill.animate()
-            .translationY(0f)
-            .setDuration(360)
-            .setInterpolator(Curves.SMOOTH)
-            .start()
+        headerAnimator?.cancel()
+        pillAnimator?.cancel()
+        headerAnimator = header.animate().translationY(0f)
+            .setDuration(260).setInterpolator(Curves.SMOOTH)
+        pillAnimator = biPill.animate().translationY(0f)
+            .setDuration(260).setInterpolator(Curves.SMOOTH)
+        headerAnimator?.start(); pillAnimator?.start()
     }
 
     private fun animatePillFocus(focused: Boolean) {
@@ -218,16 +251,41 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadNews(force: Boolean) {
         if (loading) return
-        loading = true; exhausted = false; page = 1
-        if (force) adapter.showSkeleton(8) else swipe.isRefreshing = true
+        loading = true
+        exhausted = false
+        page = 1
+
+        if (force || items.isEmpty()) adapter.showSkeleton(8)
+
         lifecycleScope.launch {
-            val result = NewsRepository.fetchGeneral(page)
+            val result = try {
+                when (currentCat) {
+                    "Todas" -> NewsRepository.fetchGeneral(page)
+                    "Angola" -> NewsRepository.fetchByCategory("general", page, country = "AO")
+                    "Internacional" -> NewsRepository.fetchByCategory("general", page, country = "")
+                    "Economia" -> NewsRepository.fetchByCategory("business", page)
+                    "Desporto" -> NewsRepository.fetchByCategory("sports", page)
+                    "Tecnologia" -> NewsRepository.fetchByCategory("technology", page)
+                    "Cultura" -> NewsRepository.fetchByCategory("entertainment", page)
+                    "Política" -> NewsRepository.fetchByCategory("politics", page)
+                    "Saúde" -> NewsRepository.fetchByCategory("health", page)
+                    else -> NewsRepository.fetchGeneral(page)
+                }
+            } catch (_: Exception) {
+                emptyList()
+            }
+
+            if (isFinishing || isDestroyed) return@launch
             swipe.isRefreshing = false
             loading = false
             if (result.isNotEmpty()) {
-                items.clear(); items.addAll(result)
+                items.clear()
+                items.addAll(result)
+                NewsRepository.writeCache(this@MainActivity, result)
                 adapter.submit(result)
-            } else adapter.submit(emptyList())
+            } else if (items.isEmpty()) {
+                adapter.submit(emptyList())
+            }
         }
     }
 
@@ -236,15 +294,38 @@ class MainActivity : AppCompatActivity() {
         loading = true
         val next = page + 1
         lifecycleScope.launch {
-            val result = NewsRepository.fetchGeneral(next)
+            val result = try {
+                when (currentCat) {
+                    "Todas" -> NewsRepository.fetchGeneral(next)
+                    "Angola" -> NewsRepository.fetchByCategory("general", next, country = "AO")
+                    "Internacional" -> NewsRepository.fetchByCategory("general", next, country = "")
+                    "Economia" -> NewsRepository.fetchByCategory("business", next)
+                    "Desporto" -> NewsRepository.fetchByCategory("sports", next)
+                    "Tecnologia" -> NewsRepository.fetchByCategory("technology", next)
+                    "Cultura" -> NewsRepository.fetchByCategory("entertainment", next)
+                    "Política" -> NewsRepository.fetchByCategory("politics", next)
+                    "Saúde" -> NewsRepository.fetchByCategory("health", next)
+                    else -> NewsRepository.fetchGeneral(next)
+                }
+            } catch (_: Exception) {
+                emptyList()
+            }
+            if (isFinishing || isDestroyed) return@launch
             loading = false
-            if (result.isEmpty()) { exhausted = true; return@launch }
+            if (result.isEmpty()) {
+                exhausted = true
+                return@launch
+            }
             val seen = items.map { it.id }.toHashSet()
             val newOnes = result.filter { it.id !in seen }
-            if (newOnes.isEmpty()) { exhausted = true; return@launch }
+            if (newOnes.isEmpty()) {
+                exhausted = true
+                return@launch
+            }
             page = next
             items.addAll(newOnes)
             adapter.append(newOnes)
+            NewsRepository.writeCache(this@MainActivity, items)
         }
     }
 
@@ -262,6 +343,23 @@ class MainActivity : AppCompatActivity() {
             IconLoader.applyPng(findViewById(R.id.wIcon), r.icon)
             findViewById<TextView>(R.id.wTemp).text = "${r.temp}°"
         }
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        SystemBarHelper.sync(this)
+        refreshNativeThemeViews()
+    }
+
+    private fun refreshNativeThemeViews() {
+        recycler.setBackgroundColor(ContextCompat.getColor(this, R.color.bg))
+        findViewById<View>(R.id.rootMain).setBackgroundColor(ContextCompat.getColor(this, R.color.bg))
+        header.setBackgroundColor(ContextCompat.getColor(this, R.color.bg))
+        biPill.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_card)
+        IconLoader.applySvg(findViewById(R.id.hMoreIcon), "menu", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.hCatChevron), "chevron-down", R.color.iconTint)
+        IconLoader.applySvg(biAdd.findViewById(R.id.biAddIcon), "add", R.color.iconTint)
+        IconLoader.applySvg(biSend.findViewById(R.id.biSendIcon), "arrow-up", R.color.onpri)
     }
 
     override fun onRequestPermissionsResult(code: Int, perms: Array<out String>, res: IntArray) {
@@ -289,6 +387,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun showNavProgress() {
         progress.visibility = View.VISIBLE
+        val insetTop = ViewCompat.getRootWindowInsets(progress)?.getInsets(WindowInsetsCompat.Type.statusBars())?.top ?: 0
+        val currentLp = progress.layoutParams as FrameLayout.LayoutParams
+        currentLp.topMargin = insetTop
+        progress.layoutParams = currentLp
         progress.alpha = 1f
         progress.layoutParams.width = 0
         progress.requestLayout()
@@ -308,51 +410,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        ThemeManager.syncSystemBars(this)
-        refreshThemeUi()
+        SystemBarHelper.sync(this)
         if (progress.alpha > 0f) {
             progress.animate().alpha(0f).setDuration(250).withEndAction {
                 progress.layoutParams.width = 0
                 progress.requestLayout()
             }.start()
         }
-    }
-
-    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
-        super.onConfigurationChanged(newConfig)
-        ThemeManager.syncSystemBars(this)
-        refreshThemeUi()
-    }
-
-    private fun refreshThemeUi() {
-        val mode = ThemeManager.current(this)
-        if (mode == lastThemeMode && !isChangingConfigurations) {
-            bindThemeIcons()
-            return
-        }
-        lastThemeMode = mode
-        findViewById<View>(R.id.rootMain).setBackgroundResource(R.color.bg)
-        header.setBackgroundResource(R.color.bg)
-        biPill.setBackgroundResource(R.drawable.bg_pill_card)
-        biAdd.setBackgroundResource(R.drawable.bg_circle_card)
-        biSend.setBackgroundResource(R.drawable.bg_circle_pri)
-        drawerPanel.setBackgroundResource(R.color.bgElevated)
-        recycler.setBackgroundResource(R.color.bg)
-        biInput.setTextColor(ContextCompat.getColor(this, R.color.text))
-        biInput.setHintTextColor(ContextCompat.getColor(this, R.color.dim))
-        findViewById<TextView>(R.id.wTemp).setTextColor(ContextCompat.getColor(this, R.color.text))
-        findViewById<TextView>(R.id.hCatLabel).setTextColor(ContextCompat.getColor(this, R.color.text))
-        findViewById<TextView>(R.id.drName).setTextColor(ContextCompat.getColor(this, R.color.text))
-        findViewById<TextView>(R.id.drUser).setTextColor(ContextCompat.getColor(this, R.color.dim))
-        adapter.notifyDataSetChanged()
-        bindThemeIcons()
-    }
-
-    private fun bindThemeIcons() {
-        IconLoader.applySvg(findViewById(R.id.hMoreIcon), "menu", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.hCatChevron), "chevron-down", R.color.iconTint)
-        IconLoader.applySvg(biAdd.findViewById(R.id.biAddIcon), "add", R.color.iconTint)
-        IconLoader.applySvg(biSend.findViewById(R.id.biSendIcon), "arrow-up", R.color.onpri)
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
@@ -436,9 +500,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openCatSheet() {
-        val sheet = BottomSheetDialog(this, R.style.AppAo_BottomSheet)
         val view = layoutInflater.inflate(R.layout.sheet_categories, null)
-        sheet.setContentView(view)
+        val sheet = NativeSheetDialog.show(this, view)
         val list = view.findViewById<LinearLayout>(R.id.catList)
         for (c in categories) {
             val tv = TextView(this).apply {
@@ -460,7 +523,6 @@ class MainActivity : AppCompatActivity() {
             }
             list.addView(tv)
         }
-        sheet.show()
     }
 
     private fun openArticle(item: NewsItem) {

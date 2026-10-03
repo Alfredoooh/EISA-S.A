@@ -21,4 +21,5 @@
     <color name="pillBorder">#10000000</color>
     <color name="iconTint">#000000</color>
     <color name="skeleton">#EDEDED</color>
+    <color name="popupBg">#FFFFFF</color>
 </resources>

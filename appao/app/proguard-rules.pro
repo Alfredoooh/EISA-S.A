@@ -1,6 +1,8 @@
-# Looply JavaScript bridge is invoked by WebView reflection.
+# WebView JavaScript bridge is invoked through reflection.
 -keepattributes *Annotation*
--keep class com.angozone.app.ao.WebAppInterface { public *; }
+-keepclassmembers class com.appao.AppViewerActivity$HtmlThemeBridge {
+    @android.webkit.JavascriptInterface <methods>;
+}
 -keepclassmembers class * {
     @android.webkit.JavascriptInterface <methods>;
 }

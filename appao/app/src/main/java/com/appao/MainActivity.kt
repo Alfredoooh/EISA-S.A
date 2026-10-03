@@ -71,7 +71,7 @@ class MainActivity : AppCompatActivity() {
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(R.layout.activity_main)
-        SystemBarHelper.sync(this)
+        try { SystemBarHelper.sync(this) } catch (t: Throwable) { android.util.Log.e("MainActivity", "System bars init failed", t) }
 
         progress = findViewById(R.id.appProgress)
         recycler = findViewById(R.id.recycler)

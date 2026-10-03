@@ -12,14 +12,6 @@ class AppAoApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-
-        // Apply the stored mode before the first Activity is created.
-        try {
-            ThemeManager.apply(this)
-        } catch (t: Throwable) {
-            Log.e("AppAoApp", "Theme initialization failed", t)
-        }
-
         installCrashRecorder()
     }
 
@@ -45,12 +37,20 @@ class AppAoApp : Application() {
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
         IconLoader.clearMemory()
-        Glide.get(this).trimMemory(level)
+        try {
+            Glide.get(this).trimMemory(level)
+        } catch (t: Throwable) {
+            Log.w("AppAoApp", "Glide trimMemory failed", t)
+        }
     }
 
     override fun onLowMemory() {
         super.onLowMemory()
         IconLoader.clearMemory()
-        Glide.get(this).trimMemory(ComponentCallbacks2.TRIM_MEMORY_COMPLETE)
+        try {
+            Glide.get(this).trimMemory(ComponentCallbacks2.TRIM_MEMORY_COMPLETE)
+        } catch (t: Throwable) {
+            Log.w("AppAoApp", "Glide trimMemory failed", t)
+        }
     }
 }

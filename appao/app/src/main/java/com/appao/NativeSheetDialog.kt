@@ -11,48 +11,131 @@ import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowManager
 import android.widget.FrameLayout
+import androidx.core.content.ContextCompat
 
-/** Lightweight native bottom sheet with the same motion language as the HTML sheets. */
+/** Native bottom sheet matching the HTML #sheet/.sp geometry and motion. */
 object NativeSheetDialog {
-    fun show(context: Context, content: View): Dialog {
+
+    fun show(
+        context: Context,
+        content: View
+    ): Dialog {
         val dialog = Dialog(context)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
 
-        val wrap = FrameLayout(context).apply {
-            setPadding(dp(context, 20), dp(context, 12), dp(context, 20), dp(context, 20))
+        val outer = FrameLayout(context).apply {
+            setPadding(
+                dp(context, 10),
+                0,
+                dp(context, 10),
+                dp(context, 10)
+            )
+            setBackgroundColor(Color.TRANSPARENT)
+        }
+
+        val panel = FrameLayout(context).apply {
+            setPadding(
+                dp(context, 20),
+                dp(context, 12),
+                dp(context, 20),
+                dp(context, 20)
+            )
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                setColor(androidx.core.content.ContextCompat.getColor(context, R.color.bg))
+                setColor(
+                    ContextCompat.getColor(
+                        context,
+                        R.color.bg
+                    )
+                )
                 cornerRadius = dp(context, 32).toFloat()
             }
+            clipToOutline = true
+            alpha = 0f
+            translationY = dp(context, 34).toFloat()
+            scaleX = 0.985f
+            scaleY = 0.985f
         }
-        wrap.addView(content, FrameLayout.LayoutParams(-1, -2))
-        dialog.setContentView(wrap)
+
+        panel.addView(
+            content,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        outer.addView(
+            panel,
+            FrameLayout.LayoutParams(
+                minOf(
+                    dp(context, 480),
+                    context.resources.displayMetrics.widthPixels - dp(context, 20)
+                ),
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            )
+        )
+
+        dialog.setContentView(outer)
+        dialog.setCanceledOnTouchOutside(true)
 
         dialog.setOnShowListener {
-            val w = dialog.window ?: return@setOnShowListener
-            w.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            w.setDimAmount(0.12f)
-            w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            w.setLayout(-1, ViewGroup.LayoutParams.WRAP_CONTENT)
-            w.setGravity(Gravity.BOTTOM)
-            w.decorView.translationY = wrap.height.toFloat() + dp(context, 30)
-            w.decorView.alpha = 0f
-            w.decorView.post {
-                w.decorView.animate()
+            val window = dialog.window ?: return@setOnShowListener
+
+            window.setBackgroundDrawable(
+                ColorDrawable(Color.TRANSPARENT)
+            )
+
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_DIM_BEHIND
+            )
+
+            window.setDimAmount(0.12f)
+            window.setGravity(Gravity.BOTTOM)
+            window.setLayout(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+
+            panel.post {
+                if (!dialog.isShowing) return@post
+
+                panel.animate()
                     .translationY(0f)
+                    .scaleX(1f)
+                    .scaleY(1f)
                     .alpha(1f)
-                    .setDuration(500)
+                    .setDuration(500L)
                     .setInterpolator(Curves.IOS)
                     .start()
             }
         }
-        dialog.setOnDismissListener { }
-        dialog.show()
-        dialog.window?.setLayout(-1, ViewGroup.LayoutParams.WRAP_CONTENT)
+
+        dialog.window?.setBackgroundDrawable(
+            ColorDrawable(Color.TRANSPARENT)
+        )
         dialog.window?.setGravity(Gravity.BOTTOM)
+        dialog.window?.setLayout(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+
+        dialog.show()
+
+        dialog.window?.setLayout(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        dialog.window?.setGravity(Gravity.BOTTOM)
+
         return dialog
     }
 
-    private fun dp(context: Context, v: Int): Int = (v * context.resources.displayMetrics.density + 0.5f).toInt()
+    private fun dp(
+        context: Context,
+        value: Int
+    ): Int = (
+        value * context.resources.displayMetrics.density + 0.5f
+    ).toInt()
 }

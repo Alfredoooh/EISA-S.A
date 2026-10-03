@@ -15,7 +15,6 @@ import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -29,7 +28,11 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.net.URLEncoder
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -47,22 +50,25 @@ class MainActivity : AppCompatActivity() {
 
     private val items = mutableListOf<NewsItem>()
     private val categories = listOf(
-        "Todas","Angola","Internacional","Economia","Desporto",
-        "Tecnologia","Cultura","Política","Saúde","Local 📍"
+        "Todas", "Angola", "Internacional", "Economia", "Desporto",
+        "Tecnologia", "Cultura", "Política", "Saúde", "Local 📍"
     )
+
     private var currentCat = "Todas"
     private var page = 1
     private var loading = false
     private var exhausted = false
     private var drawerOpen = false
-    private var lastScrollY = 0
-    private var headerHidden = false
+
     private var headerHeight = 0
-    private var headerAnimator: android.view.ViewPropertyAnimator? = null
-    private var pillAnimator: android.view.ViewPropertyAnimator? = null
+    private var bottomBarHeight = 0
+    private var barProgress = 0f
+    private var barAnimator: ValueAnimator? = null
+    private var progressAnimator: ValueAnimator? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(R.layout.activity_main)
         SystemBarHelper.sync(this)
@@ -78,148 +84,281 @@ class MainActivity : AppCompatActivity() {
         drawerPanel = findViewById(R.id.drawerPanel)
         drawerScrim = findViewById(R.id.drawerScrim)
 
-        val root = findViewById<View>(R.id.rootMain)
-
-        ViewCompat.setOnApplyWindowInsetsListener(progress) { v, insets ->
-            val sys = insets.getInsets(WindowInsetsCompat.Type.statusBars())
-            val lp = v.layoutParams as FrameLayout.LayoutParams
-            lp.topMargin = sys.top
-            v.layoutParams = lp
-            insets
-        }
-
-        ViewCompat.setOnApplyWindowInsetsListener(header) { v, insets ->
-            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.updatePadding(top = sys.top + dp(4))
-            val lp = v.layoutParams
-            lp.height = dp(56) + sys.top
-            v.layoutParams = lp
-            headerHeight = lp.height
-            insets
-        }
-
-        ViewCompat.setOnApplyWindowInsetsListener(biPill) { v, insets ->
-            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            val bottom = maxOf(ime, sys.bottom)
-            val lp = v.layoutParams as FrameLayout.LayoutParams
-            lp.bottomMargin = bottom + dp(16)
-            v.layoutParams = lp
-            insets
-        }
-
-        ViewCompat.setOnApplyWindowInsetsListener(drawerPanel) { v, insets ->
-            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.updatePadding(top = sys.top, bottom = sys.bottom)
-            insets
-        }
-
-        adapter = NewsAdapter(items.toMutableList<Any>()) { openArticle(it) }
-        recycler.layoutManager = LinearLayoutManager(this)
-        recycler.adapter = adapter
-        recycler.setHasFixedSize(true)
-        recycler.itemAnimator = null
-        recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-            override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
-                val y = rv.computeVerticalScrollOffset()
-                val delta = y - lastScrollY
-                if (delta > 6 && y > dp(40)) hideAppBar()
-                else if (delta < -6) showAppBar()
-                lastScrollY = y
-                if (!rv.canScrollVertically(1) && !loading && !exhausted) loadMore()
-            }
-        })
-        swipe.setOnRefreshListener {
-            NewsRepository.resetDedup()
-            loadNews(true)
-        }
-
-        IconLoader.applySvg(findViewById(R.id.hMoreIcon), "menu", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.hCatChevron), "chevron-down", R.color.iconTint)
-        IconLoader.applySvg(biAdd.findViewById(R.id.biAddIcon), "add", R.color.iconTint)
-        IconLoader.applySvg(biSend.findViewById(R.id.biSendIcon), "arrow-up", R.color.onpri)
-        IconLoader.applyPng(findViewById(R.id.wIcon), "sunny")
-        IconLoader.applyPng(findViewById(R.id.drIconProfile), "profile")
-        IconLoader.applyPng(findViewById(R.id.drIconLibrary), "bookmark")
-        IconLoader.applyPng(findViewById(R.id.drIconSettings), "settings")
-        IconLoader.applyPng(findViewById(R.id.drAvatar), "avatar")
-
-        biInput.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) { setSendVisible(!s.isNullOrBlank()) }
-            override fun afterTextChanged(s: Editable?) {}
-        })
-        biInput.setOnFocusChangeListener { _, focused -> animatePillFocus(focused) }
-        biSend.setOnClickListener { sendToAi() }
-        biInput.setOnEditorActionListener { _, _, _ -> sendToAi(); true }
-        biAdd.setOnClickListener { v -> showAppsPopup(v) }
-
-        findViewById<View>(R.id.hMore).setOnClickListener { openDrawer() }
-        findViewById<View>(R.id.hCat).setOnClickListener { openCatSheet() }
-        drawerScrim.setOnClickListener { closeDrawer() }
-
-        findViewById<View>(R.id.drProfile).setOnClickListener {
-            closeDrawer(); startActivity(Intent(this, SettingsActivity::class.java))
-        }
-        findViewById<View>(R.id.drLibrary).setOnClickListener {
-            closeDrawer(); startActivity(Intent(this, LibraryActivity::class.java))
-        }
-        findViewById<View>(R.id.drSettings).setOnClickListener {
-            closeDrawer(); startActivity(Intent(this, SettingsActivity::class.java))
-        }
-
-        setupDrawerDrag()
-
-        adapter.showSkeleton(8)
-        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            val cached = NewsRepository.readCache(this@MainActivity)
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                if (isFinishing || isDestroyed) return@withContext
-                if (cached.isNotEmpty() && items.isEmpty()) {
-                    items.clear()
-                    items.addAll(cached)
-                    adapter.submit(cached)
-                }
-                loadNews(false)
-            }
-        }
+        setupInsets()
+        setupFeed()
+        setupHeader()
+        setupBottomInput()
+        setupDrawer()
+        setupCategories()
+        setupInitialData()
         initWeather()
     }
 
-    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+    private fun setupInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(progress) { view, insets ->
+            val top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            val lp = view.layoutParams as FrameLayout.LayoutParams
+            lp.topMargin = top
+            view.layoutParams = lp
+            insets
+        }
 
-    private fun hideAppBar() {
-        if (headerHidden) return
-        headerHidden = true
-        headerAnimator?.cancel()
-        pillAnimator?.cancel()
-        val headerDistance = if (headerHeight > 0) headerHeight.toFloat() else header.height.toFloat()
-        headerAnimator = header.animate().translationY(-headerDistance)
-            .setDuration(260).setInterpolator(Curves.SMOOTH)
-        headerAnimator?.start()
-        val pillDistance = biPill.height.toFloat() + dp(120)
-        pillAnimator = biPill.animate().translationY(pillDistance)
-            .setDuration(260).setInterpolator(Curves.SMOOTH)
-        pillAnimator?.start()
+        ViewCompat.setOnApplyWindowInsetsListener(header) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.updatePadding(top = bars.top + dp(4))
+            view.layoutParams = view.layoutParams.apply {
+                height = dp(56) + bars.top
+            }
+            headerHeight = view.layoutParams.height
+            applyBarTranslation(barProgress)
+            insets
+        }
+
+        ViewCompat.setOnApplyWindowInsetsListener(biPill) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val bottom = maxOf(ime, bars.bottom)
+            val lp = view.layoutParams as FrameLayout.LayoutParams
+            lp.bottomMargin = bottom + dp(16)
+            view.layoutParams = lp
+            bottomBarHeight = view.height
+            applyBarTranslation(barProgress)
+            insets
+        }
+
+        ViewCompat.setOnApplyWindowInsetsListener(drawerPanel) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.updatePadding(top = bars.top, bottom = bars.bottom)
+            insets
+        }
     }
 
-    private fun showAppBar() {
-        if (!headerHidden) return
-        headerHidden = false
-        headerAnimator?.cancel()
-        pillAnimator?.cancel()
-        headerAnimator = header.animate().translationY(0f)
-            .setDuration(260).setInterpolator(Curves.SMOOTH)
-        pillAnimator = biPill.animate().translationY(0f)
-            .setDuration(260).setInterpolator(Curves.SMOOTH)
-        headerAnimator?.start(); pillAnimator?.start()
+    private fun setupFeed() {
+        adapter = NewsAdapter(items.toList()) { item, source ->
+            openArticle(item, source)
+        }
+
+        recycler.layoutManager = LinearLayoutManager(this)
+        recycler.adapter = adapter
+        recycler.setHasFixedSize(false)
+        recycler.itemAnimator = null
+        recycler.setItemViewCacheSize(4)
+
+        recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
+                if (dy != 0) {
+                    updateBarsFromScroll(dy)
+                }
+
+                if (!rv.canScrollVertically(1) && !loading && !exhausted) {
+                    loadMore()
+                }
+            }
+        })
+
+        swipe.setOnRefreshListener {
+            NewsRepository.resetDedup()
+            resetBarsInstantly()
+            loadNews(true)
+        }
+    }
+
+    private fun setupHeader() {
+        IconLoader.applySvg(
+            findViewById(R.id.hMoreIcon),
+            "menu",
+            R.color.iconTint
+        )
+        IconLoader.applySvg(
+            findViewById(R.id.hCatChevron),
+            "chevron-down",
+            R.color.iconTint
+        )
+        IconLoader.applyPng(
+            findViewById(R.id.wIcon),
+            "sunny"
+        )
+
+        findViewById<View>(R.id.hMore).setOnClickListener {
+            openDrawer()
+        }
+        findViewById<View>(R.id.hCat).setOnClickListener {
+            openCatSheet()
+        }
+    }
+
+    private fun setupBottomInput() {
+        IconLoader.applySvg(
+            biAdd.findViewById(R.id.biAddIcon),
+            "add",
+            R.color.iconTint
+        )
+        IconLoader.applySvg(
+            biSend.findViewById(R.id.biSendIcon),
+            "arrow-up",
+            R.color.onpri
+        )
+
+        biInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(
+                s: CharSequence?,
+                start: Int,
+                count: Int,
+                after: Int
+            ) = Unit
+
+            override fun onTextChanged(
+                s: CharSequence?,
+                start: Int,
+                before: Int,
+                count: Int
+            ) {
+                setSendVisible(!s.isNullOrBlank())
+            }
+
+            override fun afterTextChanged(s: Editable?) = Unit
+        })
+
+        biInput.setOnFocusChangeListener { _, focused ->
+            if (focused) {
+                animateBarProgressTo(0f, 220L)
+            }
+            animatePillFocus(focused)
+        }
+
+        biSend.setOnClickListener {
+            sendToAi()
+        }
+
+        biInput.setOnEditorActionListener { _, _, _ ->
+            sendToAi()
+            true
+        }
+
+        biAdd.setOnClickListener {
+            showAppsPopup(it)
+        }
+    }
+
+    private fun setupDrawer() {
+        drawerScrim.setOnClickListener {
+            closeDrawer()
+        }
+
+        findViewById<View>(R.id.drProfile).setOnClickListener {
+            closeDrawer()
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
+        findViewById<View>(R.id.drLibrary).setOnClickListener {
+            closeDrawer()
+            startActivity(Intent(this, LibraryActivity::class.java))
+        }
+
+        findViewById<View>(R.id.drSettings).setOnClickListener {
+            closeDrawer()
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
+        setupDrawerDrag()
+    }
+
+    private fun setupCategories() {
+        // The sheet itself is populated when opened so theme changes are reflected immediately.
+    }
+
+    private fun setupInitialData() {
+        adapter.showSkeleton(8)
+
+        lifecycleScope.launch {
+            val cached = withContext(Dispatchers.IO) {
+                NewsRepository.readCache(this@MainActivity)
+            }
+
+            if (isFinishing || isDestroyed) return@launch
+
+            if (cached.isNotEmpty()) {
+                val unique = deduplicate(cached)
+                items.clear()
+                items.addAll(unique)
+                adapter.submit(unique)
+            }
+
+            loadNews(false)
+        }
+    }
+
+    private fun updateBarsFromScroll(dy: Int) {
+        val headerTravel = (
+            if (headerHeight > 0) headerHeight
+            else dp(56)
+        ).toFloat().coerceAtLeast(1f)
+
+        val bottomTravel = (
+            if (bottomBarHeight > 0) bottomBarHeight + dp(40)
+            else dp(86)
+        ).toFloat().coerceAtLeast(1f)
+
+        val direction = if (dy > 0) 1f else -1f
+        val delta = kotlin.math.abs(dy).toFloat() / headerTravel
+        barProgress = (
+            barProgress + direction * delta
+        ).coerceIn(0f, 1f)
+
+        if (recycler.computeVerticalScrollOffset() <= 0) {
+            barProgress = 0f
+        }
+
+        val target = barProgress
+        header.translationY = -headerTravel * target
+        biPill.translationY = bottomTravel * target
+    }
+
+    private fun applyBarTranslation(progress: Float) {
+        val headerTravel = (
+            if (headerHeight > 0) headerHeight
+            else dp(56)
+        ).toFloat()
+
+        val bottomTravel = (
+            if (bottomBarHeight > 0) bottomBarHeight + dp(40)
+            else dp(86)
+        ).toFloat()
+
+        header.translationY = -headerTravel * progress
+        biPill.translationY = bottomTravel * progress
+    }
+
+    private fun animateBarProgressTo(
+        target: Float,
+        duration: Long = 260L
+    ) {
+        barAnimator?.cancel()
+        val start = barProgress
+        barAnimator = ValueAnimator.ofFloat(start, target.coerceIn(0f, 1f)).apply {
+            this.duration = duration
+            interpolator = Curves.IOS
+            addUpdateListener {
+                barProgress = it.animatedValue as Float
+                applyBarTranslation(barProgress)
+            }
+            start()
+        }
+    }
+
+    private fun resetBarsInstantly() {
+        barAnimator?.cancel()
+        barProgress = 0f
+        header.translationY = 0f
+        biPill.translationY = 0f
     }
 
     private fun animatePillFocus(focused: Boolean) {
         val target = if (focused) dp(340) else dp(320)
         val lp = biPill.layoutParams
+
         ValueAnimator.ofInt(lp.width, target).apply {
-            duration = 400
+            duration = 400L
             interpolator = Curves.IOS
             addUpdateListener {
                 lp.width = it.animatedValue as Int
@@ -229,309 +368,629 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setSendVisible(has: Boolean) {
-        if (has) {
+    private fun setSendVisible(hasText: Boolean) {
+        if (hasText) {
             val lp = biSend.layoutParams as LinearLayout.LayoutParams
-            lp.width = dp(36); lp.marginStart = dp(2)
+            lp.width = dp(36)
+            lp.marginStart = dp(2)
             biSend.layoutParams = lp
             biSend.visibility = View.VISIBLE
-            biSend.scaleX = 0.4f; biSend.scaleY = 0.4f; biSend.alpha = 0f
-            biSend.animate().scaleX(1f).scaleY(1f).alpha(1f)
-                .setDuration(300).setInterpolator(Curves.SPRING).start()
+            biSend.scaleX = 0.4f
+            biSend.scaleY = 0.4f
+            biSend.alpha = 0f
+            biSend.animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .alpha(1f)
+                .setDuration(300L)
+                .setInterpolator(Curves.SPRING)
+                .start()
         } else {
-            biSend.animate().alpha(0f).scaleX(0.4f).scaleY(0.4f)
-                .setDuration(250).withEndAction {
+            biSend.animate()
+                .alpha(0f)
+                .scaleX(0.4f)
+                .scaleY(0.4f)
+                .setDuration(250L)
+                .withEndAction {
                     val lp = biSend.layoutParams as LinearLayout.LayoutParams
-                    lp.width = 0; lp.marginStart = 0
+                    lp.width = 0
+                    lp.marginStart = 0
                     biSend.layoutParams = lp
                     biSend.visibility = View.GONE
-                }.start()
+                }
+                .start()
         }
     }
 
     private fun loadNews(force: Boolean) {
         if (loading) return
+
         loading = true
         exhausted = false
         page = 1
 
-        if (force || items.isEmpty()) adapter.showSkeleton(8)
+        if (force && items.isEmpty()) {
+            adapter.showSkeleton(8)
+        }
 
         lifecycleScope.launch {
             val result = try {
                 when (currentCat) {
                     "Todas" -> NewsRepository.fetchGeneral(page)
-                    "Angola" -> NewsRepository.fetchByCategory("general", page, country = "AO")
-                    "Internacional" -> NewsRepository.fetchByCategory("general", page, country = "")
+                    "Angola" -> NewsRepository.fetchByCategory("general", page, "AO")
+                    "Internacional" -> NewsRepository.fetchByCategory("general", page, "")
                     "Economia" -> NewsRepository.fetchByCategory("business", page)
                     "Desporto" -> NewsRepository.fetchByCategory("sports", page)
                     "Tecnologia" -> NewsRepository.fetchByCategory("technology", page)
                     "Cultura" -> NewsRepository.fetchByCategory("entertainment", page)
                     "Política" -> NewsRepository.fetchByCategory("politics", page)
                     "Saúde" -> NewsRepository.fetchByCategory("health", page)
-                    else -> NewsRepository.fetchGeneral(page)
+                    else -> NewsRepository.fetchByCategory("general", page)
                 }
-            } catch (_: Exception) {
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                android.util.Log.e("MainActivity", "News load failed", t)
                 emptyList()
             }
 
             if (isFinishing || isDestroyed) return@launch
-            swipe.isRefreshing = false
+
             loading = false
-            if (result.isNotEmpty()) {
+            swipe.isRefreshing = false
+
+            val clean = deduplicate(result)
+
+            if (clean.isNotEmpty()) {
                 items.clear()
-                items.addAll(result)
-                NewsRepository.writeCache(this@MainActivity, result)
-                adapter.submit(result)
+                items.addAll(clean)
+                NewsRepository.writeCache(this@MainActivity, clean)
+                adapter.submit(clean)
             } else if (items.isEmpty()) {
                 adapter.submit(emptyList())
+                exhausted = true
             }
         }
     }
 
     private fun loadMore() {
         if (loading || exhausted) return
+
         loading = true
-        val next = page + 1
+        val nextPage = page + 1
+
         lifecycleScope.launch {
             val result = try {
                 when (currentCat) {
-                    "Todas" -> NewsRepository.fetchGeneral(next)
-                    "Angola" -> NewsRepository.fetchByCategory("general", next, country = "AO")
-                    "Internacional" -> NewsRepository.fetchByCategory("general", next, country = "")
-                    "Economia" -> NewsRepository.fetchByCategory("business", next)
-                    "Desporto" -> NewsRepository.fetchByCategory("sports", next)
-                    "Tecnologia" -> NewsRepository.fetchByCategory("technology", next)
-                    "Cultura" -> NewsRepository.fetchByCategory("entertainment", next)
-                    "Política" -> NewsRepository.fetchByCategory("politics", next)
-                    "Saúde" -> NewsRepository.fetchByCategory("health", next)
-                    else -> NewsRepository.fetchGeneral(next)
+                    "Todas" -> NewsRepository.fetchGeneral(nextPage)
+                    "Angola" -> NewsRepository.fetchByCategory("general", nextPage, "AO")
+                    "Internacional" -> NewsRepository.fetchByCategory("general", nextPage, "")
+                    "Economia" -> NewsRepository.fetchByCategory("business", nextPage)
+                    "Desporto" -> NewsRepository.fetchByCategory("sports", nextPage)
+                    "Tecnologia" -> NewsRepository.fetchByCategory("technology", nextPage)
+                    "Cultura" -> NewsRepository.fetchByCategory("entertainment", nextPage)
+                    "Política" -> NewsRepository.fetchByCategory("politics", nextPage)
+                    "Saúde" -> NewsRepository.fetchByCategory("health", nextPage)
+                    else -> emptyList()
                 }
-            } catch (_: Exception) {
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                android.util.Log.e("MainActivity", "Load more failed", t)
                 emptyList()
             }
+
             if (isFinishing || isDestroyed) return@launch
+
             loading = false
-            if (result.isEmpty()) {
+            val seen = HashSet<String>()
+            items.forEach {
+                seen += normalizeUrl(it.link)
+                seen += normalizeTitle(it.title)
+            }
+
+            val fresh = result.filter { item ->
+                val urlKey = normalizeUrl(item.link)
+                val titleKey = normalizeTitle(item.title)
+                if (urlKey.isBlank() || titleKey.isBlank()) {
+                    false
+                } else if (urlKey in seen || titleKey in seen) {
+                    false
+                } else {
+                    seen += urlKey
+                    seen += titleKey
+                    true
+                }
+            }
+
+            if (fresh.isEmpty()) {
                 exhausted = true
                 return@launch
             }
-            val seen = items.map { it.id }.toHashSet()
-            val newOnes = result.filter { it.id !in seen }
-            if (newOnes.isEmpty()) {
-                exhausted = true
-                return@launch
-            }
-            page = next
-            items.addAll(newOnes)
-            adapter.append(newOnes)
+
+            page = nextPage
+            items.addAll(fresh)
+            adapter.append(fresh)
             NewsRepository.writeCache(this@MainActivity, items)
         }
     }
 
     private fun initWeather() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 100)
+        if (
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                100
+            )
         }
         loadWeatherFor(-8.84, 13.23)
     }
 
     private fun loadWeatherFor(lat: Double, lon: Double) {
         lifecycleScope.launch {
-            val r = WeatherHelper.fetch(this@MainActivity, lat, lon) ?: return@launch
-            IconLoader.applyPng(findViewById(R.id.wIcon), r.icon)
-            findViewById<TextView>(R.id.wTemp).text = "${r.temp}°"
-        }
-    }
-
-    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
-        super.onConfigurationChanged(newConfig)
-        SystemBarHelper.sync(this)
-        refreshNativeThemeViews()
-    }
-
-    private fun refreshNativeThemeViews() {
-        recycler.setBackgroundColor(ContextCompat.getColor(this, R.color.bg))
-        findViewById<View>(R.id.rootMain).setBackgroundColor(ContextCompat.getColor(this, R.color.bg))
-        header.setBackgroundColor(ContextCompat.getColor(this, R.color.bg))
-        biPill.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_card)
-        IconLoader.applySvg(findViewById(R.id.hMoreIcon), "menu", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.hCatChevron), "chevron-down", R.color.iconTint)
-        IconLoader.applySvg(biAdd.findViewById(R.id.biAddIcon), "add", R.color.iconTint)
-        IconLoader.applySvg(biSend.findViewById(R.id.biSendIcon), "arrow-up", R.color.onpri)
-    }
-
-    override fun onRequestPermissionsResult(code: Int, perms: Array<out String>, res: IntArray) {
-        super.onRequestPermissionsResult(code, perms, res)
-        if (code == 100 && res.isNotEmpty() && res[0] == PackageManager.PERMISSION_GRANTED) {
             try {
-                val lm = getSystemService(LOCATION_SERVICE) as LocationManager
-                val loc = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-                if (loc != null) loadWeatherFor(loc.latitude, loc.longitude)
-            } catch (_: SecurityException) {}
+                val result = WeatherHelper.fetch(
+                    this@MainActivity,
+                    lat,
+                    lon
+                ) ?: return@launch
+
+                if (isFinishing || isDestroyed) return@launch
+
+                IconLoader.applyPng(
+                    findViewById(R.id.wIcon),
+                    result.icon
+                )
+                findViewById<TextView>(R.id.wTemp).text =
+                    "${result.temp}°"
+            } catch (t: Throwable) {
+                android.util.Log.w(
+                    "MainActivity",
+                    "Weather update failed",
+                    t
+                )
+            }
         }
     }
 
     private fun sendToAi() {
-        val q = biInput.text.toString().trim()
-        if (q.isEmpty()) return
+        val query = biInput.text.toString().trim()
+        if (query.isEmpty()) return
+
         showNavProgress()
         biInput.setText("")
-        recycler.postDelayed({
-            startActivity(Intent(this, AppViewerActivity::class.java).apply {
-                putExtra("url", "file:///android_asset/apps/ai.html?q=${java.net.URLEncoder.encode(q, "UTF-8")}")
-            })
-        }, 100)
+        biInput.clearFocus()
+
+        biPill.postDelayed({
+            if (isFinishing || isDestroyed) return@postDelayed
+
+            startActivity(
+                Intent(this, AppViewerActivity::class.java).apply {
+                    putExtra(
+                        "url",
+                        "file:///android_asset/apps/ai.html?q=" +
+                            URLEncoder.encode(query, "UTF-8")
+                    )
+                }
+            )
+        }, 80L)
     }
 
     private fun showNavProgress() {
         progress.visibility = View.VISIBLE
-        val insetTop = ViewCompat.getRootWindowInsets(progress)?.getInsets(WindowInsetsCompat.Type.statusBars())?.top ?: 0
-        val currentLp = progress.layoutParams as FrameLayout.LayoutParams
-        currentLp.topMargin = insetTop
-        progress.layoutParams = currentLp
+        progressAnimator?.cancel()
+
+        val width = resources.displayMetrics.widthPixels
+        val lp = progress.layoutParams as FrameLayout.LayoutParams
+        lp.width = 0
+        val top = ViewCompat.getRootWindowInsets(progress)
+            ?.getInsets(WindowInsetsCompat.Type.statusBars())
+            ?.top ?: 0
+        lp.topMargin = top
+        progress.layoutParams = lp
         progress.alpha = 1f
-        progress.layoutParams.width = 0
-        progress.requestLayout()
-        progress.post {
-            val target = (resources.displayMetrics.widthPixels * 0.88f).toInt()
-            ValueAnimator.ofInt(0, target).apply {
-                duration = 1400
-                interpolator = Curves.PROGRESS
-                addUpdateListener {
-                    progress.layoutParams.width = it.animatedValue as Int
-                    progress.requestLayout()
-                }
-                start()
-            }
-        }
-    }
 
-    override fun onResume() {
-        super.onResume()
-        SystemBarHelper.sync(this)
-        if (progress.alpha > 0f) {
-            progress.animate().alpha(0f).setDuration(250).withEndAction {
-                progress.layoutParams.width = 0
-                progress.requestLayout()
-            }.start()
-        }
-    }
-
-    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        if (ev.action == MotionEvent.ACTION_DOWN) {
-            val focused = currentFocus
-            if (focused is EditText) {
-                val r = Rect()
-                focused.getGlobalVisibleRect(r)
-                if (!r.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
-                    focused.clearFocus()
-                    val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                    imm.hideSoftInputFromWindow(focused.windowToken, 0)
-                }
+        progressAnimator = ValueAnimator.ofInt(
+            0,
+            (width * 0.88f).toInt()
+        ).apply {
+            duration = 1400L
+            interpolator = Curves.PROGRESS
+            addUpdateListener {
+                val params = progress.layoutParams as FrameLayout.LayoutParams
+                params.width = it.animatedValue as Int
+                progress.layoutParams = params
             }
+            start()
         }
-        return super.dispatchTouchEvent(ev)
     }
 
     private fun showAppsPopup(anchor: View) {
-        anchor.animate().scaleX(0.88f).scaleY(0.88f).setDuration(120)
-            .withEndAction { anchor.animate().scaleX(1f).scaleY(1f).setDuration(220).start() }.start()
-        AppsPopup.show(anchor) { app ->
-            if (app.url != null) {
-                showNavProgress()
-                recycler.postDelayed({
-                    startActivity(Intent(this, AppViewerActivity::class.java).apply {
-                        putExtra("url", "file:///android_asset/${app.url}")
-                    })
-                }, 100)
+        anchor.animate()
+            .scaleX(0.88f)
+            .scaleY(0.88f)
+            .setDuration(120L)
+            .withEndAction {
+                anchor.animate()
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(220L)
+                    .start()
             }
+            .start()
+
+        AppsPopup.show(anchor) { app ->
+            val path = app.url ?: return@show
+            showNavProgress()
+            startActivity(
+                Intent(this, AppViewerActivity::class.java).apply {
+                    putExtra(
+                        "url",
+                        "file:///android_asset/$path"
+                    )
+                }
+            )
         }
     }
 
     private fun openDrawer() {
         if (drawerOpen) return
+
         drawerOpen = true
         drawerScrim.visibility = View.VISIBLE
-        drawerScrim.animate().alpha(1f).setDuration(450).setInterpolator(Curves.IOS).start()
         drawerPanel.translationX = dp(300).toFloat()
-        drawerPanel.animate().translationX(0f).setDuration(480).setInterpolator(Curves.SMOOTH).start()
+
+        drawerScrim.animate()
+            .alpha(1f)
+            .setDuration(450L)
+            .setInterpolator(Curves.IOS)
+            .start()
+
+        drawerPanel.animate()
+            .translationX(0f)
+            .setDuration(480L)
+            .setInterpolator(Curves.SMOOTH)
+            .start()
     }
+
     private fun closeDrawer() {
         if (!drawerOpen) return
+
         drawerOpen = false
-        drawerScrim.animate().alpha(0f).setDuration(450).setInterpolator(Curves.IOS)
-            .withEndAction { drawerScrim.visibility = View.GONE }.start()
-        drawerPanel.animate().translationX(dp(300).toFloat()).setDuration(480).setInterpolator(Curves.SMOOTH).start()
+
+        drawerScrim.animate()
+            .alpha(0f)
+            .setDuration(300L)
+            .setInterpolator(Curves.IOS)
+            .withEndAction {
+                drawerScrim.visibility = View.GONE
+            }
+            .start()
+
+        drawerPanel.animate()
+            .translationX(dp(300).toFloat())
+            .setDuration(320L)
+            .setInterpolator(Curves.SMOOTH)
+            .start()
     }
+
     private fun setupDrawerDrag() {
-        var x0 = 0f; var lastX = 0f; var lastT = 0L; var vx = 0f
-        drawerPanel.setOnTouchListener { _, ev ->
-            when (ev.actionMasked) {
+        var startX = 0f
+        var lastX = 0f
+        var lastTime = 0L
+        var velocity = 0f
+        var tracking = false
+
+        drawerPanel.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    x0 = ev.rawX; lastX = x0; lastT = System.currentTimeMillis(); vx = 0f
-                    drawerPanel.animate().cancel(); true
+                    startX = event.rawX
+                    lastX = startX
+                    lastTime = System.currentTimeMillis()
+                    velocity = 0f
+                    tracking = true
+                    drawerPanel.animate().cancel()
+                    true
                 }
+
                 MotionEvent.ACTION_MOVE -> {
-                    val dx = (ev.rawX - x0).coerceAtLeast(0f)
-                    val now = System.currentTimeMillis(); val dt = now - lastT
-                    if (dt > 0) vx = (ev.rawX - lastX) / dt
-                    lastX = ev.rawX; lastT = now
-                    drawerPanel.translationX = dx; true
+                    if (!tracking) return@setOnTouchListener true
+
+                    val dx = (event.rawX - startX).coerceAtLeast(0f)
+                    val now = System.currentTimeMillis()
+                    val dt = now - lastTime
+
+                    if (dt > 0) {
+                        velocity = (event.rawX - lastX) / dt
+                    }
+
+                    lastX = event.rawX
+                    lastTime = now
+                    drawerPanel.translationX = dx
+                    true
                 }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    val dismiss = drawerPanel.translationX > dp(70) || (vx > 0.5f && drawerPanel.translationX > dp(20))
-                    if (dismiss) {
-                        drawerScrim.animate().alpha(0f).setDuration(300).start()
-                        drawerPanel.animate().translationX(dp(300).toFloat()).setDuration(320)
-                            .setInterpolator(Curves.SMOOTH)
-                            .withEndAction { drawerScrim.visibility = View.GONE }.start()
-                        drawerOpen = false
+
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL -> {
+                    if (!tracking) return@setOnTouchListener true
+                    tracking = false
+
+                    val shouldClose =
+                        drawerPanel.translationX > dp(70) ||
+                            (velocity > 0.5f && drawerPanel.translationX > dp(20))
+
+                    if (shouldClose) {
+                        closeDrawer()
                     } else {
-                        drawerPanel.animate().translationX(0f).setDuration(280)
-                            .setInterpolator(Curves.SMOOTH).start()
+                        drawerPanel.animate()
+                            .translationX(0f)
+                            .setDuration(280L)
+                            .setInterpolator(Curves.SMOOTH)
+                            .start()
                     }
                     true
                 }
+
                 else -> false
             }
         }
     }
 
     private fun openCatSheet() {
-        val view = layoutInflater.inflate(R.layout.sheet_categories, null)
-        val sheet = NativeSheetDialog.show(this, view)
-        val list = view.findViewById<LinearLayout>(R.id.catList)
-        for (c in categories) {
-            val tv = TextView(this).apply {
-                text = c
-                setTextColor(getColor(R.color.text))
+        val content = layoutInflater.inflate(
+            R.layout.sheet_categories,
+            null,
+            false
+        )
+
+        val list = content.findViewById<LinearLayout>(R.id.catList)
+        val dialog = NativeSheetDialog.show(this, content)
+
+        categories.forEach { category ->
+            val item = TextView(this).apply {
+                text = category
                 textSize = 16f
-                setPadding(dp(22), dp(18), dp(22), dp(18))
-                isClickable = true; isFocusable = true
-                background = ContextCompat.getDrawable(this@MainActivity, android.R.drawable.list_selector_background)
-                if (c == currentCat) setTypeface(null, android.graphics.Typeface.BOLD)
+                setTextColor(
+                    ContextCompat.getColor(
+                        this@MainActivity,
+                        R.color.text
+                    )
+                )
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(
+                    dp(22),
+                    dp(16),
+                    dp(22),
+                    dp(16)
+                )
+                isClickable = true
+                isFocusable = true
+                background = ContextCompat.getDrawable(
+                    this@MainActivity,
+                    R.drawable.bg_sheet_item
+                )
+                if (category == currentCat) {
+                    setTypeface(
+                        android.graphics.Typeface.DEFAULT,
+                        android.graphics.Typeface.BOLD
+                    )
+                }
             }
-            tv.setOnClickListener {
-                currentCat = c
-                findViewById<TextView>(R.id.hCatLabel).text = c
-                sheet.dismiss()
+
+            item.setOnClickListener {
+                currentCat = category
+                findViewById<TextView>(R.id.hCatLabel).text = category
+                dialog.dismiss()
                 NewsRepository.resetDedup()
-                adapter.showSkeleton(8)
+                resetBarsInstantly()
                 loadNews(true)
             }
-            list.addView(tv)
+
+            list.addView(item)
         }
     }
 
-    private fun openArticle(item: NewsItem) {
-        startActivity(Intent(this, ArticleActivity::class.java).apply {
-            putExtra("id", item.id); putExtra("title", item.title)
-            putExtra("summary", item.summary); putExtra("link", item.link)
-            putExtra("source", item.source); putExtra("date", item.date)
-            putExtra("image", item.image); putExtra("logo", item.logo)
-        })
-        overridePendingTransition(R.anim.slide_in_right_fast, R.anim.slide_out_left_fast)
+    private fun openArticle(
+        item: NewsItem,
+        source: View
+    ) {
+        val transitionName =
+            "news_container_${item.id.hashCode().toUInt().toString(36)}"
+
+        ViewCompat.setTransitionName(
+            source,
+            transitionName
+        )
+
+        val intent = Intent(
+            this,
+            ArticleActivity::class.java
+        ).apply {
+            putExtra("id", item.id)
+            putExtra("title", item.title)
+            putExtra("summary", item.summary)
+            putExtra("link", item.link)
+            putExtra("source", item.source)
+            putExtra("date", item.date)
+            putExtra("image", item.image)
+            putExtra("logo", item.logo)
+            putExtra("transition_name", transitionName)
+        }
+
+        val options =
+            android.app.ActivityOptions.makeSceneTransitionAnimation(
+                this,
+                source,
+                transitionName
+            )
+
+        startActivity(
+            intent,
+            options.toBundle()
+        )
     }
+
+    private fun deduplicate(
+        source: List<NewsItem>
+    ): List<NewsItem> {
+        val out = ArrayList<NewsItem>(source.size)
+        val urls = HashSet<String>()
+        val titles = HashSet<String>()
+
+        source.forEach { item ->
+            val url = normalizeUrl(item.link)
+            val title = normalizeTitle(item.title)
+            if (url.isBlank() || title.isBlank()) return@forEach
+            if (!urls.add(url)) return@forEach
+            if (!titles.add(title)) return@forEach
+            out += item
+        }
+
+        return out
+    }
+
+    private fun normalizeUrl(value: String): String = value.trim()
+        .lowercase(Locale.ROOT)
+        .removePrefix("https://")
+        .removePrefix("http://")
+        .removePrefix("www.")
+        .substringBefore('#')
+        .trimEnd('/')
+
+    private fun normalizeTitle(value: String): String = value.trim()
+        .lowercase(Locale.ROOT)
+        .replace(Regex("[\\p{Punct}]+"), " ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(
+            requestCode,
+            permissions,
+            grantResults
+        )
+
+        if (
+            requestCode == 100 &&
+            grantResults.isNotEmpty() &&
+            grantResults[0] == PackageManager.PERMISSION_GRANTED
+        ) {
+            try {
+                val manager = getSystemService(LOCATION_SERVICE) as LocationManager
+                val location = manager.getLastKnownLocation(
+                    LocationManager.NETWORK_PROVIDER
+                )
+                if (location != null) {
+                    loadWeatherFor(
+                        location.latitude,
+                        location.longitude
+                    )
+                }
+            } catch (_: SecurityException) {
+            }
+        }
+    }
+
+    override fun onConfigurationChanged(
+        newConfig: android.content.res.Configuration
+    ) {
+        super.onConfigurationChanged(newConfig)
+        SystemBarHelper.sync(this)
+        refreshNativeTheme()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        SystemBarHelper.sync(this)
+        refreshNativeTheme()
+
+        if (progress.alpha > 0f) {
+            progress.animate()
+                .alpha(0f)
+                .setDuration(250L)
+                .withEndAction {
+                    progressAnimator?.cancel()
+                    val lp = progress.layoutParams as FrameLayout.LayoutParams
+                    lp.width = 0
+                    progress.layoutParams = lp
+                }
+                .start()
+        }
+    }
+
+    private fun refreshNativeTheme() {
+        val bg = ContextCompat.getColor(this, R.color.bg)
+        findViewById<View>(R.id.rootMain).setBackgroundColor(bg)
+        recycler.setBackgroundColor(bg)
+        header.setBackgroundColor(bg)
+        biPill.background = ContextCompat.getDrawable(
+            this,
+            R.drawable.bg_pill_card
+        )
+
+        IconLoader.applySvg(
+            findViewById(R.id.hMoreIcon),
+            "menu",
+            R.color.iconTint
+        )
+        IconLoader.applySvg(
+            findViewById(R.id.hCatChevron),
+            "chevron-down",
+            R.color.iconTint
+        )
+        IconLoader.applySvg(
+            biAdd.findViewById(R.id.biAddIcon),
+            "add",
+            R.color.iconTint
+        )
+        IconLoader.applySvg(
+            biSend.findViewById(R.id.biSendIcon),
+            "arrow-up",
+            R.color.onpri
+        )
+    }
+
+    override fun dispatchTouchEvent(
+        event: MotionEvent
+    ): Boolean {
+        if (event.action == MotionEvent.ACTION_DOWN) {
+            val focused = currentFocus
+            if (focused is EditText) {
+                val rect = Rect()
+                focused.getGlobalVisibleRect(rect)
+                if (
+                    !rect.contains(
+                        event.rawX.toInt(),
+                        event.rawY.toInt()
+                    )
+                ) {
+                    focused.clearFocus()
+                    val input = getSystemService(
+                        INPUT_METHOD_SERVICE
+                    ) as InputMethodManager
+                    input.hideSoftInputFromWindow(
+                        focused.windowToken,
+                        0
+                    )
+                }
+            }
+        }
+        return super.dispatchTouchEvent(event)
+    }
+
+    override fun onDestroy() {
+        progressAnimator?.cancel()
+        barAnimator?.cancel()
+        super.onDestroy()
+    }
+
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density + 0.5f).toInt()
 }

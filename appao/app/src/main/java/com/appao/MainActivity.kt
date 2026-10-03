@@ -84,14 +84,40 @@ class MainActivity : AppCompatActivity() {
         drawerPanel = findViewById(R.id.drawerPanel)
         drawerScrim = findViewById(R.id.drawerScrim)
 
-        setupInsets()
-        setupFeed()
-        setupHeader()
-        setupBottomInput()
-        setupDrawer()
-        setupCategories()
-        setupInitialData()
-        initWeather()
+        safeStartup("insets") { setupInsets() }
+        safeStartup("feed") { setupFeed() }
+        safeStartup("header") { setupHeader() }
+        safeStartup("bottom-input") { setupBottomInput() }
+        safeStartup("drawer") { setupDrawer() }
+        safeStartup("categories") { setupCategories() }
+
+        // Render a stable first frame before starting the adapter animation,
+        // cache read and network activity. This prevents startup work from
+        // competing with layout creation on lower-end devices.
+        recycler.post {
+            if (isFinishing || isDestroyed) return@post
+            safeStartup("initial-data") { setupInitialData() }
+        }
+
+        recycler.postDelayed({
+            if (isFinishing || isDestroyed) return@postDelayed
+            safeStartup("weather") { initWeather() }
+        }, 800L)
+    }
+
+    private inline fun safeStartup(
+        stage: String,
+        block: () -> Unit
+    ) {
+        try {
+            block()
+        } catch (t: Throwable) {
+            android.util.Log.e(
+                "MainActivity",
+                "Startup stage failed: $stage",
+                t
+            )
+        }
     }
 
     private fun setupInsets() {

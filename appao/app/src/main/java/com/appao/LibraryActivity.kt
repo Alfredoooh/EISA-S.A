@@ -11,8 +11,14 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 
 class LibraryActivity : AppCompatActivity() {
+    override fun onResume() {
+        super.onResume()
+        ThemeManager.syncSystemBars(this)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ThemeManager.syncSystemBars(this)
         setContentView(R.layout.activity_library)
 
         IconLoader.applySvg(findViewById(R.id.libBackIcon), "back", R.color.iconTint)
@@ -37,6 +43,12 @@ class LibraryActivity : AppCompatActivity() {
             list.layoutManager = LinearLayoutManager(this)
             list.adapter = NewsAdapter(items.toMutableList()) { openArticle(it) }
         }
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        ThemeManager.syncSystemBars(this)
+        IconLoader.applySvg(findViewById(R.id.libBackIcon), "back", R.color.iconTint)
     }
 
     private fun openArticle(item: NewsItem) {

@@ -24,7 +24,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -59,11 +58,14 @@ class MainActivity : AppCompatActivity() {
     private var lastScrollY = 0
     private var headerHidden = false
     private var headerHeight = 0
+    private var lastThemeMode = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+        ThemeManager.syncSystemBars(this)
         setContentView(R.layout.activity_main)
+        lastThemeMode = ThemeManager.current(this)
 
         progress = findViewById(R.id.appProgress)
         recycler = findViewById(R.id.recycler)
@@ -77,32 +79,7 @@ class MainActivity : AppCompatActivity() {
         drawerScrim = findViewById(R.id.drawerScrim)
 
         val root = findViewById<View>(R.id.rootMain)
-
-        ViewCompat.setOnApplyWindowInsetsListener(header) { v, insets ->
-            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.updatePadding(top = sys.top + dp(4))
-            val lp = v.layoutParams
-            lp.height = dp(56) + sys.top
-            v.layoutParams = lp
-            headerHeight = lp.height
-            insets
-        }
-
-        ViewCompat.setOnApplyWindowInsetsListener(biPill) { v, insets ->
-            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            val bottom = maxOf(ime, sys.bottom)
-            val lp = v.layoutParams as FrameLayout.LayoutParams
-            lp.bottomMargin = bottom + dp(16)
-            v.layoutParams = lp
-            insets
-        }
-
-        ViewCompat.setOnApplyWindowInsetsListener(drawerPanel) { v, insets ->
-            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.updatePadding(top = sys.top, bottom = sys.bottom)
-            insets
-        }
+        header.post { headerHeight = header.height }
 
         adapter = NewsAdapter(items.toMutableList<Any>()) { openArticle(it) }
         recycler.layoutManager = LinearLayoutManager(this)
@@ -173,39 +150,36 @@ class MainActivity : AppCompatActivity() {
     private fun hideAppBar() {
         if (headerHidden) return
         headerHidden = true
-        val from = if (headerHeight > 0) headerHeight else header.height
-        ValueAnimator.ofInt(from, 0).apply {
-            duration = 260
-            interpolator = Curves.SMOOTH
-            addUpdateListener { va ->
-                val h = va.animatedValue as Int
-                val lp = header.layoutParams
-                lp.height = h
-                header.layoutParams = lp
-            }
-            start()
-        }
-        biPill.animate().translationY(biPill.height.toFloat() + dp(120))
-            .setDuration(260).setInterpolator(Curves.SMOOTH).start()
+        header.animate().cancel()
+        biPill.animate().cancel()
+        val h = header.height.coerceAtLeast(headerHeight)
+        header.animate()
+            .translationY(-h.toFloat())
+            .setDuration(300)
+            .setInterpolator(Curves.IOS)
+            .start()
+        biPill.animate()
+            .translationY(biPill.height.toFloat() + dp(28))
+            .setDuration(300)
+            .setInterpolator(Curves.IOS)
+            .start()
     }
 
     private fun showAppBar() {
         if (!headerHidden) return
         headerHidden = false
-        val to = if (headerHeight > 0) headerHeight else header.height
-        ValueAnimator.ofInt(0, to).apply {
-            duration = 260
-            interpolator = Curves.SMOOTH
-            addUpdateListener { va ->
-                val h = va.animatedValue as Int
-                val lp = header.layoutParams
-                lp.height = h
-                header.layoutParams = lp
-            }
-            start()
-        }
-        biPill.animate().translationY(0f)
-            .setDuration(260).setInterpolator(Curves.SMOOTH).start()
+        header.animate().cancel()
+        biPill.animate().cancel()
+        header.animate()
+            .translationY(0f)
+            .setDuration(360)
+            .setInterpolator(Curves.SMOOTH)
+            .start()
+        biPill.animate()
+            .translationY(0f)
+            .setDuration(360)
+            .setInterpolator(Curves.SMOOTH)
+            .start()
     }
 
     private fun animatePillFocus(focused: Boolean) {
@@ -334,12 +308,51 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        ThemeManager.syncSystemBars(this)
+        refreshThemeUi()
         if (progress.alpha > 0f) {
             progress.animate().alpha(0f).setDuration(250).withEndAction {
                 progress.layoutParams.width = 0
                 progress.requestLayout()
             }.start()
         }
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        ThemeManager.syncSystemBars(this)
+        refreshThemeUi()
+    }
+
+    private fun refreshThemeUi() {
+        val mode = ThemeManager.current(this)
+        if (mode == lastThemeMode && !isChangingConfigurations) {
+            bindThemeIcons()
+            return
+        }
+        lastThemeMode = mode
+        findViewById<View>(R.id.rootMain).setBackgroundResource(R.color.bg)
+        header.setBackgroundResource(R.color.bg)
+        biPill.setBackgroundResource(R.drawable.bg_pill_card)
+        biAdd.setBackgroundResource(R.drawable.bg_circle_card)
+        biSend.setBackgroundResource(R.drawable.bg_circle_pri)
+        drawerPanel.setBackgroundResource(R.color.bgElevated)
+        recycler.setBackgroundResource(R.color.bg)
+        biInput.setTextColor(ContextCompat.getColor(this, R.color.text))
+        biInput.setHintTextColor(ContextCompat.getColor(this, R.color.dim))
+        findViewById<TextView>(R.id.wTemp).setTextColor(ContextCompat.getColor(this, R.color.text))
+        findViewById<TextView>(R.id.hCatLabel).setTextColor(ContextCompat.getColor(this, R.color.text))
+        findViewById<TextView>(R.id.drName).setTextColor(ContextCompat.getColor(this, R.color.text))
+        findViewById<TextView>(R.id.drUser).setTextColor(ContextCompat.getColor(this, R.color.dim))
+        adapter.notifyDataSetChanged()
+        bindThemeIcons()
+    }
+
+    private fun bindThemeIcons() {
+        IconLoader.applySvg(findViewById(R.id.hMoreIcon), "menu", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.hCatChevron), "chevron-down", R.color.iconTint)
+        IconLoader.applySvg(biAdd.findViewById(R.id.biAddIcon), "add", R.color.iconTint)
+        IconLoader.applySvg(biSend.findViewById(R.id.biSendIcon), "arrow-up", R.color.onpri)
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {

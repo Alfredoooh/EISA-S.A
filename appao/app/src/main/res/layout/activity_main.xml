@@ -10,16 +10,16 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:clipChildren="true"
-        android:clipToPadding="true">
+        android:clipChildren="false"
+        android:clipToPadding="false">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/header"
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:background="@color/bg"
-            android:clipChildren="true"
-            android:clipToPadding="true"
+            android:clipChildren="false"
+            android:clipToPadding="false"
             android:paddingStart="8dp"
             android:paddingEnd="8dp">
 
@@ -202,6 +202,7 @@
         android:orientation="vertical"
         android:background="@color/bgElevated"
         android:translationX="300dp"
+        android:clipToPadding="false"
         android:elevation="22dp">
 
         <LinearLayout

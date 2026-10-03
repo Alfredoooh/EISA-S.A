@@ -20,7 +20,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustResize"
-            android:configChanges="uiMode|locale|layoutDirection">
+            android:configChanges="uiMode">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -30,23 +30,23 @@
         <activity
             android:name=".ArticleActivity"
             android:exported="false"
-            android:windowSoftInputMode="adjustResize"/>
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="uiMode"/>
 
         <activity
             android:name=".ImageViewerActivity"
             android:exported="false"
-            android:theme="@style/Theme.AppAo.ImageViewer"/>
+            android:theme="@style/Theme.AppAo.ImageViewer"
+            android:configChanges="uiMode"/>
 
-        <activity android:name=".LibraryActivity" android:exported="false"/>
-        <activity
-            android:name=".SettingsActivity"
-            android:exported="false"
-            android:configChanges="uiMode|locale|layoutDirection"/>
+        <activity android:name=".LibraryActivity" android:exported="false" android:configChanges="uiMode"/>
+        <activity android:name=".SettingsActivity" android:exported="false" android:configChanges="uiMode"/>
 
         <activity
             android:name=".AppViewerActivity"
             android:exported="false"
             android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize"/>
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="uiMode"/>
     </application>
 </manifest>

@@ -19,10 +19,8 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -58,7 +56,8 @@ class ArticleActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+        ThemeManager.syncSystemBars(this)
         setContentView(R.layout.activity_article)
 
         itemImage = intent.getStringExtra("image") ?: ""
@@ -86,26 +85,13 @@ class ArticleActivity : AppCompatActivity() {
         acEmoji = findViewById(R.id.acEmoji)
 
         val topbar = findViewById<View>(R.id.aTopBar)
-
-        ViewCompat.setOnApplyWindowInsetsListener(topbar) { v, insets ->
-            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.updatePadding(top = sys.top + dp(6))
-            v.layoutParams.height = dp(56) + sys.top
-            insets
-        }
-        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
-            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            val bottom = maxOf(ime, sys.bottom)
-            val lp = articleBar.layoutParams as FrameLayout.LayoutParams
-            lp.bottomMargin = bottom
-            articleBar.layoutParams = lp
-            val topTotal = sys.top + dp(56)
-            val sLp = scroll.layoutParams as FrameLayout.LayoutParams
-            sLp.topMargin = topTotal
-            scroll.layoutParams = sLp
-            insets
-        }
+        topbar.layoutParams.height = dp(56)
+        val scrollLp = scroll.layoutParams as FrameLayout.LayoutParams
+        scrollLp.topMargin = dp(56)
+        scroll.layoutParams = scrollLp
+        val articleLp = articleBar.layoutParams as FrameLayout.LayoutParams
+        articleLp.bottomMargin = 0
+        articleBar.layoutParams = articleLp
 
         IconLoader.applySvg(findViewById(R.id.aBackIcon), "close", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.acSendIcon), "send", R.color.onpri)
@@ -193,6 +179,16 @@ class ArticleActivity : AppCompatActivity() {
             body.text = if (!full.isNullOrBlank()) full
             else itemSummary.ifBlank { "Não foi possível carregar o artigo completo." }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        ThemeManager.syncSystemBars(this)
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        ThemeManager.syncSystemBars(this)
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()

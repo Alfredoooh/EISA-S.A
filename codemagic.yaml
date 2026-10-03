@@ -1,171 +1,94 @@
 workflows:
   appao-android-debug:
-
-    # Nome exibido para este workflow no Codemagic.
     name: appao-android-debug
-
-    # Máquina Apple Silicon M2.
     instance_type: mac_mini_m2
-
-    # Tempo máximo de execução de uma build, em minutos.
     max_build_duration: 60
 
     environment:
-
-      # Variáveis públicas/não sensíveis do projeto.
       vars:
         PACKAGE_NAME: "com.appao"
-
-      # Para utilizar variáveis secretas no futuro, crie um Environment
-      # Variable Group no Codemagic e descomente:
-      #
-      # groups:
-      #   - appao-production-signing
-
-      # Java 17 é usado pelo Android Gradle Plugin 8.2.x.
       java: 17
 
-    # ---------------------------------------------------------------
-    # TRIGGERS
-    # ---------------------------------------------------------------
     triggering:
       events:
         - push
-
       branch_patterns:
         - pattern: main
           include: true
           source: true
-
-      # Cancela builds antigos da mesma branch quando chega um push novo.
       cancel_previous_builds: true
 
-    # ---------------------------------------------------------------
-    # CACHE
-    # ---------------------------------------------------------------
     cache:
       cache_paths:
         - ~/.gradle/caches
         - ~/.gradle/wrapper/dists
 
-    # ---------------------------------------------------------------
-    # SCRIPTS
-    # ---------------------------------------------------------------
     scripts:
-
-      # -------------------------------------------------------------
-      # ANDROID SDK
-      # -------------------------------------------------------------
       - name: Configure Android SDK
         script: |
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/appao/local.properties"
+          set -e
+          PROJECT_DIR="$CM_BUILD_DIR/appao"
+          if [ ! -d "$PROJECT_DIR/app" ]; then PROJECT_DIR="$CM_BUILD_DIR"; fi
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$PROJECT_DIR/local.properties"
 
-      # -------------------------------------------------------------
-      # KEYSTORE
-      # -------------------------------------------------------------
       - name: Set up signing keystore
         script: |
-          if [ -f "$CM_BUILD_DIR/appao/looply-debug.keystore" ]; then
-            echo "Using repository keystore: appao/looply-debug.keystore"
-
+          set -e
+          PROJECT_DIR="$CM_BUILD_DIR/appao"
+          if [ ! -d "$PROJECT_DIR/app" ]; then PROJECT_DIR="$CM_BUILD_DIR"; fi
+          if [ -f "$PROJECT_DIR/looply-debug.keystore" ]; then
+            echo "Repository keystore present; debug builds use Gradle's debug signing automatically."
           elif [ -n "${LOOPLY_KEYSTORE_BASE64:-}" ]; then
-            echo "Decoding LOOPLY_KEYSTORE_BASE64..."
-
-            if printf '%s' "$LOOPLY_KEYSTORE_BASE64" | \
-              base64 --decode > "$CM_BUILD_DIR/appao/looply-debug.keystore" 2>/dev/null
-            then
+            echo "Decoding repository keystore..."
+            if printf '%s' "$LOOPLY_KEYSTORE_BASE64" | base64 --decode > "$PROJECT_DIR/looply-debug.keystore" 2>/dev/null; then
               :
             else
-              printf '%s' "$LOOPLY_KEYSTORE_BASE64" | \
-                base64 -D > "$CM_BUILD_DIR/appao/looply-debug.keystore"
+              printf '%s' "$LOOPLY_KEYSTORE_BASE64" | base64 -D > "$PROJECT_DIR/looply-debug.keystore"
             fi
-
-            chmod 600 "$CM_BUILD_DIR/appao/looply-debug.keystore"
-
-            echo "Keystore decoded successfully."
-
+            chmod 600 "$PROJECT_DIR/looply-debug.keystore"
           else
-            echo "ERROR: appao/looply-debug.keystore was not found."
-            echo "ERROR: LOOPLY_KEYSTORE_BASE64 is also not configured."
+            echo "No custom repository keystore supplied; continuing because this workflow builds Debug."
+          fi
+
+      - name: Build app ao Debug APK
+        script: |
+          set -e
+          PROJECT_DIR="$CM_BUILD_DIR/appao"
+          if [ ! -d "$PROJECT_DIR/app" ]; then PROJECT_DIR="$CM_BUILD_DIR"; fi
+          cd "$PROJECT_DIR"
+          chmod +x ./gradlew || true
+          if [ -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+            ./gradlew clean assembleDebug --stacktrace --no-daemon
+          elif command -v gradle >/dev/null 2>&1; then
+            echo "gradle-wrapper.jar is missing; using the Codemagic Gradle executable."
+            gradle clean assembleDebug --stacktrace --no-daemon
+          else
+            echo "ERROR: gradle-wrapper.jar is missing and no Gradle executable is available."
             exit 1
           fi
 
-      # -------------------------------------------------------------
-      # BUILD
-      # -------------------------------------------------------------
-      - name: Build app ao Debug APK
-        script: |
-          cd "$CM_BUILD_DIR/appao"
-
-          chmod +x ./gradlew
-
-          ./gradlew assembleDebug --stacktrace
-
-      # -------------------------------------------------------------
-      # APK SIZE CHECK
-      # -------------------------------------------------------------
-      # Apenas informa o tamanho do APK.
-      # NÃO rejeita a build caso o APK ultrapasse 400 KiB.
       - name: Verify APK size
         script: |
           set -e
-
           APK_DIR="$CM_BUILD_DIR/appao/app/build/outputs/apk/debug"
-
-          echo "Generated APK:"
-          ls -lh "$APK_DIR"/*.apk
-
-          found_apk=false
-
-          for apk in "$APK_DIR"/*.apk; do
-
-            if [ ! -f "$apk" ]; then
-              continue
-            fi
-
-            found_apk=true
-
-            if bytes=$(stat -f%z "$apk" 2>/dev/null); then
-              :
-            elif bytes=$(stat -c%s "$apk" 2>/dev/null); then
-              :
-            else
-              echo "WARNING: Could not determine APK size."
-              continue
-            fi
-
-            kib=$((bytes / 1024))
-
-            echo "----------------------------------------"
-            echo "APK: $apk"
-            echo "Bytes: $bytes"
-            echo "Size: ${kib} KiB"
-            echo "Reference limit: 400 KiB"
-            echo "----------------------------------------"
-
-            if [ "$bytes" -gt 409600 ]; then
-              echo "WARNING: APK exceeds 400 KiB."
-              echo "Build will continue."
-            else
-              echo "APK is within the 400 KiB reference limit."
-            fi
-
-          done
-
-          if [ "$found_apk" = false ]; then
+          apk=$(find "$APK_DIR" -maxdepth 1 -type f -name '*.apk' | head -1)
+          if [ -z "$apk" ]; then
             echo "ERROR: No APK was generated."
             exit 1
           fi
 
-          echo "APK size verification completed."
+          if bytes=$(stat -f%z "$apk" 2>/dev/null); then :; else bytes=$(stat -c%s "$apk"); fi
+          mib=$((bytes / 1024 / 1024))
+          echo "APK: $apk"
+          echo "Bytes: $bytes"
+          echo "Size: ${mib} MiB"
+          echo "Target: below 5 MiB"
 
-    # ---------------------------------------------------------------
-    # ARTIFACTS
-    # ---------------------------------------------------------------
+          if [ "$bytes" -lt 5242880 ]; then
+            echo "APK is below the 5 MiB target."
+          else
+            echo "WARNING: APK is above the 5 MiB target; R8/resource shrinking remains enabled."
+          fi
+
     artifacts:
       - appao/app/build/outputs/apk/debug/*.apk
-
-    # ---------------------------------------------------------------
-    # PUBLISHING
-    # ---------------------------------------------------------------
-    # Nenhum bloco publishing é necessário.

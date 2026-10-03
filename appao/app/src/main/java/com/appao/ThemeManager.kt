@@ -13,16 +13,32 @@ object ThemeManager {
             .getString(KEY, "system") ?: "system"
 
     fun save(ctx: Context, value: String) {
+        val normalized = when (value) {
+            "dark", "light", "system" -> value
+            else -> "system"
+        }
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putString(KEY, value).apply()
+            .edit().putString(KEY, normalized).apply()
+    }
+
+    fun saveFromLabel(ctx: Context, label: String) {
+        save(ctx, when (label) {
+            "Escuro" -> "dark"
+            "Claro" -> "light"
+            else -> "system"
+        })
+    }
+
+    private fun mode(ctx: Context): Int = when (current(ctx)) {
+        "dark" -> AppCompatDelegate.MODE_NIGHT_YES
+        "light" -> AppCompatDelegate.MODE_NIGHT_NO
+        else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
     }
 
     fun apply(ctx: Context) {
-        when (current(ctx)) {
-            "dark"  -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-            "light" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-            else    -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-        }
+        val wanted = mode(ctx)
+        if (AppCompatDelegate.getDefaultNightMode() == wanted) return
+        AppCompatDelegate.setDefaultNightMode(wanted)
     }
 
     fun label(ctx: Context): String = when (current(ctx)) {
@@ -31,12 +47,9 @@ object ThemeManager {
         else -> "Sistema"
     }
 
+    @Deprecated("Use saveFromLabel() then apply()")
     fun applyFromLabel(ctx: Context, label: String) {
-        when (label) {
-            "Escuro" -> save(ctx, "dark")
-            "Claro" -> save(ctx, "light")
-            else -> save(ctx, "system")
-        }
+        saveFromLabel(ctx, label)
         apply(ctx)
     }
 }

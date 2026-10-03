@@ -33,7 +33,8 @@ class NewsAdapter(
     object SkeletonMarker
 
     private var shimmerAnim: ValueAnimator? = null
-    private var shimmerPos: Float = 0f
+    private var shimmerPos: Float = -1f
+    private val shimmerDrawables = mutableSetOf<ShimmerDrawable>()
 
     class NewsVH(v: View) : RecyclerView.ViewHolder(v) {
         val favicon: ImageView = v.findViewById(R.id.favicon)
@@ -68,7 +69,11 @@ class NewsAdapter(
         if (h is SkeletonVH) {
             h.image.visibility = if (position % 3 == 0) View.VISIBLE else View.GONE
             val shimmer = ShimmerDrawable(h.itemView.context)
-            h.bars.forEach { it.background = shimmer.duplicate() }
+            h.bars.forEach {
+                val drawable = shimmer.duplicate()
+                shimmerDrawables.add(drawable)
+                it.background = drawable
+            }
             startShimmerIfNeeded()
             return
         }
@@ -100,9 +105,7 @@ class NewsAdapter(
             interpolator = LinearInterpolator()
             addUpdateListener { a ->
                 shimmerPos = a.animatedValue as Float
-                for (i in list.indices) {
-                    if (list[i] is SkeletonMarker) notifyItemChanged(i, "shimmer")
-                }
+                shimmerDrawables.forEach { it.setPosition(shimmerPos); it.invalidateSelf() }
             }
             start()
         }
@@ -112,6 +115,7 @@ class NewsAdapter(
         if (list.none { it is SkeletonMarker }) {
             shimmerAnim?.cancel()
             shimmerAnim = null
+            shimmerDrawables.clear()
         }
     }
 
@@ -160,6 +164,13 @@ class NewsAdapter(
         stopShimmerIfNoSkeleton()
     }
 
+    override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
+        shimmerAnim?.cancel()
+        shimmerAnim = null
+        shimmerDrawables.clear()
+        super.onDetachedFromRecyclerView(recyclerView)
+    }
+
     private fun ago(v: String): String {
         if (v.isBlank()) return ""
         return try {
@@ -178,23 +189,23 @@ class NewsAdapter(
     }
 
     private class ShimmerDrawable private constructor(
-        private val base: Int,
-        private var anim: ValueAnimator?
+        private val base: Int
     ) : Drawable() {
         constructor(ctx: android.content.Context) : this(
-            ContextCompat.getColor(ctx, R.color.skeleton),
-            null
+            ContextCompat.getColor(ctx, R.color.skeleton)
         )
 
         private val shimmerColor = 0x22FFFFFF
+        private var position: Float = -1f
 
-        fun duplicate(): ShimmerDrawable = ShimmerDrawable(base, anim)
+        fun duplicate(): ShimmerDrawable = ShimmerDrawable(base).also { it.position = position }
+        fun setPosition(value: Float) { position = value }
 
         override fun draw(canvas: Canvas) {
             val w = bounds.width().toFloat()
             val h = bounds.height().toFloat()
             canvas.drawColor(base)
-            val pos = (anim?.animatedValue as? Float) ?: 0f
+            val pos = position
             val cx = pos * w
             val left = (cx - w * 0.4f).coerceAtLeast(0f)
             val right = (cx + w * 0.4f).coerceAtMost(w)

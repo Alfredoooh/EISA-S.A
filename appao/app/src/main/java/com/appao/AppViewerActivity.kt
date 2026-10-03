@@ -21,174 +21,549 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 
 class AppViewerActivity : AppCompatActivity() {
+
     private lateinit var web: WebView
     private lateinit var progress: View
+
     private var rendererRecoveryAttempted = false
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        setContentView(R.layout.activity_app_viewer)
+
+        WindowCompat.setDecorFitsSystemWindows(
+            window,
+            false
+        )
+
+        setContentView(
+            R.layout.activity_app_viewer
+        )
+
         SystemBarHelper.sync(this)
 
         web = findViewById(R.id.webView)
         progress = findViewById(R.id.appProgress)
-        ViewCompat.setOnApplyWindowInsetsListener(web) { v, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(0, bars.top, 0, bars.bottom)
-            insets
-        }
-        ViewCompat.setOnApplyWindowInsetsListener(progress) { v, insets ->
-            val top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
-            val lp = v.layoutParams as android.widget.FrameLayout.LayoutParams
-            lp.topMargin = top
-            v.layoutParams = lp
+
+        ViewCompat.setOnApplyWindowInsetsListener(
+            web
+        ) { view, insets ->
+
+            val bars =
+                insets.getInsets(
+                    WindowInsetsCompat.Type.systemBars()
+                )
+
+            view.setPadding(
+                0,
+                bars.top,
+                0,
+                bars.bottom
+            )
+
             insets
         }
 
-        val url = intent.getStringExtra("url")?.trim().orEmpty()
-        if (url.isBlank()) { finish(); return }
+        ViewCompat.setOnApplyWindowInsetsListener(
+            progress
+        ) { view, insets ->
+
+            val top =
+                insets.getInsets(
+                    WindowInsetsCompat.Type.statusBars()
+                ).top
+
+            val lp =
+                view.layoutParams as android.widget.FrameLayout.LayoutParams
+
+            lp.topMargin = top
+
+            view.layoutParams = lp
+
+            insets
+        }
+
+        val url =
+            intent
+                .getStringExtra("url")
+                ?.trim()
+                .orEmpty()
+
+        if (url.isBlank()) {
+            finish()
+            return
+        }
 
         web.settings.apply {
+
             javaScriptEnabled = true
+
             domStorageEnabled = true
+
             databaseEnabled = true
+
             allowFileAccess = true
+
             allowContentAccess = true
+
             allowFileAccessFromFileURLs = false
+
             allowUniversalAccessFromFileURLs = false
+
             loadWithOverviewMode = true
+
             useWideViewPort = true
+
             builtInZoomControls = false
+
             displayZoomControls = false
+
             mediaPlaybackRequiresUserGesture = true
         }
-        web.setBackgroundColor(if (ThemeManager.current(this) == "dark") Color.rgb(13, 15, 18) else Color.WHITE)
+
+        web.setBackgroundColor(
+            if (
+                ThemeManager.current(this) == "dark"
+            ) {
+                Color.rgb(13, 15, 18)
+            } else {
+                Color.WHITE
+            }
+        )
+
         web.isVerticalScrollBarEnabled = false
+
         web.isHorizontalScrollBarEnabled = false
 
-        web.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView, url: String) {
-                injectThemeObserver(view)
-            }
+        web.webViewClient =
+            object : WebViewClient() {
 
-            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-                if (request.isForMainFrame) Toast.makeText(this@AppViewerActivity, "Não foi possível carregar este app", Toast.LENGTH_SHORT).show()
-            }
-            override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
-                if (isFinishing) return true
-                try { view.destroy() } catch (_: Throwable) {}
-                if (!rendererRecoveryAttempted) {
-                    rendererRecoveryAttempted = true
-                    recreate()
-                } else {
-                    finish()
+                override fun onPageFinished(
+                    view: WebView,
+                    url: String
+                ) {
+                    injectThemeObserver(view)
                 }
-                return true
-            }
-        }
 
-        web.addJavascriptInterface(HtmlThemeBridge(), "AppAoTheme")
+                override fun onReceivedError(
+                    view: WebView,
+                    request: WebResourceRequest,
+                    error: WebResourceError
+                ) {
 
-        web.webChromeClient = object : WebChromeClient() {
-            override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                val target = (resources.displayMetrics.widthPixels * newProgress / 100f).toInt()
-                val lp = progress.layoutParams
-                lp.width = target.coerceIn(0, resources.displayMetrics.widthPixels)
-                progress.layoutParams = lp
-                progress.alpha = if (newProgress >= 100) 0f else 1f
-                if (newProgress >= 100) progress.postDelayed({ progress.alpha = 0f }, 120)
-            }
+                    if (
+                        request.isForMainFrame
+                    ) {
 
-            override fun onJsAlert(view: WebView, url: String, message: String, result: JsResult): Boolean {
-                NativeHtmlDialog.alert(this@AppViewerActivity, "", message) { result.confirm() }
-                return true
-            }
-
-            override fun onJsConfirm(view: WebView, url: String, message: String, result: JsResult): Boolean {
-                NativeHtmlDialog.confirm(this@AppViewerActivity, "", message) { ok -> if (ok) result.confirm() else result.cancel() }
-                return true
-            }
-
-            override fun onJsPrompt(view: WebView, url: String, message: String, defaultValue: String, result: JsPromptResult): Boolean {
-                NativeHtmlDialog.prompt(this@AppViewerActivity, "", message, defaultValue) { value ->
-                    if (value == null) result.cancel() else result.confirm(value)
+                        Toast.makeText(
+                            this@AppViewerActivity,
+                            "Não foi possível carregar este app",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 }
-                return true
-            }
-        }
 
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() { if (web.canGoBack()) web.goBack() else finish() }
-        })
+                override fun onRenderProcessGone(
+                    view: WebView,
+                    detail: RenderProcessGoneDetail
+                ): Boolean {
+
+                    if (isFinishing) {
+                        return true
+                    }
+
+                    try {
+                        view.stopLoading()
+                    } catch (_: Throwable) {
+                    }
+
+                    try {
+                        view.destroy()
+                    } catch (_: Throwable) {
+                    }
+
+                    if (
+                        !rendererRecoveryAttempted
+                    ) {
+
+                        rendererRecoveryAttempted = true
+
+                        recreate()
+
+                    } else {
+
+                        finish()
+                    }
+
+                    return true
+                }
+            }
+
+        web.addJavascriptInterface(
+            HtmlThemeBridge(),
+            "AppAoTheme"
+        )
+
+        web.webChromeClient =
+            object : WebChromeClient() {
+
+                override fun onProgressChanged(
+                    view: WebView?,
+                    newProgress: Int
+                ) {
+
+                    val width =
+                        resources
+                            .displayMetrics
+                            .widthPixels
+
+                    val target =
+                        (
+                            width *
+                                newProgress /
+                                100f
+                        )
+                            .toInt()
+                            .coerceIn(
+                                0,
+                                width
+                            )
+
+                    val lp =
+                        progress.layoutParams
+
+                    lp.width = target
+
+                    progress.layoutParams = lp
+
+                    progress.alpha =
+                        if (
+                            newProgress >= 100
+                        ) {
+                            0f
+                        } else {
+                            1f
+                        }
+
+                    if (
+                        newProgress >= 100
+                    ) {
+
+                        progress.postDelayed(
+                            {
+                                if (
+                                    !isFinishing &&
+                                    !isDestroyed
+                                ) {
+                                    progress.alpha = 0f
+                                }
+                            },
+                            120L
+                        )
+                    }
+                }
+
+                override fun onJsAlert(
+                    view: WebView,
+                    url: String,
+                    message: String,
+                    result: JsResult
+                ): Boolean {
+
+                    NativeHtmlDialog.alert(
+                        this@AppViewerActivity,
+                        "",
+                        message
+                    ) {
+                        result.confirm()
+                    }
+
+                    return true
+                }
+
+                override fun onJsConfirm(
+                    view: WebView,
+                    url: String,
+                    message: String,
+                    result: JsResult
+                ): Boolean {
+
+                    NativeHtmlDialog.confirm(
+                        this@AppViewerActivity,
+                        "",
+                        message
+                    ) { accepted ->
+
+                        if (accepted) {
+                            result.confirm()
+                        } else {
+                            result.cancel()
+                        }
+                    }
+
+                    return true
+                }
+
+                override fun onJsPrompt(
+                    view: WebView,
+                    url: String,
+                    message: String,
+                    defaultValue: String,
+                    result: JsPromptResult
+                ): Boolean {
+
+                    NativeHtmlDialog.prompt(
+                        this@AppViewerActivity,
+                        "",
+                        message,
+                        defaultValue
+                    ) { value ->
+
+                        if (value == null) {
+                            result.cancel()
+                        } else {
+                            result.confirm(value)
+                        }
+                    }
+
+                    return true
+                }
+            }
+
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+
+                override fun handleOnBackPressed() {
+
+                    if (
+                        web.canGoBack()
+                    ) {
+                        web.goBack()
+                    } else {
+                        finish()
+                    }
+                }
+            }
+        )
 
         progress.post {
-            progress.layoutParams.width = (resources.displayMetrics.widthPixels * 0.06f).toInt()
-            progress.alpha = 1f
+
+            if (
+                !isFinishing &&
+                !isDestroyed
+            ) {
+
+                val width =
+                    resources
+                        .displayMetrics
+                        .widthPixels
+
+                val lp =
+                    progress.layoutParams
+
+                lp.width =
+                    (
+                        width * 0.06f
+                    ).toInt()
+
+                progress.layoutParams = lp
+
+                progress.alpha = 1f
+            }
         }
+
         web.loadUrl(url)
     }
 
     @Suppress("SetJavaScriptEnabled")
-    private fun injectThemeObserver(view: WebView) {
-        view.evaluateJavascript("""
+    private fun injectThemeObserver(
+        view: WebView
+    ) {
+
+        view.evaluateJavascript(
+            """
             (function(){
-              if(window.__appAoThemeObserverInstalled){ return; }
-              window.__appAoThemeObserverInstalled=true;
-              function send(){
-                try{
-                  var root=document.documentElement, body=document.body;
-                  var cs=getComputedStyle(root);
-                  var bg=(cs.getPropertyValue('--bg')||'').trim();
-                  if(!bg && body){ bg=getComputedStyle(body).backgroundColor; }
-                  var meta=document.querySelector('meta[name=theme-color]');
-                  if(!bg && meta){ bg=meta.content||''; }
-                  var dark=(root.getAttribute('data-theme')==='dark');
-                  if(window.AppAoTheme && bg) window.AppAoTheme.setTheme(bg,dark);
-                }catch(e){}
-              }
-              send();
-              new MutationObserver(send).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme','class','style']});
-              setInterval(send,1200);
+              try{
+                if(window.__appAoThemeObserverInstalled){
+                  return;
+                }
+
+                window.__appAoThemeObserverInstalled = true;
+
+                function send(){
+
+                  try{
+
+                    var root =
+                      document.documentElement;
+
+                    var body =
+                      document.body;
+
+                    var cs =
+                      getComputedStyle(root);
+
+                    var bg =
+                      (cs.getPropertyValue('--bg') || '').trim();
+
+                    if(!bg && body){
+                      bg =
+                        getComputedStyle(body)
+                          .backgroundColor;
+                    }
+
+                    var meta =
+                      document.querySelector(
+                        'meta[name="theme-color"]'
+                      );
+
+                    if(!bg && meta){
+                      bg =
+                        meta.content || '';
+                    }
+
+                    var dark =
+                      root.getAttribute(
+                        'data-theme'
+                      ) === 'dark';
+
+                    if(
+                      window.AppAoTheme &&
+                      bg
+                    ){
+                      window.AppAoTheme.setTheme(
+                        bg,
+                        dark
+                      );
+                    }
+
+                  }catch(e){}
+                }
+
+                send();
+
+                new MutationObserver(
+                  send
+                ).observe(
+                  document.documentElement,
+                  {
+                    attributes:true,
+                    attributeFilter:[
+                      'data-theme',
+                      'class',
+                      'style'
+                    ]
+                  }
+                );
+
+                setInterval(
+                  send,
+                  1200
+                );
+
+              }catch(e){}
             })();
-        """.trimIndent(), null)
+            """.trimIndent(),
+            null
+        )
     }
 
     private inner class HtmlThemeBridge {
+
         @JavascriptInterface
-        fun setTheme(color: String, dark: Boolean) {
+        fun setTheme(
+            color: String,
+            dark: Boolean
+        ) {
+
             runOnUiThread {
+
                 try {
-                    val normalized = color.trim()
-                    val parsed = if (normalized.startsWith("#")) Color.parseColor(normalized) else null
-                    if (parsed != null) SystemBarHelper.syncColor(this@AppViewerActivity, parsed)
-                    else SystemBarHelper.sync(this@AppViewerActivity, dark)
+
+                    val normalized =
+                        color.trim()
+
+                    if (
+                        normalized.startsWith("#")
+                    ) {
+
+                        val parsed =
+                            Color.parseColor(
+                                normalized
+                            )
+
+                        SystemBarHelper.syncColor(
+                            this@AppViewerActivity,
+                            parsed
+                        )
+
+                    } else {
+
+                        SystemBarHelper.sync(
+                            this@AppViewerActivity,
+                            dark
+                        )
+                    }
+
                 } catch (_: Throwable) {
-                    SystemBarHelper.sync(this@AppViewerActivity, dark)
+
+                    SystemBarHelper.sync(
+                        this@AppViewerActivity,
+                        dark
+                    )
                 }
             }
         }
     }
 
     override fun onResume() {
+
         super.onResume()
+
         SystemBarHelper.sync(this)
-        web.post { injectThemeObserver(web) }
+
+        if (::web.isInitialized) {
+            web.post {
+                if (
+                    !isFinishing &&
+                    !isDestroyed
+                ) {
+                    injectThemeObserver(web)
+                }
+            }
+        }
     }
 
-    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+    override fun onConfigurationChanged(
+        newConfig: android.content.res.Configuration
+    ) {
+
         super.onConfigurationChanged(newConfig)
+
         SystemBarHelper.sync(this)
     }
 
     override fun onDestroy() {
-        try {
-            web.stopLoading()
-            web.webChromeClient = null
-            web.webViewClient = null
-            web.destroy()
-        } catch (_: Throwable) {}
+
+        if (::web.isInitialized) {
+
+            try {
+                web.stopLoading()
+            } catch (_: Throwable) {
+            }
+
+            try {
+                web.webChromeClient = null
+            } catch (_: Throwable) {
+            }
+
+            try {
+                web.destroy()
+            } catch (_: Throwable) {
+            }
+        }
+
         super.onDestroy()
     }
 }

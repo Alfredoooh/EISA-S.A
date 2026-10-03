@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
+    <!--
+        Compatibilidade:
+        algumas referências/recursos resolvidos pelo build procuram
+        um estilo chamado exatamente "Theme".
+    -->
+    <style name="Theme" parent="Theme.AppAo" />
+
     <style name="BubbleUser">
         <item name="android:background">@drawable/bg_bubble_user</item>
         <item name="android:textColor">#FFFFFF</item>
@@ -47,8 +55,5 @@
         <item name="android:textStyle">bold</item>
         <item name="android:letterSpacing">0.05</item>
     </style>
-
-
-
 
 </resources>

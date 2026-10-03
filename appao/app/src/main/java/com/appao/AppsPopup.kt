@@ -19,30 +19,29 @@ object AppsPopup {
         App("Loja",        "store",           "apps/store.html"),
         App("Notícias",    "news_feed",       "apps/news.html"),
         App("Jogos",       "game_controller", "apps/games.html"),
-        App("Verificados", "verified",         "apps/verified.html"),
-        App("Guardados",   "stack",            "apps/saved.html")
+        App("Verificados", "verified",        "apps/verified.html"),
+        App("Guardados",   "stack",           "apps/saved.html")
     )
 
     fun show(anchor: View, onPick: (App) -> Unit) {
         val ctx = anchor.context
         val container = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            background = ctx.getDrawable(R.drawable.bg_pill_card)
+            background = ctx.getDrawable(R.drawable.bg_popup)
             setPadding(dp(ctx, 8), dp(ctx, 8), dp(ctx, 8), dp(ctx, 8))
-            elevation = dp(ctx, 14).toFloat()
+            elevation = dp(ctx, 16).toFloat()
         }
 
         for (a in APPS) {
             val row = LinearLayout(ctx).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(ctx, 10), dp(ctx, 10), dp(ctx, 10), dp(ctx, 10))
+                setPadding(dp(ctx, 12), dp(ctx, 12), dp(ctx, 12), dp(ctx, 12))
                 isClickable = true
                 isFocusable = true
             }
             val iv = ImageView(ctx)
-            val lp = LinearLayout.LayoutParams(dp(ctx, 24), dp(ctx, 24))
-            iv.layoutParams = lp
+            iv.layoutParams = LinearLayout.LayoutParams(dp(ctx, 24), dp(ctx, 24))
             IconLoader.applyPng(iv, a.png)
             row.addView(iv)
 
@@ -70,7 +69,8 @@ object AppsPopup {
             true
         )
         popup.setBackgroundDrawable(ColorDrawable(0x00000000))
-        popup.elevation = dp(ctx, 14).toFloat()
+        popup.elevation = dp(ctx, 16).toFloat()
+        popup.animationStyle = R.style.AppAo_PopupAnim
         anchor.tag = popup
 
         container.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)

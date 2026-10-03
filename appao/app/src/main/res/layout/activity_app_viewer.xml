@@ -3,65 +3,6 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg">
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingStart="10dp"
-            android:paddingEnd="10dp"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp">
-
-            <FrameLayout
-                android:id="@+id/appBack"
-                android:layout_width="42dp"
-                android:layout_height="42dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:clickable="true"
-                android:focusable="true">
-                <ImageView
-                    android:id="@+id/appBackIcon"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:layout_gravity="center"/>
-            </FrameLayout>
-
-            <TextView
-                android:id="@+id/appTitle"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="6dp"
-                android:text="App"
-                android:textColor="@color/text"
-                android:textSize="17sp"
-                android:textStyle="bold"/>
-        </LinearLayout>
-
-        <View android:layout_width="match_parent" android:layout_height="1dp"
-            android:background="@color/line"/>
-
-        <WebView
-            android:id="@+id/webView"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:background="@color/bg"/>
-    </LinearLayout>
-
-    <View
-        android:id="@+id/appProgress"
-        android:layout_width="0dp"
-        android:layout_height="5dp"
-        android:layout_gravity="top|start"
-        android:background="@drawable/progress_gradient"
-        android:alpha="0"
-        android:elevation="20dp"/>
+    <WebView android:id="@+id/webView" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/bg"/>
+    <View android:id="@+id/appProgress" android:layout_width="0dp" android:layout_height="3dp" android:layout_gravity="top|start" android:background="@drawable/progress_gradient" android:alpha="0" android:elevation="20dp" android:translationZ="20dp"/>
 </FrameLayout>

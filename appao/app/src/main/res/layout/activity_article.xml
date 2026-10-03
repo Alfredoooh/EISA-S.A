@@ -1,339 +1,80 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootArticle"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg">
-
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
-
-        <ImageView
-            android:id="@+id/ambient"
-            android:layout_width="match_parent"
-            android:layout_height="360dp"
-            android:scaleType="centerCrop"
-            android:alpha="0.22"
-            android:visibility="gone"/>
-
-        <ScrollView
-            android:id="@+id/aScroll"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:clipToPadding="false"
-            android:paddingBottom="110dp"
-            android:overScrollMode="never">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <ImageView
-                    android:id="@+id/aHero"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:adjustViewBounds="true"
-                    android:minHeight="220dp"
-                    android:scaleType="centerCrop"
-                    android:background="@color/card"/>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="20dp"
-                    android:paddingEnd="20dp"
-                    android:paddingTop="16dp"
-                    android:paddingBottom="8dp">
-
-                    <ImageView
-                        android:id="@+id/aFavicon"
-                        android:layout_width="19dp"
-                        android:layout_height="19dp"
-                        android:scaleType="centerCrop"/>
-
-                    <TextView
-                        android:id="@+id/aSource"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:textColor="@color/text"
-                        android:textSize="13sp"
-                        android:textStyle="bold"/>
-
-                    <TextView
-                        android:id="@+id/aTime"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="6dp"
-                        android:textColor="@color/dim"
-                        android:textSize="12sp"/>
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/aTitle"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:paddingStart="20dp"
-                    android:paddingEnd="20dp"
-                    android:textColor="@color/text"
-                    android:textSize="25sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="-0.02"
-                    android:lineSpacingMultiplier="1.2"/>
-
-                <TextView
-                    android:id="@+id/aSummary"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="20dp"
-                    android:layout_marginEnd="20dp"
-                    android:layout_marginTop="14dp"
-                    android:background="@drawable/bg_pill_card"
-                    android:padding="14dp"
-                    android:textColor="@color/dim"
-                    android:textSize="14.5sp"
-                    android:lineSpacingMultiplier="1.6"
-                    android:visibility="gone"/>
-
-                <TextView
-                    android:id="@+id/aBody"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:paddingStart="20dp"
-                    android:paddingEnd="20dp"
-                    android:paddingTop="18dp"
-                    android:textColor="@color/text"
-                    android:textSize="16sp"
-                    android:lineSpacingMultiplier="1.72"/>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="@color/card"
-                    android:orientation="vertical"
-                    android:layout_marginTop="22dp"
-                    android:paddingBottom="24dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:paddingStart="20dp"
-                        android:paddingEnd="20dp"
-                        android:paddingTop="18dp"
-                        android:paddingBottom="6dp">
-
-                        <ImageView
-                            android:id="@+id/cIcon"
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:scaleType="fitCenter"/>
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:text="Comentários"
-                            android:textColor="@color/text"
-                            android:textSize="16sp"
-                            android:textStyle="bold"/>
-
-                        <TextView
-                            android:id="@+id/cCount"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="6dp"
-                            android:textColor="@color/dim"
-                            android:textSize="16sp"/>
-                    </LinearLayout>
-
-                    <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/cList"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:nestedScrollingEnabled="false"
-                        android:overScrollMode="never"/>
-                </LinearLayout>
-            </LinearLayout>
-        </ScrollView>
-    </FrameLayout>
-
-    <LinearLayout
-        android:id="@+id/articleBar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:orientation="horizontal"
-        android:background="@color/bgElevated"
-        android:gravity="center_vertical"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="10dp"
-        android:paddingBottom="10dp">
-
-        <LinearLayout
-            android:id="@+id/acComposer"
-            android:layout_width="0dp"
-            android:layout_height="46dp"
-            android:layout_weight="1"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="@drawable/bg_pill_card"
-            android:paddingStart="18dp"
-            android:paddingEnd="6dp">
-
-            <EditText
-                android:id="@+id/acInput"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:background="@null"
-                android:hint="Comentar…"
-                android:textColorHint="@color/dim"
-                android:textColor="@color/text"
-                android:textSize="14.5sp"
-                android:imeOptions="actionSend"
-                android:inputType="textCapSentences"
-                android:maxLines="1"/>
-
-            <FrameLayout
-                android:id="@+id/acSend"
-                android:layout_width="34dp"
-                android:layout_height="34dp"
-                android:background="@drawable/bg_circle_pri"
-                android:visibility="gone">
-                <ImageView
-                    android:id="@+id/acSendIcon"
-                    android:layout_width="17dp"
-                    android:layout_height="17dp"
-                    android:layout_gravity="center"/>
-            </FrameLayout>
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/acReacts"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginStart="8dp">
-
-            <FrameLayout
-                android:id="@+id/acLike"
-                android:layout_width="46dp"
-                android:layout_height="46dp">
-                <ImageView
-                    android:id="@+id/acLikeIcon"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
-                    android:layout_gravity="center"/>
-            </FrameLayout>
-
-            <FrameLayout
-                android:id="@+id/acLove"
-                android:layout_width="46dp"
-                android:layout_height="46dp">
-                <ImageView
-                    android:id="@+id/acLoveIcon"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
-                    android:layout_gravity="center"/>
-            </FrameLayout>
-
-            <FrameLayout
-                android:id="@+id/acHaha"
-                android:layout_width="46dp"
-                android:layout_height="46dp">
-                <ImageView
-                    android:id="@+id/acHahaIcon"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
-                    android:layout_gravity="center"/>
-            </FrameLayout>
-
-            <FrameLayout
-                android:id="@+id/acMore"
-                android:layout_width="38dp"
-                android:layout_height="46dp">
-                <ImageView
-                    android:id="@+id/acMoreIcon"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_gravity="center"/>
-            </FrameLayout>
-        </LinearLayout>
-    </LinearLayout>
 
     <LinearLayout
         android:id="@+id/aTopBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_gravity="top"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:paddingStart="10dp"
         android:paddingEnd="10dp"
         android:paddingTop="6dp"
-        android:paddingBottom="6dp">
-
-        <FrameLayout
-            android:id="@+id/aBack"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:clickable="true"
-            android:focusable="true">
-            <ImageView
-                android:id="@+id/aBackIcon"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
-                android:layout_gravity="center"/>
+        android:paddingBottom="6dp"
+        android:elevation="6dp"
+        android:background="@color/bg">
+        <FrameLayout android:id="@+id/aBack" android:layout_width="42dp" android:layout_height="42dp" android:background="?attr/selectableItemBackgroundBorderless" android:clickable="true" android:focusable="true">
+            <ImageView android:id="@+id/aBackIcon" android:layout_width="22dp" android:layout_height="22dp" android:layout_gravity="center"/>
         </FrameLayout>
+        <TextView android:id="@+id/aTopTitle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="6dp" android:text="Notícia" android:textColor="@color/text" android:textSize="18sp" android:textStyle="bold"/>
+        <FrameLayout android:id="@+id/aCopy" android:layout_width="42dp" android:layout_height="42dp"><ImageView android:id="@+id/aCopyIcon" android:layout_width="22dp" android:layout_height="22dp" android:layout_gravity="center"/></FrameLayout>
+        <FrameLayout android:id="@+id/aSave" android:layout_width="42dp" android:layout_height="42dp"><ImageView android:id="@+id/aSaveIcon" android:layout_width="22dp" android:layout_height="22dp" android:layout_gravity="center"/></FrameLayout>
+        <FrameLayout android:id="@+id/aShare" android:layout_width="42dp" android:layout_height="42dp"><ImageView android:id="@+id/aShareIcon" android:layout_width="22dp" android:layout_height="22dp" android:layout_gravity="center"/></FrameLayout>
+    </LinearLayout>
 
-        <TextView
-            android:id="@+id/aTopTitle"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="6dp"
-            android:text="Notícia"
-            android:textColor="@color/text"
-            android:textSize="18sp"
-            android:textStyle="bold"/>
+    <ScrollView
+        android:id="@+id/aScroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="56dp"
+        android:clipToPadding="false"
+        android:paddingBottom="110dp"
+        android:overScrollMode="never">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/aHero"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:adjustViewBounds="true"
+                android:minHeight="240dp"
+                android:scaleType="centerCrop"
+                android:background="@color/card"/>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="20dp" android:paddingEnd="20dp" android:paddingTop="16dp" android:paddingBottom="8dp">
+                <ImageView android:id="@+id/aReactSlot" android:layout_width="22dp" android:layout_height="22dp" android:layout_marginEnd="6dp" android:visibility="gone"/>
+                <com.google.android.material.imageview.ShapeableImageView android:id="@+id/aFavicon" android:layout_width="20dp" android:layout_height="20dp" android:scaleType="centerCrop" app:shapeAppearanceOverlay="@style/CircleImage"/>
+                <TextView android:id="@+id/aSource" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:textColor="@color/text" android:textSize="13sp" android:textStyle="bold"/>
+                <TextView android:id="@+id/aTime" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:textColor="@color/dim" android:textSize="12sp"/>
+            </LinearLayout>
+            <TextView android:id="@+id/aTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingStart="20dp" android:paddingEnd="20dp" android:textColor="@color/text" android:textSize="25sp" android:textStyle="bold" android:letterSpacing="-0.02" android:lineSpacingMultiplier="1.2"/>
+            <TextView android:id="@+id/aSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginStart="20dp" android:layout_marginEnd="20dp" android:layout_marginTop="14dp" android:background="@drawable/bg_pill_card" android:padding="14dp" android:textColor="@color/dim" android:textSize="14.5sp" android:lineSpacingMultiplier="1.6" android:visibility="gone"/>
+            <TextView android:id="@+id/aBody" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingStart="20dp" android:paddingEnd="20dp" android:paddingTop="18dp" android:textColor="@color/text" android:textSize="16sp" android:lineSpacingMultiplier="1.72"/>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@color/card" android:orientation="vertical" android:layout_marginTop="22dp" android:paddingBottom="24dp">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="20dp" android:paddingEnd="20dp" android:paddingTop="18dp" android:paddingBottom="6dp">
+                    <ImageView android:id="@+id/cIcon" android:layout_width="20dp" android:layout_height="20dp" android:scaleType="fitCenter"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="Comentários" android:textColor="@color/text" android:textSize="16sp" android:textStyle="bold"/>
+                    <TextView android:id="@+id/cCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:textColor="@color/dim" android:textSize="16sp"/>
+                </LinearLayout>
+                <androidx.recyclerview.widget.RecyclerView android:id="@+id/cList" android:layout_width="match_parent" android:layout_height="wrap_content" android:nestedScrollingEnabled="false" android:overScrollMode="never"/>
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
 
-        <FrameLayout
-            android:id="@+id/aCopy"
-            android:layout_width="42dp"
-            android:layout_height="42dp">
-            <ImageView
-                android:id="@+id/aCopyIcon"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
-                android:layout_gravity="center"/>
-        </FrameLayout>
-
-        <FrameLayout
-            android:id="@+id/aSave"
-            android:layout_width="42dp"
-            android:layout_height="42dp">
-            <ImageView
-                android:id="@+id/aSaveIcon"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
-                android:layout_gravity="center"/>
-        </FrameLayout>
-
-        <FrameLayout
-            android:id="@+id/aShare"
-            android:layout_width="42dp"
-            android:layout_height="42dp">
-            <ImageView
-                android:id="@+id/aShareIcon"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
-                android:layout_gravity="center"/>
-        </FrameLayout>
+    <LinearLayout android:id="@+id/articleBar" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="bottom" android:orientation="horizontal" android:background="@color/bgElevated" android:gravity="center_vertical" android:paddingStart="12dp" android:paddingEnd="12dp" android:paddingTop="10dp" android:paddingBottom="10dp" android:elevation="12dp">
+        <LinearLayout android:id="@+id/acComposer" android:layout_width="0dp" android:layout_height="44dp" android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical" android:background="@drawable/bg_pill_card" android:paddingStart="18dp" android:paddingEnd="4dp">
+            <EditText android:id="@+id/acInput" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:background="@null" android:hint="@string/comentar" android:textColorHint="@color/dim" android:textColor="@color/text" android:textSize="14sp" android:imeOptions="actionSend" android:inputType="textCapSentences" android:maxLines="1"/>
+            <FrameLayout android:id="@+id/acSend" android:layout_width="32dp" android:layout_height="32dp" android:background="@drawable/bg_circle_pri" android:visibility="gone"><ImageView android:id="@+id/acSendIcon" android:layout_width="16dp" android:layout_height="16dp" android:layout_gravity="center"/></FrameLayout>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/acReacts" android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginStart="6dp">
+            <FrameLayout android:id="@+id/acLike" android:layout_width="34dp" android:layout_height="34dp"><ImageView android:id="@+id/acLikeIcon" android:layout_width="24dp" android:layout_height="24dp" android:layout_gravity="center"/></FrameLayout>
+            <FrameLayout android:id="@+id/acLove" android:layout_width="34dp" android:layout_height="34dp"><ImageView android:id="@+id/acLoveIcon" android:layout_width="24dp" android:layout_height="24dp" android:layout_gravity="center"/></FrameLayout>
+            <FrameLayout android:id="@+id/acHaha" android:layout_width="34dp" android:layout_height="34dp"><ImageView android:id="@+id/acHahaIcon" android:layout_width="24dp" android:layout_height="24dp" android:layout_gravity="center"/></FrameLayout>
+            <FrameLayout android:id="@+id/acMore" android:layout_width="28dp" android:layout_height="34dp"><ImageView android:id="@+id/acMoreIcon" android:layout_width="18dp" android:layout_height="18dp" android:layout_gravity="center"/></FrameLayout>
+        </LinearLayout>
     </LinearLayout>
 </FrameLayout>

@@ -6,9 +6,9 @@ import android.view.View
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.ImageView
-import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
 
 class AppViewerActivity : AppCompatActivity() {
 
@@ -18,19 +18,13 @@ class AppViewerActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(R.layout.activity_app_viewer)
 
         web = findViewById(R.id.webView)
         progress = findViewById(R.id.appProgress)
 
         val url = intent.getStringExtra("url") ?: run { finish(); return }
-        val title = intent.getStringExtra("title") ?: "App"
-
-        findViewById<TextView>(R.id.appTitle).text = title
-        IconLoader.applySvg(findViewById<ImageView>(R.id.appBackIcon), "back", R.color.text)
-        findViewById<View>(R.id.appBack).setOnClickListener {
-            if (web.canGoBack()) web.goBack() else finish()
-        }
 
         web.settings.apply {
             javaScriptEnabled = true
@@ -44,7 +38,6 @@ class AppViewerActivity : AppCompatActivity() {
         }
 
         web.webViewClient = WebViewClient()
-
         web.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                 val target = (resources.displayMetrics.widthPixels * newProgress / 100f).toInt()
@@ -52,12 +45,15 @@ class AppViewerActivity : AppCompatActivity() {
                 lp.width = target
                 progress.layoutParams = lp
                 progress.alpha = 1f
-                if (newProgress >= 100) {
-                    progress.animate().alpha(0f).setDuration(400)
-                        .setInterpolator(Curves.SMOOTH).start()
-                }
+                if (newProgress >= 100) progress.animate().alpha(0f).setDuration(400).start()
             }
         }
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (web.canGoBack()) web.goBack() else finish()
+            }
+        })
 
         progress.layoutParams.width = (resources.displayMetrics.widthPixels * 0.88f).toInt()
         progress.requestLayout()
@@ -66,13 +62,8 @@ class AppViewerActivity : AppCompatActivity() {
         web.loadUrl(url)
     }
 
+    @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (web.canGoBack()) web.goBack() else super.onBackPressed()
-    }
-
-    override fun onDestroy() {
-        web.stopLoading()
-        web.destroy()
-        super.onDestroy()
+        // tratado pelo dispatcher
     }
 }

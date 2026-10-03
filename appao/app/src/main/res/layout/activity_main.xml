@@ -1,24 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootMain"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg">
 
     <LinearLayout
-        android:id="@+id/header"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <LinearLayout
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/header"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:paddingTop="10dp"
-            android:paddingBottom="6dp">
+            android:layout_height="56dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp">
 
             <LinearLayout
                 android:id="@+id/wPill"
@@ -27,10 +25,13 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:paddingStart="8dp"
-                android:paddingEnd="12dp"
+                android:paddingEnd="10dp"
                 android:paddingTop="6dp"
                 android:paddingBottom="6dp"
-                android:background="?attr/selectableItemBackgroundBorderless">
+                android:background="?attr/selectableItemBackgroundBorderless"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent">
                 <ImageView
                     android:id="@+id/wIcon"
                     android:layout_width="23dp"
@@ -44,11 +45,8 @@
                     android:text="--°"
                     android:textColor="@color/text"
                     android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:fontFamily="sans-serif"/>
+                    android:textStyle="bold"/>
             </LinearLayout>
-
-            <Space android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1"/>
 
             <LinearLayout
                 android:id="@+id/hCat"
@@ -60,7 +58,11 @@
                 android:paddingEnd="12dp"
                 android:paddingTop="8dp"
                 android:paddingBottom="8dp"
-                android:background="?attr/selectableItemBackgroundBorderless">
+                android:background="?attr/selectableItemBackgroundBorderless"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
                 <TextView
                     android:id="@+id/hCatLabel"
                     android:layout_width="wrap_content"
@@ -68,8 +70,7 @@
                     android:text="Todas"
                     android:textColor="@color/text"
                     android:textSize="17sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="-0.03"/>
+                    android:textStyle="bold"/>
                 <ImageView
                     android:id="@+id/hCatChevron"
                     android:layout_width="16dp"
@@ -78,15 +79,16 @@
                     android:scaleType="fitCenter"/>
             </LinearLayout>
 
-            <Space android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1"/>
-
             <FrameLayout
                 android:id="@+id/hMore"
                 android:layout_width="42dp"
                 android:layout_height="42dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:clickable="true"
-                android:focusable="true">
+                android:focusable="true"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
                 <ImageView
                     android:id="@+id/hMoreIcon"
                     android:layout_width="23dp"
@@ -94,14 +96,13 @@
                     android:layout_gravity="center"
                     android:scaleType="fitCenter"/>
             </FrameLayout>
-        </LinearLayout>
+        </androidx.constraintlayout.widget.ConstraintLayout>
 
         <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
             android:id="@+id/swipe"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1">
-
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/recycler"
                 android:layout_width="match_parent"
@@ -115,32 +116,30 @@
     <LinearLayout
         android:id="@+id/biPill"
         android:layout_width="320dp"
-        android:layout_height="45dp"
+        android:layout_height="46dp"
         android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="23dp"
+        android:layout_marginBottom="20dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="@drawable/bg_pill_blur"
+        android:background="@drawable/bg_pill_card"
         android:paddingStart="6dp"
         android:paddingEnd="6dp"
         android:elevation="26dp"
         android:translationZ="26dp">
-
         <FrameLayout
             android:id="@+id/biAdd"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
             android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">
             <ImageView
                 android:id="@+id/biAddIcon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
                 android:layout_gravity="center"
                 android:scaleType="fitCenter"/>
         </FrameLayout>
-
         <EditText
             android:id="@+id/biInput"
             android:layout_width="0dp"
@@ -155,21 +154,19 @@
             android:inputType="textCapSentences"
             android:maxLines="1"
             android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:fontFamily="sans-serif"/>
-
+            android:paddingEnd="8dp"/>
         <FrameLayout
             android:id="@+id/biSend"
             android:layout_width="0dp"
-            android:layout_height="34dp"
+            android:layout_height="36dp"
             android:background="@drawable/bg_circle_pri"
             android:visibility="gone"
             android:clickable="true"
             android:focusable="true">
             <ImageView
                 android:id="@+id/biSendIcon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
                 android:layout_gravity="center"
                 android:scaleType="fitCenter"/>
         </FrameLayout>
@@ -179,61 +176,15 @@
         android:id="@+id/catScrim"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#38000000"
+        android:background="@color/scrim"
         android:alpha="0"
         android:visibility="gone"/>
-
-    <LinearLayout
-        android:id="@+id/catSheet"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:orientation="vertical"
-        android:background="@drawable/bg_sheet_top"
-        android:visibility="gone"
-        android:paddingBottom="12dp">
-
-        <FrameLayout
-            android:id="@+id/catGrab"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="10dp"
-            android:paddingBottom="6dp">
-            <View
-                android:layout_width="38dp"
-                android:layout_height="4dp"
-                android:layout_gravity="center"
-                android:background="@color/line"/>
-        </FrameLayout>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingStart="22dp"
-            android:paddingEnd="22dp"
-            android:paddingTop="6dp"
-            android:paddingBottom="14dp"
-            android:text="Categoria"
-            android:textColor="@color/text"
-            android:textSize="17sp"
-            android:textStyle="bold"/>
-
-        <ScrollView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-            <LinearLayout
-                android:id="@+id/catList"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"/>
-        </ScrollView>
-    </LinearLayout>
 
     <View
         android:id="@+id/drawerScrim"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#38000000"
+        android:background="@color/scrim"
         android:alpha="0"
         android:visibility="gone"/>
 
@@ -255,24 +206,21 @@
             android:gravity="center_vertical"
             android:paddingStart="20dp"
             android:paddingEnd="20dp"
-            android:paddingTop="22dp"
+            android:paddingTop="28dp"
             android:paddingBottom="18dp">
-
-            <ImageView
+            <com.google.android.material.imageview.ShapeableImageView
                 android:id="@+id/drAvatar"
                 android:layout_width="52dp"
                 android:layout_height="52dp"
-                android:background="@drawable/bg_circle_card"
                 android:scaleType="centerCrop"
-                android:padding="0dp"/>
-
+                android:background="@color/card"
+                app:shapeAppearanceOverlay="@style/CircleImage"/>
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:layout_marginStart="14dp"
                 android:orientation="vertical">
-
                 <TextView
                     android:id="@+id/drName"
                     android:layout_width="match_parent"
@@ -283,7 +231,6 @@
                     android:textStyle="bold"
                     android:maxLines="1"
                     android:ellipsize="end"/>
-
                 <TextView
                     android:id="@+id/drUser"
                     android:layout_width="match_parent"
@@ -295,59 +242,18 @@
                     android:ellipsize="end"/>
             </LinearLayout>
         </LinearLayout>
-
-        <View android:layout_width="match_parent" android:layout_height="1dp"
-            android:background="@color/line"/>
-
-        <LinearLayout
-            android:id="@+id/drProfile"
-            style="@style/DrawerItem">
-            <ImageView
-                android:id="@+id/drIconProfile"
-                android:layout_width="25dp"
-                android:layout_height="25dp"/>
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="14dp"
-                android:text="Perfil"
-                android:textColor="@color/text"
-                android:textSize="15sp"/>
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/line"/>
+        <LinearLayout android:id="@+id/drProfile" style="@style/DrawerItem">
+            <ImageView android:id="@+id/drIconProfile" android:layout_width="25dp" android:layout_height="25dp"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Perfil" android:textColor="@color/text" android:textSize="15sp"/>
         </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/drLibrary"
-            style="@style/DrawerItem">
-            <ImageView
-                android:id="@+id/drIconLibrary"
-                android:layout_width="25dp"
-                android:layout_height="25dp"/>
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="14dp"
-                android:text="Biblioteca"
-                android:textColor="@color/text"
-                android:textSize="15sp"/>
+        <LinearLayout android:id="@+id/drLibrary" style="@style/DrawerItem">
+            <ImageView android:id="@+id/drIconLibrary" android:layout_width="25dp" android:layout_height="25dp"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Biblioteca" android:textColor="@color/text" android:textSize="15sp"/>
         </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/drSettings"
-            style="@style/DrawerItem">
-            <ImageView
-                android:id="@+id/drIconSettings"
-                android:layout_width="25dp"
-                android:layout_height="25dp"/>
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="14dp"
-                android:text="Definições"
-                android:textColor="@color/text"
-                android:textSize="15sp"/>
+        <LinearLayout android:id="@+id/drSettings" style="@style/DrawerItem">
+            <ImageView android:id="@+id/drIconSettings" android:layout_width="25dp" android:layout_height="25dp"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Definições" android:textColor="@color/text" android:textSize="15sp"/>
         </LinearLayout>
     </LinearLayout>
 
@@ -358,6 +264,6 @@
         android:layout_gravity="top|start"
         android:background="@drawable/progress_gradient"
         android:alpha="0"
-        android:elevation="30dp"
-        android:translationZ="30dp"/>
+        android:elevation="50dp"
+        android:translationZ="50dp"/>
 </FrameLayout>

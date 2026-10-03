@@ -9,14 +9,12 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
-import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -27,6 +25,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -39,11 +38,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var biInput: EditText
     private lateinit var biSend: FrameLayout
     private lateinit var biAdd: FrameLayout
-    private lateinit var catScrim: View
-    private lateinit var catSheet: View
-    private lateinit var drawerScrim: View
-    private lateinit var drawerPanel: View
     private lateinit var header: View
+    private lateinit var drawerPanel: View
+    private lateinit var drawerScrim: View
 
     private val items = mutableListOf<NewsItem>()
     private val categories = listOf(
@@ -55,13 +52,10 @@ class MainActivity : AppCompatActivity() {
     private var loading = false
     private var exhausted = false
     private var drawerOpen = false
-    private var catSheetOpen = false
+    private var lastScrollY = 0
+    private var headerHidden = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        AppCompatDelegate.setDefaultNightMode(
-            if (isSystemDark()) AppCompatDelegate.MODE_NIGHT_YES
-            else AppCompatDelegate.MODE_NIGHT_NO
-        )
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(R.layout.activity_main)
@@ -73,30 +67,23 @@ class MainActivity : AppCompatActivity() {
         biInput = findViewById(R.id.biInput)
         biSend = findViewById(R.id.biSend)
         biAdd = findViewById(R.id.biAdd)
-        catScrim = findViewById(R.id.catScrim)
-        catSheet = findViewById(R.id.catSheet)
-        drawerScrim = findViewById(R.id.drawerScrim)
-        drawerPanel = findViewById(R.id.drawerPanel)
         header = findViewById(R.id.header)
+        drawerPanel = findViewById(R.id.drawerPanel)
+        drawerScrim = findViewById(R.id.drawerScrim)
 
-        // padding top só no header (para a statusbar) — drawer NÃO recebe
-        ViewCompat.setOnApplyWindowInsetsListener(header) { v, insets ->
-            val top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
-            v.updatePadding(top = top + (6 * resources.displayMetrics.density).toInt())
-            insets
-        }
-        // pill recebe bottom padding de navegação
-        ViewCompat.setOnApplyWindowInsetsListener(biPill) { v, insets ->
-            val b = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-            val lp = v.layoutParams as FrameLayout.LayoutParams
-            lp.bottomMargin = b + (20 * resources.displayMetrics.density).toInt()
-            v.layoutParams = lp
-            insets
-        }
-        // catSheet recebe bottom
-        ViewCompat.setOnApplyWindowInsetsListener(catSheet) { v, insets ->
-            val b = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, b + (12 * resources.displayMetrics.density).toInt())
+        val root = findViewById<View>(R.id.rootMain)
+
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val bottom = maxOf(ime, sys.bottom)
+
+            header.updatePadding(top = sys.top + dp(4), bottom = 0)
+
+            val lp = biPill.layoutParams as FrameLayout.LayoutParams
+            lp.bottomMargin = bottom + dp(16)
+            biPill.layoutParams = lp
+
             insets
         }
 
@@ -105,12 +92,19 @@ class MainActivity : AppCompatActivity() {
         recycler.adapter = adapter
         recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
+                val y = rv.computeVerticalScrollOffset()
+                val delta = y - lastScrollY
+                if (delta > 6 && y > 40) {
+                    hideHeaderAndPill()
+                } else if (delta < -6) {
+                    showHeaderAndPill()
+                }
+                lastScrollY = y
                 if (!rv.canScrollVertically(1) && !loading && !exhausted) loadMore()
             }
         })
         swipe.setOnRefreshListener { loadNews(true) }
 
-        // ícones
         IconLoader.applySvg(findViewById(R.id.hMoreIcon), "menu", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.hCatChevron), "chevron-down", R.color.iconTint)
         IconLoader.applySvg(biAdd.findViewById(R.id.biAddIcon), "add", R.color.iconTint)
@@ -121,7 +115,6 @@ class MainActivity : AppCompatActivity() {
         IconLoader.applyPng(findViewById(R.id.drIconSettings), "settings")
         IconLoader.applyPng(findViewById(R.id.drAvatar), "avatar")
 
-        // input
         biInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) { setSendVisible(!s.isNullOrBlank()) }
@@ -134,7 +127,6 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<View>(R.id.hMore).setOnClickListener { openDrawer() }
         findViewById<View>(R.id.hCat).setOnClickListener { openCatSheet() }
-        catScrim.setOnClickListener { closeCatSheet() }
         drawerScrim.setOnClickListener { closeDrawer() }
 
         findViewById<View>(R.id.drProfile).setOnClickListener {
@@ -150,20 +142,28 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
 
-        buildCatList()
         setupDrawerDrag()
-        setupCatSheetDrag()
-
         loadNews(false)
         initWeather()
     }
 
-    private fun isSystemDark(): Boolean {
-        val mode = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
-        return mode == android.content.res.Configuration.UI_MODE_NIGHT_YES
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
+    private fun hideHeaderAndPill() {
+        if (headerHidden) return
+        headerHidden = true
+        header.animate().translationY(-header.height.toFloat() - dp(40))
+            .setDuration(280).setInterpolator(Curves.SMOOTH).start()
+        biPill.animate().translationY(biPill.height.toFloat() + dp(60))
+            .setDuration(280).setInterpolator(Curves.SMOOTH).start()
     }
 
-    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+    private fun showHeaderAndPill() {
+        if (!headerHidden) return
+        headerHidden = false
+        header.animate().translationY(0f).setDuration(280).setInterpolator(Curves.SMOOTH).start()
+        biPill.animate().translationY(0f).setDuration(280).setInterpolator(Curves.SMOOTH).start()
+    }
 
     private fun animatePillFocus(focused: Boolean) {
         val target = if (focused) dp(340) else dp(320)
@@ -183,7 +183,7 @@ class MainActivity : AppCompatActivity() {
     private fun setSendVisible(has: Boolean) {
         if (has) {
             val lp = biSend.layoutParams as LinearLayout.LayoutParams
-            lp.width = dp(34); lp.marginStart = dp(2)
+            lp.width = dp(36); lp.marginStart = dp(2)
             biSend.layoutParams = lp
             biSend.visibility = View.VISIBLE
             biSend.scaleX = 0.4f; biSend.scaleY = 0.4f; biSend.alpha = 0f
@@ -264,7 +264,6 @@ class MainActivity : AppCompatActivity() {
         recycler.postDelayed({
             startActivity(Intent(this, AppViewerActivity::class.java).apply {
                 putExtra("url", "file:///android_asset/apps/ai.html?q=${java.net.URLEncoder.encode(q, "UTF-8")}")
-                putExtra("title", "Inteligência Artificial")
             })
         }, 100)
     }
@@ -296,6 +295,7 @@ class MainActivity : AppCompatActivity() {
                 progress.requestLayout()
             }.start()
         }
+        findViewById<ImageView>(R.id.drAvatar)
     }
 
     private fun showAppsPopup(anchor: View) {
@@ -308,7 +308,6 @@ class MainActivity : AppCompatActivity() {
                 recycler.postDelayed({
                     startActivity(Intent(this, AppViewerActivity::class.java).apply {
                         putExtra("url", "file:///android_asset/${app.url}")
-                        putExtra("title", app.name)
                     })
                 }, 100)
             }
@@ -323,6 +322,7 @@ class MainActivity : AppCompatActivity() {
         drawerPanel.translationX = dp(300).toFloat()
         drawerPanel.animate().translationX(0f).setDuration(480).setInterpolator(Curves.SMOOTH).start()
     }
+
     private fun closeDrawer() {
         if (!drawerOpen) return
         drawerOpen = false
@@ -330,6 +330,7 @@ class MainActivity : AppCompatActivity() {
             .withEndAction { drawerScrim.visibility = View.GONE }.start()
         drawerPanel.animate().translationX(dp(300).toFloat()).setDuration(480).setInterpolator(Curves.SMOOTH).start()
     }
+
     private fun setupDrawerDrag() {
         var x0 = 0f; var lastX = 0f; var lastT = 0L; var vx = 0f
         drawerPanel.setOnTouchListener { _, ev ->
@@ -364,15 +365,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun buildCatList() {
-        val list = findViewById<LinearLayout>(R.id.catList)
-        list.removeAllViews()
+    private fun openCatSheet() {
+        val sheet = BottomSheetDialog(this, R.style.AppAo_BottomSheet)
+        val view = layoutInflater.inflate(R.layout.sheet_categories, null)
+        sheet.setContentView(view)
+
+        val list = view.findViewById<LinearLayout>(R.id.catList)
         for (c in categories) {
             val tv = TextView(this).apply {
                 text = c
                 setTextColor(getColor(R.color.text))
                 textSize = 16f
-                setPadding(dp(22), dp(16), dp(22), dp(16))
+                setPadding(dp(22), dp(18), dp(22), dp(18))
                 isClickable = true; isFocusable = true
                 background = ContextCompat.getDrawable(this@MainActivity, android.R.drawable.list_selector_background)
                 if (c == currentCat) setTypeface(null, android.graphics.Typeface.BOLD)
@@ -380,74 +384,12 @@ class MainActivity : AppCompatActivity() {
             tv.setOnClickListener {
                 currentCat = c
                 findViewById<TextView>(R.id.hCatLabel).text = c
-                buildCatList()
-                closeCatSheet()
+                sheet.dismiss()
                 loadNews(false)
             }
             list.addView(tv)
         }
-    }
-
-    private fun openCatSheet() {
-        if (catSheetOpen) return
-        catSheetOpen = true
-        catScrim.visibility = View.VISIBLE
-        catScrim.animate().alpha(1f).setDuration(300).setInterpolator(Curves.SMOOTH).start()
-        catSheet.visibility = View.VISIBLE
-        catSheet.post {
-            val h = catSheet.height.toFloat().coerceAtLeast(400f)
-            catSheet.translationY = h + 40f
-            catSheet.animate().translationY(0f).setDuration(400).setInterpolator(Curves.SMOOTH).start()
-        }
-    }
-    private fun closeCatSheet() {
-        if (!catSheetOpen) return
-        catSheetOpen = false
-        catScrim.animate().alpha(0f).setDuration(300).setInterpolator(Curves.SMOOTH)
-            .withEndAction { catScrim.visibility = View.GONE }.start()
-        catSheet.animate().translationY(dp(800).toFloat()).setDuration(400).setInterpolator(Curves.SMOOTH)
-            .withEndAction { catSheet.visibility = View.GONE }.start()
-    }
-    private fun setupCatSheetDrag() {
-        var y0 = 0f; var lastY = 0f; var lastT = 0L; var vy = 0f; var h = 1f
-        catSheet.setOnTouchListener { _, ev ->
-            when (ev.actionMasked) {
-                android.view.MotionEvent.ACTION_DOWN -> {
-                    y0 = ev.rawY; lastY = y0; lastT = System.currentTimeMillis(); vy = 0f
-                    h = catSheet.height.toFloat().coerceAtLeast(1f)
-                    catSheet.animate().cancel(); true
-                }
-                android.view.MotionEvent.ACTION_MOVE -> {
-                    val dy = (ev.rawY - y0).coerceAtLeast(0f)
-                    val now = System.currentTimeMillis(); val dt = now - lastT
-                    if (dt > 0) vy = (ev.rawY - lastY) / dt
-                    lastY = ev.rawY; lastT = now
-                    catSheet.translationY = dy
-                    catScrim.alpha = (1f - dy / (h * 0.9f)).coerceIn(0f, 1f)
-                    true
-                }
-                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
-                    val dy = catSheet.translationY
-                    val dismiss = dy > h * 0.28f || (vy > 0.6f && dy > dp(24))
-                    if (dismiss) {
-                        catSheet.animate().translationY(dp(800).toFloat()).setDuration(260)
-                            .setInterpolator(Curves.SMOOTH)
-                            .withEndAction {
-                                catSheet.visibility = View.GONE
-                                catSheet.translationY = 0f
-                            }.start()
-                        catScrim.animate().alpha(0f).setDuration(260)
-                            .withEndAction { catScrim.visibility = View.GONE }.start()
-                        catSheetOpen = false
-                    } else {
-                        catSheet.animate().translationY(0f).setDuration(280).setInterpolator(Curves.SMOOTH).start()
-                        catScrim.animate().alpha(1f).setDuration(280).start()
-                    }
-                    true
-                }
-                else -> false
-            }
-        }
+        sheet.show()
     }
 
     private fun openArticle(item: NewsItem) {

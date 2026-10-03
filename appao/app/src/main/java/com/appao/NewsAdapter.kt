@@ -35,21 +35,22 @@ class NewsAdapter(
         h.source.text = item.source
         h.title.text = item.title
         h.time.text = ago(item.date)
+
         if (item.logo.isNotEmpty()) Glide.with(h.favicon).load(item.logo).into(h.favicon)
         else h.favicon.setImageDrawable(null)
+
         if (item.image.isNotEmpty()) {
             h.image.visibility = View.VISIBLE
             Glide.with(h.image).load(item.image).into(h.image)
         } else h.image.visibility = View.GONE
+
         h.itemView.setOnClickListener { onClick(item) }
     }
 
     override fun getItemCount() = list.size
 
     fun submit(items: List<NewsItem>) {
-        list.clear()
-        list.addAll(items)
-        notifyDataSetChanged()
+        list.clear(); list.addAll(items); notifyDataSetChanged()
     }
 
     fun append(items: List<NewsItem>) {

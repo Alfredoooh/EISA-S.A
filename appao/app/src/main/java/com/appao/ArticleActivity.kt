@@ -15,14 +15,17 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.updatePadding
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
 
 class ArticleActivity : AppCompatActivity() {
@@ -34,17 +37,19 @@ class ArticleActivity : AppCompatActivity() {
     private lateinit var source: TextView
     private lateinit var time: TextView
     private lateinit var favicon: ImageView
+    private lateinit var reactSlot: ImageView
     private lateinit var scroll: ScrollView
     private lateinit var articleBar: LinearLayout
     private lateinit var acInput: EditText
     private lateinit var acSend: FrameLayout
     private lateinit var commentsAdapter: CommentAdapter
+    private lateinit var root: View
 
     private val comments = mutableListOf<Comment>()
     private var itemImage: String = ""
     private var itemLink: String = ""
     private var itemTitle: String = ""
-    private var itemLogo: String = ""
+    private var currentReact: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,11 +59,12 @@ class ArticleActivity : AppCompatActivity() {
         itemImage = intent.getStringExtra("image") ?: ""
         itemLink = intent.getStringExtra("link") ?: ""
         itemTitle = intent.getStringExtra("title") ?: ""
-        itemLogo = intent.getStringExtra("logo") ?: ""
         val itemSummary = intent.getStringExtra("summary") ?: ""
         val itemSource = intent.getStringExtra("source") ?: ""
         val itemDate = intent.getStringExtra("date") ?: ""
+        val itemLogo = intent.getStringExtra("logo") ?: ""
 
+        root = findViewById(R.id.rootArticle)
         hero = findViewById(R.id.aHero)
         title = findViewById(R.id.aTitle)
         summary = findViewById(R.id.aSummary)
@@ -66,12 +72,32 @@ class ArticleActivity : AppCompatActivity() {
         source = findViewById(R.id.aSource)
         time = findViewById(R.id.aTime)
         favicon = findViewById(R.id.aFavicon)
+        reactSlot = findViewById(R.id.aReactSlot)
         scroll = findViewById(R.id.aScroll)
         articleBar = findViewById(R.id.articleBar)
         acInput = findViewById(R.id.acInput)
         acSend = findViewById(R.id.acSend)
 
-        // ícones
+        val topbar = findViewById<View>(R.id.aTopBar)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val bottom = maxOf(ime, sys.bottom)
+
+            topbar.updatePadding(top = sys.top + dp(6))
+
+            val lp = articleBar.layoutParams as FrameLayout.LayoutParams
+            lp.bottomMargin = bottom
+            articleBar.layoutParams = lp
+
+            val topTotal = sys.top + dp(56)
+            val scrollLp = scroll.layoutParams as FrameLayout.LayoutParams
+            scrollLp.topMargin = topTotal
+            scroll.layoutParams = scrollLp
+
+            insets
+        }
+
         IconLoader.applySvg(findViewById(R.id.aBackIcon), "close", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.acSendIcon), "send", R.color.onpri)
         IconLoader.applySvg(findViewById(R.id.acMoreIcon), "chevron-right", R.color.iconTint)
@@ -81,7 +107,6 @@ class ArticleActivity : AppCompatActivity() {
         IconLoader.applySvg(findViewById(R.id.cIcon), "chat", R.color.iconTint)
         IconLoader.applyPng(findViewById(R.id.aCopyIcon), "link")
         IconLoader.applyPng(findViewById(R.id.aShareIcon), "share")
-        // bookmarks: SEMPRE PNG
         IconLoader.applyPng(findViewById(R.id.aSaveIcon), "bookmark")
 
         title.text = itemTitle
@@ -91,7 +116,6 @@ class ArticleActivity : AppCompatActivity() {
         if (itemImage.isNotBlank()) Glide.with(this).load(itemImage).into(hero)
         if (itemLogo.isNotBlank()) Glide.with(this).load(itemLogo).into(favicon)
 
-        // hero transition + click para zoom
         hero.transitionName = "hero_${itemLink.hashCode()}"
         hero.setOnClickListener {
             if (itemImage.isBlank()) return@setOnClickListener
@@ -105,16 +129,15 @@ class ArticleActivity : AppCompatActivity() {
             startActivity(intent, opts)
         }
 
-        // barra sobe
         articleBar.post {
             val h = articleBar.height.toFloat().coerceAtLeast(120f)
             articleBar.translationY = h + 40f
-            articleBar.animate().translationY(0f).setDuration(350).setInterpolator(Curves.SMOOTH).start()
+            articleBar.animate().translationY(0f)
+                .setDuration(350).setInterpolator(Curves.SMOOTH).start()
         }
 
         findViewById<View>(R.id.aBack).setOnClickListener { finishAfterTransition() }
 
-        // comments
         commentsAdapter = CommentAdapter(comments) { idx, r ->
             if (idx in comments.indices) {
                 val c = comments[idx]
@@ -127,7 +150,6 @@ class ArticleActivity : AppCompatActivity() {
             adapter = commentsAdapter
         }
 
-        // composer
         acInput.setOnFocusChangeListener { _, focused -> animateComposer(focused) }
         acInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
@@ -144,11 +166,10 @@ class ArticleActivity : AppCompatActivity() {
         findViewById<View>(R.id.acHaha).setOnClickListener { react("haha") }
         findViewById<View>(R.id.acMore).setOnClickListener { showReactSheet() }
 
-        // barra topo ícones
         findViewById<View>(R.id.aCopy).setOnClickListener {
             val cm = getSystemService(ClipboardManager::class.java)
             cm.setPrimaryClip(ClipData.newPlainText("link", itemLink))
-            Toast.makeText(this, "Link copiado", Toast.LENGTH_SHORT).show()
+            Snackbar.make(root, "Link copiado", Snackbar.LENGTH_SHORT).show()
         }
         findViewById<View>(R.id.aShare).setOnClickListener {
             startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
@@ -157,10 +178,9 @@ class ArticleActivity : AppCompatActivity() {
             }, "Partilhar"))
         }
         findViewById<View>(R.id.aSave).setOnClickListener {
-            Toast.makeText(this, "Guardado", Toast.LENGTH_SHORT).show()
+            Snackbar.make(root, "Guardado", Snackbar.LENGTH_SHORT).show()
         }
 
-        // artigo completo
         lifecycleScope.launch {
             val full = NewsRepository.fetchArticleFull(itemLink)
             body.text = if (!full.isNullOrBlank()) full
@@ -168,12 +188,13 @@ class ArticleActivity : AppCompatActivity() {
         }
     }
 
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
     private fun animateComposer(focused: Boolean) {
         val scale = if (focused) 1.02f else 1.0f
         findViewById<LinearLayout>(R.id.acComposer).animate()
             .scaleX(scale).scaleY(scale)
-            .setDuration(250)
-            .setInterpolator(Curves.SPRING)
+            .setDuration(250).setInterpolator(Curves.SPRING)
             .start()
     }
 
@@ -182,20 +203,21 @@ class ArticleActivity : AppCompatActivity() {
         val view = layoutInflater.inflate(R.layout.sheet_reactions, null)
         sheet.setContentView(view)
 
-        val grid = view.findViewById<LinearLayout>(R.id.reactGrid)
+        val row1 = view.findViewById<LinearLayout>(R.id.reactRow1)
+        val row2 = view.findViewById<LinearLayout>(R.id.reactRow2)
         val reacts = listOf(
             "like" to "Gosto", "love" to "Adoro", "haha" to "Riso",
             "wow" to "Uau", "sad" to "Triste", "angry" to "Raiva"
         )
-        for ((r, name) in reacts) {
-            val item = layoutInflater.inflate(R.layout.item_reaction_big, grid, false)
-            IconLoader.applyPng(item.findViewById(R.id.reactIcon), r)
-            item.findViewById<TextView>(R.id.reactLabel).text = name
+        reacts.forEachIndexed { i, pair ->
+            val item = layoutInflater.inflate(R.layout.item_reaction_big, if (i < 3) row1 else row2, false)
+            IconLoader.applyPng(item.findViewById(R.id.reactIcon), pair.first)
+            item.findViewById<TextView>(R.id.reactLabel).text = pair.second
             item.setOnClickListener {
-                react(r)
+                react(pair.first)
                 sheet.dismiss()
             }
-            grid.addView(item)
+            if (i < 3) row1.addView(item) else row2.addView(item)
         }
         sheet.show()
     }
@@ -211,7 +233,10 @@ class ArticleActivity : AppCompatActivity() {
     }
 
     private fun react(kind: String) {
-        Toast.makeText(this, "Reagiste: $kind", Toast.LENGTH_SHORT).show()
+        currentReact = kind
+        reactSlot.visibility = View.VISIBLE
+        IconLoader.applyPng(reactSlot, kind)
+        Snackbar.make(root, "Reagiste: $kind", Snackbar.LENGTH_SHORT).show()
     }
 
     private fun prettyTime(value: String): String {

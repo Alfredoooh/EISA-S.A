@@ -1,18 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="0dp" android:layout_height="wrap_content"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
     android:layout_weight="1"
     android:orientation="vertical"
     android:gravity="center"
-    android:paddingTop="14dp" android:paddingBottom="14dp"
+    android:paddingTop="16dp"
+    android:paddingBottom="16dp"
     android:background="?attr/selectableItemBackground"
-    android:clickable="true" android:focusable="true">
-
-    <ImageView android:id="@+id/reactIcon"
-        android:layout_width="52dp" android:layout_height="52dp"/>
-
-    <TextView android:id="@+id/reactLabel"
-        android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:textColor="@color/dim" android:textSize="12.5sp" android:textStyle="bold"/>
+    android:clickable="true"
+    android:focusable="true">
+    <ImageView android:id="@+id/reactIcon" android:layout_width="52dp" android:layout_height="52dp"/>
+    <TextView android:id="@+id/reactLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:textColor="@color/dim" android:textSize="12.5sp" android:textStyle="bold"/>
 </LinearLayout>

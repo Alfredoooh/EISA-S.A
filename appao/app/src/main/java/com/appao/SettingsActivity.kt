@@ -2,12 +2,10 @@ package com.appao
 
 import android.os.Bundle
 import android.view.View
-import android.widget.ImageView
 import android.widget.TextView
-import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.app.AppCompatDelegate
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -26,14 +24,17 @@ class SettingsActivity : AppCompatActivity() {
         Row(R.id.rowVerified,"verified",       "Contas verificadas"),
         Row(R.id.rowClrHist, "clock",          "Limpar histórico de pesquisas"),
         Row(R.id.rowClrLib,  "bookmark",       "Limpar guardados"),
-        Row(R.id.rowStore,   "store",          "Loja"),
+        Row(R.id.rowStore,   "store",           "Loja"),
         Row(R.id.rowAbout,   "heart_hands",    "Sobre o app ao")
     )
+
+    private lateinit var root: View
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
 
+        root = findViewById(android.R.id.content)
         IconLoader.applySvg(findViewById(R.id.setBackIcon), "back", R.color.iconTint)
         findViewById<View>(R.id.setBack).setOnClickListener { finish() }
 
@@ -44,17 +45,17 @@ class SettingsActivity : AppCompatActivity() {
             row.setOnClickListener {
                 when (r.title) {
                     "Tema" -> showThemePicker()
-                    "Idioma" -> toast("Idioma")
-                    "Limpar histórico de pesquisas" -> toast("Histórico limpo")
-                    "Limpar guardados" -> toast("Guardados limpos")
-                    else -> toast("${r.title} — em breve")
+                    "Idioma" -> showLangPicker()
+                    "Limpar histórico de pesquisas" -> snack("Histórico limpo")
+                    "Limpar guardados" -> snack("Guardados limpos")
+                    else -> snack("${r.title} — em breve")
                 }
             }
         }
 
         findViewById<View>(R.id.rowTheme).findViewById<TextView>(R.id.rowValue).apply {
             visibility = View.VISIBLE
-            text = currentThemeLabel()
+            text = ThemeManager.label(this@SettingsActivity)
         }
         findViewById<View>(R.id.rowLang).findViewById<TextView>(R.id.rowValue).apply {
             visibility = View.VISIBLE
@@ -62,30 +63,38 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    private fun currentThemeLabel(): String {
-        return when (AppCompatDelegate.getDefaultNightMode()) {
-            AppCompatDelegate.MODE_NIGHT_YES -> "Escuro"
-            AppCompatDelegate.MODE_NIGHT_NO -> "Claro"
-            else -> "Sistema"
-        }
-    }
-
     private fun showThemePicker() {
         val options = arrayOf("Escuro", "Claro", "Sistema")
-        AlertDialog.Builder(this, R.style.AppAo_AlertDialog)
+        val current = ThemeManager.label(this)
+        val checked = options.indexOf(current).coerceAtLeast(0)
+
+        MaterialAlertDialogBuilder(this)
             .setTitle("Tema")
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-                    1 -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-                    2 -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-                }
-                findViewById<View>(R.id.rowTheme).findViewById<TextView>(R.id.rowValue).text = options[which]
+            .setSingleChoiceItems(options, checked) { dialog, which ->
+                val chosen = options[which]
+                ThemeManager.applyFromLabel(this, chosen)
+                findViewById<View>(R.id.rowTheme)
+                    .findViewById<TextView>(R.id.rowValue).text = chosen
+                dialog.dismiss()
             }
+            .setNegativeButton("Cancelar", null)
             .show()
     }
 
-    private fun toast(msg: String) {
-        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    private fun showLangPicker() {
+        val options = arrayOf("Português", "English", "Español", "Français", "Deutsch")
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Idioma")
+            .setItems(options) { _, which ->
+                findViewById<View>(R.id.rowLang)
+                    .findViewById<TextView>(R.id.rowValue).text = options[which]
+                snack(options[which])
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun snack(msg: String) {
+        Snackbar.make(root, msg, Snackbar.LENGTH_SHORT).show()
     }
 }

@@ -73,6 +73,7 @@ class MainActivity : AppCompatActivity() {
 
         val root = findViewById<View>(R.id.rootMain)
 
+        // Insets principais: statusbar no header do feed, IME + nav na pill
         ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
             val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
@@ -87,7 +88,14 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        adapter = NewsAdapter(items.map<NewsItem, Any> { it }.toMutableList()) { openArticle(it) }
+        // Insets do drawer: conteúdo desce abaixo da statusbar
+        ViewCompat.setOnApplyWindowInsetsListener(drawerPanel) { v, insets ->
+            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.updatePadding(top = sys.top, bottom = sys.bottom)
+            insets
+        }
+
+        adapter = NewsAdapter(items.toMutableList<Any>()) { openArticle(it) }
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
         recycler.setHasFixedSize(true)
@@ -112,6 +120,7 @@ class MainActivity : AppCompatActivity() {
             loadNews(true)
         }
 
+        // ícones
         IconLoader.applySvg(findViewById(R.id.hMoreIcon), "menu", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.hCatChevron), "chevron-down", R.color.iconTint)
         IconLoader.applySvg(biAdd.findViewById(R.id.biAddIcon), "add", R.color.iconTint)
@@ -136,9 +145,18 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.hCat).setOnClickListener { openCatSheet() }
         drawerScrim.setOnClickListener { closeDrawer() }
 
-        findViewById<View>(R.id.drProfile).setOnClickListener { closeDrawer(); startActivity(Intent(this, SettingsActivity::class.java)) }
-        findViewById<View>(R.id.drLibrary).setOnClickListener { closeDrawer(); startActivity(Intent(this, LibraryActivity::class.java)) }
-        findViewById<View>(R.id.drSettings).setOnClickListener { closeDrawer(); startActivity(Intent(this, SettingsActivity::class.java)) }
+        findViewById<View>(R.id.drProfile).setOnClickListener {
+            closeDrawer()
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+        findViewById<View>(R.id.drLibrary).setOnClickListener {
+            closeDrawer()
+            startActivity(Intent(this, LibraryActivity::class.java))
+        }
+        findViewById<View>(R.id.drSettings).setOnClickListener {
+            closeDrawer()
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
 
         setupDrawerDrag()
 
@@ -202,7 +220,9 @@ class MainActivity : AppCompatActivity() {
     private fun loadNews(force: Boolean) {
         if (loading) return
         loading = true; exhausted = false; page = 1
-        if (force) adapter.showSkeleton(8) else swipe.isRefreshing = true
+        if (force) {
+            adapter.showSkeleton(8)
+        } else swipe.isRefreshing = true
 
         lifecycleScope.launch {
             val result = NewsRepository.fetchGeneral(page)

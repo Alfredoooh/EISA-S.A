@@ -11,6 +11,7 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
+        <!-- Header -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/header"
             android:layout_width="match_parent"
@@ -32,11 +33,13 @@
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent">
+
                 <ImageView
                     android:id="@+id/wIcon"
                     android:layout_width="23dp"
                     android:layout_height="23dp"
                     android:scaleType="fitCenter"/>
+
                 <TextView
                     android:id="@+id/wTemp"
                     android:layout_width="wrap_content"
@@ -63,6 +66,7 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent">
+
                 <TextView
                     android:id="@+id/hCatLabel"
                     android:layout_width="wrap_content"
@@ -71,6 +75,7 @@
                     android:textColor="@color/text"
                     android:textSize="17sp"
                     android:textStyle="bold"/>
+
                 <ImageView
                     android:id="@+id/hCatChevron"
                     android:layout_width="16dp"
@@ -89,6 +94,7 @@
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent">
+
                 <ImageView
                     android:id="@+id/hMoreIcon"
                     android:layout_width="23dp"
@@ -103,6 +109,7 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1">
+
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/recycler"
                 android:layout_width="match_parent"
@@ -113,6 +120,7 @@
         </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
     </LinearLayout>
 
+    <!-- ============== PILL (input) — fica atrás do drawer/modals ============== -->
     <LinearLayout
         android:id="@+id/biPill"
         android:layout_width="320dp"
@@ -124,8 +132,8 @@
         android:background="@drawable/bg_pill_card"
         android:paddingStart="6dp"
         android:paddingEnd="6dp"
-        android:elevation="26dp"
-        android:translationZ="26dp">
+        android:elevation="8dp">
+
         <FrameLayout
             android:id="@+id/biAdd"
             android:layout_width="34dp"
@@ -140,6 +148,7 @@
                 android:layout_gravity="center"
                 android:scaleType="fitCenter"/>
         </FrameLayout>
+
         <EditText
             android:id="@+id/biInput"
             android:layout_width="0dp"
@@ -155,6 +164,7 @@
             android:maxLines="1"
             android:paddingStart="8dp"
             android:paddingEnd="8dp"/>
+
         <FrameLayout
             android:id="@+id/biSend"
             android:layout_width="0dp"
@@ -172,21 +182,15 @@
         </FrameLayout>
     </LinearLayout>
 
-    <View
-        android:id="@+id/catScrim"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@color/scrim"
-        android:alpha="0"
-        android:visibility="gone"/>
-
+    <!-- ============== DRAWER (por cima da pill) ============== -->
     <View
         android:id="@+id/drawerScrim"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@color/scrim"
         android:alpha="0"
-        android:visibility="gone"/>
+        android:visibility="gone"
+        android:elevation="20dp"/>
 
     <LinearLayout
         android:id="@+id/drawerPanel"
@@ -196,8 +200,7 @@
         android:orientation="vertical"
         android:background="@color/bgElevated"
         android:translationX="300dp"
-        android:elevation="24dp"
-        android:translationZ="24dp">
+        android:elevation="22dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -206,21 +209,29 @@
             android:gravity="center_vertical"
             android:paddingStart="20dp"
             android:paddingEnd="20dp"
-            android:paddingTop="28dp"
+            android:paddingTop="24dp"
             android:paddingBottom="18dp">
-            <com.google.android.material.imageview.ShapeableImageView
-                android:id="@+id/drAvatar"
+
+            <FrameLayout
                 android:layout_width="52dp"
                 android:layout_height="52dp"
-                android:scaleType="centerCrop"
-                android:background="@color/card"
-                app:shapeAppearanceOverlay="@style/CircleImage"/>
+                android:background="@drawable/bg_circle_card"
+                android:clipToOutline="true">
+
+                <ImageView
+                    android:id="@+id/drAvatar"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"/>
+            </FrameLayout>
+
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:layout_marginStart="14dp"
                 android:orientation="vertical">
+
                 <TextView
                     android:id="@+id/drName"
                     android:layout_width="match_parent"
@@ -231,6 +242,7 @@
                     android:textStyle="bold"
                     android:maxLines="1"
                     android:ellipsize="end"/>
+
                 <TextView
                     android:id="@+id/drUser"
                     android:layout_width="match_parent"
@@ -242,21 +254,42 @@
                     android:ellipsize="end"/>
             </LinearLayout>
         </LinearLayout>
-        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/line"/>
+
+        <View android:layout_width="match_parent" android:layout_height="1dp"
+            android:background="@color/line"/>
+
         <LinearLayout android:id="@+id/drProfile" style="@style/DrawerItem">
-            <ImageView android:id="@+id/drIconProfile" android:layout_width="25dp" android:layout_height="25dp"/>
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Perfil" android:textColor="@color/text" android:textSize="15sp"/>
+            <ImageView android:id="@+id/drIconProfile"
+                android:layout_width="25dp" android:layout_height="25dp"/>
+            <TextView
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:layout_marginStart="14dp"
+                android:text="Perfil" android:textColor="@color/text"
+                android:textSize="15sp"/>
         </LinearLayout>
+
         <LinearLayout android:id="@+id/drLibrary" style="@style/DrawerItem">
-            <ImageView android:id="@+id/drIconLibrary" android:layout_width="25dp" android:layout_height="25dp"/>
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Biblioteca" android:textColor="@color/text" android:textSize="15sp"/>
+            <ImageView android:id="@+id/drIconLibrary"
+                android:layout_width="25dp" android:layout_height="25dp"/>
+            <TextView
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:layout_marginStart="14dp"
+                android:text="Biblioteca" android:textColor="@color/text"
+                android:textSize="15sp"/>
         </LinearLayout>
+
         <LinearLayout android:id="@+id/drSettings" style="@style/DrawerItem">
-            <ImageView android:id="@+id/drIconSettings" android:layout_width="25dp" android:layout_height="25dp"/>
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Definições" android:textColor="@color/text" android:textSize="15sp"/>
+            <ImageView android:id="@+id/drIconSettings"
+                android:layout_width="25dp" android:layout_height="25dp"/>
+            <TextView
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:layout_marginStart="14dp"
+                android:text="Definições" android:textColor="@color/text"
+                android:textSize="15sp"/>
         </LinearLayout>
     </LinearLayout>
 
+    <!-- ============== PROGRESS BAR ============== -->
     <View
         android:id="@+id/appProgress"
         android:layout_width="0dp"
@@ -264,6 +297,5 @@
         android:layout_gravity="top|start"
         android:background="@drawable/progress_gradient"
         android:alpha="0"
-        android:elevation="50dp"
-        android:translationZ="50dp"/>
+        android:elevation="50dp"/>
 </FrameLayout>

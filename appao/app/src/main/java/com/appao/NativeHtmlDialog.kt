@@ -204,7 +204,7 @@ object NativeHtmlDialog {
                     dp(context, 16),
                     0
                 )
-                singleLine = true
+                setSingleLine(true)
             }
         } else {
             null

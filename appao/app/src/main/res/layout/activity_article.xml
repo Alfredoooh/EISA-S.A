@@ -124,7 +124,6 @@
                     android:layout_height="22dp"
                     android:background="@drawable/bg_circle_card"
                     android:clipToOutline="true">
-
                     <ImageView
                         android:id="@+id/aFavicon"
                         android:layout_width="match_parent"
@@ -280,7 +279,7 @@
 
             <FrameLayout
                 android:id="@+id/acSend"
-                android:layout_width="32dp"
+                android:layout_width="0dp"
                 android:layout_height="32dp"
                 android:background="@drawable/bg_circle_pri"
                 android:visibility="gone">
@@ -292,40 +291,19 @@
             </FrameLayout>
         </LinearLayout>
 
-        <LinearLayout
-            android:id="@+id/acReacts"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginStart="6dp">
-
-            <FrameLayout android:id="@+id/acLike"
-                android:layout_width="34dp" android:layout_height="34dp">
-                <ImageView android:id="@+id/acLikeIcon"
-                    android:layout_width="24dp" android:layout_height="24dp"
-                    android:layout_gravity="center"/>
-            </FrameLayout>
-
-            <FrameLayout android:id="@+id/acLove"
-                android:layout_width="34dp" android:layout_height="34dp">
-                <ImageView android:id="@+id/acLoveIcon"
-                    android:layout_width="24dp" android:layout_height="24dp"
-                    android:layout_gravity="center"/>
-            </FrameLayout>
-
-            <FrameLayout android:id="@+id/acHaha"
-                android:layout_width="34dp" android:layout_height="34dp">
-                <ImageView android:id="@+id/acHahaIcon"
-                    android:layout_width="24dp" android:layout_height="24dp"
-                    android:layout_gravity="center"/>
-            </FrameLayout>
-
-            <FrameLayout android:id="@+id/acMore"
-                android:layout_width="28dp" android:layout_height="34dp">
-                <ImageView android:id="@+id/acMoreIcon"
-                    android:layout_width="18dp" android:layout_height="18dp"
-                    android:layout_gravity="center"/>
-            </FrameLayout>
-        </LinearLayout>
+        <FrameLayout
+            android:id="@+id/acEmoji"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true">
+            <ImageView
+                android:id="@+id/acEmojiIcon"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_gravity="center"/>
+        </FrameLayout>
     </LinearLayout>
 </FrameLayout>

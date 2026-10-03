@@ -16,7 +16,7 @@
         <item name="materialAlertDialogTheme">@style/AppAo.AlertDialog</item>
         <item name="popupMenuStyle">@style/AppAo.PopupMenu</item>
         <item name="android:popupMenuStyle">@style/AppAo.PopupMenu</item>
-        <item name="popupMenuBackground">@drawable/bg_popup</item>
+        <item name="popupMenuBackground">@drawable/bg_popup_material</item>
     </style>
 
     <style name="Theme.AppAo.ImageViewer" parent="Theme.AppAo">
@@ -33,35 +33,33 @@
     </style>
 
     <style name="AppAo.BottomSheet.Modal" parent="Widget.Material3.BottomSheet.Modal">
+        <item name="shapeAppearance">@style/AppAo.Shape.ExtraTopRounded</item>
         <item name="shapeAppearanceOverlay">@style/AppAo.Shape.ExtraTopRounded</item>
         <item name="backgroundTint">@color/bgElevated</item>
+        <item name="android:backgroundTint">@color/bgElevated</item>
     </style>
 
     <style name="AppAo.Shape.ExtraTopRounded" parent="">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSizeTopLeft">28dp</item>
         <item name="cornerSizeTopRight">28dp</item>
-        <item name="cornerSizeBottomLeft">0dp</item>
-        <item name="cornerSizeBottomRight">0dp</item>
+        <item name="cornerSizeBottomLeft">28dp</item>
+        <item name="cornerSizeBottomRight">28dp</item>
     </style>
 
     <style name="AppAo.AlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
         <item name="colorSurface">@color/bgElevated</item>
         <item name="colorOnSurface">@color/text</item>
         <item name="shapeAppearanceOverlay">@style/AppAo.Shape.DialogRounded</item>
+        <item name="backgroundTint">@color/bgElevated</item>
     </style>
 
     <style name="AppAo.Shape.DialogRounded" parent="">
         <item name="cornerFamily">rounded</item>
-        <item name="cornerSize">24dp</item>
+        <item name="cornerSize">28dp</item>
     </style>
 
     <style name="AppAo.PopupMenu" parent="Widget.AppCompat.PopupMenu">
-        <item name="android:popupBackground">@drawable/bg_popup</item>
-    </style>
-
-    <style name="AppAo.PopupAnim" parent="@android:style/Animation">
-        <item name="android:windowEnterAnimation">@android:anim/fade_in</item>
-        <item name="android:windowExitAnimation">@android:anim/fade_out</item>
+        <item name="android:popupBackground">@drawable/bg_popup_material</item>
     </style>
 </resources>

@@ -8,10 +8,9 @@ object ThemeManager {
     private const val PREFS = "appao"
     private const val KEY = "theme"
 
-    fun current(ctx: Context): String {
-        return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    fun current(ctx: Context): String =
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY, "system") ?: "system"
-    }
 
     fun save(ctx: Context, value: String) {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

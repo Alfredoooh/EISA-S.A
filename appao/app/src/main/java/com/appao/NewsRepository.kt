@@ -58,7 +58,6 @@ object NewsRepository {
         }
         val max = groups.maxOfOrNull { it.size } ?: 0
         val out = ArrayList<NewsItem>()
-        // dedup local por página (mais agressivo que por url+title — também por título sozinho)
         val localTitleKeys = HashSet<String>()
         for (i in 0 until max) {
             for (g in groups) {
@@ -69,7 +68,6 @@ object NewsRepository {
                     if (seenKeys.contains(primary)) continue
                     if (seenKeys.contains("t:$secondary")) continue
                     if (localTitleKeys.contains(secondary)) continue
-                    // marcar e adicionar
                     seenKeys.add(primary)
                     seenKeys.add("t:$secondary")
                     localTitleKeys.add(secondary)

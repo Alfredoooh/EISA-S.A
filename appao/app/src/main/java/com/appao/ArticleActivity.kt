@@ -4,11 +4,14 @@ import android.app.ActivityOptions
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
+import android.graphics.Rect
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Pair
+import android.view.MotionEvent
 import android.view.View
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -18,8 +21,8 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
-import androidx.core.view.updatePadding
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -42,6 +45,8 @@ class ArticleActivity : AppCompatActivity() {
     private lateinit var articleBar: LinearLayout
     private lateinit var acInput: EditText
     private lateinit var acSend: FrameLayout
+    private lateinit var acComposer: LinearLayout
+    private lateinit var acEmoji: FrameLayout
     private lateinit var commentsAdapter: CommentAdapter
     private lateinit var root: View
 
@@ -77,37 +82,38 @@ class ArticleActivity : AppCompatActivity() {
         articleBar = findViewById(R.id.articleBar)
         acInput = findViewById(R.id.acInput)
         acSend = findViewById(R.id.acSend)
+        acComposer = findViewById(R.id.acComposer)
+        acEmoji = findViewById(R.id.acEmoji)
 
         val topbar = findViewById<View>(R.id.aTopBar)
+
+        ViewCompat.setOnApplyWindowInsetsListener(topbar) { v, insets ->
+            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.updatePadding(top = sys.top + dp(6))
+            v.layoutParams.height = dp(56) + sys.top
+            insets
+        }
         ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
             val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
             val bottom = maxOf(ime, sys.bottom)
-
-            topbar.updatePadding(top = sys.top + dp(6))
-
             val lp = articleBar.layoutParams as FrameLayout.LayoutParams
             lp.bottomMargin = bottom
             articleBar.layoutParams = lp
-
             val topTotal = sys.top + dp(56)
-            val scrollLp = scroll.layoutParams as FrameLayout.LayoutParams
-            scrollLp.topMargin = topTotal
-            scroll.layoutParams = scrollLp
-
+            val sLp = scroll.layoutParams as FrameLayout.LayoutParams
+            sLp.topMargin = topTotal
+            scroll.layoutParams = sLp
             insets
         }
 
         IconLoader.applySvg(findViewById(R.id.aBackIcon), "close", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.acSendIcon), "send", R.color.onpri)
-        IconLoader.applySvg(findViewById(R.id.acMoreIcon), "chevron-right", R.color.iconTint)
-        IconLoader.applyPng(findViewById(R.id.acLikeIcon), "like")
-        IconLoader.applyPng(findViewById(R.id.acLoveIcon), "love")
-        IconLoader.applyPng(findViewById(R.id.acHahaIcon), "haha")
-        IconLoader.applySvg(findViewById(R.id.cIcon), "chat", R.color.iconTint)
         IconLoader.applyPng(findViewById(R.id.aCopyIcon), "link")
         IconLoader.applyPng(findViewById(R.id.aShareIcon), "share")
         IconLoader.applyPng(findViewById(R.id.aSaveIcon), "bookmark")
+        IconLoader.applySvg(findViewById(R.id.cIcon), "chat", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.acEmojiIcon), "emoji", R.color.iconTint)
 
         title.text = itemTitle
         if (itemSummary.isNotBlank()) { summary.visibility = View.VISIBLE; summary.text = itemSummary }
@@ -119,21 +125,19 @@ class ArticleActivity : AppCompatActivity() {
         hero.transitionName = "hero_${itemLink.hashCode()}"
         hero.setOnClickListener {
             if (itemImage.isBlank()) return@setOnClickListener
-            val intent = Intent(this, ImageViewerActivity::class.java).apply {
-                putExtra("image", itemImage)
-                putExtra("transition", "hero_${itemLink.hashCode()}")
-            }
             val opts = ActivityOptions.makeSceneTransitionAnimation(
                 this, Pair(hero, "hero_${itemLink.hashCode()}")
             ).toBundle()
-            startActivity(intent, opts)
+            startActivity(Intent(this, ImageViewerActivity::class.java).apply {
+                putExtra("image", itemImage)
+                putExtra("transition", "hero_${itemLink.hashCode()}")
+            }, opts)
         }
 
         articleBar.post {
             val h = articleBar.height.toFloat().coerceAtLeast(120f)
             articleBar.translationY = h + 40f
-            articleBar.animate().translationY(0f)
-                .setDuration(350).setInterpolator(Curves.SMOOTH).start()
+            articleBar.animate().translationY(0f).setDuration(350).setInterpolator(Curves.SMOOTH).start()
         }
 
         findViewById<View>(R.id.aBack).setOnClickListener { finishAfterTransition() }
@@ -150,21 +154,24 @@ class ArticleActivity : AppCompatActivity() {
             adapter = commentsAdapter
         }
 
+        acComposer.pivotX = 0f
+
         acInput.setOnFocusChangeListener { _, focused -> animateComposer(focused) }
         acInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {
-                acSend.visibility = if (!s.isNullOrBlank()) View.VISIBLE else View.GONE
+                val has = !s.isNullOrBlank()
+                acSend.visibility = if (has) View.VISIBLE else View.GONE
+                val lp = acSend.layoutParams as LinearLayout.LayoutParams
+                lp.width = if (has) dp(32) else 0
+                acSend.layoutParams = lp
             }
             override fun afterTextChanged(s: Editable?) {}
         })
         acSend.setOnClickListener { sendComment() }
         acInput.setOnEditorActionListener { _, _, _ -> sendComment(); true }
 
-        findViewById<View>(R.id.acLike).setOnClickListener { react("like") }
-        findViewById<View>(R.id.acLove).setOnClickListener { react("love") }
-        findViewById<View>(R.id.acHaha).setOnClickListener { react("haha") }
-        findViewById<View>(R.id.acMore).setOnClickListener { showReactSheet() }
+        acEmoji.setOnClickListener { showReactSheet() }
 
         findViewById<View>(R.id.aCopy).setOnClickListener {
             val cm = getSystemService(ClipboardManager::class.java)
@@ -191,10 +198,12 @@ class ArticleActivity : AppCompatActivity() {
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
     private fun animateComposer(focused: Boolean) {
-        val scale = if (focused) 1.02f else 1.0f
-        findViewById<LinearLayout>(R.id.acComposer).animate()
-            .scaleX(scale).scaleY(scale)
-            .setDuration(250).setInterpolator(Curves.SPRING)
+        val target = if (focused) 1.03f else 1.0f
+        acComposer.pivotX = 0f
+        acComposer.animate()
+            .scaleX(target)
+            .setDuration(250)
+            .setInterpolator(Curves.SPRING)
             .start()
     }
 
@@ -255,6 +264,22 @@ class ArticleActivity : AppCompatActivity() {
                 else -> java.text.SimpleDateFormat("dd MMM", java.util.Locale("pt", "PT")).format(date)
             }
         } catch (_: Exception) { "" }
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (ev.action == MotionEvent.ACTION_DOWN) {
+            val focused = currentFocus
+            if (focused is EditText) {
+                val r = Rect()
+                focused.getGlobalVisibleRect(r)
+                if (!r.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
+                    focused.clearFocus()
+                    val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.hideSoftInputFromWindow(focused.windowToken, 0)
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
     }
 
     override fun finish() {

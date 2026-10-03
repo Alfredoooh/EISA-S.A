@@ -9,13 +9,17 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:clipChildren="true"
+        android:clipToPadding="true">
 
-        <!-- Header -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/header"
             android:layout_width="match_parent"
             android:layout_height="56dp"
+            android:background="@color/bg"
+            android:clipChildren="true"
+            android:clipToPadding="true"
             android:paddingStart="8dp"
             android:paddingEnd="8dp">
 
@@ -120,7 +124,6 @@
         </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
     </LinearLayout>
 
-    <!-- ============== PILL (input) — fica atrás do drawer/modals ============== -->
     <LinearLayout
         android:id="@+id/biPill"
         android:layout_width="320dp"
@@ -182,7 +185,6 @@
         </FrameLayout>
     </LinearLayout>
 
-    <!-- ============== DRAWER (por cima da pill) ============== -->
     <View
         android:id="@+id/drawerScrim"
         android:layout_width="match_parent"
@@ -289,7 +291,6 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- ============== PROGRESS BAR ============== -->
     <View
         android:id="@+id/appProgress"
         android:layout_width="0dp"

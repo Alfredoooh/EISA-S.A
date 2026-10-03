@@ -4,11 +4,15 @@ import android.Manifest
 import android.animation.ValueAnimator
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Rect
 import android.location.LocationManager
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -54,6 +58,7 @@ class MainActivity : AppCompatActivity() {
     private var drawerOpen = false
     private var lastScrollY = 0
     private var headerHidden = false
+    private var headerHeight = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -73,22 +78,26 @@ class MainActivity : AppCompatActivity() {
 
         val root = findViewById<View>(R.id.rootMain)
 
-        // Insets principais: statusbar no header do feed, IME + nav na pill
-        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(header) { v, insets ->
             val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            val bottom = maxOf(ime, sys.bottom)
-
-            header.updatePadding(top = sys.top + dp(4))
-
-            val lp = biPill.layoutParams as FrameLayout.LayoutParams
-            lp.bottomMargin = bottom + dp(16)
-            biPill.layoutParams = lp
-
+            v.updatePadding(top = sys.top + dp(4))
+            val lp = v.layoutParams
+            lp.height = dp(56) + sys.top
+            v.layoutParams = lp
+            headerHeight = lp.height
             insets
         }
 
-        // Insets do drawer: conteúdo desce abaixo da statusbar
+        ViewCompat.setOnApplyWindowInsetsListener(biPill) { v, insets ->
+            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val bottom = maxOf(ime, sys.bottom)
+            val lp = v.layoutParams as FrameLayout.LayoutParams
+            lp.bottomMargin = bottom + dp(16)
+            v.layoutParams = lp
+            insets
+        }
+
         ViewCompat.setOnApplyWindowInsetsListener(drawerPanel) { v, insets ->
             val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.updatePadding(top = sys.top, bottom = sys.bottom)
@@ -100,17 +109,15 @@ class MainActivity : AppCompatActivity() {
         recycler.adapter = adapter
         recycler.setHasFixedSize(true)
         recycler.itemAnimator?.apply {
-            addDuration = 220
-            changeDuration = 180
-            moveDuration = 220
-            removeDuration = 180
+            addDuration = 220; changeDuration = 180
+            moveDuration = 220; removeDuration = 180
         }
         recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
                 val y = rv.computeVerticalScrollOffset()
                 val delta = y - lastScrollY
-                if (delta > 6 && y > 40) hideHeaderAndPill()
-                else if (delta < -6) showHeaderAndPill()
+                if (delta > 6 && y > dp(40)) hideAppBar()
+                else if (delta < -6) showAppBar()
                 lastScrollY = y
                 if (!rv.canScrollVertically(1) && !loading && !exhausted) loadMore()
             }
@@ -120,7 +127,6 @@ class MainActivity : AppCompatActivity() {
             loadNews(true)
         }
 
-        // ícones
         IconLoader.applySvg(findViewById(R.id.hMoreIcon), "menu", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.hCatChevron), "chevron-down", R.color.iconTint)
         IconLoader.applySvg(biAdd.findViewById(R.id.biAddIcon), "add", R.color.iconTint)
@@ -146,16 +152,13 @@ class MainActivity : AppCompatActivity() {
         drawerScrim.setOnClickListener { closeDrawer() }
 
         findViewById<View>(R.id.drProfile).setOnClickListener {
-            closeDrawer()
-            startActivity(Intent(this, SettingsActivity::class.java))
+            closeDrawer(); startActivity(Intent(this, SettingsActivity::class.java))
         }
         findViewById<View>(R.id.drLibrary).setOnClickListener {
-            closeDrawer()
-            startActivity(Intent(this, LibraryActivity::class.java))
+            closeDrawer(); startActivity(Intent(this, LibraryActivity::class.java))
         }
         findViewById<View>(R.id.drSettings).setOnClickListener {
-            closeDrawer()
-            startActivity(Intent(this, SettingsActivity::class.java))
+            closeDrawer(); startActivity(Intent(this, SettingsActivity::class.java))
         }
 
         setupDrawerDrag()
@@ -167,26 +170,48 @@ class MainActivity : AppCompatActivity() {
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
-    private fun hideHeaderAndPill() {
+    private fun hideAppBar() {
         if (headerHidden) return
         headerHidden = true
-        header.animate().translationY(-header.height.toFloat() - dp(40))
-            .setDuration(280).setInterpolator(Curves.SMOOTH).start()
-        biPill.animate().translationY(biPill.height.toFloat() + dp(60))
-            .setDuration(280).setInterpolator(Curves.SMOOTH).start()
+        val from = if (headerHeight > 0) headerHeight else header.height
+        ValueAnimator.ofInt(from, 0).apply {
+            duration = 260
+            interpolator = Curves.SMOOTH
+            addUpdateListener { va ->
+                val h = va.animatedValue as Int
+                val lp = header.layoutParams
+                lp.height = h
+                header.layoutParams = lp
+            }
+            start()
+        }
+        biPill.animate().translationY(biPill.height.toFloat() + dp(120))
+            .setDuration(260).setInterpolator(Curves.SMOOTH).start()
     }
-    private fun showHeaderAndPill() {
+
+    private fun showAppBar() {
         if (!headerHidden) return
         headerHidden = false
-        header.animate().translationY(0f).setDuration(280).setInterpolator(Curves.SMOOTH).start()
-        biPill.animate().translationY(0f).setDuration(280).setInterpolator(Curves.SMOOTH).start()
+        val to = if (headerHeight > 0) headerHeight else header.height
+        ValueAnimator.ofInt(0, to).apply {
+            duration = 260
+            interpolator = Curves.SMOOTH
+            addUpdateListener { va ->
+                val h = va.animatedValue as Int
+                val lp = header.layoutParams
+                lp.height = h
+                header.layoutParams = lp
+            }
+            start()
+        }
+        biPill.animate().translationY(0f)
+            .setDuration(260).setInterpolator(Curves.SMOOTH).start()
     }
 
     private fun animatePillFocus(focused: Boolean) {
         val target = if (focused) dp(340) else dp(320)
         val lp = biPill.layoutParams
-        val start = lp.width
-        ValueAnimator.ofInt(start, target).apply {
+        ValueAnimator.ofInt(lp.width, target).apply {
             duration = 400
             interpolator = Curves.IOS
             addUpdateListener {
@@ -220,10 +245,7 @@ class MainActivity : AppCompatActivity() {
     private fun loadNews(force: Boolean) {
         if (loading) return
         loading = true; exhausted = false; page = 1
-        if (force) {
-            adapter.showSkeleton(8)
-        } else swipe.isRefreshing = true
-
+        if (force) adapter.showSkeleton(8) else swipe.isRefreshing = true
         lifecycleScope.launch {
             val result = NewsRepository.fetchGeneral(page)
             swipe.isRefreshing = false
@@ -231,9 +253,7 @@ class MainActivity : AppCompatActivity() {
             if (result.isNotEmpty()) {
                 items.clear(); items.addAll(result)
                 adapter.submit(result)
-            } else {
-                adapter.submit(emptyList())
-            }
+            } else adapter.submit(emptyList())
         }
     }
 
@@ -322,10 +342,25 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (ev.action == MotionEvent.ACTION_DOWN) {
+            val focused = currentFocus
+            if (focused is EditText) {
+                val r = Rect()
+                focused.getGlobalVisibleRect(r)
+                if (!r.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
+                    focused.clearFocus()
+                    val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.hideSoftInputFromWindow(focused.windowToken, 0)
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
     private fun showAppsPopup(anchor: View) {
         anchor.animate().scaleX(0.88f).scaleY(0.88f).setDuration(120)
             .withEndAction { anchor.animate().scaleX(1f).scaleY(1f).setDuration(220).start() }.start()
-
         AppsPopup.show(anchor) { app ->
             if (app.url != null) {
                 showNavProgress()
@@ -357,18 +392,18 @@ class MainActivity : AppCompatActivity() {
         var x0 = 0f; var lastX = 0f; var lastT = 0L; var vx = 0f
         drawerPanel.setOnTouchListener { _, ev ->
             when (ev.actionMasked) {
-                android.view.MotionEvent.ACTION_DOWN -> {
+                MotionEvent.ACTION_DOWN -> {
                     x0 = ev.rawX; lastX = x0; lastT = System.currentTimeMillis(); vx = 0f
                     drawerPanel.animate().cancel(); true
                 }
-                android.view.MotionEvent.ACTION_MOVE -> {
+                MotionEvent.ACTION_MOVE -> {
                     val dx = (ev.rawX - x0).coerceAtLeast(0f)
                     val now = System.currentTimeMillis(); val dt = now - lastT
                     if (dt > 0) vx = (ev.rawX - lastX) / dt
                     lastX = ev.rawX; lastT = now
                     drawerPanel.translationX = dx; true
                 }
-                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     val dismiss = drawerPanel.translationX > dp(70) || (vx > 0.5f && drawerPanel.translationX > dp(20))
                     if (dismiss) {
                         drawerScrim.animate().alpha(0f).setDuration(300).start()
@@ -391,7 +426,6 @@ class MainActivity : AppCompatActivity() {
         val sheet = BottomSheetDialog(this, R.style.AppAo_BottomSheet)
         val view = layoutInflater.inflate(R.layout.sheet_categories, null)
         sheet.setContentView(view)
-
         val list = view.findViewById<LinearLayout>(R.id.catList)
         for (c in categories) {
             val tv = TextView(this).apply {

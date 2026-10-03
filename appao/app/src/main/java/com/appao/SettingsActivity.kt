@@ -24,7 +24,7 @@ class SettingsActivity : AppCompatActivity() {
         Row(R.id.rowVerified,"verified",       "Contas verificadas"),
         Row(R.id.rowClrHist, "clock",          "Limpar histórico de pesquisas"),
         Row(R.id.rowClrLib,  "bookmark",       "Limpar guardados"),
-        Row(R.id.rowStore,   "store",           "Loja"),
+        Row(R.id.rowStore,   "store",          "Loja"),
         Row(R.id.rowAbout,   "heart_hands",    "Sobre o app ao")
     )
 
@@ -53,6 +53,15 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
+        refreshValues()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshValues()
+    }
+
+    private fun refreshValues() {
         findViewById<View>(R.id.rowTheme).findViewById<TextView>(R.id.rowValue).apply {
             visibility = View.VISIBLE
             text = ThemeManager.label(this@SettingsActivity)
@@ -68,29 +77,43 @@ class SettingsActivity : AppCompatActivity() {
         val current = ThemeManager.label(this)
         val checked = options.indexOf(current).coerceAtLeast(0)
 
-        MaterialAlertDialogBuilder(this)
+        var chosen: String? = null
+        val dialog = MaterialAlertDialogBuilder(this)
             .setTitle("Tema")
-            .setSingleChoiceItems(options, checked) { dialog, which ->
-                val chosen = options[which]
-                ThemeManager.applyFromLabel(this, chosen)
-                findViewById<View>(R.id.rowTheme)
-                    .findViewById<TextView>(R.id.rowValue).text = chosen
-                dialog.dismiss()
+            .setSingleChoiceItems(options, checked) { _, which ->
+                chosen = options[which]
             }
             .setNegativeButton("Cancelar", null)
-            .show()
+            .setOnDismissListener {
+                val pick = chosen
+                if (pick != null) {
+                    findViewById<View>(R.id.rowTheme)
+                        .findViewById<TextView>(R.id.rowValue).text = pick
+                    window.decorView.postDelayed({
+                        ThemeManager.applyFromLabel(this, pick)
+                    }, 250)
+                }
+            }
+            .create()
+        dialog.show()
     }
 
     private fun showLangPicker() {
         val options = arrayOf("Português", "English", "Español", "Français", "Deutsch")
+        var chosen: String? = null
         MaterialAlertDialogBuilder(this)
             .setTitle("Idioma")
-            .setItems(options) { _, which ->
-                findViewById<View>(R.id.rowLang)
-                    .findViewById<TextView>(R.id.rowValue).text = options[which]
-                snack(options[which])
+            .setSingleChoiceItems(options, 0) { _, which ->
+                chosen = options[which]
             }
             .setNegativeButton("Cancelar", null)
+            .setOnDismissListener {
+                chosen?.let { pick ->
+                    findViewById<View>(R.id.rowLang)
+                        .findViewById<TextView>(R.id.rowValue).text = pick
+                    snack(pick)
+                }
+            }
             .show()
     }
 

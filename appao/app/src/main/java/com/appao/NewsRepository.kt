@@ -25,6 +25,32 @@ object NewsRepository {
         "entertainment", "health", "politics"
     )
 
+    /** Set global de chaves vistas na sessão — nunca mostra o mesmo conteúdo duas vezes. */
+    private val seenKeys = HashSet<String>()
+
+    /** Chave única combinada: url + título normalizado. */
+    private fun dedupKey(url: String, title: String): String {
+        val u = url.trim().lowercase().replace(Regex("https?://(www\\.)?"), "").trimEnd('/')
+        val t = title.trim().lowercase()
+            .replace(Regex("[\\p{Punct}]+"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+        return "$u|$t"
+    }
+
+    /** Chave secundária: título normalizado sozinho (para pegar mesma notícia em URLs diferentes). */
+    private fun titleKey(title: String): String {
+        return title.trim().lowercase()
+            .replace(Regex("[\\p{Punct}]+"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+    }
+
+    /** Reset do dedup — chamar ao fazer pull-to-refresh completo. */
+    fun resetDedup() {
+        seenKeys.clear()
+    }
+
     suspend fun fetchGeneral(page: Int = 1): List<NewsItem> = withContext(Dispatchers.IO) {
         val groups = coroutineScope {
             categories.map { c -> async(Dispatchers.IO) { fetchByCategory(c, page) } }
@@ -32,12 +58,22 @@ object NewsRepository {
         }
         val max = groups.maxOfOrNull { it.size } ?: 0
         val out = ArrayList<NewsItem>()
-        val seen = HashSet<String>()
+        // dedup local por página (mais agressivo que por url+title — também por título sozinho)
+        val localTitleKeys = HashSet<String>()
         for (i in 0 until max) {
             for (g in groups) {
                 if (i < g.size) {
                     val it = g[i]
-                    if (seen.add(it.id)) out.add(it)
+                    val primary = dedupKey(it.link, it.title)
+                    val secondary = titleKey(it.title)
+                    if (seenKeys.contains(primary)) continue
+                    if (seenKeys.contains("t:$secondary")) continue
+                    if (localTitleKeys.contains(secondary)) continue
+                    // marcar e adicionar
+                    seenKeys.add(primary)
+                    seenKeys.add("t:$secondary")
+                    localTitleKeys.add(secondary)
+                    out.add(it)
                 }
             }
         }

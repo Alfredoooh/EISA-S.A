@@ -78,7 +78,7 @@ class MainActivity : AppCompatActivity() {
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
             val bottom = maxOf(ime, sys.bottom)
 
-            header.updatePadding(top = sys.top + dp(4), bottom = 0)
+            header.updatePadding(top = sys.top + dp(4))
 
             val lp = biPill.layoutParams as FrameLayout.LayoutParams
             lp.bottomMargin = bottom + dp(16)
@@ -87,23 +87,30 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        adapter = NewsAdapter(items) { openArticle(it) }
+        adapter = NewsAdapter(items.map<NewsItem, Any> { it }.toMutableList()) { openArticle(it) }
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
+        recycler.setHasFixedSize(true)
+        recycler.itemAnimator?.apply {
+            addDuration = 220
+            changeDuration = 180
+            moveDuration = 220
+            removeDuration = 180
+        }
         recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
                 val y = rv.computeVerticalScrollOffset()
                 val delta = y - lastScrollY
-                if (delta > 6 && y > 40) {
-                    hideHeaderAndPill()
-                } else if (delta < -6) {
-                    showHeaderAndPill()
-                }
+                if (delta > 6 && y > 40) hideHeaderAndPill()
+                else if (delta < -6) showHeaderAndPill()
                 lastScrollY = y
                 if (!rv.canScrollVertically(1) && !loading && !exhausted) loadMore()
             }
         })
-        swipe.setOnRefreshListener { loadNews(true) }
+        swipe.setOnRefreshListener {
+            NewsRepository.resetDedup()
+            loadNews(true)
+        }
 
         IconLoader.applySvg(findViewById(R.id.hMoreIcon), "menu", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.hCatChevron), "chevron-down", R.color.iconTint)
@@ -129,20 +136,13 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.hCat).setOnClickListener { openCatSheet() }
         drawerScrim.setOnClickListener { closeDrawer() }
 
-        findViewById<View>(R.id.drProfile).setOnClickListener {
-            closeDrawer()
-            startActivity(Intent(this, SettingsActivity::class.java))
-        }
-        findViewById<View>(R.id.drLibrary).setOnClickListener {
-            closeDrawer()
-            startActivity(Intent(this, LibraryActivity::class.java))
-        }
-        findViewById<View>(R.id.drSettings).setOnClickListener {
-            closeDrawer()
-            startActivity(Intent(this, SettingsActivity::class.java))
-        }
+        findViewById<View>(R.id.drProfile).setOnClickListener { closeDrawer(); startActivity(Intent(this, SettingsActivity::class.java)) }
+        findViewById<View>(R.id.drLibrary).setOnClickListener { closeDrawer(); startActivity(Intent(this, LibraryActivity::class.java)) }
+        findViewById<View>(R.id.drSettings).setOnClickListener { closeDrawer(); startActivity(Intent(this, SettingsActivity::class.java)) }
 
         setupDrawerDrag()
+
+        adapter.showSkeleton(8)
         loadNews(false)
         initWeather()
     }
@@ -157,7 +157,6 @@ class MainActivity : AppCompatActivity() {
         biPill.animate().translationY(biPill.height.toFloat() + dp(60))
             .setDuration(280).setInterpolator(Curves.SMOOTH).start()
     }
-
     private fun showHeaderAndPill() {
         if (!headerHidden) return
         headerHidden = false
@@ -203,12 +202,18 @@ class MainActivity : AppCompatActivity() {
     private fun loadNews(force: Boolean) {
         if (loading) return
         loading = true; exhausted = false; page = 1
-        if (!force) swipe.isRefreshing = true
+        if (force) adapter.showSkeleton(8) else swipe.isRefreshing = true
+
         lifecycleScope.launch {
             val result = NewsRepository.fetchGeneral(page)
             swipe.isRefreshing = false
             loading = false
-            if (result.isNotEmpty()) { items.clear(); items.addAll(result); adapter.submit(result) }
+            if (result.isNotEmpty()) {
+                items.clear(); items.addAll(result)
+                adapter.submit(result)
+            } else {
+                adapter.submit(emptyList())
+            }
         }
     }
 
@@ -295,7 +300,6 @@ class MainActivity : AppCompatActivity() {
                 progress.requestLayout()
             }.start()
         }
-        findViewById<ImageView>(R.id.drAvatar)
     }
 
     private fun showAppsPopup(anchor: View) {
@@ -322,7 +326,6 @@ class MainActivity : AppCompatActivity() {
         drawerPanel.translationX = dp(300).toFloat()
         drawerPanel.animate().translationX(0f).setDuration(480).setInterpolator(Curves.SMOOTH).start()
     }
-
     private fun closeDrawer() {
         if (!drawerOpen) return
         drawerOpen = false
@@ -330,7 +333,6 @@ class MainActivity : AppCompatActivity() {
             .withEndAction { drawerScrim.visibility = View.GONE }.start()
         drawerPanel.animate().translationX(dp(300).toFloat()).setDuration(480).setInterpolator(Curves.SMOOTH).start()
     }
-
     private fun setupDrawerDrag() {
         var x0 = 0f; var lastX = 0f; var lastT = 0L; var vx = 0f
         drawerPanel.setOnTouchListener { _, ev ->
@@ -385,7 +387,9 @@ class MainActivity : AppCompatActivity() {
                 currentCat = c
                 findViewById<TextView>(R.id.hCatLabel).text = c
                 sheet.dismiss()
-                loadNews(false)
+                NewsRepository.resetDedup()
+                adapter.showSkeleton(8)
+                loadNews(true)
             }
             list.addView(tv)
         }

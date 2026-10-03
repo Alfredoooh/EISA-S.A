@@ -20,4 +20,5 @@
     <color name="pillBg">#AA1A1E23</color>
     <color name="pillBorder">#14FFFFFF</color>
     <color name="iconTint">#FFFFFF</color>
+    <color name="skeleton">#232830</color>
 </resources>

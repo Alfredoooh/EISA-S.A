@@ -111,9 +111,12 @@ class LibraryActivity : AppCompatActivity() {
         list.visibility = View.VISIBLE
         list.layoutManager = LinearLayoutManager(this)
         list.itemAnimator = null
-        list.adapter = NewsAdapter(items.toMutableList()) { item, source ->
-            openArticle(item, source)
-        }
+        list.adapter = NewsAdapter(
+            items.toMutableList(),
+            onClick = { item, source ->
+                openArticle(item, source)
+            }
+        )
     }
 
     private fun openArticle(

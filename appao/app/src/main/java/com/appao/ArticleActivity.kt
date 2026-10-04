@@ -14,6 +14,7 @@ import android.transition.ChangeTransform
 import android.transition.TransitionSet
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -25,6 +26,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -157,13 +159,6 @@ class ArticleActivity : AppCompatActivity() {
             insets
         }
 
-        scroll.setOnScrollChangeListener { _, _, y, _, oldY ->
-            val dy = y - oldY
-            if (dy != 0) {
-                updateArticleBarFromScroll(dy)
-            }
-        }
-
         IconLoader.applySvg(
             findViewById(R.id.aBackIcon),
             "back",
@@ -251,9 +246,8 @@ class ArticleActivity : AppCompatActivity() {
 
         acInput.setOnFocusChangeListener { _, focused ->
             animateComposer(focused)
-            if (focused) {
-                animateArticleBarTo(0f)
-            }
+            articleBarOffset = 0f
+            articleBar.translationY = 0f
         }
 
         acInput.addTextChangedListener(
@@ -434,52 +428,22 @@ class ArticleActivity : AppCompatActivity() {
         )
     }
 
-    private fun updateArticleBarFromScroll(
-        dy: Int
-    ) {
-        val travel = (
-            if (articleBarHeight > 0) {
-                articleBarHeight + dp(24)
-            } else {
-                dp(80)
-            }
-        ).toFloat()
-
-        articleBarOffset = (
-            articleBarOffset + dy.toFloat()
-        ).coerceIn(
-            0f,
-            travel
-        )
-
-        if (scroll.scrollY <= 0) {
-            articleBarOffset = 0f
-        }
-
-        applyArticleBarOffset()
+    private fun updateArticleBarFromScroll(dy: Int) {
+        articleBarOffset = 0f
+        articleBar.translationY = 0f
     }
 
     private fun applyArticleBarOffset() {
-        articleBar.translationY = articleBarOffset
+        articleBarOffset = 0f
+        articleBar.translationY = 0f
     }
 
     private fun animateArticleBarTo(target: Float) {
+        articleBarOffset = 0f
         articleBar.animate()
-            .translationY(
-                target.coerceIn(
-                    0f,
-                    (
-                        articleBarHeight +
-                            dp(24)
-                        ).toFloat()
-                )
-            )
-            .setDuration(240L)
+            .translationY(0f)
+            .setDuration(180L)
             .setInterpolator(Curves.IOS)
-            .withEndAction {
-                articleBarOffset =
-                    articleBar.translationY
-            }
             .start()
     }
 
@@ -497,23 +461,10 @@ class ArticleActivity : AppCompatActivity() {
     }
 
     private fun showReactSheet() {
-        val view = layoutInflater.inflate(
-            R.layout.sheet_reactions,
-            null,
-            false
-        )
-
-        val sheet = NativeSheetDialog.show(
-            this,
-            view
-        )
-
-        val row1 = view.findViewById<LinearLayout>(
-            R.id.reactRow1
-        )
-        val row2 = view.findViewById<LinearLayout>(
-            R.id.reactRow2
-        )
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(6), dp(8), dp(2))
+        }
 
         val reactions = listOf(
             "like" to "Gosto",
@@ -524,31 +475,67 @@ class ArticleActivity : AppCompatActivity() {
             "angry" to "Raiva"
         )
 
-        reactions.forEachIndexed { index, pair ->
-            val parent =
-                if (index < 3) row1 else row2
-
-            val item = layoutInflater.inflate(
-                R.layout.item_reaction_big,
-                parent,
-                false
+        val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(
+            androidx.appcompat.view.ContextThemeWrapper(
+                this,
+                R.style.Theme_AppAo_Material3Dialog
             )
+        )
+            .setTitle("Reagir com")
+            .setView(content)
+            .setNegativeButton("Cancelar", null)
+            .create()
 
-            IconLoader.applyPng(
-                item.findViewById(R.id.reactIcon),
-                pair.first
-            )
-            item.findViewById<TextView>(
-                R.id.reactLabel
-            ).text = pair.second
-
-            item.setOnClickListener {
-                react(pair.first)
-                sheet.dismiss()
+        reactions.forEach { (kind, label) ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+                background = ContextCompat.getDrawable(
+                    this@ArticleActivity,
+                    R.drawable.bg_transparent_pressed
+                )
+                isClickable = true
+                isFocusable = true
             }
 
-            parent.addView(item)
+            val icon = ImageView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(34), dp(34))
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+            }
+            IconLoader.applyPng(icon, kind)
+            row.addView(icon)
+
+            row.addView(
+                TextView(this).apply {
+                    text = label
+                    textSize = 15f
+                    setTextColor(ContextCompat.getColor(this@ArticleActivity, R.color.text))
+                    setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+                },
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginStart = dp(14)
+                }
+            )
+
+            row.setOnClickListener {
+                react(kind)
+                dialog.dismiss()
+            }
+
+            content.addView(
+                row,
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(54))
+            )
         }
+
+        dialog.setOnShowListener {
+            dialog.window?.setDimAmount(
+                if ((resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES) 0.22f else 0.12f
+            )
+        }
+
+        dialog.show()
     }
 
     private fun sendComment() {

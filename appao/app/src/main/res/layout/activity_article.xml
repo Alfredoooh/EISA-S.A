@@ -26,11 +26,9 @@
                 android:id="@+id/aHeroContainer"
                 android:layout_width="match_parent"
                 android:layout_height="250dp"
-                android:layout_marginStart="12dp"
-                android:layout_marginTop="8dp"
-                android:layout_marginEnd="12dp"
-                android:background="@drawable/bg_news_image_card"
-                android:clipToOutline="true"
+                android:layout_marginTop="0dp"
+                android:background="@android:color/transparent"
+                android:clipToOutline="false"
                 android:visibility="gone">
 
                 <ImageView
@@ -256,7 +254,7 @@
             android:id="@+id/aBack"
             android:layout_width="42dp"
             android:layout_height="42dp"
-            android:background="@drawable/bg_transparent_pressed"
+            android:background="@drawable/bg_news_row"
             android:clickable="true"
             android:focusable="true">
             <ImageView
@@ -281,7 +279,7 @@
             android:id="@+id/aCopy"
             android:layout_width="42dp"
             android:layout_height="42dp"
-            android:background="@drawable/bg_transparent_pressed"
+            android:background="@drawable/bg_news_row"
             android:clickable="true">
             <ImageView
                 android:id="@+id/aCopyIcon"
@@ -294,7 +292,7 @@
             android:id="@+id/aSave"
             android:layout_width="42dp"
             android:layout_height="42dp"
-            android:background="@drawable/bg_transparent_pressed"
+            android:background="@drawable/bg_news_row"
             android:clickable="true">
             <ImageView
                 android:id="@+id/aSaveIcon"
@@ -307,7 +305,7 @@
             android:id="@+id/aShare"
             android:layout_width="42dp"
             android:layout_height="42dp"
-            android:background="@drawable/bg_transparent_pressed"
+            android:background="@drawable/bg_news_row"
             android:clickable="true">
             <ImageView
                 android:id="@+id/aShareIcon"
@@ -375,7 +373,7 @@
             android:layout_width="42dp"
             android:layout_height="42dp"
             android:layout_marginStart="8dp"
-            android:background="@drawable/bg_transparent_pressed"
+            android:background="@drawable/bg_news_row"
             android:clickable="true"
             android:focusable="true">
             <ImageView

@@ -394,8 +394,8 @@ class NewsAdapter(
         metaRow.addView(
             faviconFrame,
             LinearLayout.LayoutParams(
-                dp(context, if (square) 32 else 38),
-                dp(context, if (square) 32 else 38)
+                dp(context, if (square) 36 else 42),
+                dp(context, if (square) 36 else 42)
             )
         )
 
@@ -486,7 +486,7 @@ class NewsAdapter(
 
         Glide.with(favicon).clear(favicon)
         if (item.logo.isNotBlank()) {
-            val size = if (square) 28 else 34
+            val size = if (square) 32 else 38
             Glide.with(favicon)
                 .load(item.logo)
                 .override(

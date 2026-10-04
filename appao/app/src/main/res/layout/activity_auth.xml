@@ -58,16 +58,14 @@
                     android:paddingTop="4dp"
                     android:paddingBottom="20dp">
 
-                    <TextView
+                    <ImageView
                         android:id="@+id/authLogo"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="app ao"
-                        android:textColor="@color/text"
-                        android:textSize="38sp"
-                        android:textStyle="bold"
-                        android:letterSpacing="-0.04"
-                        android:fontFamily="sans" />
+                        android:layout_width="180dp"
+                        android:layout_height="64dp"
+                        android:adjustViewBounds="true"
+                        android:contentDescription="app ao"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/logo" />
 
                     <TextView
                         android:id="@+id/authSubtitle"

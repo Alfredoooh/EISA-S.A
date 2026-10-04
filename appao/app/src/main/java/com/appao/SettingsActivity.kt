@@ -198,34 +198,24 @@ class SettingsActivity : AppCompatActivity() {
     private fun showThemePicker(
         anchor: View
     ) {
-        val current = ThemeManager.current(this)
-
-        HtmlStylePopup.show(
-            anchor,
-            listOf(
-                HtmlStylePopup.Item(
-                    "Escuro",
-                    "moon",
-                    current == "dark"
-                ) {
-                    selectTheme("dark")
-                },
-                HtmlStylePopup.Item(
-                    "Claro",
-                    "sun",
-                    current == "light"
-                ) {
-                    selectTheme("light")
-                },
-                HtmlStylePopup.Item(
-                    "Sistema",
-                    "phone",
-                    current == "system"
-                ) {
-                    selectTheme("system")
-                }
-            )
+        val options = listOf(
+            "Escuro" to "dark",
+            "Claro" to "light",
+            "Sistema" to "system"
         )
+        val current = ThemeManager.current(this)
+        val checked = options.indexOfFirst { it.second == current }
+            .coerceAtLeast(0)
+
+        NativeM3Dialog.showSelection(
+            this,
+            "Tema",
+            options.map { it.first },
+            checked
+        ) { index ->
+            val value = options.getOrNull(index)?.second ?: return@showSelection
+            selectTheme(value)
+        }
     }
 
     private fun selectTheme(
@@ -236,42 +226,25 @@ class SettingsActivity : AppCompatActivity() {
             return
         }
 
-        // Persist first, then tell AppCompat to apply the new resource set.
-        // The activity can recreate itself as part of the day/night update,
-        // but the app process is never closed by the user.
-        ThemeManager.save(
-            this,
-            value
-        )
+        ThemeManager.save(this, value)
 
+        // uiMode is declared in the manifest's configChanges, so AppCompat
+        // updates the resolved resources without destroying the Activity.
         AppCompatDelegate.setDefaultNightMode(
             ThemeManager.mode(this)
         )
 
-        window.decorView.post {
-            if (!isFinishing && !isDestroyed) {
-                try {
-                    delegate.applyDayNight()
-                } catch (_: Throwable) {
-                }
-                SystemBarHelper.sync(this)
-                refreshValues()
-            }
-        }
+        delegate.applyDayNight()
+        refreshValues()
+        SystemBarHelper.sync(this)
     }
 
     private fun showLangPicker(
         anchor: View
     ) {
         val current =
-            getSharedPreferences(
-                "appao",
-                MODE_PRIVATE
-            )
-                .getString(
-                    "lang",
-                    "pt"
-                ) ?: "pt"
+            getSharedPreferences("appao", MODE_PRIVATE)
+                .getString("lang", "pt") ?: "pt"
 
         val options = listOf(
             "pt" to "Português",
@@ -281,26 +254,30 @@ class SettingsActivity : AppCompatActivity() {
             "de" to "Deutsch"
         )
 
-        HtmlStylePopup.show(
-            anchor,
-            options.map { (code, label) ->
-                HtmlStylePopup.Item(
-                    label,
-                    "language",
-                    current == code
-                ) {
-                    getSharedPreferences(
-                        "appao",
-                        MODE_PRIVATE
-                    ).edit()
-                        .putString("lang", code)
-                        .commit()
+        val checked = options.indexOfFirst { it.first == current }
+            .coerceAtLeast(0)
 
-                    refreshValues()
-                    toast(label)
-                }
-            }
-        )
+        NativeM3Dialog.showSelection(
+            this,
+            "Idioma",
+            options.map { it.second },
+            checked
+        ) { index ->
+            val code = options.getOrNull(index)?.first ?: return@showSelection
+
+            getSharedPreferences(
+                "appao",
+                MODE_PRIVATE
+            )
+                .edit()
+                .putString("lang", code)
+                .apply()
+
+            refreshValues()
+            toast(
+                options.getOrNull(index)?.second ?: "Português"
+            )
+        }
     }
 
     private fun languageLabel(): String =

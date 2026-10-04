@@ -206,28 +206,21 @@ class ImageViewerActivity : AppCompatActivity() {
     private fun closeWithTransition(
         direction: Float
     ) {
-        val sign =
-            if (direction >= 0f) 1f else -1f
-
-        val target =
-            resources.displayMetrics.heightPixels
-                .toFloat() * sign
-
-        container.animate()
-            .translationY(target)
-            .translationX(0f)
-            .scaleX(.78f)
-            .scaleY(.78f)
-            .setDuration(300L)
-            .setInterpolator(Curves.IOS)
-            .start()
+        // Keep the image exactly where the finger left it. The shared-element
+        // return transition then interpolates only this image container back
+        // to the source hero/card; the article bars and other UI never enter
+        // the transform.
+        container.animate().cancel()
+        backdrop.animate().cancel()
 
         backdrop.animate()
             .alpha(0f)
-            .setDuration(220L)
+            .setDuration(180L)
             .setInterpolator(Curves.IOS)
             .withEndAction {
-                finishAfterTransition()
+                if (!isFinishing && !isDestroyed) {
+                    finishAfterTransition()
+                }
             }
             .start()
     }

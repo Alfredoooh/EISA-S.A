@@ -19,7 +19,7 @@ object ThemeManager {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY, value)
-            .commit()
+            .apply()
     }
 
     fun mode(ctx: Context): Int = when (current(ctx)) {
@@ -28,15 +28,31 @@ object ThemeManager {
         else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
     }
 
-    fun apply(ctx: Context) {
-        AppCompatDelegate.setDefaultNightMode(mode(ctx))
+    fun resolvedDark(ctx: Context): Boolean = when (current(ctx)) {
+        "dark" -> true
+        "light" -> false
+        else -> (
+            ctx.resources.configuration.uiMode and
+                android.content.res.Configuration.UI_MODE_NIGHT_MASK
+            ) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
     }
 
-    fun applyAndRefresh(activity: AppCompatActivity, value: String) {
+    fun apply(ctx: Context) {
+        AppCompatDelegate.setDefaultNightMode(
+            mode(ctx)
+        )
+    }
+
+    fun applyAndRefresh(
+        activity: AppCompatActivity,
+        value: String
+    ) {
         save(activity, value)
 
-        val mode = mode(activity)
-        AppCompatDelegate.setDefaultNightMode(mode)
+        AppCompatDelegate.setDefaultNightMode(
+            mode(activity)
+        )
 
         try {
             activity.delegate.applyDayNight()
@@ -56,7 +72,10 @@ object ThemeManager {
         else -> "Sistema"
     }
 
-    fun applyFromLabel(ctx: Context, label: String) {
+    fun applyFromLabel(
+        ctx: Context,
+        label: String
+    ) {
         val value = when (label) {
             "Escuro" -> "dark"
             "Claro" -> "light"
@@ -64,6 +83,9 @@ object ThemeManager {
         }
 
         save(ctx, value)
-        AppCompatDelegate.setDefaultNightMode(mode(ctx))
+
+        AppCompatDelegate.setDefaultNightMode(
+            mode(ctx)
+        )
     }
 }

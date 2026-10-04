@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.appao.DrawerHostLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/rootMain"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -192,28 +192,18 @@
         </LinearLayout>
     </FrameLayout>
 
-    <!-- Scrim and drawer remain above home content. -->
-    <View
-        android:id="@+id/drawerScrim"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@color/scrim"
-        android:alpha="0"
-        android:visibility="gone"
-        android:clickable="true"
-        android:focusable="true"
-        android:elevation="20dp" />
-
-    <!-- Full-height/full-width native drawer: it enters from the right and covers the whole window. -->
+    <!-- Full-screen native drawer. It enters from the left and covers the complete window, including the status-bar area. -->
     <LinearLayout
         android:id="@+id/drawerPanel"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_gravity="end"
+        android:layout_gravity="start"
         android:orientation="vertical"
         android:background="@color/bgElevated"
-        android:translationX="0dp"
+        android:translationX="-1000dp"
         android:elevation="22dp"
+        android:clickable="true"
+        android:focusable="true"
         android:clipChildren="true"
         android:clipToPadding="false">
 
@@ -221,16 +211,16 @@
             android:id="@+id/drawerHeader"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingStart="20dp"
-            android:paddingEnd="20dp"
-            android:paddingTop="18dp"
-            android:paddingBottom="18dp">
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:paddingTop="24dp"
+            android:paddingBottom="22dp">
 
             <FrameLayout
-                android:layout_width="52dp"
-                android:layout_height="52dp"
+                android:layout_width="84dp"
+                android:layout_height="84dp"
                 android:background="@drawable/bg_circle_card"
                 android:clipToOutline="true">
 
@@ -238,37 +228,32 @@
                     android:id="@+id/drAvatar"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:scaleType="centerCrop" />
+                    android:src="@drawable/logo"
+                    android:scaleType="centerInside"
+                    android:padding="8dp" />
             </FrameLayout>
 
-            <LinearLayout
-                android:layout_width="0dp"
+            <TextView
+                android:id="@+id/drName"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="14dp"
-                android:orientation="vertical">
+                android:layout_marginTop="14dp"
+                android:gravity="center"
+                android:text="Convidado"
+                android:textColor="@color/text"
+                android:textSize="20sp"
+                android:textStyle="bold" />
 
-                <TextView
-                    android:id="@+id/drName"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Convidado"
-                    android:textColor="@color/text"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:maxLines="1"
-                    android:ellipsize="end" />
-
-                <TextView
-                    android:id="@+id/drUser"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Inicia sessão para personalizar"
-                    android:textColor="@color/dim"
-                    android:textSize="12.5sp"
-                    android:maxLines="1"
-                    android:ellipsize="end" />
-            </LinearLayout>
+            <TextView
+                android:id="@+id/drUser"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:gravity="center"
+                android:text="Inicia sessão para personalizar"
+                android:textColor="@color/dim"
+                android:textSize="13.5sp"
+                android:maxLines="2" />
         </LinearLayout>
 
         <View
@@ -337,16 +322,6 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Invisible right-edge gesture target. -->
-    <View
-        android:id="@+id/drawerEdge"
-        android:layout_width="28dp"
-        android:layout_height="match_parent"
-        android:layout_gravity="end"
-        android:background="@android:color/transparent"
-        android:clickable="true"
-        android:focusable="false" />
-
     <!-- Native progress: its top margin is set from the status-bar inset. -->
     <View
         android:id="@+id/appProgress"
@@ -357,4 +332,4 @@
         android:alpha="0"
         android:elevation="50dp" />
 
-</FrameLayout>
+</com.appao.DrawerHostLayout>

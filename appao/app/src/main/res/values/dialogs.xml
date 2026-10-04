@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.AppAo.Material3Dialog" parent="Theme.Material3.DayNight.Dialog.Alert">
+        <item name="colorSurface">@color/dialogSurface</item>
+        <item name="colorOnSurface">@color/text</item>
+        <item name="colorPrimary">@color/pri</item>
+        <item name="colorOnPrimary">@color/onpri</item>
+        <item name="colorControlHighlight">@android:color/transparent</item>
+        <item name="android:colorControlHighlight">@android:color/transparent</item>
+        <item name="android:colorControlActivated">@color/pri</item>
+    </style>
+</resources>

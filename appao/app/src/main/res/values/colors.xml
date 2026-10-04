@@ -22,7 +22,8 @@
     <color name="iconTint">#111111</color>
     <color name="skeleton">#EDEDED</color>
     <color name="popupBg">#F5F5F5</color>
-    <color name="popupBorder">#D8D8D8</color>
+    <color name="popupBorder">#D0D0D0</color>
+    <color name="dialogSurface">#F5F5F5</color>
     <color name="authYellow">#E6A100</color>
     <color name="authYellowPressed">#D39200</color>
     <color name="authYellowText">#FFFFFF</color>

@@ -27,15 +27,15 @@
         </item>
 
         <item name="shapeAppearanceLargeComponent">
-            @style/AppAo.Shape.DialogRounded
+            @style/AppAo.ShapeDialogRounded
         </item>
 
         <item name="shapeAppearanceMediumComponent">
-            @style/AppAo.Shape.DialogRounded
+            @style/AppAo.ShapeDialogRounded
         </item>
 
         <item name="shapeAppearanceOverlay">
-            @style/AppAo.Shape.DialogRounded
+            @style/AppAo.ShapeDialogRounded
         </item>
 
         <item name="android:windowBackground">

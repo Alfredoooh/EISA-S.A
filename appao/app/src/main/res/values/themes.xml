@@ -76,7 +76,7 @@
         parent="Theme.Material3.DayNight.BottomSheetDialog">
 
         <item name="bottomSheetStyle">
-            @style/AppAo.BottomSheet.Modal
+            @style/AppAo.BottomSheetModal
         </item>
 
         <item name="android:windowIsFloating">false</item>
@@ -114,15 +114,15 @@
     </style>
 
     <style
-        name="AppAo.BottomSheet.Modal"
+        name="AppAo.BottomSheetModal"
         parent="Widget.Material3.BottomSheet.Modal">
 
         <item name="shapeAppearance">
-            @style/AppAo.Shape.TopRounded
+            @style/AppAo.ShapeTopRounded
         </item>
 
         <item name="shapeAppearanceOverlay">
-            @style/AppAo.Shape.TopRounded
+            @style/AppAo.ShapeTopRounded
         </item>
 
         <item name="backgroundTint">
@@ -136,7 +136,7 @@
         <item name="elevation">0dp</item>
     </style>
 
-    <style name="AppAo.Shape.TopRounded">
+    <style name="AppAo.ShapeTopRounded">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSizeTopLeft">28dp</item>
         <item name="cornerSizeTopRight">28dp</item>
@@ -158,7 +158,7 @@
         <item name="backgroundTint">@color/dialogSurface</item>
 
         <item name="shapeAppearanceOverlay">
-            @style/AppAo.Shape.DialogRounded
+            @style/AppAo.ShapeDialogRounded
         </item>
 
         <item name="colorControlHighlight">
@@ -174,7 +174,7 @@
             tools:targetApi="m">false</item>
     </style>
 
-    <style name="AppAo.Shape.DialogRounded">
+    <style name="AppAo.ShapeDialogRounded">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">28dp</item>
     </style>

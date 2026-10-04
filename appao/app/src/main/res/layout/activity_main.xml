@@ -3,21 +3,48 @@
     android:id="@+id/rootMain"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg">
+    android:background="@color/bg"
+    android:clipChildren="false"
+    android:clipToPadding="false">
 
-    <LinearLayout
+    <!-- The whole home surface can be pushed behind the native drawer. -->
+    <FrameLayout
+        android:id="@+id/mainContent"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:clipChildren="true">
+        android:background="@color/bg"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:willNotDraw="false">
 
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+            android:id="@+id/swipe"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:background="@color/bg">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recycler"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:overScrollMode="never"
+                android:paddingBottom="142dp"
+                android:scrollbars="none" />
+
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+        <!-- Native appbar overlay. It moves as a whole, not just its children. -->
         <FrameLayout
             android:id="@+id/header"
             android:layout_width="match_parent"
             android:layout_height="56dp"
+            android:layout_gravity="top"
             android:background="@color/bg"
             android:clipChildren="false"
-            android:clipToPadding="false">
+            android:clipToPadding="false"
+            android:elevation="4dp">
 
             <LinearLayout
                 android:id="@+id/wPill"
@@ -30,7 +57,7 @@
                 android:paddingEnd="10dp"
                 android:paddingTop="6dp"
                 android:paddingBottom="6dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
+                android:background="@drawable/bg_transparent_pressed"
                 android:clickable="true"
                 android:focusable="true">
 
@@ -38,7 +65,8 @@
                     android:id="@+id/wIcon"
                     android:layout_width="23dp"
                     android:layout_height="23dp"
-                    android:scaleType="fitCenter"/>
+                    android:scaleType="fitCenter" />
+
                 <TextView
                     android:id="@+id/wTemp"
                     android:layout_width="wrap_content"
@@ -47,7 +75,7 @@
                     android:text="--°"
                     android:textColor="@color/text"
                     android:textSize="14sp"
-                    android:textStyle="bold"/>
+                    android:textStyle="bold" />
             </LinearLayout>
 
             <LinearLayout
@@ -61,7 +89,7 @@
                 android:paddingEnd="12dp"
                 android:paddingTop="8dp"
                 android:paddingBottom="8dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
+                android:background="@drawable/bg_transparent_pressed"
                 android:clickable="true"
                 android:focusable="true">
 
@@ -72,13 +100,14 @@
                     android:text="Todas"
                     android:textColor="@color/text"
                     android:textSize="17sp"
-                    android:textStyle="bold"/>
+                    android:textStyle="bold" />
+
                 <ImageView
                     android:id="@+id/hCatChevron"
                     android:layout_width="16dp"
                     android:layout_height="16dp"
                     android:layout_marginStart="6dp"
-                    android:scaleType="fitCenter"/>
+                    android:scaleType="fitCenter" />
             </LinearLayout>
 
             <FrameLayout
@@ -86,94 +115,85 @@
                 android:layout_width="42dp"
                 android:layout_height="42dp"
                 android:layout_gravity="end|center_vertical"
-                android:background="?attr/selectableItemBackgroundBorderless"
+                android:background="@drawable/bg_transparent_pressed"
                 android:clickable="true"
                 android:focusable="true">
+
                 <ImageView
                     android:id="@+id/hMoreIcon"
                     android:layout_width="23dp"
                     android:layout_height="23dp"
                     android:layout_gravity="center"
-                    android:scaleType="fitCenter"/>
+                    android:scaleType="fitCenter" />
             </FrameLayout>
         </FrameLayout>
 
-        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-            android:id="@+id/swipe"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1">
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recycler"
-                android:layout_width="match_parent"
+        <!-- Bottom AI input remains fixed and translates as a single component. -->
+        <LinearLayout
+            android:id="@+id/biPill"
+            android:layout_width="320dp"
+            android:layout_height="46dp"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="20dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_pill_card"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp"
+            android:elevation="8dp">
+
+            <FrameLayout
+                android:id="@+id/biAdd"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:background="@drawable/bg_circle_card"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:id="@+id/biAddIcon"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:scaleType="fitCenter" />
+            </FrameLayout>
+
+            <EditText
+                android:id="@+id/biInput"
+                android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:clipToPadding="false"
-                android:paddingBottom="130dp"
-                android:overScrollMode="never"/>
-        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
-    </LinearLayout>
+                android:layout_weight="1"
+                android:background="@null"
+                android:hint="@string/ask_ai"
+                android:textColorHint="@color/dim"
+                android:textColor="@color/text"
+                android:textSize="14.5sp"
+                android:imeOptions="actionSend"
+                android:inputType="textCapSentences"
+                android:maxLines="1"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp" />
 
-    <LinearLayout
-        android:id="@+id/biPill"
-        android:layout_width="320dp"
-        android:layout_height="46dp"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="20dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:background="@drawable/bg_pill_card"
-        android:paddingStart="6dp"
-        android:paddingEnd="6dp"
-        android:elevation="8dp">
+            <FrameLayout
+                android:id="@+id/biSend"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:background="@drawable/bg_circle_pri"
+                android:visibility="gone"
+                android:clickable="true"
+                android:focusable="true">
 
-        <FrameLayout
-            android:id="@+id/biAdd"
-            android:layout_width="34dp"
-            android:layout_height="34dp"
-            android:background="@drawable/bg_circle_card"
-            android:clickable="true"
-            android:focusable="true">
-            <ImageView
-                android:id="@+id/biAddIcon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:layout_gravity="center"
-                android:scaleType="fitCenter"/>
-        </FrameLayout>
+                <ImageView
+                    android:id="@+id/biSendIcon"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:scaleType="fitCenter" />
+            </FrameLayout>
+        </LinearLayout>
+    </FrameLayout>
 
-        <EditText
-            android:id="@+id/biInput"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:background="@null"
-            android:hint="@string/ask_ai"
-            android:textColorHint="@color/dim"
-            android:textColor="@color/text"
-            android:textSize="14.5sp"
-            android:imeOptions="actionSend"
-            android:inputType="textCapSentences"
-            android:maxLines="1"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"/>
-
-        <FrameLayout
-            android:id="@+id/biSend"
-            android:layout_width="0dp"
-            android:layout_height="36dp"
-            android:background="@drawable/bg_circle_pri"
-            android:visibility="gone"
-            android:clickable="true"
-            android:focusable="true">
-            <ImageView
-                android:id="@+id/biSendIcon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:layout_gravity="center"
-                android:scaleType="fitCenter"/>
-        </FrameLayout>
-    </LinearLayout>
-
+    <!-- Scrim and drawer remain above home content. -->
     <View
         android:id="@+id/drawerScrim"
         android:layout_width="match_parent"
@@ -181,44 +201,54 @@
         android:background="@color/scrim"
         android:alpha="0"
         android:visibility="gone"
-        android:elevation="20dp"/>
+        android:clickable="true"
+        android:focusable="true"
+        android:elevation="20dp" />
 
+    <!-- Full-height/full-width native drawer: it enters from the right and covers the whole window. -->
     <LinearLayout
         android:id="@+id/drawerPanel"
-        android:layout_width="300dp"
+        android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_gravity="end"
         android:orientation="vertical"
         android:background="@color/bgElevated"
-        android:translationX="300dp"
-        android:elevation="22dp">
+        android:translationX="0dp"
+        android:elevation="22dp"
+        android:clipChildren="true"
+        android:clipToPadding="false">
 
         <LinearLayout
+            android:id="@+id/drawerHeader"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:paddingStart="20dp"
             android:paddingEnd="20dp"
-            android:paddingTop="24dp"
+            android:paddingTop="18dp"
             android:paddingBottom="18dp">
+
             <FrameLayout
                 android:layout_width="52dp"
                 android:layout_height="52dp"
                 android:background="@drawable/bg_circle_card"
                 android:clipToOutline="true">
+
                 <ImageView
                     android:id="@+id/drAvatar"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:scaleType="centerCrop"/>
+                    android:scaleType="centerCrop" />
             </FrameLayout>
+
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:layout_marginStart="14dp"
                 android:orientation="vertical">
+
                 <TextView
                     android:id="@+id/drName"
                     android:layout_width="match_parent"
@@ -228,7 +258,8 @@
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:maxLines="1"
-                    android:ellipsize="end"/>
+                    android:ellipsize="end" />
+
                 <TextView
                     android:id="@+id/drUser"
                     android:layout_width="match_parent"
@@ -237,25 +268,87 @@
                     android:textColor="@color/dim"
                     android:textSize="12.5sp"
                     android:maxLines="1"
-                    android:ellipsize="end"/>
+                    android:ellipsize="end" />
             </LinearLayout>
         </LinearLayout>
 
-        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/line"/>
-        <LinearLayout android:id="@+id/drProfile" style="@style/DrawerItem">
-            <ImageView android:id="@+id/drIconProfile" android:layout_width="25dp" android:layout_height="25dp"/>
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Perfil" android:textColor="@color/text" android:textSize="15sp"/>
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/line" />
+
+        <LinearLayout
+            android:id="@+id/drProfile"
+            style="@style/DrawerItem"
+            android:minHeight="60dp">
+
+            <ImageView
+                android:id="@+id/drIconProfile"
+                android:layout_width="28dp"
+                android:layout_height="28dp" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="14dp"
+                android:text="Perfil"
+                android:textColor="@color/text"
+                android:textSize="15sp" />
         </LinearLayout>
-        <LinearLayout android:id="@+id/drLibrary" style="@style/DrawerItem">
-            <ImageView android:id="@+id/drIconLibrary" android:layout_width="25dp" android:layout_height="25dp"/>
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Biblioteca" android:textColor="@color/text" android:textSize="15sp"/>
+
+        <LinearLayout
+            android:id="@+id/drLibrary"
+            style="@style/DrawerItem"
+            android:minHeight="60dp">
+
+            <ImageView
+                android:id="@+id/drIconLibrary"
+                android:layout_width="28dp"
+                android:layout_height="28dp" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="14dp"
+                android:text="Biblioteca"
+                android:textColor="@color/text"
+                android:textSize="15sp" />
         </LinearLayout>
-        <LinearLayout android:id="@+id/drSettings" style="@style/DrawerItem">
-            <ImageView android:id="@+id/drIconSettings" android:layout_width="25dp" android:layout_height="25dp"/>
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Definições" android:textColor="@color/text" android:textSize="15sp"/>
+
+        <LinearLayout
+            android:id="@+id/drSettings"
+            style="@style/DrawerItem"
+            android:minHeight="60dp">
+
+            <ImageView
+                android:id="@+id/drIconSettings"
+                android:layout_width="28dp"
+                android:layout_height="28dp" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="14dp"
+                android:text="Definições"
+                android:textColor="@color/text"
+                android:textSize="15sp" />
         </LinearLayout>
     </LinearLayout>
 
+    <!-- Invisible right-edge gesture target. -->
+    <View
+        android:id="@+id/drawerEdge"
+        android:layout_width="28dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="end"
+        android:background="@android:color/transparent"
+        android:clickable="true"
+        android:focusable="false" />
+
+    <!-- Native progress: its top margin is set from the status-bar inset. -->
     <View
         android:id="@+id/appProgress"
         android:layout_width="0dp"
@@ -263,5 +356,6 @@
         android:layout_gravity="top|start"
         android:background="@drawable/progress_gradient"
         android:alpha="0"
-        android:elevation="50dp"/>
+        android:elevation="50dp" />
+
 </FrameLayout>

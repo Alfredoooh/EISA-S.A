@@ -9,6 +9,7 @@ import android.transition.TransitionSet
 import android.view.MotionEvent
 import android.view.VelocityTracker
 import android.view.View
+import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -16,13 +17,17 @@ import androidx.core.view.WindowCompat
 import com.bumptech.glide.Glide
 import kotlin.math.abs
 
+/** Full-screen image viewer whose image container follows the user's gesture. */
 class ImageViewerActivity : AppCompatActivity() {
 
+    private lateinit var root: View
+    private lateinit var backdrop: View
+    private lateinit var container: FrameLayout
     private lateinit var image: ImageView
 
-    private var downY = 0f
     private var downX = 0f
-    private var dragging = false
+    private var downY = 0f
+    private var tracking = false
     private var moved = false
     private var velocityTracker: VelocityTracker? = null
 
@@ -32,23 +37,35 @@ class ImageViewerActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.sharedElementEnterTransition = imageTransition()
         window.sharedElementReturnTransition = imageTransition()
+        window.exitTransition = null
+        window.reenterTransition = null
+
         setContentView(R.layout.activity_image_viewer)
         SystemBarHelper.sync(
             this,
             darkOverride = true
         )
 
+        root = findViewById(R.id.imageViewerRoot)
+        backdrop = findViewById(R.id.imageBackdrop)
+        container = findViewById(R.id.fullImageContainer)
         image = findViewById(R.id.fullImage)
 
         val url = intent.getStringExtra("image")
+            ?.takeIf { it.isNotBlank() }
             ?: run {
                 finish()
                 return
             }
 
+        val transition =
+            intent.getStringExtra("transition")
+                ?.takeIf { it.isNotBlank() }
+                ?: "hero"
+
         ViewCompat.setTransitionName(
-            image,
-            intent.getStringExtra("transition") ?: "hero"
+            container,
+            transition
         )
 
         Glide.with(this)
@@ -56,7 +73,9 @@ class ImageViewerActivity : AppCompatActivity() {
             .dontAnimate()
             .into(image)
 
-        image.setOnTouchListener { _, event ->
+        backdrop.alpha = 1f
+
+        container.setOnTouchListener { _, event ->
             handleTouch(event)
         }
     }
@@ -78,51 +97,56 @@ class ImageViewerActivity : AppCompatActivity() {
             MotionEvent.ACTION_DOWN -> {
                 downX = event.rawX
                 downY = event.rawY
-                dragging = true
+                tracking = true
                 moved = false
 
                 velocityTracker?.recycle()
                 velocityTracker = VelocityTracker.obtain()
                 velocityTracker?.addMovement(event)
 
-                image.animate().cancel()
+                container.animate().cancel()
                 return true
             }
 
             MotionEvent.ACTION_MOVE -> {
+                if (!tracking) return true
+
                 velocityTracker?.addMovement(event)
 
                 val dx = event.rawX - downX
                 val dy = event.rawY - downY
 
-                if (
-                    abs(dx) > 5f ||
-                    abs(dy) > 5f
-                ) {
+                if (abs(dx) > 6f || abs(dy) > 6f) {
                     moved = true
                 }
 
-                if (!dragging) return true
+                val height =
+                    resources.displayMetrics.heightPixels
+                        .toFloat()
+                        .coerceAtLeast(1f)
 
-                val distance = abs(dy)
-                val maxDistance =
-                    resources.displayMetrics.heightPixels.toFloat()
-
-                val progress = (
-                    distance / maxDistance
-                ).coerceIn(0f, 1f)
+                val progress =
+                    (abs(dy) / (height * .82f))
+                        .coerceIn(0f, 1f)
 
                 val scale =
-                    1f - progress * 0.25f
+                    1f - progress * .22f
 
-                val alpha =
-                    1f - progress * 0.65f
+                container.translationX =
+                    dx * .14f
 
-                image.translationX = dx * 0.18f
-                image.translationY = dy
-                image.scaleX = scale.coerceAtLeast(0.72f)
-                image.scaleY = scale.coerceAtLeast(0.72f)
-                image.alpha = alpha.coerceAtLeast(0.25f)
+                container.translationY =
+                    dy
+
+                container.scaleX =
+                    scale.coerceAtLeast(.78f)
+
+                container.scaleY =
+                    scale.coerceAtLeast(.78f)
+
+                backdrop.alpha =
+                    (1f - progress * .70f)
+                        .coerceAtLeast(.20f)
 
                 return true
             }
@@ -136,17 +160,21 @@ class ImageViewerActivity : AppCompatActivity() {
                 val velocityY =
                     velocityTracker?.yVelocity ?: 0f
 
-                val dismiss =
-                    abs(dy) > resources.displayMetrics.heightPixels * 0.20f ||
-                        abs(velocityY) > 1200f
-
-                dragging = false
+                tracking = false
 
                 velocityTracker?.recycle()
                 velocityTracker = null
 
+                val height =
+                    resources.displayMetrics.heightPixels
+                        .toFloat()
+
+                val dismiss =
+                    abs(dy) > height * .20f ||
+                        abs(velocityY) > 1200f
+
                 if (dismiss) {
-                    closeWithTransition()
+                    closeWithTransition(dy)
                 } else {
                     restorePosition()
                 }
@@ -159,21 +187,45 @@ class ImageViewerActivity : AppCompatActivity() {
     }
 
     private fun restorePosition() {
-        image.animate()
+        container.animate()
             .translationX(0f)
             .translationY(0f)
             .scaleX(1f)
             .scaleY(1f)
-            .alpha(1f)
             .setDuration(360L)
             .setInterpolator(Curves.SPRING)
             .start()
+
+        backdrop.animate()
+            .alpha(1f)
+            .setDuration(280L)
+            .setInterpolator(Curves.IOS)
+            .start()
     }
 
-    private fun closeWithTransition() {
-        image.animate()
+    private fun closeWithTransition(
+        direction: Float
+    ) {
+        val sign =
+            if (direction >= 0f) 1f else -1f
+
+        val target =
+            resources.displayMetrics.heightPixels
+                .toFloat() * sign
+
+        container.animate()
+            .translationY(target)
+            .translationX(0f)
+            .scaleX(.78f)
+            .scaleY(.78f)
+            .setDuration(300L)
+            .setInterpolator(Curves.IOS)
+            .start()
+
+        backdrop.animate()
             .alpha(0f)
-            .setDuration(120L)
+            .setDuration(220L)
+            .setInterpolator(Curves.IOS)
             .withEndAction {
                 finishAfterTransition()
             }
@@ -187,6 +239,9 @@ class ImageViewerActivity : AppCompatActivity() {
     override fun onDestroy() {
         velocityTracker?.recycle()
         velocityTracker = null
+        if (::container.isInitialized) {
+            container.animate().cancel()
+        }
         super.onDestroy()
     }
 }

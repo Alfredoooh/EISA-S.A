@@ -1,5 +1,6 @@
 package com.appao
 
+import android.app.ActivityOptions
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
@@ -8,6 +9,7 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.transition.ChangeBounds
 import android.transition.ChangeClipBounds
+import android.transition.ChangeImageTransform
 import android.transition.ChangeTransform
 import android.transition.TransitionSet
 import android.view.MotionEvent
@@ -32,10 +34,18 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
+import kotlin.math.max
 
+/** Native article page. Only the hero/text card participates in the transform. */
 class ArticleActivity : AppCompatActivity() {
 
+    private lateinit var root: View
+    private lateinit var heroContainer: FrameLayout
     private lateinit var hero: ImageView
+    private lateinit var textHero: FrameLayout
+    private lateinit var textHeroFavicon: ImageView
+    private lateinit var textHeroSource: TextView
+    private lateinit var textHeroTitle: TextView
     private lateinit var title: TextView
     private lateinit var summary: TextView
     private lateinit var body: TextView
@@ -50,17 +60,16 @@ class ArticleActivity : AppCompatActivity() {
     private lateinit var acComposer: LinearLayout
     private lateinit var acEmoji: FrameLayout
     private lateinit var commentsAdapter: CommentAdapter
-    private lateinit var root: View
 
     private val comments = mutableListOf<Comment>()
+
     private var itemImage = ""
     private var itemLink = ""
     private var itemTitle = ""
-    private var currentReact = ""
-    private var containerTransitionName = ""
+    private var transitionName = ""
     private var articleBarOffset = 0f
-    private var lastScrollY = 0
     private var articleBarHeight = 0
+    private var currentReact = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,22 +77,30 @@ class ArticleActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.sharedElementEnterTransition = containerTransition()
         window.sharedElementReturnTransition = containerTransition()
+        window.exitTransition = null
+        window.reenterTransition = null
 
         setContentView(R.layout.activity_article)
         SystemBarHelper.sync(this)
 
-        itemImage = intent.getStringExtra("image") ?: ""
-        itemLink = intent.getStringExtra("link") ?: ""
-        itemTitle = intent.getStringExtra("title") ?: ""
-        val itemSummary = intent.getStringExtra("summary") ?: ""
-        val itemSource = intent.getStringExtra("source") ?: ""
-        val itemDate = intent.getStringExtra("date") ?: ""
-        val itemLogo = intent.getStringExtra("logo") ?: ""
-        containerTransitionName =
-            intent.getStringExtra("transition_name") ?: ""
+        itemImage = intent.getStringExtra("image").orEmpty()
+        itemLink = intent.getStringExtra("link").orEmpty()
+        itemTitle = intent.getStringExtra("title").orEmpty()
+
+        val itemSummary = intent.getStringExtra("summary").orEmpty()
+        val itemSource = intent.getStringExtra("source").orEmpty()
+        val itemDate = intent.getStringExtra("date").orEmpty()
+        val itemLogo = intent.getStringExtra("logo").orEmpty()
+        transitionName =
+            intent.getStringExtra("transition_name").orEmpty()
 
         root = findViewById(R.id.rootArticle)
+        heroContainer = findViewById(R.id.aHeroContainer)
         hero = findViewById(R.id.aHero)
+        textHero = findViewById(R.id.aTextHero)
+        textHeroFavicon = findViewById(R.id.aTextHeroFavicon)
+        textHeroSource = findViewById(R.id.aTextHeroSource)
+        textHeroTitle = findViewById(R.id.aTextHeroTitle)
         title = findViewById(R.id.aTitle)
         summary = findViewById(R.id.aSummary)
         body = findViewById(R.id.aBody)
@@ -98,24 +115,19 @@ class ArticleActivity : AppCompatActivity() {
         acComposer = findViewById(R.id.acComposer)
         acEmoji = findViewById(R.id.acEmoji)
 
-        if (containerTransitionName.isNotBlank()) {
-            ViewCompat.setTransitionName(
-                root,
-                containerTransitionName
-            )
-        }
+        configureHero(
+            itemSource = itemSource,
+            itemLogo = itemLogo
+        )
 
         val topbar = findViewById<View>(R.id.aTopBar)
-
         ViewCompat.setOnApplyWindowInsetsListener(topbar) { view, insets ->
-            val bars = insets.getInsets(
-                WindowInsetsCompat.Type.systemBars()
-            )
-            view.updatePadding(
-                top = bars.top + dp(6)
-            )
+            val top = insets.getInsets(
+                WindowInsetsCompat.Type.statusBars()
+            ).top
+            view.updatePadding(top = top + dp(6))
             view.layoutParams = view.layoutParams.apply {
-                height = dp(56) + bars.top
+                height = dp(56) + top
             }
             insets
         }
@@ -127,21 +139,20 @@ class ArticleActivity : AppCompatActivity() {
             val ime = insets.getInsets(
                 WindowInsetsCompat.Type.ime()
             ).bottom
-            val bottom = maxOf(ime, bars.bottom)
+            val bottom = max(ime, bars.bottom)
 
-            val articleParams =
+            val barParams =
                 articleBar.layoutParams as FrameLayout.LayoutParams
-            articleParams.bottomMargin = bottom
-            articleBar.layoutParams = articleParams
-
-            articleBarHeight = articleBar.height
+            barParams.bottomMargin = bottom
+            articleBar.layoutParams = barParams
 
             val scrollParams =
                 scroll.layoutParams as FrameLayout.LayoutParams
             scrollParams.topMargin = bars.top + dp(56)
-            scrollParams.bottomMargin = articleBar.height + dp(8)
+            scrollParams.bottomMargin = articleBar.measuredHeight + dp(8)
             scroll.layoutParams = scrollParams
 
+            articleBarHeight = articleBar.measuredHeight
             applyArticleBarOffset()
             insets
         }
@@ -155,7 +166,7 @@ class ArticleActivity : AppCompatActivity() {
 
         IconLoader.applySvg(
             findViewById(R.id.aBackIcon),
-            "close",
+            "back",
             R.color.iconTint
         )
         IconLoader.applySvg(
@@ -188,17 +199,21 @@ class ArticleActivity : AppCompatActivity() {
 
         title.text = itemTitle
         source.text = itemSource
-        time.text = if (itemDate.isBlank()) {
-            ""
-        } else {
-            "· ${prettyTime(itemDate)}"
-        }
+        time.text = if (itemDate.isBlank()) "" else "· ${prettyTime(itemDate)}"
 
         if (itemSummary.isNotBlank()) {
             summary.visibility = View.VISIBLE
             summary.text = itemSummary
         } else {
             summary.visibility = View.GONE
+        }
+
+        if (itemLogo.isNotBlank()) {
+            Glide.with(this)
+                .load(itemLogo)
+                .override(dp(28), dp(28))
+                .dontAnimate()
+                .into(favicon)
         }
 
         if (itemImage.isNotBlank()) {
@@ -208,27 +223,10 @@ class ArticleActivity : AppCompatActivity() {
                 .into(hero)
         }
 
-        if (itemLogo.isNotBlank()) {
-            Glide.with(this)
-                .load(itemLogo)
-                .override(dp(22), dp(22))
-                .dontAnimate()
-                .into(favicon)
-        }
-
-        if (itemImage.isNotBlank()) {
-            hero.transitionName =
-                "article_image_${itemLink.hashCode().toUInt().toString(36)}"
-
-            hero.setOnClickListener {
+        heroContainer.setOnClickListener {
+            if (itemImage.isNotBlank()) {
                 openImageViewer()
             }
-        }
-
-        articleBar.post {
-            articleBarHeight = articleBar.height
-            articleBarOffset = 0f
-            articleBar.translationY = 0f
         }
 
         findViewById<View>(R.id.aBack).setOnClickListener {
@@ -244,15 +242,12 @@ class ArticleActivity : AppCompatActivity() {
         }
 
         findViewById<RecyclerView>(R.id.cList).apply {
-            layoutManager = LinearLayoutManager(
-                this@ArticleActivity
-            )
+            layoutManager = LinearLayoutManager(this@ArticleActivity)
             adapter = commentsAdapter
             itemAnimator = null
             isNestedScrollingEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
         }
-
-        acComposer.pivotX = 0f
 
         acInput.setOnFocusChangeListener { _, focused ->
             animateComposer(focused)
@@ -280,9 +275,9 @@ class ArticleActivity : AppCompatActivity() {
                     acSend.visibility =
                         if (hasText) View.VISIBLE else View.GONE
 
-                    val lp = acSend.layoutParams as LinearLayout.LayoutParams
-                    lp.width =
-                        if (hasText) dp(32) else 0
+                    val lp =
+                        acSend.layoutParams as LinearLayout.LayoutParams
+                    lp.width = if (hasText) dp(34) else 0
                     acSend.layoutParams = lp
                 }
 
@@ -314,10 +309,7 @@ class ArticleActivity : AppCompatActivity() {
                     itemLink
                 )
             )
-            AppAoToast.show(
-                this,
-                "Link copiado"
-            )
+            AppAoToast.show(this, "Link copiado")
         }
 
         findViewById<View>(R.id.aShare).setOnClickListener {
@@ -336,10 +328,13 @@ class ArticleActivity : AppCompatActivity() {
         }
 
         findViewById<View>(R.id.aSave).setOnClickListener {
-            AppAoToast.show(
-                this,
-                "Guardado"
-            )
+            AppAoToast.show(this, "Guardado")
+        }
+
+        articleBar.post {
+            articleBarHeight = articleBar.measuredHeight
+            articleBarOffset = 0f
+            articleBar.translationY = 0f
         }
 
         lifecycleScope.launch {
@@ -365,11 +360,50 @@ class ArticleActivity : AppCompatActivity() {
         }
     }
 
+    private fun configureHero(
+        itemSource: String,
+        itemLogo: String
+    ) {
+        if (itemImage.isNotBlank()) {
+            heroContainer.visibility = View.VISIBLE
+            textHero.visibility = View.GONE
+
+            if (transitionName.isNotBlank()) {
+                ViewCompat.setTransitionName(
+                    heroContainer,
+                    transitionName
+                )
+            }
+        } else {
+            heroContainer.visibility = View.GONE
+            textHero.visibility = View.VISIBLE
+
+            textHeroSource.text = itemSource
+            textHeroTitle.text = itemTitle
+
+            if (itemLogo.isNotBlank()) {
+                Glide.with(this)
+                    .load(itemLogo)
+                    .override(dp(34), dp(34))
+                    .dontAnimate()
+                    .into(textHeroFavicon)
+            }
+
+            if (transitionName.isNotBlank()) {
+                ViewCompat.setTransitionName(
+                    textHero,
+                    transitionName
+                )
+            }
+        }
+    }
+
     private fun containerTransition(): TransitionSet =
         TransitionSet().apply {
             addTransition(ChangeBounds())
             addTransition(ChangeTransform())
             addTransition(ChangeClipBounds())
+            addTransition(ChangeImageTransform())
             duration = 450L
             interpolator = Curves.SMOOTH
         }
@@ -377,12 +411,14 @@ class ArticleActivity : AppCompatActivity() {
     private fun openImageViewer() {
         if (itemImage.isBlank()) return
 
-        val name = hero.transitionName
+        val name =
+            ViewCompat.getTransitionName(heroContainer)
+                ?: "article_image_${itemLink.hashCode().toUInt().toString(36)}"
 
         val options =
-            android.app.ActivityOptions.makeSceneTransitionAnimation(
+            ActivityOptions.makeSceneTransitionAnimation(
                 this,
-                hero,
+                heroContainer,
                 name
             )
 
@@ -398,7 +434,9 @@ class ArticleActivity : AppCompatActivity() {
         )
     }
 
-    private fun updateArticleBarFromScroll(dy: Int) {
+    private fun updateArticleBarFromScroll(
+        dy: Int
+    ) {
         val travel = (
             if (articleBarHeight > 0) {
                 articleBarHeight + dp(24)
@@ -409,7 +447,10 @@ class ArticleActivity : AppCompatActivity() {
 
         articleBarOffset = (
             articleBarOffset + dy.toFloat()
-        ).coerceIn(0f, travel)
+        ).coerceIn(
+            0f,
+            travel
+        )
 
         if (scroll.scrollY <= 0) {
             articleBarOffset = 0f
@@ -424,20 +465,32 @@ class ArticleActivity : AppCompatActivity() {
 
     private fun animateArticleBarTo(target: Float) {
         articleBar.animate()
-            .translationY(target.coerceAtLeast(0f))
+            .translationY(
+                target.coerceIn(
+                    0f,
+                    (
+                        articleBarHeight +
+                            dp(24)
+                        ).toFloat()
+                )
+            )
             .setDuration(240L)
             .setInterpolator(Curves.IOS)
             .withEndAction {
-                articleBarOffset = articleBar.translationY
+                articleBarOffset =
+                    articleBar.translationY
             }
             .start()
     }
 
-    private fun animateComposer(focused: Boolean) {
-        val target = if (focused) 1.03f else 1f
+    private fun animateComposer(
+        focused: Boolean
+    ) {
         acComposer.pivotX = 0f
         acComposer.animate()
-            .scaleX(target)
+            .scaleX(
+                if (focused) 1.02f else 1f
+            )
             .setDuration(250L)
             .setInterpolator(Curves.SPRING)
             .start()
@@ -472,7 +525,9 @@ class ArticleActivity : AppCompatActivity() {
         )
 
         reactions.forEachIndexed { index, pair ->
-            val parent = if (index < 3) row1 else row2
+            val parent =
+                if (index < 3) row1 else row2
+
             val item = layoutInflater.inflate(
                 R.layout.item_reaction_big,
                 parent,
@@ -522,7 +577,9 @@ class ArticleActivity : AppCompatActivity() {
 
         scroll.postDelayed(
             {
-                scroll.fullScroll(View.FOCUS_DOWN)
+                scroll.fullScroll(
+                    View.FOCUS_DOWN
+                )
             },
             100L
         )
@@ -541,14 +598,19 @@ class ArticleActivity : AppCompatActivity() {
         )
     }
 
-    private fun prettyTime(value: String): String {
+    private fun prettyTime(
+        value: String
+    ): String {
         if (value.isBlank()) return ""
 
         return try {
-            val raw = value.replace("Z", "")
+            val raw = value
+                .replace("Z", "")
+                .replace(Regex("[+-]\\d{2}:?\\d{2}$"), "")
+
             val format = SimpleDateFormat(
                 "yyyy-MM-dd'T'HH:mm:ss",
-                Locale.getDefault()
+                Locale.US
             ).apply {
                 timeZone = TimeZone.getTimeZone("UTC")
             }
@@ -580,21 +642,15 @@ class ArticleActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        SystemBarHelper.sync(this)
+    }
+
     override fun onConfigurationChanged(
         newConfig: android.content.res.Configuration
     ) {
         super.onConfigurationChanged(newConfig)
-        SystemBarHelper.sync(this)
-        window.decorView.setBackgroundColor(
-            androidx.core.content.ContextCompat.getColor(
-                this,
-                R.color.bg
-            )
-        )
-    }
-
-    override fun onResume() {
-        super.onResume()
         SystemBarHelper.sync(this)
     }
 
@@ -606,8 +662,7 @@ class ArticleActivity : AppCompatActivity() {
             if (focused is EditText) {
                 val rect = android.graphics.Rect()
                 focused.getGlobalVisibleRect(rect)
-                if (
-                    !rect.contains(
+                if (!rect.contains(
                         event.rawX.toInt(),
                         event.rawY.toInt()
                     )
@@ -627,6 +682,6 @@ class ArticleActivity : AppCompatActivity() {
     }
 
     private fun dp(value: Int): Int =
-        (value * resources.displayMetrics.density + 0.5f)
+        (value * resources.displayMetrics.density + .5f)
             .toInt()
 }

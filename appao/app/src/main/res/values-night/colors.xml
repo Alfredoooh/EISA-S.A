@@ -7,7 +7,7 @@
     <color name="text">#FFFFFF</color>
     <color name="dim">#B0B5BC</color>
     <color name="line">#1F242A</color>
-    <color name="border">#242830</color>
+    <color name="border">#2C3138</color>
     <color name="accent">#FF9F1C</color>
     <color name="pri">#FFFFFF</color>
     <color name="onpri">#0D0F12</color>
@@ -22,4 +22,8 @@
     <color name="iconTint">#FFFFFF</color>
     <color name="skeleton">#232830</color>
     <color name="popupBg">#22272D</color>
+    <color name="popupBorder">#343A42</color>
+    <color name="authYellow">#FFD54F</color>
+    <color name="authYellowPressed">#F2C13D</color>
+    <color name="authYellowText">#0A0C10</color>
 </resources>

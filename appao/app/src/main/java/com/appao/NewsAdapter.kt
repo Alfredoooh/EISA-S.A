@@ -30,6 +30,7 @@ import java.util.TimeZone
 import java.util.concurrent.CopyOnWriteArraySet
 import kotlin.math.max
 
+/** Native feed renderer with image cards plus grouped, square no-image sections. */
 class NewsAdapter(
     initial: List<NewsItem>,
     private val onClick: (NewsItem, View) -> Unit
@@ -40,7 +41,9 @@ class NewsAdapter(
         private const val TYPE_TEXT_SINGLE = 2
         private const val TYPE_TEXT_GROUP = 3
         private const val TYPE_SKELETON = 4
-        private const val MAX_TEXT_GROUP = 3
+        private const val MAX_TEXT_GROUP = 6
+        private const val GRID_GAP_DP = 8
+        private const val GROUP_CARD_MAX_DP = 136
     }
 
     private sealed class RenderRow {
@@ -56,7 +59,8 @@ class NewsAdapter(
     private var shimmerAnim: ValueAnimator? = null
 
     init {
-        replaceArticles(initial.filterIsInstance<NewsItem>())
+        replaceArticles(initial)
+        rebuildRows()
     }
 
     class ImageVH(v: View) : RecyclerView.ViewHolder(v) {
@@ -87,7 +91,10 @@ class NewsAdapter(
         RenderRow.Skeleton -> TYPE_SKELETON
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+    override fun onCreateViewHolder(
+        parent: ViewGroup,
+        viewType: Int
+    ): RecyclerView.ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
         return when (viewType) {
             TYPE_IMAGE -> ImageVH(
@@ -103,18 +110,23 @@ class NewsAdapter(
                         ViewGroup.LayoutParams.WRAP_CONTENT
                     )
                     setPadding(
-                        dp(parent, 16),
-                        dp(parent, 8),
-                        dp(parent, 16),
-                        dp(parent, 8)
+                        dp(parent.context, 16),
+                        dp(parent.context, 8),
+                        dp(parent.context, 16),
+                        dp(parent.context, 8)
                     )
+                    clipChildren = false
+                    clipToPadding = false
                 }
             )
             else -> error("Unknown news view type: $viewType")
         }
     }
 
-    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+    override fun onBindViewHolder(
+        holder: RecyclerView.ViewHolder,
+        position: Int
+    ) {
         when (val row = rows[position]) {
             is RenderRow.Image -> bindImage(holder as ImageVH, row.item)
             is RenderRow.TextSingle -> bindTextSingle(holder as DynamicTextVH, row.item)
@@ -124,7 +136,6 @@ class NewsAdapter(
     }
 
     private fun bindImage(holder: ImageVH, item: NewsItem) {
-        val context = holder.itemView.context
         holder.itemView.transitionName = null
         holder.imageCard.transitionName = transitionName(item)
 
@@ -136,6 +147,7 @@ class NewsAdapter(
         if (item.logo.isNotBlank()) {
             Glide.with(holder.favicon)
                 .load(item.logo)
+                .override(dp(holder.itemView.context, 34), dp(holder.itemView.context, 34))
                 .dontAnimate()
                 .into(holder.favicon)
         } else {
@@ -164,9 +176,12 @@ class NewsAdapter(
         }
     }
 
-    private fun bindTextSingle(holder: DynamicTextVH, item: NewsItem) {
-        val context = holder.itemView.context
+    private fun bindTextSingle(
+        holder: DynamicTextVH,
+        item: NewsItem
+    ) {
         val root = holder.itemView as FrameLayout
+        val context = root.context
         root.removeAllViews()
         root.transitionName = null
 
@@ -189,68 +204,120 @@ class NewsAdapter(
             card,
             FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(context, 156)
+                dp(context, 158)
             )
         )
     }
 
-    private fun bindTextGroup(holder: DynamicTextVH, items: List<NewsItem>) {
-        val context = holder.itemView.context
+    private fun bindTextGroup(
+        holder: DynamicTextVH,
+        items: List<NewsItem>
+    ) {
         val root = holder.itemView as FrameLayout
+        val context = root.context
         root.removeAllViews()
         root.transitionName = null
 
-        val row = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+        val columns = when {
+            items.size == 2 -> 2
+            items.size == 4 -> 2
+            else -> 3
+        }
+
+        val section = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
             clipChildren = false
             clipToPadding = false
         }
 
         root.addView(
-            row,
+            section,
             FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
         )
 
-        items.forEachIndexed { index, item ->
-            val card = createTextCard(
-                context = context,
-                item = item,
-                square = true
-            ).apply {
-                transitionName = transitionName(item)
-                setOnClickListener {
-                    try {
-                        onClick(item, this)
-                    } catch (t: Throwable) {
-                        android.util.Log.e("NewsAdapter", "Grouped article click failed", t)
+        items.chunked(columns).forEachIndexed { rowIndex, chunk ->
+            val row = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                clipChildren = false
+                clipToPadding = false
+            }
+
+            if (rowIndex > 0) {
+                section.addView(
+                    SpaceView(context),
+                    LinearLayout.LayoutParams(
+                        1,
+                        dp(context, GRID_GAP_DP)
+                    )
+                )
+            }
+
+            section.addView(
+                row,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    dp(context, GROUP_CARD_MAX_DP)
+                )
+            )
+
+            chunk.forEachIndexed { index, item ->
+                val card = createTextCard(
+                    context = context,
+                    item = item,
+                    square = true
+                ).apply {
+                    transitionName = transitionName(item)
+                    setOnClickListener {
+                        try {
+                            onClick(item, this)
+                        } catch (t: Throwable) {
+                            android.util.Log.e("NewsAdapter", "Grouped article click failed", t)
+                        }
                     }
                 }
+
+                val lp = LinearLayout.LayoutParams(
+                    0,
+                    dp(context, GROUP_CARD_MAX_DP),
+                    1f
+                )
+
+                if (index > 0) {
+                    lp.marginStart = dp(context, GRID_GAP_DP)
+                }
+
+                if (chunk.size < columns && index == chunk.lastIndex) {
+                    lp.weight = 1f
+                }
+
+                row.addView(card, lp)
             }
 
-            val lp = LinearLayout.LayoutParams(
-                0,
-                dp(context, 112),
-                1f
-            ).apply {
-                if (index > 0) marginStart = dp(context, 8)
-            }
-            row.addView(card, lp)
-        }
+            // Keep every group card visually square after the real row width is known.
+            row.post {
+                val available = (
+                    row.width -
+                        dp(context, GRID_GAP_DP) * (chunk.size - 1)
+                    ).coerceAtLeast(dp(context, 80))
 
-        root.post {
-            val count = items.size.coerceIn(1, MAX_TEXT_GROUP)
-            val available = row.width - dp(context, 8) * (count - 1)
-            val cardSize = ((available.toFloat() / count).toInt()).coerceAtLeast(dp(context, 72))
-            for (i in 0 until row.childCount) {
-                val child = row.getChildAt(i)
-                val lp = child.layoutParams as LinearLayout.LayoutParams
-                lp.width = cardSize
-                lp.height = cardSize
-                child.layoutParams = lp
+                val size = (
+                    available.toFloat() / chunk.size
+                ).toInt()
+                    .coerceAtMost(dp(context, GROUP_CARD_MAX_DP))
+                    .coerceAtLeast(dp(context, 92))
+
+                for (i in 0 until row.childCount) {
+                    val child = row.getChildAt(i)
+                    val lp = child.layoutParams as LinearLayout.LayoutParams
+                    lp.width = size
+                    lp.height = size
+                    lp.weight = 0f
+                    child.layoutParams = lp
+                }
             }
         }
     }
@@ -260,10 +327,11 @@ class NewsAdapter(
         item: NewsItem,
         square: Boolean
     ): FrameLayout {
+
         val card = FrameLayout(context).apply {
-            background = rounded(
-                ContextCompat.getColor(context, R.color.card),
-                dp(context, 18).toFloat()
+            background = ContextCompat.getDrawable(
+                context,
+                R.drawable.bg_card_pressed
             )
             clipToOutline = true
             isClickable = true
@@ -274,12 +342,13 @@ class NewsAdapter(
         val body = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(
-                dp(context, if (square) 10 else 14),
-                dp(context, if (square) 10 else 14),
-                dp(context, if (square) 10 else 14),
-                dp(context, if (square) 10 else 14)
+                dp(context, if (square) 12 else 16),
+                dp(context, if (square) 12 else 16),
+                dp(context, if (square) 12 else 16),
+                dp(context, if (square) 12 else 16)
             )
         }
+
         card.addView(
             body,
             FrameLayout.LayoutParams(
@@ -288,25 +357,24 @@ class NewsAdapter(
             )
         )
 
-        val top = LinearLayout(context).apply {
+        val metaRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        body.addView(
-            top,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+
+        val faviconFrame = FrameLayout(context).apply {
+            background = rounded(
+                ContextCompat.getColor(
+                    context,
+                    R.color.bgElevated
+                ),
+                dp(context, 999).toFloat()
             )
-        )
+            clipToOutline = true
+        }
 
         val favicon = ImageView(context).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
-            background = rounded(
-                ContextCompat.getColor(context, R.color.bgElevated),
-                dp(context, 99).toFloat()
-            )
-            clipToOutline = true
             setPadding(
                 dp(context, 2),
                 dp(context, 2),
@@ -314,37 +382,64 @@ class NewsAdapter(
                 dp(context, 2)
             )
         }
-        top.addView(
+
+        faviconFrame.addView(
             favicon,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        metaRow.addView(
+            faviconFrame,
             LinearLayout.LayoutParams(
-                dp(context, if (square) 20 else 24),
-                dp(context, if (square) 20 else 24)
+                dp(context, if (square) 32 else 38),
+                dp(context, if (square) 32 else 38)
             )
         )
 
         val source = TextView(context).apply {
             text = item.source.ifBlank { "Fonte" }
-            textSize = if (square) 10.5f else 12f
-            setTextColor(ContextCompat.getColor(context, R.color.dim))
-            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+            textSize = if (square) 13.5f else 14f
+            setTextColor(
+                ContextCompat.getColor(
+                    context,
+                    R.color.dim
+                )
+            )
+            setTypeface(
+                Typeface.create(
+                    "sans-serif-medium",
+                    Typeface.NORMAL
+                )
+            )
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
         }
-        top.addView(
+
+        metaRow.addView(
             source,
             LinearLayout.LayoutParams(
                 0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 1f
             ).apply {
-                marginStart = dp(context, 7)
+                marginStart = dp(context, 10)
             }
         )
 
+        body.addView(metaRow)
+
         val title = TextView(context).apply {
             text = item.title
-            textSize = if (square) 12.5f else 15f
-            setTextColor(ContextCompat.getColor(context, R.color.text))
+            textSize = if (square) 16f else 19f
+            setTextColor(
+                ContextCompat.getColor(
+                    context,
+                    R.color.text
+                )
+            )
             setTypeface(
                 Typeface.create(
                     "sans-serif",
@@ -352,88 +447,116 @@ class NewsAdapter(
                 )
             )
             setLineSpacing(0f, 1.25f)
-            maxLines = if (square) 5 else 5
+            maxLines = if (square) 4 else 5
             ellipsize = android.text.TextUtils.TruncateAt.END
         }
+
         body.addView(
             title,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
-                topMargin = dp(context, 9)
+                topMargin = dp(context, if (square) 12 else 16)
             }
         )
 
         if (!square) {
             val meta = TextView(context).apply {
                 text = ago(item.date)
-                textSize = 11.5f
-                setTextColor(ContextCompat.getColor(context, R.color.dim))
-                maxLines = 1
+                textSize = 13f
+                setTextColor(
+                    ContextCompat.getColor(
+                        context,
+                        R.color.dim
+                    )
+                )
             }
+
             body.addView(
                 meta,
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 ).apply {
-                    topMargin = dp(context, 8)
+                    topMargin = dp(context, 10)
                 }
             )
         }
 
         Glide.with(favicon).clear(favicon)
         if (item.logo.isNotBlank()) {
+            val size = if (square) 28 else 34
             Glide.with(favicon)
                 .load(item.logo)
                 .override(
-                    if (square) dp(context, 20) else dp(context, 24),
-                    if (square) dp(context, 20) else dp(context, 24)
+                    dp(context, size),
+                    dp(context, size)
                 )
                 .dontAnimate()
                 .into(favicon)
+        } else {
+            favicon.setImageDrawable(null)
         }
 
         return card
     }
 
-    private fun bindSkeleton(holder: SkeletonVH, position: Int) {
-        holder.avatar.background = rounded(
-            ContextCompat.getColor(holder.itemView.context, R.color.skeleton),
-            999f
-        )
-        holder.avatar.clipToOutline = true
-        holder.image.visibility = if (position % 3 == 0) View.VISIBLE else View.GONE
+    private fun bindSkeleton(
+        holder: SkeletonVH,
+        position: Int
+    ) {
+        holder.image.visibility =
+            if (position % 3 == 0) View.VISIBLE else View.GONE
 
-        holder.skeletonViews.forEach { view ->
-            (view.background as? ShimmerDrawable)?.let { old ->
-                activeShimmers.removeIf { it.get() === old }
+        for (view in holder.skeletonViews) {
+            val old = view.background as? ShimmerDrawable
+            if (old != null) {
+                removeShimmer(old)
             }
-            val drawable = ShimmerDrawable(holder.itemView.context)
+
+            val drawable = ShimmerDrawable(
+                holder.itemView.context
+            )
+
             view.background = drawable
-            activeShimmers.add(WeakReference(drawable))
+
+            activeShimmers.add(
+                WeakReference(drawable)
+            )
         }
 
         startShimmerIfNeeded()
     }
 
-    override fun onViewRecycled(holder: RecyclerView.ViewHolder) {
+    override fun onViewRecycled(
+        holder: RecyclerView.ViewHolder
+    ) {
         when (holder) {
-            is SkeletonVH -> holder.skeletonViews.forEach { view ->
-                (view.background as? ShimmerDrawable)?.let { drawable ->
-                    activeShimmers.removeIf { it.get() === drawable }
+            is SkeletonVH -> {
+                holder.skeletonViews.forEach { view ->
+                    val drawable =
+                        view.background as? ShimmerDrawable
+                    if (drawable != null) {
+                        removeShimmer(drawable)
+                    }
                 }
             }
+
             is ImageVH -> {
-                Glide.with(holder.favicon).clear(holder.favicon)
-                Glide.with(holder.image).clear(holder.image)
+                Glide.with(holder.favicon)
+                    .clear(holder.favicon)
+                Glide.with(holder.image)
+                    .clear(holder.image)
             }
         }
+
         super.onViewRecycled(holder)
     }
 
-    override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
+    override fun onDetachedFromRecyclerView(
+        recyclerView: RecyclerView
+    ) {
         shimmerAnim?.cancel()
         shimmerAnim = null
         activeShimmers.clear()
@@ -442,15 +565,21 @@ class NewsAdapter(
 
     override fun getItemCount(): Int = rows.size
 
-    fun showSkeleton(count: Int = 8) {
+    fun showSkeleton(
+        count: Int = 8
+    ) {
         articles.clear()
         rows.clear()
-        repeat(count.coerceIn(1, 12)) {
-            rows += RenderRow.Skeleton
-        }
         activeShimmers.clear()
         shimmerAnim?.cancel()
         shimmerAnim = null
+
+        repeat(
+            count.coerceIn(1, 12)
+        ) {
+            rows += RenderRow.Skeleton
+        }
+
         notifyDataSetChanged()
         startShimmerIfNeeded()
     }
@@ -463,60 +592,93 @@ class NewsAdapter(
     }
 
     fun append(items: List<NewsItem>) {
-        val seen = articles.flatMap { listOf(normalizeUrl(it.link), titleKey(it.title)) }.toHashSet()
+        val seenUrls = HashSet<String>()
+        val seenTitles = HashSet<String>()
+
+        articles.forEach { item ->
+            seenUrls += normalizeUrl(item.link)
+            seenTitles += titleKey(item.title)
+        }
+
         val fresh = items.filter { item ->
-            val u = normalizeUrl(item.link)
-            val t = titleKey(item.title)
-            if (u.isBlank() || t.isBlank()) {
+            val url = normalizeUrl(item.link)
+            val title = titleKey(item.title)
+
+            if (url.isBlank() || title.isBlank()) {
                 false
-            } else if (u in seen || t in seen) {
+            } else if (
+                !seenUrls.add(url) ||
+                !seenTitles.add(title)
+            ) {
                 false
             } else {
-                seen += u
-                seen += t
                 true
             }
         }
+
         if (fresh.isEmpty()) return
+
         articles += fresh
         rebuildRows()
         notifyDataSetChanged()
         stopShimmerIfNoSkeleton()
     }
 
-    private fun replaceArticles(items: List<NewsItem>) {
+    private fun replaceArticles(
+        items: List<NewsItem>
+    ) {
         articles.clear()
-        val seenUrl = HashSet<String>()
-        val seenTitle = HashSet<String>()
-        for (item in items) {
-            val u = normalizeUrl(item.link)
-            val t = titleKey(item.title)
-            if (u.isBlank() || t.isBlank()) continue
-            if (!seenUrl.add(u)) continue
-            if (!seenTitle.add(t)) continue
+
+        val seenUrls = HashSet<String>()
+        val seenTitles = HashSet<String>()
+
+        items.forEach { item ->
+            val url = normalizeUrl(item.link)
+            val title = titleKey(item.title)
+
+            if (url.isBlank() || title.isBlank()) {
+                return@forEach
+            }
+
+            if (!seenUrls.add(url)) return@forEach
+            if (!seenTitles.add(title)) return@forEach
+
             articles += item
         }
     }
 
+    /**
+     * Image articles stay independent. Consecutive no-image articles are kept
+     * together in their own section. A single no-image article remains a long
+     * card; 2/4 use two columns; other groups use three columns.
+     */
     private fun rebuildRows() {
         rows.clear()
-        var i = 0
-        while (i < articles.size) {
-            val item = articles[i]
+
+        var index = 0
+
+        while (index < articles.size) {
+            val item = articles[index]
+
             if (item.image.isNotBlank()) {
                 rows += RenderRow.Image(item)
-                i++
+                index++
                 continue
             }
 
-            val group = mutableListOf<NewsItem>()
-            while (i < articles.size && articles[i].image.isBlank() && group.size < MAX_TEXT_GROUP) {
-                group += articles[i]
-                i++
+            val group = ArrayList<NewsItem>(MAX_TEXT_GROUP)
+
+            while (
+                index < articles.size &&
+                articles[index].image.isBlank() &&
+                group.size < MAX_TEXT_GROUP
+            ) {
+                group += articles[index]
+                index++
             }
 
             if (group.size == 1) {
-                rows += RenderRow.TextSingle(group.first())
+                rows += RenderRow.TextSingle(group[0])
             } else {
                 rows += RenderRow.TextGroup(group.toList())
             }
@@ -527,15 +689,34 @@ class NewsAdapter(
         if (shimmerAnim?.isRunning == true) return
         if (rows.none { it === RenderRow.Skeleton }) return
 
-        shimmerAnim = ValueAnimator.ofFloat(-1f, 2f).apply {
+        shimmerAnim = ValueAnimator.ofFloat(
+            -1f,
+            2f
+        ).apply {
             duration = 1400L
             repeatCount = ValueAnimator.INFINITE
             interpolator = android.view.animation.LinearInterpolator()
+
             addUpdateListener { animator ->
-                activeShimmers.removeIf { it.get() == null }
-                val progress = animator.animatedValue as Float
-                activeShimmers.forEach { it.get()?.setProgress(progress) }
+                val progress =
+                    animator.animatedValue as Float
+
+                val dead = ArrayList<WeakReference<ShimmerDrawable>>()
+
+                for (ref in activeShimmers) {
+                    val drawable = ref.get()
+                    if (drawable == null) {
+                        dead += ref
+                    } else {
+                        drawable.setProgress(progress)
+                    }
+                }
+
+                if (dead.isNotEmpty()) {
+                    activeShimmers.removeAll(dead.toSet())
+                }
             }
+
             start()
         }
     }
@@ -548,37 +729,74 @@ class NewsAdapter(
         }
     }
 
-    private fun transitionName(item: NewsItem): String =
+    private fun removeShimmer(
+        drawable: ShimmerDrawable
+    ) {
+        val remove = ArrayList<WeakReference<ShimmerDrawable>>()
+
+        for (ref in activeShimmers) {
+            if (ref.get() === drawable) {
+                remove += ref
+            }
+        }
+
+        if (remove.isNotEmpty()) {
+            activeShimmers.removeAll(remove.toSet())
+        }
+    }
+
+    private fun transitionName(
+        item: NewsItem
+    ): String =
         "news_container_${item.id.hashCode().toUInt().toString(36)}"
 
-    private fun titleKey(value: String): String = value.trim().lowercase(Locale.ROOT)
+    private fun titleKey(
+        value: String
+    ): String = value.trim()
+        .lowercase(Locale.ROOT)
         .replace(Regex("[\\p{Punct}]+"), " ")
         .replace(Regex("\\s+"), " ")
         .trim()
 
-    private fun normalizeUrl(value: String): String = value.trim()
+    private fun normalizeUrl(
+        value: String
+    ): String = value.trim()
         .lowercase(Locale.ROOT)
         .removePrefix("https://")
         .removePrefix("http://")
         .removePrefix("www.")
         .substringBefore('#')
+        .substringBefore('?ref=')
         .trimEnd('/')
 
-    private fun ago(value: String): String {
+    private fun ago(
+        value: String
+    ): String {
         if (value.isBlank()) return ""
+
         return try {
-            val raw = value.replace("Z", "")
+            val raw = value
+                .replace("Z", "")
+                .replace(Regex("[+-]\\d{2}:?\\d{2}$"), "")
+
             val format = SimpleDateFormat(
                 "yyyy-MM-dd'T'HH:mm:ss",
-                Locale.getDefault()
+                Locale.US
             ).apply {
                 timeZone = TimeZone.getTimeZone("UTC")
             }
+
             val date = format.parse(
-                raw.substring(0, raw.length.coerceAtMost(19))
+                raw.substring(
+                    0,
+                    raw.length.coerceAtMost(19)
+                )
             ) ?: return ""
-            val minutes = ((System.currentTimeMillis() - date.time) / 60000)
-                .coerceAtLeast(0)
+
+            val minutes = (
+                (System.currentTimeMillis() - date.time) / 60000
+            ).coerceAtLeast(0)
+
             when {
                 minutes < 1 -> "agora"
                 minutes < 60 -> "$minutes min"
@@ -587,24 +805,36 @@ class NewsAdapter(
                 else -> SimpleDateFormat(
                     "dd MMM",
                     Locale("pt", "PT")
-                ).format(Date(date.time))
+                ).format(
+                    Date(date.time)
+                )
             }
         } catch (_: Exception) {
             ""
         }
     }
 
-    private fun rounded(color: Int, radius: Float): GradientDrawable =
-        GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            setColor(color)
-            cornerRadius = radius
-        }
+    private class SpaceView(
+        context: android.content.Context
+    ) : View(context)
 
-    private fun dp(context: android.content.Context, value: Int): Int =
-        (value * context.resources.displayMetrics.density + 0.5f).toInt()
+    private fun rounded(
+        color: Int,
+        radius: Float
+    ): GradientDrawable = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        setColor(color)
+        cornerRadius = radius
+    }
 
-    private fun dp(view: View, value: Int): Int = dp(view.context, value)
+    private fun dp(
+        context: android.content.Context,
+        value: Int
+    ): Int = (
+        value *
+            context.resources.displayMetrics.density +
+            0.5f
+    ).toInt()
 
     private class ShimmerDrawable(
         context: android.content.Context
@@ -620,26 +850,37 @@ class NewsAdapter(
                 (
                     context.resources.configuration.uiMode and
                         android.content.res.Configuration.UI_MODE_NIGHT_MASK
-                ) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+                    ) ==
+                    android.content.res.Configuration.UI_MODE_NIGHT_YES
             ) {
-                0x28FFFFFF
+                0x24FFFFFF
             } else {
-                0x22000000
+                0x18000000
             }
 
-        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private var progress = -1f
-        private val radius =
-            10f * context.resources.displayMetrics.density
+        private val paint = Paint(
+            Paint.ANTI_ALIAS_FLAG
+        )
 
-        fun setProgress(value: Float) {
+        private var progress = -1f
+
+        private val radius =
+            10f *
+                context.resources.displayMetrics.density
+
+        fun setProgress(
+            value: Float
+        ) {
             progress = value
             invalidateSelf()
         }
 
-        override fun draw(canvas: Canvas) {
+        override fun draw(
+            canvas: Canvas
+        ) {
             val width = bounds.width().toFloat()
             val height = bounds.height().toFloat()
+
             if (width <= 0f || height <= 0f) return
 
             paint.shader = LinearGradient(
@@ -676,11 +917,14 @@ class NewsAdapter(
             paint.alpha = alpha
         }
 
-        override fun setColorFilter(colorFilter: ColorFilter?) {
+        override fun setColorFilter(
+            colorFilter: ColorFilter?
+        ) {
             paint.colorFilter = colorFilter
         }
 
         @Deprecated("Deprecated in Java")
-        override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
+        override fun getOpacity(): Int =
+            PixelFormat.TRANSLUCENT
     }
 }

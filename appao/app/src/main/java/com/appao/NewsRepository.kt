@@ -1,6 +1,7 @@
 package com.appao
 
 import android.content.Context
+import android.text.Html
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -17,6 +18,10 @@ import java.security.MessageDigest
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
+/**
+ * Bounded, cache-first news repository.
+ * Every public list is deduplicated by normalized URL and normalized title.
+ */
 object NewsRepository {
 
     private const val TAG = "AppAo.News"
@@ -32,7 +37,7 @@ object NewsRepository {
 
     private val okHttpDispatcher = Dispatcher().apply {
         maxRequests = 3
-        maxRequestsPerHost = 3
+        maxRequestsPerHost = 2
     }
 
     private val client = OkHttpClient.Builder()
@@ -54,37 +59,87 @@ object NewsRepository {
         "politics"
     )
 
-    private val dedupLock = Any()
-    private val seenKeys = LinkedHashSet<String>()
+    /** Kept for compatibility with the existing MainActivity. */
+    fun resetDedup() = Unit
 
-    fun resetDedup() {
-        synchronized(dedupLock) {
-            seenKeys.clear()
-        }
-    }
+    suspend fun fetchGeneral(
+        page: Int = 1
+    ): List<NewsItem> = supervisorScope {
 
-    suspend fun fetchGeneral(page: Int = 1): List<NewsItem> = supervisorScope {
-        val groups = ArrayList<List<NewsItem>>(categories.size)
+        val results = ArrayList<List<NewsItem>>(
+            categories.size
+        )
 
+        // Only two category requests are active at a time.
         for (chunk in categories.chunked(2)) {
-            val deferred = chunk.map { category ->
+            val jobs = chunk.map { category ->
                 async(Dispatchers.IO) {
-                    fetchByCategory(category, page)
+                    runCatching {
+                        fetchByCategory(
+                            category,
+                            page,
+                            "AO"
+                        )
+                    }.getOrElse { error ->
+                        if (error is kotlinx.coroutines.CancellationException) {
+                            throw error
+                        }
+                        Log.w(
+                            TAG,
+                            "Category request failed: $category",
+                            error
+                        )
+                        emptyList()
+                    }
                 }
             }
 
-            deferred.forEach { task ->
-                groups += try {
-                    task.await()
-                } catch (t: Throwable) {
-                    if (t is kotlinx.coroutines.CancellationException) throw t
-                    Log.w(TAG, "Category request failed", t)
-                    emptyList()
-                }
+            jobs.forEach { job ->
+                results += job.await()
             }
         }
 
-        interleaveAndDeduplicate(groups.flatten())
+        // Preserve the category/interleave behavior while removing duplicates
+        // across every category in this response.
+        val out = ArrayList<NewsItem>()
+        val iterators = results.map { it.iterator() }.toMutableList()
+        val seenUrls = HashSet<String>()
+        val seenTitles = HashSet<String>()
+
+        var emitted = true
+        while (emitted) {
+            emitted = false
+            val iteratorIt = iterators.iterator()
+            while (iteratorIt.hasNext()) {
+                val iterator = iteratorIt.next()
+                if (!iterator.hasNext()) {
+                    iteratorIt.remove()
+                    continue
+                }
+
+                val item = iterator.next()
+                val urlKey = normalizeUrl(item.link)
+                val titleKey = normalizeTitle(item.title)
+
+                if (
+                    urlKey.isBlank() ||
+                    titleKey.isBlank()
+                ) {
+                    continue
+                }
+
+                if (
+                    seenUrls.add(urlKey) &&
+                    seenTitles.add(titleKey)
+                ) {
+                    out += item
+                }
+
+                emitted = true
+            }
+        }
+
+        out
     }
 
     suspend fun fetchByCategory(
@@ -93,31 +148,53 @@ object NewsRepository {
         country: String = "AO"
     ): List<NewsItem> = withContext(Dispatchers.IO) {
         try {
-            val countryQuery = if (country.isBlank()) "" else "&country=$country"
-            val url = "$BASE/news?lang=pt$countryQuery&category=$category&page=$page"
+            val countryQuery =
+                if (country.isBlank()) "" else "&country=$country"
+
+            val url =
+                "$BASE/news?lang=pt$countryQuery&category=$category&page=$page"
 
             val request = Request.Builder()
                 .url(url)
                 .header("Accept", "application/json")
+                .header("Accept-Charset", "utf-8")
                 .header("x-api-key", KEY)
                 .build()
 
             client.newCall(request).execute().use { response ->
-                val body = response.body ?: return@withContext emptyList()
-                val length = body.contentLength()
+                val body = response.body
+                    ?: return@withContext emptyList()
 
-                if (length > MAX_BODY_BYTES) {
-                    Log.w(TAG, "Ignoring oversized news response: $length bytes")
+                val length = body.contentLength()
+                if (
+                    length > MAX_BODY_BYTES
+                ) {
+                    Log.w(
+                        TAG,
+                        "Ignoring oversized news response: $length bytes"
+                    )
                     return@withContext emptyList()
                 }
 
                 if (!response.isSuccessful) {
-                    Log.w(TAG, "News HTTP ${response.code} for $category page=$page")
+                    Log.w(
+                        TAG,
+                        "News HTTP ${response.code} for $category page=$page"
+                    )
                     return@withContext emptyList()
                 }
 
-                val raw = body.string()
-                if (raw.length > MAX_BODY_BYTES.toInt()) return@withContext emptyList()
+                val raw = String(
+                    body.bytes(),
+                    Charsets.UTF_8
+                )
+
+                if (
+                    raw.toByteArray(Charsets.UTF_8).size >
+                    MAX_BODY_BYTES
+                ) {
+                    return@withContext emptyList()
+                }
 
                 val array = JSONObject(raw)
                     .optJSONArray("articles")
@@ -130,33 +207,64 @@ object NewsRepository {
                     )
                 )
 
-                for (i in 0 until minOf(array.length(), MAX_ARTICLES_PER_CATEGORY)) {
-                    val article = array.optJSONObject(i) ?: continue
-                    val link = article.optString("url").trim()
-                    val title = article.optString("title").trim()
+                for (
+                    i in 0 until minOf(
+                        array.length(),
+                        MAX_ARTICLES_PER_CATEGORY
+                    )
+                ) {
+                    val article =
+                        array.optJSONObject(i)
+                            ?: continue
+
+                    val link =
+                        article.optString("url")
+                            .trim()
+
+                    val title = cleanText(
+                        article.optString("title")
+                    )
 
                     if (
                         link.length < 8 ||
-                        title.isEmpty() ||
-                        !link.startsWith("http", true)
-                    ) continue
+                        title.isBlank() ||
+                        !link.startsWith(
+                            "http",
+                            true
+                        )
+                    ) {
+                        continue
+                    }
 
                     val domain = try {
-                        URL(link).host.removePrefix("www.")
+                        URL(link)
+                            .host
+                            .removePrefix("www.")
+                            .lowercase(Locale.ROOT)
                     } catch (_: Throwable) {
                         ""
                     }
 
+                    val source = cleanText(
+                        article.optString("source")
+                    ).ifBlank { domain }
+
                     result += NewsItem(
-                        id = stableId(link, title),
+                        id = stableId(
+                            link,
+                            title
+                        ),
                         title = title.take(500),
-                        summary = article.optString("description").take(1600),
-                        link = link,
-                        source = article.optString("source")
-                            .ifBlank { domain }
-                            .take(120),
-                        date = article.optString("publishedAt"),
-                        image = article.optString("image")
+                        summary = cleanText(
+                            article.optString("description")
+                        ).take(1600),
+                        link = link.take(4000),
+                        source = source.take(120),
+                        date = article
+                            .optString("publishedAt")
+                            .take(80),
+                        image = article
+                            .optString("image")
                             .trim()
                             .take(2000),
                         logo = if (domain.isNotEmpty()) {
@@ -170,66 +278,142 @@ object NewsRepository {
                 deduplicate(result)
             }
         } catch (t: Throwable) {
-            if (t is kotlinx.coroutines.CancellationException) throw t
-            Log.e(TAG, "fetchByCategory failed", t)
+            if (
+                t is kotlinx.coroutines.CancellationException
+            ) {
+                throw t
+            }
+
+            Log.e(
+                TAG,
+                "fetchByCategory failed",
+                t
+            )
+
             emptyList()
         }
     }
 
-    suspend fun fetchArticleFull(url: String): String? = withContext(Dispatchers.IO) {
+    suspend fun fetchArticleFull(
+        url: String
+    ): String? = withContext(Dispatchers.IO) {
         try {
-            if (!url.startsWith("http", true)) return@withContext null
+            if (!url.startsWith("http", true)) {
+                return@withContext null
+            }
 
-            val requestUrl = "$BASE/article?url=${URLEncoder.encode(url, "UTF-8")}"
+            val requestUrl =
+                "$BASE/article?url=" +
+                    URLEncoder.encode(
+                        url,
+                        "UTF-8"
+                    )
+
             val request = Request.Builder()
                 .url(requestUrl)
                 .header("Accept", "application/json")
+                .header("Accept-Charset", "utf-8")
                 .header("x-api-key", KEY)
                 .build()
 
             client.newCall(request).execute().use { response ->
-                val body = response.body ?: return@withContext null
-                val length = body.contentLength()
-                if (length > MAX_ARTICLE_BYTES || !response.isSuccessful) {
+                val body = response.body
+                    ?: return@withContext null
+
+                if (
+                    body.contentLength() >
+                    MAX_ARTICLE_BYTES ||
+                    !response.isSuccessful
+                ) {
                     return@withContext null
                 }
 
-                JSONObject(body.string())
+                val raw = String(
+                    body.bytes(),
+                    Charsets.UTF_8
+                )
+
+                JSONObject(raw)
                     .optJSONObject("article")
                     ?.optString("body")
                     ?.take(200_000)
             }
         } catch (t: Throwable) {
-            if (t is kotlinx.coroutines.CancellationException) throw t
-            Log.e(TAG, "fetchArticleFull failed", t)
+            if (
+                t is kotlinx.coroutines.CancellationException
+            ) {
+                throw t
+            }
+
+            Log.e(
+                TAG,
+                "fetchArticleFull failed",
+                t
+            )
+
             null
         }
     }
 
-    fun readCache(ctx: Context): List<NewsItem> = try {
+    fun readCache(
+        ctx: Context
+    ): List<NewsItem> = try {
         val prefs = ctx.getSharedPreferences(
             CACHE_PREFS,
             Context.MODE_PRIVATE
         )
-        val raw = prefs.getString(CACHE_KEY, "[]") ?: "[]"
+
+        val raw = prefs.getString(
+            CACHE_KEY,
+            "[]"
+        ) ?: "[]"
+
         val array = JSONArray(raw)
         val items = ArrayList<NewsItem>(
-            minOf(array.length(), MAX_CACHE_ARTICLES)
+            minOf(
+                array.length(),
+                MAX_CACHE_ARTICLES
+            )
         )
 
-        for (i in 0 until minOf(array.length(), MAX_CACHE_ARTICLES)) {
-            val o = array.optJSONObject(i) ?: continue
+        for (
+            i in 0 until minOf(
+                array.length(),
+                MAX_CACHE_ARTICLES
+            )
+        ) {
+            val o = array.optJSONObject(i)
+                ?: continue
+
             val link = o.optString("link")
-            val title = o.optString("title")
-            if (link.isBlank() || title.isBlank()) continue
+                .trim()
+            val title = cleanText(
+                o.optString("title")
+            )
+
+            if (
+                link.isBlank() ||
+                title.isBlank()
+            ) {
+                continue
+            }
 
             items += NewsItem(
                 id = o.optString("id")
-                    .ifBlank { stableId(link, title) },
+                    .ifBlank {
+                        stableId(
+                            link,
+                            title
+                        )
+                    },
                 title = title,
-                summary = o.optString("summary"),
+                summary = cleanText(
+                    o.optString("summary")
+                ),
                 link = link,
-                source = o.optString("source"),
+                source = cleanText(
+                    o.optString("source")
+                ),
                 date = o.optString("date"),
                 image = o.optString("image"),
                 logo = o.optString("logo")
@@ -238,7 +422,11 @@ object NewsRepository {
 
         deduplicate(items)
     } catch (t: Throwable) {
-        Log.w(TAG, "readCache failed", t)
+        Log.w(
+            TAG,
+            "readCache failed",
+            t
+        )
         emptyList()
     }
 
@@ -252,17 +440,42 @@ object NewsRepository {
             )
 
             val array = JSONArray()
-            clean.take(MAX_CACHE_ARTICLES).forEach { item ->
+
+            clean.forEach { item ->
                 array.put(
                     JSONObject().apply {
-                        put("id", item.id)
-                        put("title", item.title.take(500))
-                        put("summary", item.summary.take(1600))
-                        put("link", item.link.take(4000))
-                        put("source", item.source.take(120))
-                        put("date", item.date.take(80))
-                        put("image", item.image.take(2000))
-                        put("logo", item.logo.take(1000))
+                        put(
+                            "id",
+                            item.id
+                        )
+                        put(
+                            "title",
+                            item.title.take(500)
+                        )
+                        put(
+                            "summary",
+                            item.summary.take(1600)
+                        )
+                        put(
+                            "link",
+                            item.link.take(4000)
+                        )
+                        put(
+                            "source",
+                            item.source.take(120)
+                        )
+                        put(
+                            "date",
+                            item.date.take(80)
+                        )
+                        put(
+                            "image",
+                            item.image.take(2000)
+                        )
+                        put(
+                            "logo",
+                            item.logo.take(1000)
+                        )
                     }
                 )
             }
@@ -270,86 +483,185 @@ object NewsRepository {
             ctx.getSharedPreferences(
                 CACHE_PREFS,
                 Context.MODE_PRIVATE
-            ).edit()
-                .putString(CACHE_KEY, array.toString())
+            )
+                .edit()
+                .putString(
+                    CACHE_KEY,
+                    array.toString()
+                )
                 .putLong(
                     CACHE_TIME_KEY,
                     System.currentTimeMillis()
                 )
                 .apply()
+
         } catch (t: Throwable) {
-            Log.w(TAG, "writeCache failed", t)
+            Log.w(
+                TAG,
+                "writeCache failed",
+                t
+            )
         }
     }
 
-    private fun interleaveAndDeduplicate(
-        items: List<NewsItem>
-    ): List<NewsItem> {
-        val byIndex = ArrayList<NewsItem>()
-        val groups = items.groupBy { it.id }
-        groups.values.forEach { values ->
-            byIndex += values.first()
+    fun cacheIsFresh(
+        ctx: Context,
+        maxAgeMs: Long = 5 * 60 * 1000L
+    ): Boolean {
+        return try {
+            val timestamp = ctx
+                .getSharedPreferences(
+                    CACHE_PREFS,
+                    Context.MODE_PRIVATE
+                )
+                .getLong(
+                    CACHE_TIME_KEY,
+                    0L
+                )
+
+            timestamp > 0L &&
+                System.currentTimeMillis() -
+                timestamp < maxAgeMs
+        } catch (_: Throwable) {
+            false
         }
-        return deduplicate(byIndex)
     }
 
     private fun deduplicate(
         source: List<NewsItem>
     ): List<NewsItem> {
-        val out = ArrayList<NewsItem>(source.size)
+        val out = ArrayList<NewsItem>(
+            source.size
+        )
+
         val urls = HashSet<String>()
         val titles = HashSet<String>()
 
         source.forEach { item ->
-            val urlKey = normalizeUrl(item.link)
-            val titleKey = normalizeTitle(item.title)
-            if (urlKey.isBlank() || titleKey.isBlank()) return@forEach
-            if (!urls.add(urlKey)) return@forEach
-            if (!titles.add(titleKey)) return@forEach
+            val urlKey = normalizeUrl(
+                item.link
+            )
+            val titleKey = normalizeTitle(
+                item.title
+            )
+
+            if (
+                urlKey.isBlank() ||
+                titleKey.isBlank()
+            ) {
+                return@forEach
+            }
+
+            if (!urls.add(urlKey)) {
+                return@forEach
+            }
+
+            if (!titles.add(titleKey)) {
+                return@forEach
+            }
+
             out += item
         }
 
-        synchronized(dedupLock) {
-            out.forEach { item ->
-                seenKeys += normalizeUrl(item.link)
-                seenKeys += normalizeTitle(item.title)
-            }
-            while (seenKeys.size > 2000) {
-                val first = seenKeys.firstOrNull() ?: break
-                seenKeys.remove(first)
-            }
-        }
-
         return out
+    }
+
+    private fun cleanText(
+        value: String
+    ): String {
+        if (value.isBlank()) return ""
+
+        return try {
+            Html.fromHtml(
+                value,
+                Html.FROM_HTML_MODE_LEGACY
+            )
+                .toString()
+                .replace('\u00A0', ' ')
+                .replace(Regex("\\s+"), " ")
+                .trim()
+        } catch (_: Throwable) {
+            value
+                .replace('\u00A0', ' ')
+                .replace(Regex("\\s+"), " ")
+                .trim()
+        }
     }
 
     private fun stableId(
         url: String,
         title: String
     ): String {
-        val digest = MessageDigest.getInstance("SHA-256")
+        val digest = MessageDigest
+            .getInstance("SHA-256")
             .digest(
-                (normalizeUrl(url) + "|" + normalizeTitle(title))
+                (
+                    normalizeUrl(url) +
+                        "|" +
+                        normalizeTitle(title)
+                    )
                     .toByteArray(Charsets.UTF_8)
             )
 
         return buildString {
             digest.take(10).forEach { byte ->
-                append("%02x".format(byte))
+                append(
+                    "%02x".format(byte)
+                )
             }
         }
     }
 
-    private fun normalizeUrl(value: String): String = value.trim()
-        .lowercase(Locale.ROOT)
-        .removePrefix("https://")
-        .removePrefix("http://")
-        .removePrefix("www.")
-        .substringBefore('#')
-        .trimEnd('/')
+    private fun normalizeUrl(
+        value: String
+    ): String {
+        val base = value
+            .trim()
+            .lowercase(Locale.ROOT)
+            .removePrefix("https://")
+            .removePrefix("http://")
+            .removePrefix("www.")
+            .substringBefore('#')
 
-    private fun normalizeTitle(value: String): String = value.trim()
+        if (base.isBlank()) return ""
+
+        val parts = base.split("?", limit = 2)
+        if (parts.size == 1) {
+            return parts[0].trimEnd('/')
+        }
+
+        val query = parts[1]
+            .split('&')
+            .asSequence()
+            .filter { it.isNotBlank() }
+            .filterNot {
+                val key = it
+                    .substringBefore('=')
+                    .lowercase(Locale.ROOT)
+                key.startsWith("utm_") ||
+                    key in setOf(
+                        "fbclid",
+                        "gclid",
+                        "mc_cid",
+                        "mc_eid",
+                        "ref",
+                        "ref_src"
+                    )
+            }
+            .joinToString("&")
+
+        return if (query.isBlank()) {
+            parts[0].trimEnd('/')
+        } else {
+            parts[0].trimEnd('/') + "?" + query
+        }
+    }
+
+    private fun normalizeTitle(
+        value: String
+    ): String = cleanText(value)
         .lowercase(Locale.ROOT)
+        .replace("\uFFFD", " ")
         .replace(Regex("[\\p{Punct}]+"), " ")
         .replace(Regex("\\s+"), " ")
         .trim()

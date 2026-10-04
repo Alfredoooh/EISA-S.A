@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
@@ -16,7 +17,10 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 
-/** Native dialog following the HTML .sp dimensions, colors and bottom-sheet motion. */
+/**
+ * Native implementation for WebView JS alert/confirm/prompt.
+ * It uses the same paper-sheet language as the app's other modals.
+ */
 object NativeHtmlDialog {
 
     fun alert(
@@ -49,8 +53,8 @@ object NativeHtmlDialog {
             message = message,
             prompt = false,
             confirm = true,
-            onResult = { result ->
-                onResult(result as? Boolean == true)
+            onResult = { value ->
+                onResult(value as? Boolean == true)
             }
         )
     }
@@ -69,8 +73,8 @@ object NativeHtmlDialog {
             prompt = true,
             confirm = true,
             initial = initial,
-            onResult = { result ->
-                onResult(result as? String)
+            onResult = { value ->
+                onResult(value as? String)
             }
         )
     }
@@ -87,26 +91,34 @@ object NativeHtmlDialog {
         val dialog = Dialog(context)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
 
-        val card = LinearLayout(context).apply {
+        var callbackCalled = false
+
+        fun callback(value: Any?) {
+            if (callbackCalled) return
+            callbackCalled = true
+            try {
+                onResult(value)
+            } catch (t: Throwable) {
+                android.util.Log.e(
+                    "NativeHtmlDialog",
+                    "Callback failed",
+                    t
+                )
+            }
+        }
+
+        val panel = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(
                 dp(context, 20),
-                dp(context, 14),
+                dp(context, 10),
                 dp(context, 20),
                 dp(context, 20)
             )
-            background = rounded(
-                ContextCompat.getColor(
-                    context,
-                    R.color.popupBg
-                ),
-                dp(context, 32)
-            )
+            background = sheetBackground(context)
             clipToOutline = true
             alpha = 0f
-            translationY = dp(context, 34).toFloat()
-            scaleX = 0.96f
-            scaleY = 0.96f
+            translationY = dp(context, 36).toFloat()
         }
 
         val handle = View(context).apply {
@@ -119,7 +131,7 @@ object NativeHtmlDialog {
             )
         }
 
-        card.addView(
+        panel.addView(
             handle,
             LinearLayout.LayoutParams(
                 dp(context, 38),
@@ -130,43 +142,45 @@ object NativeHtmlDialog {
             }
         )
 
-        val titleView = TextView(context).apply {
-            text = title
-            setTextColor(
-                ContextCompat.getColor(
-                    context,
-                    R.color.text
-                )
-            )
-            textSize = 19f
-            setTypeface(
-                android.graphics.Typeface.DEFAULT,
-                android.graphics.Typeface.BOLD
+        if (title.isNotBlank()) {
+            panel.addView(
+                TextView(context).apply {
+                    text = title
+                    setTextColor(
+                        ContextCompat.getColor(
+                            context,
+                            R.color.text
+                        )
+                    )
+                    textSize = 19f
+                    setTypeface(
+                        android.graphics.Typeface.create(
+                            "sans-serif",
+                            android.graphics.Typeface.BOLD
+                        )
+                    )
+                },
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    bottomMargin = dp(context, 7)
+                }
             )
         }
-        card.addView(
-            titleView,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                bottomMargin = dp(context, 6)
-            }
-        )
 
-        val messageView = TextView(context).apply {
-            text = message
-            setTextColor(
-                ContextCompat.getColor(
-                    context,
-                    R.color.dim
+        panel.addView(
+            TextView(context).apply {
+                text = message
+                setTextColor(
+                    ContextCompat.getColor(
+                        context,
+                        R.color.dim
+                    )
                 )
-            )
-            textSize = 14f
-            setLineSpacing(0f, 1.5f)
-        }
-        card.addView(
-            messageView,
+                textSize = 14.5f
+                setLineSpacing(0f, 1.5f)
+            },
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -191,12 +205,17 @@ object NativeHtmlDialog {
                     )
                 )
                 textSize = 15f
-                background = rounded(
+                background = roundedWithStroke(
                     ContextCompat.getColor(
                         context,
                         R.color.card
                     ),
-                    dp(context, 18)
+                    ContextCompat.getColor(
+                        context,
+                        R.color.border
+                    ),
+                    dp(context, 18),
+                    dp(context, 1)
                 )
                 setPadding(
                     dp(context, 16),
@@ -211,7 +230,7 @@ object NativeHtmlDialog {
         }
 
         input?.let {
-            card.addView(
+            panel.addView(
                 it,
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -224,7 +243,7 @@ object NativeHtmlDialog {
 
         val actions = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.END
+            gravity = Gravity.CENTER
         }
 
         if (confirm) {
@@ -235,13 +254,13 @@ object NativeHtmlDialog {
                     outlined = true
                 ) {
                     dialog.dismiss()
-                    onResult(
+                    callback(
                         if (prompt) null else false
                     )
                 },
                 LinearLayout.LayoutParams(
                     0,
-                    dp(context, 46),
+                    dp(context, 48),
                     1f
                 ).apply {
                     marginEnd = dp(context, 5)
@@ -251,11 +270,11 @@ object NativeHtmlDialog {
             actions.addView(
                 button(
                     context,
-                    if (prompt) "Confirmar" else "Confirmar",
+                    "Confirmar",
                     outlined = false
                 ) {
                     dialog.dismiss()
-                    onResult(
+                    callback(
                         if (prompt) {
                             input?.text?.toString()
                         } else {
@@ -265,7 +284,7 @@ object NativeHtmlDialog {
                 },
                 LinearLayout.LayoutParams(
                     0,
-                    dp(context, 46),
+                    dp(context, 48),
                     1f
                 ).apply {
                     marginStart = dp(context, 5)
@@ -279,64 +298,65 @@ object NativeHtmlDialog {
                     outlined = false
                 ) {
                     dialog.dismiss()
-                    onResult(Unit)
+                    callback(Unit)
                 },
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    dp(context, 46)
+                    dp(context, 48)
                 )
             )
         }
 
-        card.addView(actions)
+        panel.addView(actions)
 
-        val outer = LinearLayout(context).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(
-                dp(context, 10),
-                0,
-                dp(context, 10),
-                dp(context, 10)
+        val windowRoot = FrameLayout(context).apply {
+            setBackgroundColor(Color.TRANSPARENT)
+            addView(
+                panel,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    Gravity.BOTTOM
+                )
             )
         }
 
-        outer.addView(
-            card,
-            LinearLayout.LayoutParams(
-                minOf(
-                    dp(context, 480),
-                    context.resources.displayMetrics.widthPixels - dp(context, 20)
-                ),
-                ViewGroup.LayoutParams.WRAP_CONTENT
+        dialog.setContentView(windowRoot)
+        dialog.setCanceledOnTouchOutside(false)
+        dialog.setCancelable(true)
+
+        dialog.setOnCancelListener {
+            callback(
+                if (prompt) null
+                else if (confirm) false
+                else Unit
             )
+        }
+
+        val window = dialog.window ?: return
+
+        window.setBackgroundDrawable(
+            ColorDrawable(Color.TRANSPARENT)
+        )
+        window.setGravity(Gravity.BOTTOM)
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_DIM_BEHIND
+        )
+        window.setDimAmount(
+            if (ThemeManager.current(context) == "dark") 0.22f else 0.12f
         )
 
-        dialog.setContentView(outer)
-        dialog.setCanceledOnTouchOutside(true)
-
         dialog.setOnShowListener {
-            val window = dialog.window ?: return@setOnShowListener
-
-            window.setBackgroundDrawable(
-                ColorDrawable(Color.TRANSPARENT)
-            )
-            window.addFlags(
-                WindowManager.LayoutParams.FLAG_DIM_BEHIND
-            )
-            window.setDimAmount(0.12f)
-            window.setGravity(Gravity.BOTTOM)
             window.setLayout(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
 
-            card.post {
+            panel.post {
                 if (!dialog.isShowing) return@post
 
-                card.animate()
+                panel.animate()
                     .translationY(0f)
-                    .scaleX(1f)
-                    .scaleY(1f)
                     .alpha(1f)
                     .setDuration(500L)
                     .setInterpolator(Curves.IOS)
@@ -344,12 +364,15 @@ object NativeHtmlDialog {
             }
         }
 
-        dialog.show()
-        dialog.window?.setBackgroundDrawable(
-            ColorDrawable(Color.TRANSPARENT)
+        attachDrag(
+            dialog = dialog,
+            panel = panel,
+            handle = handle
         )
-        dialog.window?.setGravity(Gravity.BOTTOM)
-        dialog.window?.setLayout(
+
+        dialog.show()
+
+        window.setLayout(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
@@ -365,8 +388,10 @@ object NativeHtmlDialog {
         textSize = 14f
         isAllCaps = false
         setTypeface(
-            android.graphics.Typeface.DEFAULT,
-            android.graphics.Typeface.BOLD
+            android.graphics.Typeface.create(
+                "sans-serif",
+                android.graphics.Typeface.BOLD
+            )
         )
         setTextColor(
             ContextCompat.getColor(
@@ -374,47 +399,172 @@ object NativeHtmlDialog {
                 if (outlined) R.color.text else R.color.onpri
             )
         )
-        background = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            setColor(
-                if (outlined) {
-                    Color.TRANSPARENT
-                } else {
-                    ContextCompat.getColor(
-                        context,
-                        R.color.pri
-                    )
-                }
+        background = if (outlined) {
+            roundedWithStroke(
+                Color.TRANSPARENT,
+                ContextCompat.getColor(
+                    context,
+                    R.color.border
+                ),
+                dp(context, 18),
+                dp(context, 1)
             )
-            cornerRadius = dp(context, 18).toFloat()
-            if (outlined) {
-                setStroke(
-                    dp(context, 1),
-                    ContextCompat.getColor(
-                        context,
-                        R.color.line
-                    )
-                )
-            }
+        } else {
+            rounded(
+                ContextCompat.getColor(
+                    context,
+                    R.color.pri
+                ),
+                dp(context, 18)
+            )
         }
+        stateListAnimator = null
         setOnClickListener {
             click()
+        }
+    }
+
+    private fun attachDrag(
+        dialog: Dialog,
+        panel: View,
+        handle: View
+    ) {
+        var startY = 0f
+        var lastY = 0f
+        var lastTime = 0L
+        var velocity = 0f
+        var dragging = false
+
+        handle.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    startY = event.rawY
+                    lastY = startY
+                    lastTime = System.currentTimeMillis()
+                    velocity = 0f
+                    dragging = true
+                    panel.animate().cancel()
+                    true
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    if (!dragging) return@setOnTouchListener true
+
+                    val currentY = event.rawY
+                    val dy = (currentY - startY).coerceAtLeast(0f)
+                    val now = System.currentTimeMillis()
+                    val dt = now - lastTime
+
+                    if (dt > 0L) {
+                        velocity = (currentY - lastY) / dt
+                    }
+
+                    lastY = currentY
+                    lastTime = now
+                    panel.translationY = dy
+                    true
+                }
+
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL -> {
+                    if (!dragging) return@setOnTouchListener true
+                    dragging = false
+
+                    val dismiss =
+                        panel.translationY > panel.height * 0.22f ||
+                            velocity > 0.65f
+
+                    if (dismiss) {
+                        panel.animate()
+                            .translationY(panel.height.toFloat())
+                            .alpha(0f)
+                            .setDuration(280L)
+                            .setInterpolator(Curves.SMOOTH)
+                            .withEndAction {
+                                if (dialog.isShowing) {
+                                    dialog.cancel()
+                                }
+                            }
+                            .start()
+                    } else {
+                        panel.animate()
+                            .translationY(0f)
+                            .alpha(1f)
+                            .setDuration(360L)
+                            .setInterpolator(Curves.SPRING)
+                            .start()
+                    }
+
+                    true
+                }
+
+                else -> false
+            }
+        }
+    }
+
+    private fun sheetBackground(
+        context: Context
+    ): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(
+                ContextCompat.getColor(
+                    context,
+                    R.color.popupBg
+                )
+            )
+            cornerRadii = floatArrayOf(
+                dp(context, 28).toFloat(),
+                dp(context, 28).toFloat(),
+                dp(context, 28).toFloat(),
+                dp(context, 28).toFloat(),
+                0f,
+                0f,
+                0f,
+                0f
+            )
+            setStroke(
+                dp(context, 1),
+                ContextCompat.getColor(
+                    context,
+                    R.color.popupBorder
+                )
+            )
         }
     }
 
     private fun rounded(
         color: Int,
         radius: Int
-    ): GradientDrawable = GradientDrawable().apply {
-        shape = GradientDrawable.RECTANGLE
-        setColor(color)
-        cornerRadius = radius.toFloat()
+    ): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(color)
+            cornerRadius = radius.toFloat()
+        }
+    }
+
+    private fun roundedWithStroke(
+        color: Int,
+        strokeColor: Int,
+        radius: Int,
+        strokeWidth: Int
+    ): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(color)
+            cornerRadius = radius.toFloat()
+            setStroke(strokeWidth, strokeColor)
+        }
     }
 
     private fun dp(
         context: Context,
         value: Int
     ): Int = (
-        value * context.resources.displayMetrics.density + 0.5f
+        value *
+            context.resources.displayMetrics.density +
+            0.5f
     ).toInt()
 }

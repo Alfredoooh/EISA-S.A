@@ -44,9 +44,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var biInput: EditText
     private lateinit var biSend: FrameLayout
     private lateinit var biAdd: FrameLayout
+    private lateinit var mainContent: View
     private lateinit var header: View
     private lateinit var drawerPanel: View
     private lateinit var drawerScrim: View
+    private lateinit var drawerEdge: View
+    private lateinit var drawerHeader: View
 
     private val items = mutableListOf<NewsItem>()
     private val categories = listOf(
@@ -73,6 +76,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         try { SystemBarHelper.sync(this) } catch (t: Throwable) { android.util.Log.e("MainActivity", "System bars init failed", t) }
 
+        mainContent = findViewById(R.id.mainContent)
         progress = findViewById(R.id.appProgress)
         recycler = findViewById(R.id.recycler)
         swipe = findViewById(R.id.swipe)
@@ -83,6 +87,8 @@ class MainActivity : AppCompatActivity() {
         header = findViewById(R.id.header)
         drawerPanel = findViewById(R.id.drawerPanel)
         drawerScrim = findViewById(R.id.drawerScrim)
+        drawerEdge = findViewById(R.id.drawerEdge)
+        drawerHeader = findViewById(R.id.drawerHeader)
 
         safeStartup("insets") { setupInsets() }
         safeStartup("feed") { setupFeed() }
@@ -122,7 +128,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(progress) { view, insets ->
-            val top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            val top = insets.getInsets(
+                WindowInsetsCompat.Type.statusBars()
+            ).top
             val lp = view.layoutParams as FrameLayout.LayoutParams
             lp.topMargin = top
             view.layoutParams = lp
@@ -130,33 +138,64 @@ class MainActivity : AppCompatActivity() {
         }
 
         ViewCompat.setOnApplyWindowInsetsListener(header) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.updatePadding(top = bars.top + dp(4))
-            view.layoutParams = view.layoutParams.apply {
-                height = dp(56) + bars.top
-            }
-            headerHeight = view.layoutParams.height
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.statusBars()
+            )
+            val top = bars.top
+            val lp = view.layoutParams
+            lp.height = dp(56) + top
+            view.layoutParams = lp
+            view.setPadding(
+                view.paddingLeft,
+                top + dp(4),
+                view.paddingRight,
+                view.paddingBottom
+            )
+            headerHeight = lp.height
+            recycler.updatePadding(top = headerHeight)
             applyBarTranslation(barProgress)
             insets
         }
 
         ViewCompat.setOnApplyWindowInsetsListener(biPill) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars()
+            )
+            val ime = insets.getInsets(
+                WindowInsetsCompat.Type.ime()
+            ).bottom
             val bottom = maxOf(ime, bars.bottom)
             val lp = view.layoutParams as FrameLayout.LayoutParams
             lp.bottomMargin = bottom + dp(16)
             view.layoutParams = lp
-            bottomBarHeight = view.height
+            if (view.height > 0) {
+                bottomBarHeight = view.height
+            }
             applyBarTranslation(barProgress)
             insets
         }
 
         ViewCompat.setOnApplyWindowInsetsListener(drawerPanel) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.updatePadding(top = bars.top, bottom = bars.bottom)
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars()
+            )
+            drawerHeader.setPadding(
+                drawerHeader.paddingLeft,
+                bars.top + dp(18),
+                drawerHeader.paddingRight,
+                dp(18)
+            )
+            view.setPadding(
+                0,
+                0,
+                0,
+                bars.bottom
+            )
             insets
         }
+
+        ViewCompat.requestApplyInsets(mainContent)
+        ViewCompat.requestApplyInsets(drawerPanel)
     }
 
     private fun setupFeed() {
@@ -267,23 +306,42 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupDrawer() {
+        IconLoader.applyPng(
+            findViewById(R.id.drIconProfile),
+            "profile"
+        )
+        IconLoader.applyPng(
+            findViewById(R.id.drIconLibrary),
+            "bookmark"
+        )
+        IconLoader.applyPng(
+            findViewById(R.id.drIconSettings),
+            "settings"
+        )
+
         drawerScrim.setOnClickListener {
             closeDrawer()
         }
 
         findViewById<View>(R.id.drProfile).setOnClickListener {
             closeDrawer()
-            startActivity(Intent(this, SettingsActivity::class.java))
+            startActivity(
+                Intent(this, AuthActivity::class.java)
+            )
         }
 
         findViewById<View>(R.id.drLibrary).setOnClickListener {
             closeDrawer()
-            startActivity(Intent(this, LibraryActivity::class.java))
+            startActivity(
+                Intent(this, LibraryActivity::class.java)
+            )
         }
 
         findViewById<View>(R.id.drSettings).setOnClickListener {
             closeDrawer()
-            startActivity(Intent(this, SettingsActivity::class.java))
+            startActivity(
+                Intent(this, SettingsActivity::class.java)
+            )
         }
 
         setupDrawerDrag()
@@ -662,15 +720,61 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun drawerWidth(): Float =
+        rootMainWidth().toFloat()
+
+    private fun rootMainWidth(): Int =
+        if (::mainContent.isInitialized && mainContent.width > 0) {
+            mainContent.width
+        } else {
+            resources.displayMetrics.widthPixels
+        }
+
+    private fun setDrawerProgress(progressValue: Float) {
+        val p = progressValue.coerceIn(0f, 1f)
+        val width = drawerWidth()
+
+        drawerPanel.translationX = width * (1f - p)
+        mainContent.translationX = -width * 0.18f * p
+        drawerScrim.alpha = 0.34f * p
+
+        val dark = ThemeManager.current(this) == "dark" ||
+            (ThemeManager.current(this) == "system" &&
+                (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES)
+
+        if (p > 0f) {
+            val drawerBg = ContextCompat.getColor(
+                this,
+                R.color.bgElevated
+            )
+            window.statusBarColor = drawerBg
+            window.navigationBarColor = drawerBg
+            androidx.core.view.WindowInsetsControllerCompat(
+                window,
+                window.decorView
+            ).apply {
+                isAppearanceLightStatusBars = !dark
+                isAppearanceLightNavigationBars = !dark
+            }
+        }
+    }
+
     private fun openDrawer() {
         if (drawerOpen) return
 
         drawerOpen = true
         drawerScrim.visibility = View.VISIBLE
-        drawerPanel.translationX = dp(300).toFloat()
+        drawerEdge.visibility = View.GONE
+
+        drawerPanel.animate().cancel()
+        mainContent.animate().cancel()
+        drawerScrim.animate().cancel()
+
+        setDrawerProgress(0f)
 
         drawerScrim.animate()
-            .alpha(1f)
+            .alpha(0.34f)
             .setDuration(450L)
             .setInterpolator(Curves.IOS)
             .start()
@@ -678,7 +782,13 @@ class MainActivity : AppCompatActivity() {
         drawerPanel.animate()
             .translationX(0f)
             .setDuration(480L)
-            .setInterpolator(Curves.SMOOTH)
+            .setInterpolator(Curves.IOS)
+            .start()
+
+        mainContent.animate()
+            .translationX(-drawerWidth() * 0.18f)
+            .setDuration(480L)
+            .setInterpolator(Curves.IOS)
             .start()
     }
 
@@ -687,19 +797,33 @@ class MainActivity : AppCompatActivity() {
 
         drawerOpen = false
 
+        val width = drawerWidth()
+        drawerEdge.visibility = View.VISIBLE
+
+        drawerPanel.animate().cancel()
+        mainContent.animate().cancel()
+        drawerScrim.animate().cancel()
+
+        drawerPanel.animate()
+            .translationX(width)
+            .setDuration(360L)
+            .setInterpolator(Curves.IOS)
+            .start()
+
+        mainContent.animate()
+            .translationX(0f)
+            .setDuration(360L)
+            .setInterpolator(Curves.IOS)
+            .start()
+
         drawerScrim.animate()
             .alpha(0f)
             .setDuration(300L)
             .setInterpolator(Curves.IOS)
             .withEndAction {
                 drawerScrim.visibility = View.GONE
+                SystemBarHelper.sync(this)
             }
-            .start()
-
-        drawerPanel.animate()
-            .translationX(dp(300).toFloat())
-            .setDuration(320L)
-            .setInterpolator(Curves.SMOOTH)
             .start()
     }
 
@@ -711,6 +835,8 @@ class MainActivity : AppCompatActivity() {
         var tracking = false
 
         drawerPanel.setOnTouchListener { _, event ->
+            if (!drawerOpen) return@setOnTouchListener false
+
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     startX = event.rawX
@@ -719,6 +845,7 @@ class MainActivity : AppCompatActivity() {
                     velocity = 0f
                     tracking = true
                     drawerPanel.animate().cancel()
+                    mainContent.animate().cancel()
                     true
                 }
 
@@ -735,7 +862,11 @@ class MainActivity : AppCompatActivity() {
 
                     lastX = event.rawX
                     lastTime = now
-                    drawerPanel.translationX = dx
+
+                    val progressValue =
+                        1f - (dx / drawerWidth()).coerceIn(0f, 1f)
+
+                    setDrawerProgress(progressValue)
                     true
                 }
 
@@ -744,24 +875,102 @@ class MainActivity : AppCompatActivity() {
                     if (!tracking) return@setOnTouchListener true
                     tracking = false
 
+                    val current = drawerPanel.translationX
                     val shouldClose =
-                        drawerPanel.translationX > dp(70) ||
-                            (velocity > 0.5f && drawerPanel.translationX > dp(20))
+                        current > drawerWidth() * 0.28f ||
+                            (velocity > 0.55f && current > drawerWidth() * 0.08f)
 
                     if (shouldClose) {
                         closeDrawer()
                     } else {
                         drawerPanel.animate()
                             .translationX(0f)
-                            .setDuration(280L)
-                            .setInterpolator(Curves.SMOOTH)
+                            .setDuration(300L)
+                            .setInterpolator(Curves.IOS)
                             .start()
+                        mainContent.animate()
+                            .translationX(-drawerWidth() * 0.18f)
+                            .setDuration(300L)
+                            .setInterpolator(Curves.IOS)
+                            .start()
+                        drawerScrim.animate()
+                            .alpha(0.34f)
+                            .setDuration(300L)
+                            .setInterpolator(Curves.IOS)
+                            .start()
+                    }
+                    true
+                }
+
+                else -> true
+            }
+        }
+
+        drawerEdge.setOnTouchListener { _, event ->
+            if (drawerOpen) return@setOnTouchListener false
+
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    startX = event.rawX
+                    lastX = startX
+                    lastTime = System.currentTimeMillis()
+                    velocity = 0f
+                    tracking = true
+
+                    drawerScrim.visibility = View.VISIBLE
+                    drawerScrim.alpha = 0f
+                    drawerPanel.animate().cancel()
+                    mainContent.animate().cancel()
+                    drawerPanel.translationX = drawerWidth()
+                    true
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    if (!tracking) return@setOnTouchListener true
+
+                    val dx = (startX - event.rawX).coerceAtLeast(0f)
+                    val now = System.currentTimeMillis()
+                    val dt = now - lastTime
+                    if (dt > 0) velocity = (lastX - event.rawX) / dt
+                    lastX = event.rawX
+                    lastTime = now
+
+                    val progressValue =
+                        (dx / drawerWidth()).coerceIn(0f, 1f)
+                    drawerPanel.translationX =
+                        drawerWidth() * (1f - progressValue)
+                    mainContent.translationX =
+                        -drawerWidth() * 0.18f * progressValue
+                    drawerScrim.alpha = 0.34f * progressValue
+                    true
+                }
+
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL -> {
+                    if (!tracking) return@setOnTouchListener true
+                    tracking = false
+
+                    val progressValue = 1f -
+                        drawerPanel.translationX / drawerWidth()
+                    val shouldOpen =
+                        progressValue > 0.22f ||
+                            velocity > 0.55f
+
+                    if (shouldOpen) {
+                        openDrawer()
+                    } else {
+                        closeDrawer()
                     }
                     true
                 }
 
                 else -> false
             }
+        }
+
+        drawerPanel.post {
+            drawerPanel.translationX = drawerWidth()
+            drawerEdge.visibility = View.VISIBLE
         }
     }
 
@@ -844,6 +1053,7 @@ class MainActivity : AppCompatActivity() {
             putExtra("image", item.image)
             putExtra("logo", item.logo)
             putExtra("transition_name", transitionName)
+            putExtra("transition_is_image", item.image.isNotBlank())
         }
 
         val options =

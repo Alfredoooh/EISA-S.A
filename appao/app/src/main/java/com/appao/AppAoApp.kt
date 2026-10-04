@@ -12,6 +12,12 @@ class AppAoApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+        // Apply the persisted mode before the first Activity is constructed.
+        // This prevents the light-theme preference from starting with the
+        // system's dark resource set.
+        ThemeManager.apply(this)
+
         installCrashRecorder()
     }
 

@@ -1,8 +1,10 @@
 package com.appao
 
 import android.content.Context
+import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 
+/** Single persisted source of truth for the app theme. */
 object ThemeManager {
 
     private const val PREFS = "appao"
@@ -10,21 +12,41 @@ object ThemeManager {
 
     fun current(ctx: Context): String =
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString(KEY, "system") ?: "system"
+            .getString(KEY, "system")
+            ?: "system"
 
     fun save(ctx: Context, value: String) {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putString(KEY, value).commit()
+            .edit()
+            .putString(KEY, value)
+            .commit()
+    }
+
+    fun mode(ctx: Context): Int = when (current(ctx)) {
+        "dark" -> AppCompatDelegate.MODE_NIGHT_YES
+        "light" -> AppCompatDelegate.MODE_NIGHT_NO
+        else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
     }
 
     fun apply(ctx: Context) {
-        val mode = when (current(ctx)) {
-            "dark" -> AppCompatDelegate.MODE_NIGHT_YES
-            "light" -> AppCompatDelegate.MODE_NIGHT_NO
-            else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+        AppCompatDelegate.setDefaultNightMode(mode(ctx))
+    }
+
+    fun applyAndRefresh(activity: AppCompatActivity, value: String) {
+        save(activity, value)
+
+        val mode = mode(activity)
+        AppCompatDelegate.setDefaultNightMode(mode)
+
+        try {
+            activity.delegate.applyDayNight()
+        } catch (_: Throwable) {
         }
-        if (AppCompatDelegate.getDefaultNightMode() != mode) {
-            AppCompatDelegate.setDefaultNightMode(mode)
+
+        activity.window.decorView.post {
+            if (!activity.isFinishing && !activity.isDestroyed) {
+                SystemBarHelper.sync(activity)
+            }
         }
     }
 
@@ -40,8 +62,8 @@ object ThemeManager {
             "Claro" -> "light"
             else -> "system"
         }
-        if (current(ctx) == value) return
+
         save(ctx, value)
-        apply(ctx)
+        AppCompatDelegate.setDefaultNightMode(mode(ctx))
     }
 }

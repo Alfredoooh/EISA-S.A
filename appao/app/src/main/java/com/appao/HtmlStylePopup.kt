@@ -15,7 +15,7 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import kotlin.math.max
 
-/** Native popup reproducing the HTML .menu motion and geometry. */
+/** Native popup matching the supplied HTML menu geometry and motion. */
 object HtmlStylePopup {
 
     data class Item(
@@ -31,7 +31,7 @@ object HtmlStylePopup {
     private const val MENU_RADIUS_DP = 26
     private const val ITEM_RADIUS_DP = 18
     private const val ITEM_DELAY_MS = 35L
-    private const val ITEM_START_TRANSLATE_DP = -8
+    private const val ITEM_TRANSLATE_DP = 8
 
     fun show(
         anchor: View,
@@ -41,68 +41,50 @@ object HtmlStylePopup {
         val context = anchor.context
         val density = context.resources.displayMetrics.density
 
+        fun dp(value: Int) = (value * density + .5f).toInt()
+
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(
-                dp(density, MENU_PADDING_DP),
-                dp(density, MENU_PADDING_DP),
-                dp(density, MENU_PADDING_DP),
-                dp(density, MENU_PADDING_DP)
+                dp(MENU_PADDING_DP), dp(MENU_PADDING_DP),
+                dp(MENU_PADDING_DP), dp(MENU_PADDING_DP)
             )
-            background = rounded(
-                ContextCompat.getColor(context, R.color.popupBg),
-                dp(density, MENU_RADIUS_DP).toFloat()
-            )
+            background = popupBackground(context, dp(MENU_RADIUS_DP))
             clipToOutline = true
             clipChildren = true
-            clipToPadding = true
         }
 
-        lateinit var popup: PopupWindow
-        popup = PopupWindow(
+        val popup = PopupWindow(
             root,
-            dp(density, MIN_WIDTH_DP),
+            dp(MIN_WIDTH_DP),
             ViewGroup.LayoutParams.WRAP_CONTENT,
             true
         ).apply {
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             isFocusable = true
             isOutsideTouchable = true
-            elevation = dp(density, 18).toFloat()
+            elevation = dp(18).toFloat()
             inputMethodMode = PopupWindow.INPUT_METHOD_NOT_NEEDED
-            setOnDismissListener {
-                root.animate().cancel()
-                for (i in 0 until root.childCount) {
-                    root.getChildAt(i).animate().cancel()
-                }
-            }
+            animationStyle = 0
         }
 
         items.forEach { item ->
             val row = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                minimumHeight = dp(density, 48)
-                setPadding(
-                    dp(density, 14),
-                    dp(density, 13),
-                    dp(density, 14),
-                    dp(density, 13)
-                )
+                minimumHeight = dp(48)
+                setPadding(dp(14), dp(13), dp(14), dp(13))
                 background = rowBackground(context, density)
                 isClickable = true
                 isFocusable = true
                 alpha = 0f
-                translationY = dp(density, ITEM_START_TRANSLATE_DP).toFloat()
+                translationY = -dp(ITEM_TRANSLATE_DP).toFloat()
             }
 
             val icon = ImageView(context).apply {
-                layoutParams = LinearLayout.LayoutParams(
-                    dp(density, 24),
-                    dp(density, 24)
-                )
-                item.iconName?.takeIf { it.isNotBlank() }?.let {
-                    IconLoader.applyPng(this, it)
+                layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
+                if (!item.iconName.isNullOrBlank()) {
+                    IconLoader.applyPng(this, item.iconName!!)
                 }
             }
             row.addView(icon)
@@ -110,7 +92,9 @@ object HtmlStylePopup {
             val label = TextView(context).apply {
                 text = item.label
                 textSize = 15f
-                setTextColor(ContextCompat.getColor(context, R.color.text))
+                setTextColor(
+                    ContextCompat.getColor(context, R.color.text)
+                )
                 setTypeface(
                     android.graphics.Typeface.create(
                         "sans-serif-medium",
@@ -126,54 +110,32 @@ object HtmlStylePopup {
                     0,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     1f
-                ).apply { marginStart = dp(density, 14) }
+                ).apply { marginStart = dp(14) }
             )
 
             if (item.checked) {
                 val check = ImageView(context).apply {
-                    layoutParams = LinearLayout.LayoutParams(
-                        dp(density, 18),
-                        dp(density, 18)
-                    )
+                    layoutParams = LinearLayout.LayoutParams(dp(18), dp(18))
                     IconLoader.applySvg(this, "check", R.color.iconTint)
                 }
                 row.addView(check)
             }
 
             row.setOnClickListener {
-                /*
-                 * Do NOT use row.post { ... } here. When PopupWindow.dismiss()
-                 * detaches the content view, a Runnable posted to that row can
-                 * be dropped. Dispatch through the still-attached anchor.
-                 */
-                val action = item.onClick
+                // Execute while the hosting Activity is still alive, then
+                // dismiss. This is critical for theme changes and navigation:
+                // a delayed callback can be dropped when AppCompat recreates
+                // the Activity immediately after the selection.
+                runCatching {
+                    item.onClick()
+                }.onFailure {
+                    android.util.Log.e(
+                        "HtmlStylePopup",
+                        "Popup action failed",
+                        it
+                    )
+                }
                 popup.dismiss()
-                anchor.postDelayed(
-                    {
-                        if (anchor.isAttachedToWindow) {
-                            try {
-                                action()
-                            } catch (t: Throwable) {
-                                android.util.Log.e(
-                                    "HtmlStylePopup",
-                                    "Popup action failed",
-                                    t
-                                )
-                            }
-                        } else {
-                            try {
-                                action()
-                            } catch (t: Throwable) {
-                                android.util.Log.e(
-                                    "HtmlStylePopup",
-                                    "Popup action failed after detach",
-                                    t
-                                )
-                            }
-                        }
-                    },
-                    16L
-                )
             }
 
             root.addView(row)
@@ -181,7 +143,7 @@ object HtmlStylePopup {
 
         root.measure(
             View.MeasureSpec.makeMeasureSpec(
-                dp(density, MAX_WIDTH_DP),
+                dp(MAX_WIDTH_DP),
                 View.MeasureSpec.AT_MOST
             ),
             View.MeasureSpec.makeMeasureSpec(
@@ -191,7 +153,7 @@ object HtmlStylePopup {
         )
 
         val width = max(
-            dp(density, MIN_WIDTH_DP),
+            dp(MIN_WIDTH_DP),
             root.measuredWidth
         )
         val height = root.measuredHeight
@@ -200,48 +162,51 @@ object HtmlStylePopup {
         val location = IntArray(2)
         anchor.getLocationOnScreen(location)
 
-        val visible = android.graphics.Rect()
-        anchor.getWindowVisibleDisplayFrame(visible)
+        val frame = android.graphics.Rect()
+        anchor.getWindowVisibleDisplayFrame(frame)
 
         val anchorLeft = location[0]
         val anchorTop = location[1]
         val anchorRight = anchorLeft + anchor.width
         val anchorBottom = anchorTop + anchor.height
-        val margin = dp(density, 12)
+        val margin = dp(12)
 
-        val x = if (visible.right - anchorRight >= width + margin) {
+        val left = if (frame.right - anchorRight >= width + margin) {
             anchorRight - width
         } else {
-            anchorLeft
+            anchorLeft - max(0, width - anchor.width)
         }.coerceIn(
-            visible.left + dp(density, 8),
-            visible.right - width - dp(density, 8)
+            frame.left + dp(8),
+            frame.right - width - dp(8)
         )
 
-        val naturalY = if (placeAbove) {
+        val naturalTop = if (placeAbove) {
             anchorTop - height - margin
         } else {
             anchorBottom
         }
 
-        val y = naturalY.coerceIn(
-            visible.top + dp(density, 8),
-            visible.bottom - height - dp(density, 8)
+        val top = naturalTop.coerceIn(
+            frame.top + dp(8),
+            frame.bottom - height - dp(8)
         )
 
         popup.showAtLocation(
             anchor,
             Gravity.TOP or Gravity.START,
-            x,
-            y
+            left,
+            top
         )
 
-        root.pivotX = (anchorRight - x)
-            .toFloat()
-            .coerceIn(0f, width.toFloat())
+        root.pivotX = (
+            anchorRight - left
+        ).toFloat().coerceIn(
+            0f,
+            width.toFloat()
+        )
         root.pivotY = if (placeAbove) height.toFloat() else 0f
-        root.scaleX = 0.5f
-        root.scaleY = 0.5f
+        root.scaleX = .5f
+        root.scaleY = .5f
         root.alpha = 0f
 
         root.animate()
@@ -257,8 +222,8 @@ object HtmlStylePopup {
             .setInterpolator(Curves.SMOOTH)
             .start()
 
-        for (i in 0 until root.childCount) {
-            val row = root.getChildAt(i)
+        for (index in 0 until root.childCount) {
+            val row = root.getChildAt(index)
             row.postDelayed(
                 {
                     row.animate()
@@ -266,52 +231,67 @@ object HtmlStylePopup {
                         .setDuration(450L)
                         .setInterpolator(Curves.SPRING)
                         .start()
-
                     row.animate()
                         .alpha(1f)
                         .setDuration(300L)
                         .setInterpolator(Curves.SMOOTH)
                         .start()
                 },
-                i * ITEM_DELAY_MS
+                index * ITEM_DELAY_MS
             )
         }
 
-        anchor.tag = popup
         return popup
+    }
+
+    private fun popupBackground(
+        context: Context,
+        radius: Int
+    ): GradientDrawable = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        setColor(
+            ContextCompat.getColor(
+                context,
+                R.color.popupBg
+            )
+        )
+        cornerRadius = radius.toFloat()
+        setStroke(
+            (context.resources.displayMetrics.density + .5f).toInt(),
+            ContextCompat.getColor(
+                context,
+                R.color.popupBorder
+            )
+        )
     }
 
     private fun rowBackground(
         context: Context,
         density: Float
-    ): StateListDrawable = StateListDrawable().apply {
-        addState(
-            intArrayOf(android.R.attr.state_pressed),
-            rounded(
-                ContextCompat.getColor(context, R.color.card2),
-                dp(density, ITEM_RADIUS_DP).toFloat()
+    ): StateListDrawable {
+        val radius = 18f * density
+        return StateListDrawable().apply {
+            addState(
+                intArrayOf(android.R.attr.state_pressed),
+                GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    setColor(
+                        ContextCompat.getColor(
+                            context,
+                            R.color.card2
+                        )
+                    )
+                    cornerRadius = radius
+                }
             )
-        )
-        addState(
-            intArrayOf(),
-            rounded(
-                Color.TRANSPARENT,
-                dp(density, ITEM_RADIUS_DP).toFloat()
+            addState(
+                intArrayOf(),
+                GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    setColor(Color.TRANSPARENT)
+                    cornerRadius = radius
+                }
             )
-        )
+        }
     }
-
-    private fun rounded(
-        color: Int,
-        radius: Float
-    ): GradientDrawable = GradientDrawable().apply {
-        shape = GradientDrawable.RECTANGLE
-        setColor(color)
-        cornerRadius = radius
-    }
-
-    private fun dp(
-        density: Float,
-        value: Int
-    ): Int = (value * density + 0.5f).toInt()
 }

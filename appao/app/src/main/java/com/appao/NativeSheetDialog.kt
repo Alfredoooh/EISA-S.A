@@ -6,14 +6,20 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import androidx.core.content.ContextCompat
 
-/** Native bottom sheet matching the HTML #sheet/.sp geometry and motion. */
+/**
+ * Native paper-sheet style modal.
+ * Full-width, bottom anchored, curved top corners, no floating card margin,
+ * interactive downward drag and no yellow pressed feedback.
+ */
 object NativeSheetDialog {
 
     fun show(
@@ -23,76 +29,75 @@ object NativeSheetDialog {
         val dialog = Dialog(context)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
 
-        val outer = FrameLayout(context).apply {
-            setPadding(
-                dp(context, 10),
-                0,
-                dp(context, 10),
-                dp(context, 10)
-            )
+        val panel = FrameLayout(context).apply {
+            background = sheetBackground(context)
+            clipToOutline = true
+            alpha = 0f
+            translationY = dp(context, 36).toFloat()
+        }
+
+        val shell = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.TRANSPARENT)
         }
 
-        val panel = FrameLayout(context).apply {
-            setPadding(
-                dp(context, 20),
-                dp(context, 12),
-                dp(context, 20),
-                dp(context, 20)
+        val handle = View(context).apply {
+            background = rounded(
+                ContextCompat.getColor(context, R.color.line),
+                dp(context, 4)
             )
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                setColor(
-                    ContextCompat.getColor(
-                        context,
-                        R.color.bg
-                    )
-                )
-                cornerRadius = dp(context, 32).toFloat()
-            }
-            clipToOutline = true
-            alpha = 0f
-            translationY = dp(context, 34).toFloat()
-            scaleX = 0.985f
-            scaleY = 0.985f
         }
 
-        panel.addView(
+        shell.addView(
+            handle,
+            LinearLayout.LayoutParams(
+                dp(context, 38),
+                dp(context, 4)
+            ).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                topMargin = dp(context, 10)
+                bottomMargin = dp(context, 10)
+            }
+        )
+
+        shell.addView(
             content,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        panel.addView(
+            shell,
             FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
         )
 
-        outer.addView(
-            panel,
-            FrameLayout.LayoutParams(
-                minOf(
-                    dp(context, 480),
-                    context.resources.displayMetrics.widthPixels - dp(context, 20)
-                ),
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            )
-        )
-
-        dialog.setContentView(outer)
+        dialog.setContentView(panel)
         dialog.setCanceledOnTouchOutside(true)
 
+        val window = dialog.window
+            ?: return dialog
+
+        window.setBackgroundDrawable(
+            ColorDrawable(Color.TRANSPARENT)
+        )
+        window.setGravity(Gravity.BOTTOM)
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_DIM_BEHIND
+        )
+        window.setDimAmount(
+            if (ThemeManager.current(context) == "dark") {
+                0.22f
+            } else {
+                0.12f
+            }
+        )
+
         dialog.setOnShowListener {
-            val window = dialog.window ?: return@setOnShowListener
-
-            window.setBackgroundDrawable(
-                ColorDrawable(Color.TRANSPARENT)
-            )
-
-            window.addFlags(
-                WindowManager.LayoutParams.FLAG_DIM_BEHIND
-            )
-
-            window.setDimAmount(0.12f)
-            window.setGravity(Gravity.BOTTOM)
             window.setLayout(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -103,8 +108,6 @@ object NativeSheetDialog {
 
                 panel.animate()
                     .translationY(0f)
-                    .scaleX(1f)
-                    .scaleY(1f)
                     .alpha(1f)
                     .setDuration(500L)
                     .setInterpolator(Curves.IOS)
@@ -112,30 +115,144 @@ object NativeSheetDialog {
             }
         }
 
-        dialog.window?.setBackgroundDrawable(
-            ColorDrawable(Color.TRANSPARENT)
-        )
-        dialog.window?.setGravity(Gravity.BOTTOM)
-        dialog.window?.setLayout(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
+        attachDrag(
+            context = context,
+            dialog = dialog,
+            panel = panel,
+            handle = handle
         )
 
         dialog.show()
 
-        dialog.window?.setLayout(
+        window.setLayout(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
-        dialog.window?.setGravity(Gravity.BOTTOM)
 
         return dialog
+    }
+
+    private fun attachDrag(
+        context: Context,
+        dialog: Dialog,
+        panel: View,
+        handle: View
+    ) {
+        var downY = 0f
+        var lastY = 0f
+        var lastTime = 0L
+        var velocity = 0f
+        var dragging = false
+
+        handle.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downY = event.rawY
+                    lastY = downY
+                    lastTime = System.currentTimeMillis()
+                    velocity = 0f
+                    dragging = true
+                    panel.animate().cancel()
+                    true
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    if (!dragging) return@setOnTouchListener true
+
+                    val y = event.rawY
+                    val dy = (y - downY).coerceAtLeast(0f)
+                    val now = System.currentTimeMillis()
+                    val dt = now - lastTime
+
+                    if (dt > 0L) {
+                        velocity = (y - lastY) / dt
+                    }
+
+                    lastY = y
+                    lastTime = now
+
+                    panel.translationY = dy
+                    true
+                }
+
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL -> {
+                    if (!dragging) return@setOnTouchListener true
+                    dragging = false
+
+                    val dismiss =
+                        panel.translationY > panel.height * 0.22f ||
+                            velocity > 0.65f
+
+                    if (dismiss) {
+                        panel.animate()
+                            .translationY(panel.height.toFloat())
+                            .alpha(0f)
+                            .setDuration(280L)
+                            .setInterpolator(Curves.SMOOTH)
+                            .withEndAction {
+                                if (dialog.isShowing) {
+                                    dialog.dismiss()
+                                }
+                            }
+                            .start()
+                    } else {
+                        panel.animate()
+                            .translationY(0f)
+                            .alpha(1f)
+                            .setDuration(360L)
+                            .setInterpolator(Curves.SPRING)
+                            .start()
+                    }
+                    true
+                }
+
+                else -> false
+            }
+        }
+    }
+
+    private fun sheetBackground(
+        context: Context
+    ): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(
+                ContextCompat.getColor(
+                    context,
+                    R.color.bgElevated
+                )
+            )
+            cornerRadii = floatArrayOf(
+                dp(context, 28).toFloat(),
+                dp(context, 28).toFloat(),
+                dp(context, 28).toFloat(),
+                dp(context, 28).toFloat(),
+                0f,
+                0f,
+                0f,
+                0f
+            )
+        }
+    }
+
+    private fun rounded(
+        color: Int,
+        radius: Int
+    ): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(color)
+            cornerRadius = radius.toFloat()
+        }
     }
 
     private fun dp(
         context: Context,
         value: Int
     ): Int = (
-        value * context.resources.displayMetrics.density + 0.5f
+        value *
+            context.resources.displayMetrics.density +
+            0.5f
     ).toInt()
 }

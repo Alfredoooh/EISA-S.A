@@ -124,7 +124,7 @@ class AuthActivity : AppCompatActivity() {
             out.animate()
                 .alpha(0f)
                 .translationX(
-                    if (value) -dp(18) else dp(18)
+                    if (value) -dp(18).toFloat() else dp(18).toFloat()
                 )
                 .setDuration(duration)
                 .setInterpolator(Curves.IOS)
@@ -164,9 +164,9 @@ class AuthActivity : AppCompatActivity() {
         val parent = indicator.parent as? View ?: return
         val width = parent.width
         if (width > 0) {
-            indicator.layoutParams = indicator.layoutParams.apply {
-                width = (width - dp(10)) / 2
-            }
+            val indicatorParams = indicator.layoutParams
+            indicatorParams.width = (width - dp(10)) / 2
+            indicator.layoutParams = indicatorParams
             indicator.translationX = if (register) {
                 ((width - dp(10)) / 2).toFloat()
             } else {

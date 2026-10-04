@@ -766,7 +766,7 @@ class NewsAdapter(
         .removePrefix("http://")
         .removePrefix("www.")
         .substringBefore('#')
-        .substringBefore('?ref=')
+        .substringBefore("?ref=")
         .trimEnd('/')
 
     private fun ago(

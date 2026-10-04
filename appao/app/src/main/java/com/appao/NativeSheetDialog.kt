@@ -59,19 +59,28 @@ object NativeSheetDialog {
                 val currentBackground =
                     it.background
 
-                if (
-                    currentBackground is MaterialShapeDrawable
-                ) {
-                    currentBackground.fillColor =
-                        ColorStateList.valueOf(
-                            surfaceColor
-                        )
-                } else {
-                    it.backgroundTintList =
-                        ColorStateList.valueOf(
-                            surfaceColor
-                        )
-                }
+                val shape =
+                    if (currentBackground is MaterialShapeDrawable) {
+                        currentBackground
+                    } else {
+                        MaterialShapeDrawable()
+                    }
+
+                shape.fillColor =
+                    ColorStateList.valueOf(
+                        surfaceColor
+                    )
+
+                shape.shapeAppearanceModel =
+                    shape.shapeAppearanceModel
+                        .toBuilder()
+                        .setTopLeftCornerSize(dp(context, 28).toFloat())
+                        .setTopRightCornerSize(dp(context, 28).toFloat())
+                        .setBottomLeftCornerSize(0f)
+                        .setBottomRightCornerSize(0f)
+                        .build()
+
+                it.background = shape
 
                 val behavior =
                     BottomSheetBehavior.from(
@@ -101,7 +110,7 @@ object NativeSheetDialog {
                     ) {
                         0.22f
                     } else {
-                        0.12f
+                        0.18f
                     }
                 )
 

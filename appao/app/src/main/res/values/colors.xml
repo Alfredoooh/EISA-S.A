@@ -23,7 +23,7 @@
     <color name="skeleton">#EDEDED</color>
     <color name="popupBg">#F4F4F4</color>
     <color name="popupBorder">#CFCFCF</color>
-    <color name="dialogSurface">#F4F4F4</color>
+    <color name="dialogSurface">#FFFFFF</color>
     <color name="authYellow">#E6A100</color>
     <color name="authYellowPressed">#D39200</color>
     <color name="authYellowText">#FFFFFF</color>

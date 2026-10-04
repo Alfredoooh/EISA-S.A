@@ -22,6 +22,9 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.DataSource
+import com.bumptech.glide.load.engine.GlideException
+import com.bumptech.glide.request.RequestListener
 import java.lang.ref.WeakReference
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -33,7 +36,9 @@ import kotlin.math.max
 /** Native feed renderer with image cards plus grouped, square no-image sections. */
 class NewsAdapter(
     initial: List<NewsItem>,
-    private val onClick: (NewsItem, View) -> Unit
+    private val onClick: (NewsItem, View) -> Unit,
+    private val showTopCards: Boolean = false,
+    private val onTopAdd: (() -> Unit)? = null
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
@@ -41,6 +46,7 @@ class NewsAdapter(
         private const val TYPE_TEXT_SINGLE = 2
         private const val TYPE_TEXT_GROUP = 3
         private const val TYPE_SKELETON = 4
+        private const val TYPE_TOP_CARDS = 5
         private const val MAX_TEXT_GROUP = 6
         private const val GRID_GAP_DP = 8
         private const val GROUP_CARD_MAX_DP = 136
@@ -51,12 +57,15 @@ class NewsAdapter(
         data class TextSingle(val item: NewsItem) : RenderRow()
         data class TextGroup(val items: List<NewsItem>) : RenderRow()
         data object Skeleton : RenderRow()
+        data object TopCards : RenderRow()
     }
 
     private val articles = mutableListOf<NewsItem>()
     private val rows = mutableListOf<RenderRow>()
     private val activeShimmers = CopyOnWriteArraySet<WeakReference<ShimmerDrawable>>()
     private var shimmerAnim: ValueAnimator? = null
+
+    private var weather: WeatherHelper.Result? = null
 
     init {
         replaceArticles(initial)
@@ -84,11 +93,22 @@ class NewsAdapter(
 
     class DynamicTextVH(v: View) : RecyclerView.ViewHolder(v)
 
+    class TopCardsVH(v: View) : RecyclerView.ViewHolder(v) {
+        val add: View = v.findViewById(R.id.topAdd)
+        val addIcon: ImageView = v.findViewById(R.id.topAddIcon)
+        val weatherIcon: ImageView = v.findViewById(R.id.topWeatherIcon)
+        val weatherTemp: TextView = v.findViewById(R.id.topWeatherTemp)
+        val weatherCity: TextView = v.findViewById(R.id.topWeatherCity)
+        val savingsIcon: ImageView = v.findViewById(R.id.topSavingsIcon)
+        val historyIcon: ImageView = v.findViewById(R.id.topHistoryIcon)
+    }
+
     override fun getItemViewType(position: Int): Int = when (rows[position]) {
         is RenderRow.Image -> TYPE_IMAGE
         is RenderRow.TextSingle -> TYPE_TEXT_SINGLE
         is RenderRow.TextGroup -> TYPE_TEXT_GROUP
         RenderRow.Skeleton -> TYPE_SKELETON
+        RenderRow.TopCards -> TYPE_TOP_CARDS
     }
 
     override fun onCreateViewHolder(
@@ -102,6 +122,9 @@ class NewsAdapter(
             )
             TYPE_SKELETON -> SkeletonVH(
                 inflater.inflate(R.layout.item_news_skeleton, parent, false)
+            )
+            TYPE_TOP_CARDS -> TopCardsVH(
+                inflater.inflate(R.layout.item_top_cards, parent, false)
             )
             TYPE_TEXT_SINGLE, TYPE_TEXT_GROUP -> DynamicTextVH(
                 FrameLayout(parent.context).apply {
@@ -132,6 +155,61 @@ class NewsAdapter(
             is RenderRow.TextSingle -> bindTextSingle(holder as DynamicTextVH, row.item)
             is RenderRow.TextGroup -> bindTextGroup(holder as DynamicTextVH, row.items)
             RenderRow.Skeleton -> bindSkeleton(holder as SkeletonVH, position)
+            RenderRow.TopCards -> bindTopCards(holder as TopCardsVH)
+        }
+    }
+
+    private fun bindTopCards(holder: TopCardsVH) {
+        IconLoader.applySvg(
+            holder.addIcon,
+            "add",
+            R.color.iconTint
+        )
+        IconLoader.applyPng(
+            holder.savingsIcon,
+            "leaf",
+            R.color.iconTint
+        )
+        IconLoader.applyPng(
+            holder.historyIcon,
+            "clock",
+            R.color.iconTint
+        )
+
+        val current = weather
+        if (current != null) {
+            IconLoader.applyPng(
+                holder.weatherIcon,
+                current.icon,
+                R.color.iconTint
+            )
+            holder.weatherTemp.text = "${current.temp}°"
+            holder.weatherCity.text = current.prov
+        } else {
+            IconLoader.applyPng(
+                holder.weatherIcon,
+                "sunny",
+                R.color.iconTint
+            )
+            holder.weatherTemp.text = "--°"
+            holder.weatherCity.text = "Luanda"
+        }
+
+        holder.add.setOnClickListener {
+            onTopAdd?.invoke()
+        }
+    }
+
+    fun setWeather(result: WeatherHelper.Result) {
+        weather = result
+        refreshTopCards()
+    }
+
+    fun refreshTopCards() {
+        if (!showTopCards) return
+        val index = rows.indexOf(RenderRow.TopCards)
+        if (index >= 0) {
+            notifyItemChanged(index)
         }
     }
 
@@ -147,7 +225,7 @@ class NewsAdapter(
         if (item.logo.isNotBlank()) {
             Glide.with(holder.favicon)
                 .load(item.logo)
-                .override(dp(holder.itemView.context, 34), dp(holder.itemView.context, 34))
+                .override(dp(holder.itemView.context, 58), dp(holder.itemView.context, 58))
                 .dontAnimate()
                 .into(holder.favicon)
         } else {
@@ -157,8 +235,51 @@ class NewsAdapter(
         Glide.with(holder.image).clear(holder.image)
         if (item.image.isNotBlank()) {
             holder.imageCard.visibility = View.VISIBLE
+            // Start with a stable height, then replace it with the real source ratio
+            // as soon as Glide knows the image dimensions. This keeps each card's
+            // height proportional to the actual image instead of forcing 190dp.
+            holder.imageCard.layoutParams = holder.imageCard.layoutParams.apply {
+                height = dp(holder.itemView.context, 190)
+            }
             Glide.with(holder.image)
                 .load(item.image)
+                .listener(object : RequestListener<Drawable> {
+                    override fun onLoadFailed(
+                        e: GlideException?,
+                        model: Any?,
+                        target: com.bumptech.glide.request.target.Target<Drawable>,
+                        isFirstResource: Boolean
+                    ): Boolean = false
+
+                    override fun onResourceReady(
+                        resource: Drawable,
+                        model: Any,
+                        target: com.bumptech.glide.request.target.Target<Drawable>,
+                        dataSource: DataSource,
+                        isFirstResource: Boolean
+                    ): Boolean {
+                        val w = resource.intrinsicWidth
+                        val h = resource.intrinsicHeight
+                        if (w > 0 && h > 0) {
+                            holder.imageCard.post {
+                                val cardWidth = holder.imageCard.width
+                                if (cardWidth > 0) {
+                                    val targetHeight = (cardWidth.toFloat() * h.toFloat() / w.toFloat())
+                                        .toInt()
+                                        .coerceIn(
+                                            dp(holder.itemView.context, 120),
+                                            dp(holder.itemView.context, 520)
+                                        )
+                                    holder.imageCard.layoutParams = holder.imageCard.layoutParams.apply {
+                                        height = targetHeight
+                                    }
+                                    holder.imageCard.requestLayout()
+                                }
+                            }
+                        }
+                        return false
+                    }
+                })
                 .centerCrop()
                 .dontAnimate()
                 .into(holder.image)
@@ -394,8 +515,8 @@ class NewsAdapter(
         metaRow.addView(
             faviconFrame,
             LinearLayout.LayoutParams(
-                dp(context, if (square) 36 else 42),
-                dp(context, if (square) 36 else 42)
+                dp(context, if (square) 56 else 64),
+                dp(context, if (square) 56 else 64)
             )
         )
 
@@ -486,7 +607,7 @@ class NewsAdapter(
 
         Glide.with(favicon).clear(favicon)
         if (item.logo.isNotBlank()) {
-            val size = if (square) 32 else 38
+            val size = if (square) 52 else 58
             Glide.with(favicon)
                 .load(item.logo)
                 .override(
@@ -516,7 +637,8 @@ class NewsAdapter(
             }
 
             val drawable = ShimmerDrawable(
-                holder.itemView.context
+                holder.itemView.context,
+                oval = view === holder.avatar
             )
 
             view.background = drawable
@@ -573,6 +695,10 @@ class NewsAdapter(
         activeShimmers.clear()
         shimmerAnim?.cancel()
         shimmerAnim = null
+
+        if (showTopCards) {
+            rows += RenderRow.TopCards
+        }
 
         repeat(
             count.coerceIn(1, 12)
@@ -654,6 +780,10 @@ class NewsAdapter(
      */
     private fun rebuildRows() {
         rows.clear()
+
+        if (showTopCards) {
+            rows += RenderRow.TopCards
+        }
 
         var index = 0
 
@@ -837,7 +967,8 @@ class NewsAdapter(
     ).toInt()
 
     private class ShimmerDrawable(
-        context: android.content.Context
+        context: android.content.Context,
+        private val oval: Boolean = false
     ) : Drawable() {
 
         private val baseColor = ContextCompat.getColor(
@@ -902,15 +1033,25 @@ class NewsAdapter(
                 Shader.TileMode.CLAMP
             )
 
-            canvas.drawRoundRect(
-                0f,
-                0f,
-                width,
-                height,
-                radius,
-                radius,
-                paint
-            )
+            if (oval) {
+                canvas.drawOval(
+                    0f,
+                    0f,
+                    width,
+                    height,
+                    paint
+                )
+            } else {
+                canvas.drawRoundRect(
+                    0f,
+                    0f,
+                    width,
+                    height,
+                    radius,
+                    radius,
+                    paint
+                )
+            }
         }
 
         override fun setAlpha(alpha: Int) {

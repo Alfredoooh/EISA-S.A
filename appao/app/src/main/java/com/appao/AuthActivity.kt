@@ -157,23 +157,33 @@ class AuthActivity : AppCompatActivity() {
             "Entra na tua conta para personalizar o teu app ao"
         }
 
-        updateTabs()
+        updateTabs(animated)
     }
 
-    private fun updateTabs() {
+    private fun updateTabs(animated: Boolean = false) {
         val parent = indicator.parent as? View ?: return
         val width = parent.width
         if (width > 0) {
             val indicatorParams = indicator.layoutParams
             indicatorParams.width = (width - dp(10)) / 2
             indicator.layoutParams = indicatorParams
-            indicator.translationX = if (register) {
+            val targetX = if (register) {
                 ((width - dp(10)) / 2).toFloat()
             } else {
                 0f
             }
+            indicator.animate().cancel()
+            if (animated) {
+                indicator.animate()
+                    .translationX(targetX)
+                    .setDuration(280L)
+                    .setInterpolator(Curves.IOS)
+                    .start()
+            } else {
+                indicator.translationX = targetX
+            }
         } else {
-            indicator.post { updateTabs() }
+            indicator.post { updateTabs(animated) }
         }
 
         loginTab.setTextColor(
@@ -308,7 +318,7 @@ class AuthActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         SystemBarHelper.sync(this)
-        updateTabs()
+        updateTabs(false)
     }
 
     private fun dp(value: Int): Int =

@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="60dp"
+    android:paddingBottom="8dp">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="34dp">
+
+        <FrameLayout
+            android:id="@+id/topAdd"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_gravity="end|center_vertical"
+            android:background="@drawable/bg_circle_card"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:id="@+id/topAddIcon"
+                android:layout_width="19dp"
+                android:layout_height="19dp"
+                android:layout_gravity="center"
+                android:scaleType="fitCenter" />
+        </FrameLayout>
+    </FrameLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="84dp"
+        android:orientation="horizontal">
+
+        <FrameLayout
+            android:id="@+id/cardWeather"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@drawable/bg_top_card"
+            android:clipToOutline="true"
+            android:padding="9dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:id="@+id/topWeatherIcon"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:scaleType="fitCenter" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="7dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/topWeatherTemp"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="--°"
+                        android:textColor="@color/text"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:singleLine="true" />
+
+                    <TextView
+                        android:id="@+id/topWeatherCity"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Luanda"
+                        android:textColor="@color/dim"
+                        android:textSize="10.5sp"
+                        android:singleLine="true"
+                        android:ellipsize="end" />
+                </LinearLayout>
+            </LinearLayout>
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/cardSavings"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/bg_top_card"
+            android:clipToOutline="true"
+            android:padding="9dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:id="@+id/topSavingsIcon"
+                    android:layout_width="23dp"
+                    android:layout_height="23dp"
+                    android:scaleType="fitCenter" />
+
+                <TextView
+                    android:id="@+id/topSavingsTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Poupança de dados"
+                    android:textColor="@color/text"
+                    android:textSize="10.5sp"
+                    android:textStyle="bold"
+                    android:maxLines="2"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:id="@+id/topSavingsState"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Desligada"
+                    android:textColor="@color/dim"
+                    android:textSize="9.5sp"
+                    android:singleLine="true" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/cardHistory"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/bg_top_card"
+            android:clipToOutline="true"
+            android:padding="9dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:id="@+id/topHistoryIcon"
+                    android:layout_width="23dp"
+                    android:layout_height="23dp"
+                    android:scaleType="fitCenter" />
+
+                <TextView
+                    android:id="@+id/topHistoryTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Histórico"
+                    android:textColor="@color/text"
+                    android:textSize="10.5sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/topHistoryState"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Recentes"
+                    android:textColor="@color/dim"
+                    android:textSize="9.5sp"
+                    android:singleLine="true" />
+            </LinearLayout>
+        </FrameLayout>
+    </LinearLayout>
+</LinearLayout>

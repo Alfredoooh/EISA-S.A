@@ -75,7 +75,9 @@ class ImageViewerActivity : AppCompatActivity() {
 
         backdrop.alpha = 1f
 
-        container.setOnTouchListener { _, event ->
+        // The entire viewer participates in the gesture so a swipe starting
+        // above/below the image still moves the same container.
+        root.setOnTouchListener { _, event ->
             handleTouch(event)
         }
     }
@@ -129,20 +131,17 @@ class ImageViewerActivity : AppCompatActivity() {
                     (abs(dy) / (height * .82f))
                         .coerceIn(0f, 1f)
 
+                // Only the image container follows the vertical finger movement.
+                // Keeping X fixed removes the old diagonal/two-phase feeling.
                 val scale =
-                    1f - progress * .22f
+                    1f - progress * .20f
 
-                container.translationX =
-                    dx * .14f
-
-                container.translationY =
-                    dy
-
-                container.scaleX =
-                    scale.coerceAtLeast(.78f)
-
-                container.scaleY =
-                    scale.coerceAtLeast(.78f)
+                container.pivotX = container.width / 2f
+                container.pivotY = container.height / 2f
+                container.translationX = 0f
+                container.translationY = dy
+                container.scaleX = scale.coerceAtLeast(.80f)
+                container.scaleY = scale.coerceAtLeast(.80f)
 
                 backdrop.alpha =
                     (1f - progress * .70f)
@@ -206,26 +205,46 @@ class ImageViewerActivity : AppCompatActivity() {
     private fun closeWithTransition(
         direction: Float
     ) {
-        // Keep the image exactly where the finger left it. The shared-element
-        // return transition then interpolates only this image container back
-        // to the source hero/card; the article bars and other UI never enter
-        // the transform.
         container.animate().cancel()
         backdrop.animate().cancel()
 
-        backdrop.animate()
-            .alpha(0f)
-            .setDuration(180L)
-            .setInterpolator(Curves.IOS)
+        // The container itself completes the same gesture. The shared-element
+        // return transition is disabled for this interactive path so there is
+        // no second animation phase after the finger-driven transform.
+        window.sharedElementReturnTransition = null
+
+        val height = resources.displayMetrics.heightPixels.toFloat().coerceAtLeast(1f)
+        val targetY = if (direction < 0f) -height else height
+        val currentY = container.translationY
+        val remaining = abs(targetY - currentY)
+        val duration = ((remaining / height) * 240L)
+            .toLong()
+            .coerceIn(110L, 240L)
+
+        container.animate()
+            .translationX(0f)
+            .translationY(targetY)
+            .scaleX(.82f)
+            .scaleY(.82f)
+            .setDuration(duration)
+            .setInterpolator(Curves.SMOOTH)
             .withEndAction {
                 if (!isFinishing && !isDestroyed) {
-                    finishAfterTransition()
+                    finish()
+                    overridePendingTransition(0, 0)
                 }
             }
+            .start()
+
+        backdrop.animate()
+            .alpha(0f)
+            .setDuration(duration)
+            .setInterpolator(Curves.SMOOTH)
             .start()
     }
 
     override fun onBackPressed() {
+        window.sharedElementReturnTransition = imageTransition()
         finishAfterTransition()
     }
 

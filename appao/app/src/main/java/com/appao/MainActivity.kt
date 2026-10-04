@@ -190,9 +190,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupFeed() {
-        adapter = NewsAdapter(items.toList()) { item, source ->
-            openArticle(item, source)
-        }
+        adapter = NewsAdapter(
+            initial = items.toList(),
+            onClick = { item, source -> openArticle(item, source) },
+            showTopCards = true,
+            onTopAdd = { openSidePanel() }
+        )
 
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
@@ -217,6 +220,65 @@ class MainActivity : AppCompatActivity() {
             resetBarsInstantly()
             loadNews(true)
         }
+
+        // Instagram-style pull: the entire home surface follows the user's
+        // downward gesture while the RecyclerView is at the very top.
+        val pullSlop = dp(8)
+        val pullThreshold = dp(72)
+        var pullDownY = 0f
+        var pullActive = false
+        var pullDistance = 0f
+
+        swipe.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    pullDownY = event.rawY
+                    pullActive = !recycler.canScrollVertically(-1)
+                    pullDistance = 0f
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    if (pullActive) {
+                        val dy = event.rawY - pullDownY
+                        if (dy > pullSlop && !recycler.canScrollVertically(-1)) {
+                            pullDistance = (dy * 0.55f).coerceIn(0f, dp(96).toFloat())
+                            mainContent.translationY = pullDistance
+                        } else if (dy < 0f) {
+                            pullActive = false
+                            pullDistance = 0f
+                            mainContent.animate()
+                                .translationY(0f)
+                                .setDuration(160L)
+                                .setInterpolator(Curves.IOS)
+                                .start()
+                        }
+                    }
+                }
+
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL -> {
+                    if (pullActive) {
+                        val shouldHold = pullDistance >= pullThreshold || swipe.isRefreshing
+                        pullActive = false
+
+                        if (shouldHold) {
+                            mainContent.animate()
+                                .translationY(dp(56).toFloat())
+                                .setDuration(140L)
+                                .setInterpolator(Curves.IOS)
+                                .start()
+                        } else {
+                            mainContent.animate()
+                                .translationY(0f)
+                                .setDuration(190L)
+                                .setInterpolator(Curves.IOS)
+                                .start()
+                        }
+                    }
+                }
+            }
+            false
+        }
     }
 
     private fun setupHeader() {
@@ -230,11 +292,6 @@ class MainActivity : AppCompatActivity() {
             "chevron_down",
             R.color.iconTint
         )
-        IconLoader.applyPng(
-            findViewById(R.id.wIcon),
-            "sunny"
-        )
-
         findViewById<View>(R.id.hMore).setOnClickListener {
             openDrawer()
         }
@@ -244,7 +301,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupBottomInput() {
-        IconLoader.applyPng(
+        IconLoader.applySvg(
             biAdd.findViewById(R.id.biAddIcon),
             "add",
             R.color.iconTint
@@ -328,6 +385,16 @@ class MainActivity : AppCompatActivity() {
             "drawer_settings"
         )
 
+        IconLoader.applySvg(
+            findViewById(R.id.drBackIcon),
+            "arrow_left",
+            R.color.iconTint
+        )
+
+        findViewById<View>(R.id.drBack).setOnClickListener {
+            closeDrawer()
+        }
+
         findViewById<View>(R.id.drProfile).setOnClickListener {
             closeDrawer()
             startActivity(
@@ -349,21 +416,23 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
-        /*
-         * The drawer is a full-screen surface. A tap on its empty area closes
-         * it instead of leaving the underlying home page blocked forever.
-         * Its actual menu rows consume their own clicks first.
-         */
-        drawerPanel.setOnClickListener {
-            closeDrawer()
-        }
-
         val host = findViewById<DrawerHostLayout>(R.id.rootMain)
         host.listener = object : DrawerHostLayout.Listener {
             override fun isDrawerOpen(): Boolean = drawerOpen
 
             override fun onDrawerGestureStart(opening: Boolean) {
-                if (opening) beginDrawerOpenGesture()
+                drawerPanel.animate().cancel()
+                mainContent.animate().cancel()
+                if (opening) {
+                    beginDrawerOpenGesture()
+                } else {
+                    val width = drawerWidth()
+                    val current = ((width - drawerPanel.translationX) / width)
+                        .coerceIn(0f, 1f)
+                    drawerOpen = true
+                    drawerPanel.visibility = View.VISIBLE
+                    setDrawerProgress(current)
+                }
             }
 
             override fun onDrawerGestureProgress(progress: Float) {
@@ -382,6 +451,12 @@ class MainActivity : AppCompatActivity() {
                     progress,
                     velocity
                 )
+            }
+
+            override fun onLeftPanelSwipe() {
+                if (!drawerOpen) {
+                    openSidePanel()
+                }
             }
         }
     }
@@ -560,6 +635,11 @@ class MainActivity : AppCompatActivity() {
 
             loading = false
             swipe.isRefreshing = false
+            mainContent.animate()
+                .translationY(0f)
+                .setDuration(240L)
+                .setInterpolator(Curves.IOS)
+                .start()
 
             val clean = deduplicate(result)
 
@@ -663,12 +743,7 @@ class MainActivity : AppCompatActivity() {
 
                 if (isFinishing || isDestroyed) return@launch
 
-                IconLoader.applyPng(
-                    findViewById(R.id.wIcon),
-                    result.icon
-                )
-                findViewById<TextView>(R.id.wTemp).text =
-                    "${result.temp}°"
+                adapter.setWeather(result)
             } catch (t: Throwable) {
                 android.util.Log.w(
                     "MainActivity",
@@ -774,11 +849,12 @@ class MainActivity : AppCompatActivity() {
         val p = progressValue.coerceIn(0f, 1f)
         val width = drawerWidth()
 
-        // Drawer stays on the RIGHT. The home surface is pushed left.
+        // Drawer stays on the RIGHT and follows the finger as a single container.
+        // Do not transform the home surface here: that created a visible two-phase motion.
         drawerPanel.translationX = width * (1f - p)
-        mainContent.translationX = -dp(28).toFloat() * p
-        mainContent.scaleX = 1f - 0.018f * p
-        mainContent.scaleY = 1f - 0.010f * p
+        mainContent.translationX = 0f
+        mainContent.scaleX = 1f
+        mainContent.scaleY = 1f
 
         // Edge-to-edge: system bars are transparent while the drawer is moving,
         // so the drawer itself can visually reach behind the status/navigation bars.
@@ -800,7 +876,13 @@ class MainActivity : AppCompatActivity() {
         drawerPanel.visibility = View.VISIBLE
         drawerPanel.animate().cancel()
         mainContent.animate().cancel()
-        setDrawerProgress(0f)
+
+        // Keep the exact finger position as the animation starting point.
+        // Never reset to zero here: that caused the visible two-phase jump.
+        val width = drawerWidth()
+        val current = ((width - drawerPanel.translationX) / width)
+            .coerceIn(0f, 1f)
+        setDrawerProgress(current)
     }
 
     private fun finishDrawerGesture(
@@ -811,10 +893,10 @@ class MainActivity : AppCompatActivity() {
         if (opening) {
             val shouldOpen =
                 progress > 0.20f ||
-                    velocity > 0.55f
+                    velocity < -0.55f
 
             if (shouldOpen) {
-                openDrawer()
+                openDrawer(progress)
             } else {
                 closeDrawer()
             }
@@ -826,47 +908,53 @@ class MainActivity : AppCompatActivity() {
             if (shouldClose) {
                 closeDrawer()
             } else {
-                openDrawer()
+                openDrawer(progress)
             }
         }
     }
 
-    private fun openDrawer() {
+    private fun openDrawer(gestureProgress: Float? = null) {
         drawerOpen = true
         drawerPanel.visibility = View.VISIBLE
+
         drawerPanel.animate().cancel()
         mainContent.animate().cancel()
+        mainContent.translationX = 0f
+        mainContent.scaleX = 1f
+        mainContent.scaleY = 1f
 
-        setDrawerProgress(0f)
+        val width = drawerWidth()
+        val current = (gestureProgress ?: ((width - drawerPanel.translationX) / width))
+            .coerceIn(0f, 1f)
+        setDrawerProgress(current)
+
+        val duration = (300L * (1f - current)).toLong().coerceAtLeast(120L)
 
         drawerPanel.animate()
             .translationX(0f)
-            .setDuration(480L)
+            .setDuration(duration)
             .setInterpolator(Curves.IOS)
             .start()
 
-        mainContent.animate()
-            .translationX(-dp(28).toFloat())
-            .scaleX(0.982f)
-            .scaleY(0.990f)
-            .setDuration(480L)
-            .setStartDelay(18L)
-            .setInterpolator(Curves.IOS)
-            .start()
     }
 
     private fun closeDrawer() {
         if (!drawerOpen && drawerPanel.visibility != View.VISIBLE) return
 
         val width = drawerWidth()
+        val current = ((width - drawerPanel.translationX) / width)
+            .coerceIn(0f, 1f)
         drawerOpen = false
 
         drawerPanel.animate().cancel()
         mainContent.animate().cancel()
+        setDrawerProgress(current)
+
+        val duration = (300L * current).toLong().coerceAtLeast(120L)
 
         drawerPanel.animate()
             .translationX(width)
-            .setDuration(360L)
+            .setDuration(duration)
             .setInterpolator(Curves.IOS)
             .withEndAction {
                 drawerPanel.visibility = View.GONE
@@ -878,13 +966,18 @@ class MainActivity : AppCompatActivity() {
             }
             .start()
 
-        mainContent.animate()
-            .translationX(0f)
-            .scaleX(1f)
-            .scaleY(1f)
-            .setDuration(360L)
-            .setInterpolator(Curves.IOS)
-            .start()
+    }
+
+    private fun openSidePanel() {
+        if (drawerOpen || isFinishing || isDestroyed) return
+
+        startActivity(
+            Intent(this, SidePanelActivity::class.java)
+        )
+        overridePendingTransition(
+            R.anim.slide_in_left,
+            R.anim.hold
+        )
     }
 
     private fun openCatSheet() {
@@ -1068,7 +1161,7 @@ class MainActivity : AppCompatActivity() {
             "chevron-down",
             R.color.iconTint
         )
-        IconLoader.applyPng(
+        IconLoader.applySvg(
             biAdd.findViewById(R.id.biAddIcon),
             "add",
             R.color.iconTint
@@ -1106,6 +1199,12 @@ class MainActivity : AppCompatActivity() {
             findViewById(R.id.drIconSettings),
             "drawer_settings"
         )
+        IconLoader.applySvg(
+            findViewById(R.id.drBackIcon),
+            "arrow_left",
+            R.color.iconTint
+        )
+        adapter.refreshTopCards()
     }
 
     override fun dispatchTouchEvent(

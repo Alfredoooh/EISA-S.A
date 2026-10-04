@@ -220,14 +220,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupHeader() {
-        IconLoader.applySvg(
+        IconLoader.applyPng(
             findViewById(R.id.hMoreIcon),
             "menu",
             R.color.iconTint
         )
-        IconLoader.applySvg(
+        IconLoader.applyPng(
             findViewById(R.id.hCatChevron),
-            "chevron-down",
+            "chevron_down",
             R.color.iconTint
         )
         IconLoader.applyPng(
@@ -244,14 +244,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupBottomInput() {
-        IconLoader.applySvg(
+        IconLoader.applyPng(
             biAdd.findViewById(R.id.biAddIcon),
             "add",
             R.color.iconTint
         )
-        IconLoader.applySvg(
+        IconLoader.applyPng(
             biSend.findViewById(R.id.biSendIcon),
-            "arrow-up",
+            "arrow_up",
             R.color.onpri
         )
 
@@ -299,26 +299,33 @@ class MainActivity : AppCompatActivity() {
     private fun setupDrawer() {
         drawerOpen = false
         drawerPanel.visibility = View.GONE
+
         drawerPanel.post {
-            if (!isFinishing && !isDestroyed) {
-                drawerPanel.translationX = -drawerWidth()
-            }
+            if (isFinishing || isDestroyed) return@post
+
+            val targetWidth = rootMainWidth()
+
+            drawerPanel.layoutParams =
+                drawerPanel.layoutParams.apply {
+                    width = targetWidth
+                    height = ViewGroup.LayoutParams.MATCH_PARENT
+                }
+
+            drawerPanel.requestLayout()
+            drawerPanel.translationX = targetWidth.toFloat()
         }
 
-        IconLoader.applySvg(
+        IconLoader.applyPng(
             findViewById(R.id.drIconProfile),
-            "profile",
-            R.color.iconTint
+            "drawer_profile"
         )
-        IconLoader.applySvg(
+        IconLoader.applyPng(
             findViewById(R.id.drIconLibrary),
-            "bookmark",
-            R.color.iconTint
+            "drawer_bookmark"
         )
-        IconLoader.applySvg(
+        IconLoader.applyPng(
             findViewById(R.id.drIconSettings),
-            "settings",
-            R.color.iconTint
+            "drawer_settings"
         )
 
         findViewById<View>(R.id.drProfile).setOnClickListener {
@@ -342,9 +349,11 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
-        // A full-screen drawer has no scrim. Empty drawer space closes the
-        // drawer instead of leaving the window feeling unresponsive. Child
-        // menu rows consume their own clicks normally.
+        /*
+         * The drawer is a full-screen surface. A tap on its empty area closes
+         * it instead of leaving the underlying home page blocked forever.
+         * Its actual menu rows consume their own clicks first.
+         */
         drawerPanel.setOnClickListener {
             closeDrawer()
         }
@@ -751,7 +760,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun drawerWidth(): Float =
-        rootMainWidth().toFloat().coerceAtLeast(1f)
+        drawerPanel.width.toFloat().takeIf { it > 0f }
+            ?: (rootMainWidth() * 0.82f).coerceAtLeast(1f)
 
     private fun rootMainWidth(): Int =
         if (::mainContent.isInitialized && mainContent.width > 0) {
@@ -764,26 +774,22 @@ class MainActivity : AppCompatActivity() {
         val p = progressValue.coerceIn(0f, 1f)
         val width = drawerWidth()
 
-        drawerPanel.translationX = -width * (1f - p)
-        mainContent.translationX = dp(22).toFloat() * p
-        mainContent.scaleX = 1f - 0.025f * p
-        mainContent.scaleY = 1f - 0.012f * p
+        // Drawer stays on the RIGHT. The home surface is pushed left.
+        drawerPanel.translationX = width * (1f - p)
+        mainContent.translationX = -dp(28).toFloat() * p
+        mainContent.scaleX = 1f - 0.018f * p
+        mainContent.scaleY = 1f - 0.010f * p
 
-        // No scrim: the drawer itself is opaque and covers the entire window.
-        val drawerBg = ContextCompat.getColor(
-            this,
-            R.color.bgElevated
-        )
-        window.statusBarColor = drawerBg
-        window.navigationBarColor = drawerBg
+        // Edge-to-edge: system bars are transparent while the drawer is moving,
+        // so the drawer itself can visually reach behind the status/navigation bars.
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+
         androidx.core.view.WindowInsetsControllerCompat(
             window,
             window.decorView
         ).apply {
-            val dark = ThemeManager.current(this@MainActivity) == "dark" ||
-                (ThemeManager.current(this@MainActivity) == "system" &&
-                    (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
-                    android.content.res.Configuration.UI_MODE_NIGHT_YES)
+            val dark = ThemeManager.resolvedDark(this@MainActivity)
             isAppearanceLightStatusBars = !dark
             isAppearanceLightNavigationBars = !dark
         }
@@ -826,10 +832,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openDrawer() {
-        if (drawerOpen && drawerPanel.translationX >= -0.5f) {
-            return
-        }
-
         drawerOpen = true
         drawerPanel.visibility = View.VISIBLE
         drawerPanel.animate().cancel()
@@ -844,10 +846,11 @@ class MainActivity : AppCompatActivity() {
             .start()
 
         mainContent.animate()
-            .translationX(dp(22).toFloat())
-            .scaleX(0.975f)
-            .scaleY(0.988f)
+            .translationX(-dp(28).toFloat())
+            .scaleX(0.982f)
+            .scaleY(0.990f)
             .setDuration(480L)
+            .setStartDelay(18L)
             .setInterpolator(Curves.IOS)
             .start()
     }
@@ -862,12 +865,12 @@ class MainActivity : AppCompatActivity() {
         mainContent.animate().cancel()
 
         drawerPanel.animate()
-            .translationX(-width)
+            .translationX(width)
             .setDuration(360L)
             .setInterpolator(Curves.IOS)
             .withEndAction {
                 drawerPanel.visibility = View.GONE
-                drawerPanel.translationX = -width
+                drawerPanel.translationX = width
                 mainContent.translationX = 0f
                 mainContent.scaleX = 1f
                 mainContent.scaleY = 1f
@@ -887,7 +890,7 @@ class MainActivity : AppCompatActivity() {
     private fun openCatSheet() {
         val checked = categories.indexOf(currentCat).coerceAtLeast(0)
 
-        NativeM3Dialog.showSelection(
+        NativeSheetDialog.showSelection(
             this,
             "Categoria",
             categories,
@@ -1065,14 +1068,14 @@ class MainActivity : AppCompatActivity() {
             "chevron-down",
             R.color.iconTint
         )
-        IconLoader.applySvg(
+        IconLoader.applyPng(
             biAdd.findViewById(R.id.biAddIcon),
             "add",
             R.color.iconTint
         )
-        IconLoader.applySvg(
+        IconLoader.applyPng(
             biSend.findViewById(R.id.biSendIcon),
-            "arrow-up",
+            "arrow_up",
             R.color.onpri
         )
 
@@ -1091,20 +1094,17 @@ class MainActivity : AppCompatActivity() {
         findViewById<ImageView>(R.id.drAvatar).setImageResource(
             R.drawable.logo
         )
-        IconLoader.applySvg(
+        IconLoader.applyPng(
             findViewById(R.id.drIconProfile),
-            "profile",
-            R.color.iconTint
+            "drawer_profile"
         )
-        IconLoader.applySvg(
+        IconLoader.applyPng(
             findViewById(R.id.drIconLibrary),
-            "bookmark",
-            R.color.iconTint
+            "drawer_bookmark"
         )
-        IconLoader.applySvg(
+        IconLoader.applyPng(
             findViewById(R.id.drIconSettings),
-            "settings",
-            R.color.iconTint
+            "drawer_settings"
         )
     }
 

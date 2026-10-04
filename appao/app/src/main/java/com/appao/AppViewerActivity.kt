@@ -1,7 +1,6 @@
 package com.appao
 
 import android.annotation.SuppressLint
-import android.graphics.Color
 import android.os.Bundle
 import android.view.View
 import android.webkit.JavascriptInterface
@@ -16,6 +15,7 @@ import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -64,7 +64,12 @@ class AppViewerActivity : AppCompatActivity() {
             displayZoomControls = false
             mediaPlaybackRequiresUserGesture = true
         }
-        web.setBackgroundColor(if (ThemeManager.current(this) == "dark") Color.rgb(13, 15, 18) else Color.WHITE)
+        web.setBackgroundColor(
+            ContextCompat.getColor(
+                this,
+                R.color.bg
+            )
+        )
         web.isVerticalScrollBarEnabled = false
         web.isHorizontalScrollBarEnabled = false
 

@@ -192,15 +192,15 @@
         </LinearLayout>
     </FrameLayout>
 
-    <!-- Full-screen native drawer. It enters from the left and covers the complete window, including the status-bar area. -->
+    <!-- Full-height native drawer kept on the RIGHT; it draws edge-to-edge under system bars. -->
     <LinearLayout
         android:id="@+id/drawerPanel"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_gravity="start"
+        android:layout_gravity="end"
         android:orientation="vertical"
         android:background="@color/bgElevated"
-        android:translationX="-1000dp"
+        android:translationX="1000dp"
         android:elevation="22dp"
         android:clickable="true"
         android:focusable="true"
@@ -219,8 +219,8 @@
             android:paddingBottom="22dp">
 
             <FrameLayout
-                android:layout_width="84dp"
-                android:layout_height="84dp"
+                android:layout_width="88dp"
+                android:layout_height="88dp"
                 android:background="@drawable/bg_circle_card"
                 android:clipToOutline="true">
 

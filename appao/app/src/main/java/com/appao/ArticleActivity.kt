@@ -461,81 +461,253 @@ class ArticleActivity : AppCompatActivity() {
     }
 
     private fun showReactSheet() {
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(8), dp(6), dp(8), dp(2))
-        }
 
-        val reactions = listOf(
-            "like" to "Gosto",
-            "love" to "Adoro",
-            "haha" to "Riso",
-            "wow" to "Uau",
-            "sad" to "Triste",
-            "angry" to "Raiva"
+        val root =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                setPadding(
+                    dp(8),
+                    dp(4),
+                    dp(8),
+                    dp(20)
+                )
+            }
+
+        val handle =
+            View(this).apply {
+
+                background =
+                    android.graphics.drawable.GradientDrawable().apply {
+                        shape =
+                            android.graphics.drawable.GradientDrawable.RECTANGLE
+
+                        setColor(
+                            ContextCompat.getColor(
+                                this@ArticleActivity,
+                                R.color.line
+                            )
+                        )
+
+                        cornerRadius =
+                            dp(2).toFloat()
+                    }
+            }
+
+        root.addView(
+            handle,
+            LinearLayout.LayoutParams(
+                dp(38),
+                dp(4)
+            ).apply {
+
+                gravity =
+                    android.view.Gravity.CENTER_HORIZONTAL
+
+                topMargin =
+                    dp(10)
+
+                bottomMargin =
+                    dp(12)
+            }
         )
 
-        val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(
-            androidx.appcompat.view.ContextThemeWrapper(
-                this,
-                R.style.Theme_AppAo_Material3Dialog
+        root.addView(
+            TextView(this).apply {
+
+                text =
+                    "Reagir com"
+
+                gravity =
+                    android.view.Gravity.CENTER
+
+                textSize =
+                    17f
+
+                setTypeface(
+                    android.graphics.Typeface.DEFAULT,
+                    android.graphics.Typeface.BOLD
+                )
+
+                setTextColor(
+                    ContextCompat.getColor(
+                        this@ArticleActivity,
+                        R.color.text
+                    )
+                )
+
+                setPadding(
+                    dp(18),
+                    dp(4),
+                    dp(18),
+                    dp(14)
+                )
+            },
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
             )
         )
-            .setTitle("Reagir com")
-            .setView(content)
-            .setNegativeButton("Cancelar", null)
-            .create()
+
+        val reactions =
+            listOf(
+                "like" to "Gosto",
+                "love" to "Adoro",
+                "haha" to "Riso",
+                "wow" to "Uau",
+                "sad" to "Triste",
+                "angry" to "Raiva"
+            )
+
+        val grid =
+            android.widget.GridLayout(this).apply {
+
+                columnCount =
+                    3
+
+                rowCount =
+                    2
+
+                useDefaultMargins =
+                    false
+            }
 
         reactions.forEach { (kind, label) ->
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = android.view.Gravity.CENTER_VERTICAL
-                setPadding(dp(12), dp(10), dp(12), dp(10))
-                background = ContextCompat.getDrawable(
-                    this@ArticleActivity,
-                    R.drawable.bg_transparent_pressed
-                )
-                isClickable = true
-                isFocusable = true
-            }
 
-            val icon = ImageView(this).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(34), dp(34))
-                scaleType = ImageView.ScaleType.CENTER_INSIDE
-            }
-            IconLoader.applyPng(icon, kind)
-            row.addView(icon)
+            val item =
+                LinearLayout(this).apply {
 
-            row.addView(
+                    orientation =
+                        LinearLayout.VERTICAL
+
+                    gravity =
+                        android.view.Gravity.CENTER
+
+                    background =
+                        ContextCompat.getDrawable(
+                            this@ArticleActivity,
+                            R.drawable.bg_sheet_item
+                        )
+
+                    isClickable =
+                        true
+
+                    isFocusable =
+                        true
+
+                    setPadding(
+                        dp(4),
+                        dp(10),
+                        dp(4),
+                        dp(10)
+                    )
+                }
+
+            val icon =
+                ImageView(this).apply {
+
+                    layoutParams =
+                        LinearLayout.LayoutParams(
+                            dp(48),
+                            dp(48)
+                        )
+
+                    scaleType =
+                        ImageView.ScaleType.CENTER_INSIDE
+                }
+
+            IconLoader.applyPng(
+                icon,
+                kind
+            )
+
+            item.addView(
+                icon
+            )
+
+            item.addView(
                 TextView(this).apply {
-                    text = label
-                    textSize = 15f
-                    setTextColor(ContextCompat.getColor(this@ArticleActivity, R.color.text))
-                    setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+
+                    text =
+                        label
+
+                    textSize =
+                        12.5f
+
+                    gravity =
+                        android.view.Gravity.CENTER
+
+                    setTextColor(
+                        ContextCompat.getColor(
+                            this@ArticleActivity,
+                            R.color.dim
+                        )
+                    )
                 },
-                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                    marginStart = dp(14)
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    topMargin = dp(6)
                 }
             )
 
-            row.setOnClickListener {
+            grid.addView(
+                item,
+                android.widget.GridLayout.LayoutParams().apply {
+
+                    width =
+                        0
+
+                    height =
+                        dp(94)
+
+                    columnSpec =
+                        android.widget.GridLayout.spec(
+                            android.widget.GridLayout.UNDEFINED,
+                            1f
+                        )
+
+                    rowSpec =
+                        android.widget.GridLayout.spec(
+                            android.widget.GridLayout.UNDEFINED,
+                            1f
+                        )
+
+                    setMargins(
+                        dp(2),
+                        dp(2),
+                        dp(2),
+                        dp(2)
+                    )
+                }
+            )
+        }
+
+        root.addView(
+            grid,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        val dialog =
+            NativeSheetDialog.show(
+                this,
+                root
+            )
+
+        reactions.forEachIndexed { index, (kind, _) ->
+            grid.getChildAt(
+                index
+            ).setOnClickListener {
                 react(kind)
                 dialog.dismiss()
             }
-
-            content.addView(
-                row,
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(54))
-            )
         }
-
-        dialog.setOnShowListener {
-            dialog.window?.setDimAmount(
-                if ((resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES) 0.22f else 0.12f
-            )
-        }
-
-        dialog.show()
     }
 
     private fun sendComment() {

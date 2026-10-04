@@ -20,7 +20,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustResize"
-            android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize|uiMode">
+            android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -31,28 +31,28 @@
             android:name=".ArticleActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize"
-            android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize|uiMode"/>
+            android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize"/>
 
         <activity
             android:name=".ImageViewerActivity"
             android:exported="false"
             android:theme="@style/Theme.AppAo.ImageViewer"
-            android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize|uiMode"/>
+            android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize"/>
 
         <activity
             android:name=".AuthActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize"
-            android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize|uiMode"/>
+            android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize"/>
 
-        <activity android:name=".LibraryActivity" android:exported="false" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize|uiMode"/>
-        <activity android:name=".SettingsActivity" android:exported="false" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize|uiMode"/>
+        <activity android:name=".LibraryActivity" android:exported="false" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize"/>
+        <activity android:name=".SettingsActivity" android:exported="false" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize"/>
 
         <activity
             android:name=".AppViewerActivity"
             android:exported="false"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize"
-            android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize|uiMode"/>
+            android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize"/>
     </application>
 </manifest>

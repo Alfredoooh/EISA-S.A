@@ -1,16 +1,16 @@
 package com.appao
 
+import android.app.Dialog
 import android.content.Context
-import android.content.DialogInterface
-import android.view.LayoutInflater
-import android.view.View
-import android.widget.LinearLayout
 import androidx.appcompat.view.ContextThemeWrapper
+import androidx.core.content.ContextCompat
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 /**
- * Material 3 dialogs used for app-level modals. This deliberately avoids the
- * old custom paper-sheet implementation for ordinary modal interactions.
+ * Material 3 alert dialogs for ordinary dialog interactions.
+ *
+ * Bottom sheets are intentionally handled by NativeSheetDialog instead.
+ * Theme/Language preference menus remain HtmlStylePopup.
  */
 object NativeM3Dialog {
 
@@ -21,32 +21,43 @@ object NativeM3Dialog {
         checkedIndex: Int,
         onSelected: (Int) -> Unit
     ) {
-        val themed = ContextThemeWrapper(
-            context,
-            R.style.Theme_AppAo_Material3Dialog
-        )
 
-        val dialog = MaterialAlertDialogBuilder(themed)
-            .setTitle(title)
-            .setSingleChoiceItems(
-                items.toTypedArray(),
-                checkedIndex
-            ) { dialog, which ->
-                try {
-                    onSelected(which)
-                } finally {
-                    dialog.dismiss()
+        val themed =
+            ContextThemeWrapper(
+                context,
+                R.style.Theme_AppAo_Material3Dialog
+            )
+
+        val dialog =
+            MaterialAlertDialogBuilder(
+                themed
+            )
+                .setTitle(title)
+                .setSingleChoiceItems(
+                    items.toTypedArray(),
+                    checkedIndex
+                ) { d, which ->
+
+                    onSelected(
+                        which
+                    )
+
+                    d.dismiss()
                 }
-            }
-            .setNegativeButton("Cancelar", null)
-            .create()
+                .setNegativeButton(
+                    "Cancelar",
+                    null
+                )
+                .create()
 
         dialog.setOnShowListener {
-            styleDialog(dialog)
+            style(
+                dialog
+            )
         }
 
         dialog.show()
-        styleDialog(dialog)
+        style(dialog)
     }
 
     fun confirm(
@@ -57,67 +68,116 @@ object NativeM3Dialog {
         negative: String = "Cancelar",
         onResult: (Boolean) -> Unit
     ) {
-        val themed = ContextThemeWrapper(
-            context,
-            R.style.Theme_AppAo_Material3Dialog
-        )
 
-        var called = false
+        val themed =
+            ContextThemeWrapper(
+                context,
+                R.style.Theme_AppAo_Material3Dialog
+            )
 
-        fun finish(value: Boolean) {
-            if (called) return
-            called = true
-            onResult(value)
+        var handled =
+            false
+
+        fun finish(
+            value: Boolean
+        ) {
+
+            if (handled) {
+                return
+            }
+
+            handled =
+                true
+
+            onResult(
+                value
+            )
         }
 
-        val dialog = MaterialAlertDialogBuilder(themed)
-            .setTitle(title)
-            .setMessage(message)
-            .setNegativeButton(negative) { _, _ ->
-                finish(false)
-            }
-            .setPositiveButton(positive) { _, _ ->
-                finish(true)
-            }
-            .create()
+        val dialog =
+            MaterialAlertDialogBuilder(
+                themed
+            )
+                .setTitle(title)
+                .setMessage(message)
+                .setNegativeButton(
+                    negative
+                ) { _, _ ->
+                    finish(false)
+                }
+                .setPositiveButton(
+                    positive
+                ) { _, _ ->
+                    finish(true)
+                }
+                .create()
 
         dialog.setOnCancelListener {
             finish(false)
         }
 
         dialog.setOnShowListener {
-            styleDialog(dialog)
+            style(dialog)
+
+            dialog.getButton(
+                Dialog.BUTTON_POSITIVE
+            )?.setTextColor(
+                ContextCompat.getColor(
+                    context,
+                    R.color.pri
+                )
+            )
+
+            dialog.getButton(
+                Dialog.BUTTON_NEGATIVE
+            )?.setTextColor(
+                ContextCompat.getColor(
+                    context,
+                    R.color.dim
+                )
+            )
         }
 
         dialog.show()
-        styleDialog(dialog)
+        style(dialog)
     }
 
     fun content(
         context: Context,
         title: String,
-        content: View,
+        content: android.view.View,
         onPositive: (() -> Unit)? = null,
         positive: String = "OK",
         negative: String? = "Cancelar"
     ) {
-        val themed = ContextThemeWrapper(
-            context,
-            R.style.Theme_AppAo_Material3Dialog
-        )
 
-        val builder = MaterialAlertDialogBuilder(themed)
-            .setTitle(title)
-            .setView(content)
+        val themed =
+            ContextThemeWrapper(
+                context,
+                R.style.Theme_AppAo_Material3Dialog
+            )
 
-        if (negative != null) {
+        val builder =
+            MaterialAlertDialogBuilder(
+                themed
+            )
+                .setTitle(title)
+                .setView(content)
+
+        if (
+            negative != null
+        ) {
+
             builder.setNegativeButton(
                 negative,
                 null
             )
         }
 
-        if (onPositive != null) {
+        if (
+            onPositive != null
+        ) {
+
             builder.setPositiveButton(
                 positive
             ) { _, _ ->
@@ -125,33 +185,46 @@ object NativeM3Dialog {
             }
         }
 
-        val dialog = builder.create()
+        val dialog =
+            builder.create()
 
         dialog.setOnShowListener {
-            styleDialog(dialog)
+            style(dialog)
         }
 
         dialog.show()
-        styleDialog(dialog)
+        style(dialog)
     }
 
-    private fun styleDialog(
-        dialog: android.app.Dialog
+    private fun style(
+        dialog: Dialog
     ) {
-        val window = dialog.window ?: return
+
+        val window =
+            dialog.window
+                ?: return
 
         try {
+
             window.setDimAmount(
-                if (isDark(dialog.context)) 0.22f else 0.12f
+                if (
+                    ThemeManager.resolvedDark(
+                        dialog.context
+                    )
+                ) {
+                    0.22f
+                } else {
+                    0.12f
+                }
             )
+
+            window.statusBarColor =
+                android.graphics.Color.TRANSPARENT
+
+            window.navigationBarColor =
+                android.graphics.Color.TRANSPARENT
+
         } catch (_: Throwable) {
         }
     }
-
-    private fun isDark(
-        context: Context
-    ): Boolean = (
-        context.resources.configuration.uiMode and
-            android.content.res.Configuration.UI_MODE_NIGHT_MASK
-        ) == android.content.res.Configuration.UI_MODE_NIGHT_YES
 }

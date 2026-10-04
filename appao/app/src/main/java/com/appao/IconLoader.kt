@@ -13,12 +13,14 @@ import com.bumptech.glide.Glide
 import com.caverock.androidsvg.SVG
 
 /**
- * Loads packaged icons when they exist and always falls back to a lightweight
- * native drawable when the optional asset is not packaged.
+ * Loads native packaged PNGs first, then optional HTML assets, then the
+ * lightweight native fallback. This keeps drawer and settings icons visible
+ * even when the web asset bundle is intentionally small.
  */
 object IconLoader {
 
-    private val cache = LruCache<String, Bitmap>(32)
+    private val cache =
+        LruCache<String, Bitmap>(32)
 
     fun clearMemory() {
         cache.evictAll()
@@ -29,28 +31,53 @@ object IconLoader {
         name: String,
         sizePx: Int
     ): Bitmap? {
-        val key = "svg:$name:$sizePx"
-        cache.get(key)?.let { return it }
+
+        val key =
+            "svg:$name:$sizePx"
+
+        cache.get(key)?.let {
+            return it
+        }
 
         return try {
-            openSvg(context, name).use { stream ->
-                val svg = SVG.getFromInputStream(stream)
-                svg.setDocumentWidth(sizePx.toFloat())
-                svg.setDocumentHeight(sizePx.toFloat())
 
-                val bmp = Bitmap.createBitmap(
-                    sizePx,
-                    sizePx,
-                    Bitmap.Config.ARGB_8888
+            openSvg(
+                context,
+                name
+            ).use { stream ->
+
+                val svg =
+                    SVG.getFromInputStream(
+                        stream
+                    )
+
+                svg.setDocumentWidth(
+                    sizePx.toFloat()
                 )
+
+                svg.setDocumentHeight(
+                    sizePx.toFloat()
+                )
+
+                val bmp =
+                    Bitmap.createBitmap(
+                        sizePx,
+                        sizePx,
+                        Bitmap.Config.ARGB_8888
+                    )
 
                 Canvas(bmp).drawPicture(
                     svg.renderToPicture()
                 )
 
-                cache.put(key, bmp)
+                cache.put(
+                    key,
+                    bmp
+                )
+
                 bmp
             }
+
         } catch (_: Throwable) {
             null
         }
@@ -60,11 +87,22 @@ object IconLoader {
         context: Context,
         name: String
     ): java.io.InputStream {
+
         return try {
-            context.assets.open("icons/svg/$name.svg")
-        } catch (_: Throwable) {
+
             context.assets.open(
-                "icons/svg/${name.replace("-", "_")}.svg"
+                "icons/svg/$name.svg"
+            )
+
+        } catch (_: Throwable) {
+
+            context.assets.open(
+                "icons/svg/${
+                    name.replace(
+                        "-",
+                        "_"
+                    )
+                }.svg"
             )
         }
     }
@@ -73,42 +111,86 @@ object IconLoader {
         context: Context,
         path: String
     ): Boolean {
+
         return try {
-            context.assets.open(path).use { }
+
+            context.assets
+                .open(path)
+                .use { }
+
             true
+
         } catch (_: Throwable) {
             false
         }
     }
 
+    private fun resourceId(
+        context: Context,
+        name: String
+    ): Int {
+
+        return context.resources
+            .getIdentifier(
+                name
+                    .substringAfterLast("/")
+                    .substringBeforeLast("."),
+                "drawable",
+                context.packageName
+            )
+    }
+
     private fun tintColor(
         view: ImageView,
         tintRes: Int
-    ): Int = if (tintRes != 0) {
-        ContextCompat.getColor(view.context, tintRes)
-    } else {
-        ContextCompat.getColor(
-            view.context,
-            R.color.iconTint
-        )
+    ): Int {
+
+        return if (
+            tintRes != 0
+        ) {
+
+            ContextCompat.getColor(
+                view.context,
+                tintRes
+            )
+
+        } else {
+
+            ContextCompat.getColor(
+                view.context,
+                R.color.iconTint
+            )
+        }
     }
 
-    fun applySvg(
+    private fun applyResourcePng(
         view: ImageView,
         name: String,
-        tintRes: Int = 0
-    ) {
-        val size = resolveSize(view)
-        val bmp = svgBitmap(
-            view.context,
-            name,
-            size
-        )
+        tintRes: Int
+    ): Boolean {
 
-        if (bmp != null) {
-            view.setImageBitmap(bmp)
+        val id =
+            resourceId(
+                view.context,
+                name
+            )
 
-            if (tintRes != 0) {
+        if (
+            id == 0
+        ) {
+            return false
+        }
+
+        try {
+
+            view.setImageResource(
+                id
+            )
+
+            if (
+                tintRes != 0
+            ) {
+
                 view.setColorFilter(
                     ContextCompat.getColor(
                         view.context,
@@ -116,15 +198,86 @@ object IconLoader {
                     ),
                     PorterDuff.Mode.SRC_IN
                 )
+
             } else {
+
                 view.clearColorFilter()
             }
+
+            return true
+
+        } catch (_: Throwable) {
+
+            return false
+        }
+    }
+
+    fun applySvg(
+        view: ImageView,
+        name: String,
+        tintRes: Int = 0
+    ) {
+
+        /*
+         * A packaged PNG is the preferred native representation when
+         * available. This is also how the original drawer PNGs are restored.
+         */
+        if (
+            applyResourcePng(
+                view,
+                name,
+                tintRes
+            )
+        ) {
+            return
+        }
+
+        val size =
+            resolveSize(view)
+
+        val bmp =
+            svgBitmap(
+                view.context,
+                name,
+                size
+            )
+
+        if (
+            bmp != null
+        ) {
+
+            view.setImageBitmap(
+                bmp
+            )
+
+            if (
+                tintRes != 0
+            ) {
+
+                view.setColorFilter(
+                    ContextCompat.getColor(
+                        view.context,
+                        tintRes
+                    ),
+                    PorterDuff.Mode.SRC_IN
+                )
+
+            } else {
+
+                view.clearColorFilter()
+            }
+
         } else {
+
             view.clearColorFilter()
+
             view.setImageDrawable(
                 FallbackIconDrawable(
                     name,
-                    tintColor(view, tintRes)
+                    tintColor(
+                        view,
+                        tintRes
+                    )
                 )
             )
         }
@@ -135,27 +288,55 @@ object IconLoader {
         name: String,
         tintRes: Int = 0
     ) {
+
+        if (
+            applyResourcePng(
+                view,
+                name,
+                tintRes
+            )
+        ) {
+            return
+        }
+
         view.clearColorFilter()
 
-        val path = "icons/png/$name.png"
+        val path =
+            "icons/png/$name.png"
 
-        if (!assetExists(view.context, path)) {
+        if (
+            !assetExists(
+                view.context,
+                path
+            )
+        ) {
+
             view.setImageDrawable(
                 FallbackIconDrawable(
                     name,
-                    tintColor(view, tintRes)
+                    tintColor(
+                        view,
+                        tintRes
+                    )
                 )
             )
+
             return
         }
 
         try {
+
             Glide.with(view)
-                .load("file:///android_asset/$path")
+                .load(
+                    "file:///android_asset/$path"
+                )
                 .dontAnimate()
                 .into(view)
 
-            if (tintRes != 0) {
+            if (
+                tintRes != 0
+            ) {
+
                 view.setColorFilter(
                     ContextCompat.getColor(
                         view.context,
@@ -164,11 +345,16 @@ object IconLoader {
                     PorterDuff.Mode.SRC_IN
                 )
             }
+
         } catch (_: Throwable) {
+
             view.setImageDrawable(
                 FallbackIconDrawable(
                     name,
-                    tintColor(view, tintRes)
+                    tintColor(
+                        view,
+                        tintRes
+                    )
                 )
             )
         }
@@ -179,27 +365,61 @@ object IconLoader {
         path: String,
         tintRes: Int = 0
     ) {
-        val normalized = path.removePrefix("/")
 
-        if (!assetExists(view.context, normalized)) {
+        val normalized =
+            path.removePrefix("/")
+
+        /*
+         * Try a resource based on the final filename first.
+         */
+        val name =
+            normalized
+                .substringAfterLast("/")
+                .substringBeforeLast(".")
+
+        if (
+            applyResourcePng(
+                view,
+                name,
+                tintRes
+            )
+        ) {
+            return
+        }
+
+        if (
+            !assetExists(
+                view.context,
+                normalized
+            )
+        ) {
+
             view.setImageDrawable(
                 FallbackIconDrawable(
-                    normalized
-                        .substringAfterLast('/')
-                        .substringBefore('.'),
-                    tintColor(view, tintRes)
+                    name,
+                    tintColor(
+                        view,
+                        tintRes
+                    )
                 )
             )
+
             return
         }
 
         try {
+
             Glide.with(view)
-                .load("file:///android_asset/$normalized")
+                .load(
+                    "file:///android_asset/$normalized"
+                )
                 .dontAnimate()
                 .into(view)
 
-            if (tintRes != 0) {
+            if (
+                tintRes != 0
+            ) {
+
                 view.setColorFilter(
                     ContextCompat.getColor(
                         view.context,
@@ -208,13 +428,16 @@ object IconLoader {
                     PorterDuff.Mode.SRC_IN
                 )
             }
+
         } catch (_: Throwable) {
+
             view.setImageDrawable(
                 FallbackIconDrawable(
-                    normalized
-                        .substringAfterLast('/')
-                        .substringBefore('.'),
-                    tintColor(view, tintRes)
+                    name,
+                    tintColor(
+                        view,
+                        tintRes
+                    )
                 )
             )
         }
@@ -226,31 +449,92 @@ object IconLoader {
         sizePx: Int,
         tintColor: Int = 0
     ): Drawable? {
-        val bmp = svgBitmap(
-            context,
-            name,
-            sizePx
-        )
 
-        if (bmp != null) {
+        val resource =
+            resourceId(
+                context,
+                name
+            )
+
+        if (
+            resource != 0
+        ) {
+
+            return ContextCompat
+                .getDrawable(
+                    context,
+                    resource
+                )
+                ?.mutate()
+                ?.apply {
+
+                    setBounds(
+                        0,
+                        0,
+                        sizePx,
+                        sizePx
+                    )
+
+                    if (
+                        tintColor != 0
+                    ) {
+                        setTint(
+                            tintColor
+                        )
+                    }
+                }
+        }
+
+        val bmp =
+            svgBitmap(
+                context,
+                name,
+                sizePx
+            )
+
+        if (
+            bmp != null
+        ) {
+
             return BitmapDrawable(
                 context.resources,
                 bmp
             ).apply {
-                if (tintColor != 0) {
-                    setTint(tintColor)
+
+                setBounds(
+                    0,
+                    0,
+                    sizePx,
+                    sizePx
+                )
+
+                if (
+                    tintColor != 0
+                ) {
+                    setTint(
+                        tintColor
+                    )
                 }
             }
         }
 
         return FallbackIconDrawable(
             name,
-            tintColor.takeIf { it != 0 }
-                ?: ContextCompat.getColor(
-                    context,
-                    R.color.iconTint
-                )
-        )
+            tintColor.takeIf {
+                it != 0
+            } ?: ContextCompat.getColor(
+                context,
+                R.color.iconTint
+            )
+        ).apply {
+
+            setBounds(
+                0,
+                0,
+                sizePx,
+                sizePx
+            )
+        }
     }
 
     fun loadPngDrawable(
@@ -258,9 +542,44 @@ object IconLoader {
         name: String,
         sizePx: Int
     ): Drawable? {
-        val path = "icons/png/$name.png"
 
-        if (!assetExists(context, path)) {
+        val resource =
+            resourceId(
+                context,
+                name
+            )
+
+        if (
+            resource != 0
+        ) {
+
+            return ContextCompat
+                .getDrawable(
+                    context,
+                    resource
+                )
+                ?.mutate()
+                ?.apply {
+
+                    setBounds(
+                        0,
+                        0,
+                        sizePx,
+                        sizePx
+                    )
+                }
+        }
+
+        val path =
+            "icons/png/$name.png"
+
+        if (
+            !assetExists(
+                context,
+                path
+            )
+        ) {
+
             return FallbackIconDrawable(
                 name,
                 ContextCompat.getColor(
@@ -268,6 +587,7 @@ object IconLoader {
                     R.color.iconTint
                 )
             ).apply {
+
                 setBounds(
                     0,
                     0,
@@ -278,24 +598,32 @@ object IconLoader {
         }
 
         return try {
-            context.assets.open(path).use { stream ->
-                val bmp = android.graphics.BitmapFactory
-                    .decodeStream(stream)
-                    ?: return@use null
 
-                BitmapDrawable(
-                    context.resources,
-                    bmp
-                ).apply {
-                    setBounds(
-                        0,
-                        0,
-                        sizePx,
-                        sizePx
-                    )
+            context.assets
+                .open(path)
+                .use { stream ->
+
+                    val bmp =
+                        android.graphics.BitmapFactory
+                            .decodeStream(stream)
+                            ?: return@use null
+
+                    BitmapDrawable(
+                        context.resources,
+                        bmp
+                    ).apply {
+
+                        setBounds(
+                            0,
+                            0,
+                            sizePx,
+                            sizePx
+                        )
+                    }
                 }
-            }
+
         } catch (_: Throwable) {
+
             FallbackIconDrawable(
                 name,
                 ContextCompat.getColor(
@@ -303,6 +631,7 @@ object IconLoader {
                     R.color.iconTint
                 )
             ).apply {
+
                 setBounds(
                     0,
                     0,
@@ -316,13 +645,26 @@ object IconLoader {
     private fun resolveSize(
         view: ImageView
     ): Int {
-        val lp = view.layoutParams
-        val w = if (lp != null && lp.width > 0) {
-            lp.width
-        } else {
-            view.width
-        }
 
-        return if (w > 0) w else 96
+        val lp =
+            view.layoutParams
+
+        val width =
+            if (
+                lp != null &&
+                lp.width > 0
+            ) {
+                lp.width
+            } else {
+                view.width
+            }
+
+        return if (
+            width > 0
+        ) {
+            width
+        } else {
+            96
+        }
     }
 }

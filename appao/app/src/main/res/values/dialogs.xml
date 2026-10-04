@@ -1,12 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.AppAo.Material3Dialog" parent="Theme.Material3.DayNight.Dialog.Alert">
+
+    <!-- Material 3 alert dialog theme using only app colors. -->
+    <style
+        name="Theme.AppAo.Material3Dialog"
+        parent="Theme.Material3.DayNight.Dialog.Alert">
+
         <item name="colorSurface">@color/dialogSurface</item>
         <item name="colorOnSurface">@color/text</item>
+
         <item name="colorPrimary">@color/pri</item>
         <item name="colorOnPrimary">@color/onpri</item>
-        <item name="colorControlHighlight">@android:color/transparent</item>
-        <item name="android:colorControlHighlight">@android:color/transparent</item>
-        <item name="android:colorControlActivated">@color/pri</item>
+
+        <item name="backgroundTint">@color/dialogSurface</item>
+
+        <item name="colorControlHighlight">
+            @android:color/transparent
+        </item>
+
+        <item name="android:colorControlHighlight">
+            @android:color/transparent
+        </item>
+
+        <item name="android:colorControlActivated">
+            @color/pri
+        </item>
+
+        <item name="shapeAppearanceLargeComponent">
+            @style/AppAo.Shape.DialogRounded
+        </item>
+
+        <item name="shapeAppearanceMediumComponent">
+            @style/AppAo.Shape.DialogRounded
+        </item>
+
+        <item name="shapeAppearanceOverlay">
+            @style/AppAo.Shape.DialogRounded
+        </item>
+
+        <item name="android:windowBackground">
+            @color/dialogSurface
+        </item>
     </style>
 </resources>

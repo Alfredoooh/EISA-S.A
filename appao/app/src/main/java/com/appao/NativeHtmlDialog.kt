@@ -96,7 +96,7 @@ object NativeHtmlDialog {
             inputType = InputType.TYPE_CLASS_TEXT or
                 InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
             maxLines = 1
-            singleLine = true
+            setSingleLine(true)
             setTextColor(
                 androidx.core.content.ContextCompat.getColor(
                     context,

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Compatibility alias used by the v24 resource/theme references. -->
+    <style name="AppAo" parent="Theme.AppAo" />
     <style name="Theme" parent="Theme.AppAo" />
 
     <style name="BubbleUser">

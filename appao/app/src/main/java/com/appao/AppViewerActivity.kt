@@ -1,6 +1,7 @@
 package com.appao
 
 import android.annotation.SuppressLint
+import android.graphics.Color
 import android.os.Bundle
 import android.view.View
 import android.webkit.JavascriptInterface
@@ -166,7 +167,7 @@ class AppViewerActivity : AppCompatActivity() {
             runOnUiThread {
                 try {
                     val normalized = color.trim()
-                    val parsed = if (normalized.startsWith("#")) Color.parseColor(normalized) else null
+                    val parsed: Int? = if (normalized.startsWith("#")) Color.parseColor(normalized) else null
                     if (parsed != null) SystemBarHelper.syncColor(this@AppViewerActivity, parsed)
                     else SystemBarHelper.sync(this@AppViewerActivity, dark)
                 } catch (_: Throwable) {

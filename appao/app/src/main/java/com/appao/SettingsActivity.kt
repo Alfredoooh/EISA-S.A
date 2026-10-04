@@ -237,7 +237,7 @@ class SettingsActivity : AppCompatActivity() {
 
                 visibility = View.VISIBLE
 
-                text =
+                this.text =
                     ThemeManager.label(
                         this@SettingsActivity
                     )
@@ -253,7 +253,7 @@ class SettingsActivity : AppCompatActivity() {
 
                 visibility = View.VISIBLE
 
-                text =
+                this.text =
                     languageLabel()
             }
     }

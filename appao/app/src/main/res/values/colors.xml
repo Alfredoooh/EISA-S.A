@@ -21,8 +21,8 @@
     <color name="pillBorder">#16000000</color>
     <color name="iconTint">#111111</color>
     <color name="skeleton">#EDEDED</color>
-    <color name="popupBg">#F4F4F4</color>
-    <color name="popupBorder">#CFCFCF</color>
+    <color name="popupBg">#FFFFFF</color>
+    <color name="popupBorder">#E6E6E6</color>
     <color name="dialogSurface">#FFFFFF</color>
     <color name="authYellow">#E6A100</color>
     <color name="authYellowPressed">#D39200</color>

@@ -21,7 +21,7 @@ object SystemBarHelper {
 
         WindowCompat.setDecorFitsSystemWindows(
             activity.window,
-            false
+            true
         )
 
         activity.window.statusBarColor =
@@ -50,7 +50,7 @@ object SystemBarHelper {
 
         WindowCompat.setDecorFitsSystemWindows(
             activity.window,
-            false
+            true
         )
 
         val dark =

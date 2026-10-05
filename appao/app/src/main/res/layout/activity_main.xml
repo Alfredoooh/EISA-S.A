@@ -43,7 +43,7 @@
             android:background="@color/bg"
             android:clipChildren="false"
             android:clipToPadding="false"
-            android:elevation="4dp">
+            android:elevation="0dp">
 
             <FrameLayout
                 android:id="@+id/hAdd"
@@ -221,12 +221,22 @@
             android:layout_height="56dp"
             android:layout_gravity="top"
             android:background="@color/bg"
-            android:elevation="4dp">
+            android:elevation="0dp">
+
+            <TextView
+                android:id="@+id/sideTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="Apps"
+                android:textColor="@color/text"
+                android:textSize="18sp"
+                android:textStyle="bold" />
 
             <FrameLayout
                 android:id="@+id/sideClose"
-                android:layout_width="42dp"
-                android:layout_height="42dp"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
                 android:layout_gravity="end|center_vertical"
                 android:background="@drawable/bg_transparent_pressed"
                 android:clickable="true"
@@ -234,8 +244,8 @@
 
                 <ImageView
                     android:id="@+id/sideCloseIcon"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
                     android:layout_gravity="center"
                     android:scaleType="fitCenter" />
             </FrameLayout>
@@ -262,64 +272,75 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:gravity="center_horizontal"
-            android:paddingStart="24dp"
-            android:paddingEnd="24dp"
-            android:paddingTop="24dp"
-            android:paddingBottom="22dp">
+            android:paddingStart="18dp"
+            android:paddingEnd="18dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="18dp">
 
             <FrameLayout
                 android:id="@+id/drBack"
-                android:layout_width="match_parent"
-                android:layout_height="42dp"
-                android:layout_marginBottom="8dp"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
                 android:background="@drawable/bg_transparent_pressed"
                 android:clickable="true"
                 android:focusable="true">
 
                 <ImageView
                     android:id="@+id/drBackIcon"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:layout_gravity="start|center_vertical"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:layout_gravity="center"
                     android:scaleType="fitCenter" />
             </FrameLayout>
 
-            <FrameLayout
-                android:layout_width="88dp"
-                android:layout_height="88dp"
-                android:background="@drawable/bg_circle_card"
-                android:clipToOutline="true">
-
-                <ImageView
-                    android:id="@+id/drAvatar"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:scaleType="centerInside"
-                    android:padding="8dp" />
-            </FrameLayout>
-
-            <TextView
-                android:id="@+id/drName"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:gravity="center"
-                android:text="Convidado"
-                android:textColor="@color/text"
-                android:textSize="20sp"
-                android:textStyle="bold" />
+                android:layout_marginTop="6dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/drUser"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:gravity="center"
-                android:text="Inicia sessão para personalizar"
-                android:textColor="@color/dim"
-                android:textSize="13.5sp"
-                android:maxLines="2" />
+                <FrameLayout
+                    android:layout_width="64dp"
+                    android:layout_height="64dp"
+                    android:background="@drawable/bg_circle_card"
+                    android:clipToOutline="true">
+
+                    <ImageView
+                        android:id="@+id/drAvatar"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerInside"
+                        android:padding="6dp" />
+                </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="14dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/drName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Convidado"
+                        android:textColor="@color/text"
+                        android:textSize="19sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/drUser"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Inicia sessão para personalizar"
+                        android:textColor="@color/dim"
+                        android:textSize="13.5sp"
+                        android:maxLines="2" />
+                </LinearLayout>
+            </LinearLayout>
         </LinearLayout>
 
         <View
@@ -327,64 +348,29 @@
             android:layout_height="1dp"
             android:background="@color/line" />
 
-        <LinearLayout
-            android:id="@+id/drProfile"
-            style="@style/DrawerItem"
-            android:minHeight="60dp">
-
-            <ImageView
-                android:id="@+id/drIconProfile"
-                android:layout_width="28dp"
-                android:layout_height="28dp" />
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="14dp"
-                android:text="Perfil"
-                android:textColor="@color/text"
-                android:textSize="15sp" />
+        <LinearLayout android:id="@+id/drVerify" style="@style/DrawerItem" android:minHeight="58dp">
+            <ImageView android:id="@+id/drIconVerify" android:layout_width="28dp" android:layout_height="28dp"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Verificação" android:textColor="@color/text" android:textSize="15sp"/>
         </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/drLibrary"
-            style="@style/DrawerItem"
-            android:minHeight="60dp">
-
-            <ImageView
-                android:id="@+id/drIconLibrary"
-                android:layout_width="28dp"
-                android:layout_height="28dp" />
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="14dp"
-                android:text="Biblioteca"
-                android:textColor="@color/text"
-                android:textSize="15sp" />
+        <LinearLayout android:id="@+id/drSaved" style="@style/DrawerItem" android:minHeight="58dp">
+            <ImageView android:id="@+id/drIconSaved" android:layout_width="28dp" android:layout_height="28dp"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Guardados" android:textColor="@color/text" android:textSize="15sp"/>
         </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/drSettings"
-            style="@style/DrawerItem"
-            android:minHeight="60dp">
-
-            <ImageView
-                android:id="@+id/drIconSettings"
-                android:layout_width="28dp"
-                android:layout_height="28dp" />
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="14dp"
-                android:text="Definições"
-                android:textColor="@color/text"
-                android:textSize="15sp" />
+        <LinearLayout android:id="@+id/drSettings" style="@style/DrawerItem" android:minHeight="58dp">
+            <ImageView android:id="@+id/drIconSettings" android:layout_width="28dp" android:layout_height="28dp"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Definições" android:textColor="@color/text" android:textSize="15sp"/>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/drFriends" style="@style/DrawerItem" android:minHeight="58dp">
+            <ImageView android:id="@+id/drIconFriends" android:layout_width="28dp" android:layout_height="28dp"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Amigos" android:textColor="@color/text" android:textSize="15sp"/>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/drReport" style="@style/DrawerItem" android:minHeight="58dp">
+            <ImageView android:id="@+id/drIconReport" android:layout_width="28dp" android:layout_height="28dp"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Comunicar um problema" android:textColor="@color/text" android:textSize="15sp"/>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/drAiSettings" style="@style/DrawerItem" android:minHeight="58dp">
+            <ImageView android:id="@+id/drIconAi" android:layout_width="28dp" android:layout_height="28dp"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Configurações de IA" android:textColor="@color/text" android:textSize="15sp"/>
         </LinearLayout>
     </LinearLayout>
 

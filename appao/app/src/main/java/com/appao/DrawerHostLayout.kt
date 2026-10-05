@@ -56,9 +56,6 @@ class DrawerHostLayout @JvmOverloads constructor(
     private val touchSlop =
         ViewConfiguration.get(context).scaledTouchSlop
 
-    private val edgeSize =
-        (72f * resources.displayMetrics.density + 0.5f).toInt()
-
     private enum class GestureMode {
         NONE,
         RIGHT_OPEN,
@@ -120,10 +117,6 @@ class DrawerHostLayout @JvmOverloads constructor(
                         return false
                     }
 
-                    val screenWidth = width.coerceAtLeast(1).toFloat()
-                    val startNearRight = downX >= screenWidth - edgeSize
-                    val startNearLeft = downX <= edgeSize
-
                     mode = when {
                         listener?.isDrawerOpen() == true -> {
                             if (dx > 0f) GestureMode.RIGHT_CLOSE
@@ -141,8 +134,8 @@ class DrawerHostLayout @JvmOverloads constructor(
                             }
                         }
 
-                        startNearRight && dx < 0f -> GestureMode.RIGHT_OPEN
-                        startNearLeft && dx > 0f -> GestureMode.LEFT_PANEL_OPEN
+                        dx < 0f -> GestureMode.RIGHT_OPEN
+                        dx > 0f -> GestureMode.LEFT_PANEL_OPEN
                         else -> {
                             tracking = false
                             GestureMode.NONE

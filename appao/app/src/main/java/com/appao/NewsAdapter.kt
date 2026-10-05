@@ -157,32 +157,19 @@ class NewsAdapter(
     }
 
     private fun bindTopCards(holder: TopCardsVH) {
-        IconLoader.applyPng(
-            holder.savingsIcon,
-            "leaf",
-            R.color.iconTint
-        )
-        IconLoader.applyPng(
-            holder.historyIcon,
-            "clock",
-            R.color.iconTint
-        )
+        IconLoader.applyPng(holder.savingsIcon, "leaf")
+        IconLoader.applyPng(holder.historyIcon, "clock")
 
         val current = weather
         if (current != null) {
             IconLoader.applyPng(
                 holder.weatherIcon,
-                current.icon,
-                R.color.iconTint
+                current.icon
             )
             holder.weatherTemp.text = "${current.temp}°"
             holder.weatherCity.text = current.prov
         } else {
-            IconLoader.applyPng(
-                holder.weatherIcon,
-                "sunny",
-                R.color.iconTint
-            )
+            IconLoader.applyPng(holder.weatherIcon, "sunny")
             holder.weatherTemp.text = "--°"
             holder.weatherCity.text = "Luanda"
         }
@@ -214,7 +201,7 @@ class NewsAdapter(
         if (item.logo.isNotBlank()) {
             Glide.with(holder.favicon)
                 .load(item.logo)
-                .override(dp(holder.itemView.context, 38), dp(holder.itemView.context, 38))
+                .override(dp(holder.itemView.context, 40), dp(holder.itemView.context, 40))
                 .dontAnimate()
                 .into(holder.favicon)
         } else {
@@ -485,12 +472,7 @@ class NewsAdapter(
 
         val favicon = ImageView(context).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
-            setPadding(
-                dp(context, 1),
-                dp(context, 1),
-                dp(context, 1),
-                dp(context, 1)
-            )
+            setPadding(0, 0, 0, 0)
         }
 
         faviconFrame.addView(

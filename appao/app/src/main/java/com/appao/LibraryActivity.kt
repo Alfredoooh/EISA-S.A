@@ -20,22 +20,11 @@ class LibraryActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         setContentView(R.layout.activity_library)
         SystemBarHelper.sync(this)
 
-        ViewCompat.setOnApplyWindowInsetsListener(
-            findViewById(android.R.id.content)
-        ) { view, insets ->
-            val bars = insets.getInsets(
-                WindowInsetsCompat.Type.systemBars()
-            )
-            view.updatePadding(
-                top = bars.top,
-                bottom = bars.bottom
-            )
-            insets
-        }
+
 
         IconLoader.applySvg(
             findViewById(R.id.libBackIcon),

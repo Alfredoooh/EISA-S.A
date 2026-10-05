@@ -27,6 +27,7 @@ object HtmlStylePopup {
         val label: String,
         val iconName: String? = null,
         val checked: Boolean = false,
+        val useSvg: Boolean = false,
         val onClick: () -> Unit
     )
 
@@ -192,11 +193,11 @@ object HtmlStylePopup {
                             .isNullOrBlank()
                     ) {
 
-                        IconLoader.applyPng(
-                            this,
-                            item.iconName!!,
-                            0
-                        )
+                        if (item.useSvg) {
+                            IconLoader.applySvg(this, item.iconName!!, R.color.iconTint)
+                        } else {
+                            IconLoader.applyPng(this, item.iconName!!, 0)
+                        }
                     }
                 }
 
@@ -263,11 +264,7 @@ object HtmlStylePopup {
                         scaleType =
                             ImageView.ScaleType.CENTER
 
-                        IconLoader.applyPng(
-                            this,
-                            "check",
-                            R.color.iconTint
-                        )
+                        IconLoader.applySvg(this, "check", R.color.iconTint)
                     }
 
                 row.addView(

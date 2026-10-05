@@ -91,7 +91,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         setContentView(R.layout.activity_main)
         try { SystemBarHelper.sync(this) } catch (t: Throwable) { android.util.Log.e("MainActivity", "System bars init failed", t) }
 
@@ -147,69 +147,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupInsets() {
-        ViewCompat.setOnApplyWindowInsetsListener(progress) { view, insets ->
-            val top = insets.getInsets(
-                WindowInsetsCompat.Type.statusBars()
-            ).top
-            val lp = view.layoutParams as FrameLayout.LayoutParams
-            lp.topMargin = top
-            view.layoutParams = lp
-            insets
-        }
-
-        ViewCompat.setOnApplyWindowInsetsListener(header) { view, insets ->
-            val bars = insets.getInsets(
-                WindowInsetsCompat.Type.statusBars()
-            )
-            val top = bars.top
-            val lp = view.layoutParams
-            lp.height = dp(56) + top
-            view.layoutParams = lp
-            view.setPadding(
-                view.paddingLeft,
-                top + dp(4),
-                view.paddingRight,
-                view.paddingBottom
-            )
-            headerHeight = lp.height
-            recycler.updatePadding(top = headerHeight)
-            applyBarTranslation(barProgress)
-            insets
-        }
-
         ViewCompat.setOnApplyWindowInsetsListener(biPill) { view, insets ->
-            val bars = insets.getInsets(
-                WindowInsetsCompat.Type.systemBars()
-            )
-            val ime = insets.getInsets(
-                WindowInsetsCompat.Type.ime()
-            ).bottom
-            val bottom = maxOf(ime, bars.bottom)
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
             val lp = view.layoutParams as FrameLayout.LayoutParams
-            lp.bottomMargin = bottom + dp(16)
+            lp.bottomMargin = if (ime > 0) ime + dp(16) else dp(20)
             view.layoutParams = lp
-            if (view.height > 0) {
-                bottomBarHeight = view.height
-            }
+            if (view.height > 0) bottomBarHeight = view.height
             applyBarTranslation(barProgress)
             insets
         }
 
-        ViewCompat.setOnApplyWindowInsetsListener(drawerHeader) { view, insets ->
-            val bars = insets.getInsets(
-                WindowInsetsCompat.Type.systemBars()
-            )
-            view.setPadding(
-                view.paddingLeft,
-                bars.top + dp(24),
-                view.paddingRight,
-                view.paddingBottom
-            )
-            insets
-        }
-
+        headerHeight = dp(56)
+        recycler.updatePadding(top = headerHeight)
+        applyBarTranslation(barProgress)
         ViewCompat.requestApplyInsets(mainContent)
-        ViewCompat.requestApplyInsets(drawerHeader)
     }
 
     private fun setupFeed() {
@@ -249,7 +200,7 @@ class MainActivity : AppCompatActivity() {
     private fun setupHeader() {
         IconLoader.applySvg(
             findViewById(R.id.hAddIcon),
-            "add",
+            "apps",
             R.color.iconTint
         )
         IconLoader.applySvg(
@@ -280,7 +231,7 @@ class MainActivity : AppCompatActivity() {
             "add",
             R.color.iconTint
         )
-        IconLoader.applyPng(
+        IconLoader.applySvg(
             biSend.findViewById(R.id.biSendIcon),
             "arrow_up",
             R.color.onpri
@@ -346,22 +297,13 @@ class MainActivity : AppCompatActivity() {
             drawerPanel.translationX = targetWidth.toFloat()
         }
 
-        IconLoader.applyPng(
-            findViewById(R.id.drAvatar),
-            "logo"
-        )
-        IconLoader.applyPng(
-            findViewById(R.id.drIconProfile),
-            "profile"
-        )
-        IconLoader.applyPng(
-            findViewById(R.id.drIconLibrary),
-            "bookmark"
-        )
-        IconLoader.applyPng(
-            findViewById(R.id.drIconSettings),
-            "settings"
-        )
+        IconLoader.applyPng(findViewById(R.id.drAvatar), "avatar")
+        IconLoader.applyPng(findViewById(R.id.drIconVerify), "verified")
+        IconLoader.applyPng(findViewById(R.id.drIconSaved), "bookmark")
+        IconLoader.applyPng(findViewById(R.id.drIconSettings), "settings")
+        IconLoader.applyPng(findViewById(R.id.drIconFriends), "profile")
+        IconLoader.applyPng(findViewById(R.id.drIconReport), "alert")
+        IconLoader.applyPng(findViewById(R.id.drIconAi), "magic_wand")
 
         IconLoader.applySvg(
             findViewById(R.id.drBackIcon),
@@ -373,25 +315,34 @@ class MainActivity : AppCompatActivity() {
             closeDrawer()
         }
 
-        findViewById<View>(R.id.drProfile).setOnClickListener {
+        findViewById<View>(R.id.drVerify).setOnClickListener {
             closeDrawer()
-            startActivity(
-                Intent(this, AuthActivity::class.java)
-            )
+            startActivity(Intent(this, AuthActivity::class.java))
         }
 
-        findViewById<View>(R.id.drLibrary).setOnClickListener {
+        findViewById<View>(R.id.drSaved).setOnClickListener {
             closeDrawer()
-            startActivity(
-                Intent(this, LibraryActivity::class.java)
-            )
+            startActivity(Intent(this, LibraryActivity::class.java))
         }
 
         findViewById<View>(R.id.drSettings).setOnClickListener {
             closeDrawer()
-            startActivity(
-                Intent(this, SettingsActivity::class.java)
-            )
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
+        findViewById<View>(R.id.drFriends).setOnClickListener {
+            closeDrawer()
+            AppAoToast.show(this, "Amigos — em breve")
+        }
+
+        findViewById<View>(R.id.drReport).setOnClickListener {
+            closeDrawer()
+            AppAoToast.show(this, "Comunicar um problema — em breve")
+        }
+
+        findViewById<View>(R.id.drAiSettings).setOnClickListener {
+            closeDrawer()
+            AppAoToast.show(this, "Configurações de IA — em breve")
         }
 
         val host = findViewById<DrawerHostLayout>(R.id.rootMain)
@@ -528,24 +479,10 @@ class MainActivity : AppCompatActivity() {
             sidePanel.translationX = -rootMainWidth().toFloat()
         }
 
-        ViewCompat.setOnApplyWindowInsetsListener(
-            findViewById(R.id.sideHeader)
-        ) { view, insets ->
-            val top = insets.getInsets(
-                WindowInsetsCompat.Type.statusBars()
-            ).top
-            val lp = view.layoutParams
-            lp.height = dp(56) + top
-            view.layoutParams = lp
-            view.setPadding(
-                view.paddingLeft,
-                top + dp(2),
-                view.paddingRight,
-                view.paddingBottom
-            )
-            insets
+        findViewById<View>(R.id.sideHeader).apply {
+            layoutParams = layoutParams.apply { height = dp(56) }
+            setPadding(paddingLeft, 0, paddingRight, paddingBottom)
         }
-        ViewCompat.requestApplyInsets(findViewById(R.id.sideHeader))
 
         IconLoader.applySvg(
             findViewById(R.id.sideCloseIcon),
@@ -953,18 +890,6 @@ class MainActivity : AppCompatActivity() {
         mainContent.translationX = -rootMainWidth() * 0.34f * p
 
         findViewById<View>(R.id.gestureScrim).alpha = p * 0.35f
-
-        window.statusBarColor = android.graphics.Color.TRANSPARENT
-        window.navigationBarColor = android.graphics.Color.TRANSPARENT
-
-        androidx.core.view.WindowInsetsControllerCompat(
-            window,
-            window.decorView
-        ).apply {
-            val dark = ThemeManager.resolvedDark(this@MainActivity)
-            isAppearanceLightStatusBars = !dark
-            isAppearanceLightNavigationBars = !dark
-        }
     }
 
     private fun beginDrawerOpenGesture() {
@@ -1065,17 +990,6 @@ class MainActivity : AppCompatActivity() {
         mainContent.translationX = rootMainWidth() * 0.34f * p
 
         findViewById<View>(R.id.gestureScrim).alpha = p * 0.35f
-
-        window.statusBarColor = android.graphics.Color.TRANSPARENT
-        window.navigationBarColor = android.graphics.Color.TRANSPARENT
-        androidx.core.view.WindowInsetsControllerCompat(
-            window,
-            window.decorView
-        ).apply {
-            val dark = ThemeManager.resolvedDark(this@MainActivity)
-            isAppearanceLightStatusBars = !dark
-            isAppearanceLightNavigationBars = !dark
-        }
     }
 
     private fun beginSidePanelOpenGesture() {
@@ -1467,6 +1381,11 @@ class MainActivity : AppCompatActivity() {
         )
 
         IconLoader.applySvg(
+            findViewById(R.id.hAddIcon),
+            "apps",
+            R.color.iconTint
+        )
+        IconLoader.applySvg(
             findViewById(R.id.hMoreIcon),
             "menu",
             R.color.iconTint
@@ -1481,7 +1400,7 @@ class MainActivity : AppCompatActivity() {
             "add",
             R.color.iconTint
         )
-        IconLoader.applyPng(
+        IconLoader.applySvg(
             biSend.findViewById(R.id.biSendIcon),
             "arrow_up",
             R.color.onpri
@@ -1499,25 +1418,16 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.drUser).setTextColor(
             ContextCompat.getColor(this, R.color.dim)
         )
-        findViewById<ImageView>(R.id.drAvatar).setImageResource(
-            R.drawable.logo
+        findViewById<TextView>(R.id.sideTitle)?.setTextColor(
+            ContextCompat.getColor(this, R.color.text)
         )
-        IconLoader.applyPng(
-            findViewById(R.id.drAvatar),
-            "logo"
-        )
-        IconLoader.applyPng(
-            findViewById(R.id.drIconProfile),
-            "profile"
-        )
-        IconLoader.applyPng(
-            findViewById(R.id.drIconLibrary),
-            "bookmark"
-        )
-        IconLoader.applyPng(
-            findViewById(R.id.drIconSettings),
-            "settings"
-        )
+        IconLoader.applyPng(findViewById(R.id.drAvatar), "avatar")
+        IconLoader.applyPng(findViewById(R.id.drIconVerify), "verified")
+        IconLoader.applyPng(findViewById(R.id.drIconSaved), "bookmark")
+        IconLoader.applyPng(findViewById(R.id.drIconSettings), "settings")
+        IconLoader.applyPng(findViewById(R.id.drIconFriends), "profile")
+        IconLoader.applyPng(findViewById(R.id.drIconReport), "alert")
+        IconLoader.applyPng(findViewById(R.id.drIconAi), "magic_wand")
         IconLoader.applySvg(
             findViewById(R.id.drBackIcon),
             "arrow_left",

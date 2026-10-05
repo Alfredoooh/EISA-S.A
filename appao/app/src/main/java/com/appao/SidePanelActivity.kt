@@ -21,11 +21,8 @@ class SidePanelActivity : AppCompatActivity() {
 
         val topBar = findViewById<android.view.View>(R.id.sideTopBar)
         ViewCompat.setOnApplyWindowInsetsListener(topBar) { view, insets ->
-            val top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
-            val lp = view.layoutParams
-            lp.height = dp(56) + top
-            view.layoutParams = lp
-            view.setPadding(view.paddingLeft, top + dp(2), view.paddingRight, view.paddingBottom)
+            view.setPadding(view.paddingLeft, dp(2), view.paddingRight, view.paddingBottom)
+            view.layoutParams = view.layoutParams.apply { height = dp(56) }
             insets
         }
         ViewCompat.requestApplyInsets(topBar)

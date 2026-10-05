@@ -12,11 +12,11 @@
         android:paddingTop="6dp" android:paddingBottom="6dp">
 
         <FrameLayout android:id="@+id/setBack"
-            android:layout_width="42dp" android:layout_height="42dp"
+            android:layout_width="52dp" android:layout_height="52dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:clickable="true" android:focusable="true">
             <ImageView android:id="@+id/setBackIcon"
-                android:layout_width="22dp" android:layout_height="22dp"
+                android:layout_width="26dp" android:layout_height="26dp"
                 android:layout_gravity="center"/>
         </FrameLayout>
 
@@ -38,35 +38,16 @@
         <LinearLayout
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:orientation="vertical" android:paddingBottom="32dp">
-
             <TextView style="@style/SettingsLabel" android:text="PREFERÊNCIAS"/>
-
             <include layout="@layout/row_setting" android:id="@+id/rowTheme"/>
             <include layout="@layout/row_setting" android:id="@+id/rowLang"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowNotif"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowAuto"/>
-
-            <TextView style="@style/SettingsLabel" android:text="CONTEÚDO"/>
-
-            <include layout="@layout/row_setting" android:id="@+id/rowFeed"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowRecent"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowData"/>
+            <TextView style="@style/SettingsLabel" android:text="ATIVIDADE E LOCALIZAÇÃO"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowUsage"/>
             <include layout="@layout/row_setting" android:id="@+id/rowLoc"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowOffline"/>
-
-            <TextView style="@style/SettingsLabel" android:text="PRIVACIDADE"/>
-
-            <include layout="@layout/row_setting" android:id="@+id/rowPriv"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowVerified"/>
-
-            <TextView style="@style/SettingsLabel" android:text="DADOS"/>
-
-            <include layout="@layout/row_setting" android:id="@+id/rowClrHist"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowClrLib"/>
-
-            <TextView style="@style/SettingsLabel" android:text="MAIS"/>
-
-            <include layout="@layout/row_setting" android:id="@+id/rowStore"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowAbout"/>
+            <TextView style="@style/SettingsLabel" android:text="CONTA E POLÍTICAS"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowAccount"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowTerms"/>
         </LinearLayout>
     </ScrollView>
 </LinearLayout>

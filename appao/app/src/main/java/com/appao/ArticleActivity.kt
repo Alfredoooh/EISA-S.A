@@ -76,7 +76,7 @@ class ArticleActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         window.sharedElementEnterTransition = containerTransition()
         window.sharedElementReturnTransition = containerTransition()
         window.exitTransition = null
@@ -124,12 +124,9 @@ class ArticleActivity : AppCompatActivity() {
 
         val topbar = findViewById<View>(R.id.aTopBar)
         ViewCompat.setOnApplyWindowInsetsListener(topbar) { view, insets ->
-            val top = insets.getInsets(
-                WindowInsetsCompat.Type.statusBars()
-            ).top
-            view.updatePadding(top = top + dp(6))
+            view.updatePadding(top = dp(6))
             view.layoutParams = view.layoutParams.apply {
-                height = dp(56) + top
+                height = dp(56)
             }
             insets
         }
@@ -150,7 +147,7 @@ class ArticleActivity : AppCompatActivity() {
 
             val scrollParams =
                 scroll.layoutParams as FrameLayout.LayoutParams
-            scrollParams.topMargin = bars.top + dp(56)
+            scrollParams.topMargin = dp(56)
             scrollParams.bottomMargin = articleBar.measuredHeight + dp(8)
             scroll.layoutParams = scrollParams
 
@@ -169,18 +166,9 @@ class ArticleActivity : AppCompatActivity() {
             "send",
             R.color.onpri
         )
-        IconLoader.applyPng(
-            findViewById(R.id.aCopyIcon),
-            "link"
-        )
-        IconLoader.applyPng(
-            findViewById(R.id.aShareIcon),
-            "share"
-        )
-        IconLoader.applyPng(
-            findViewById(R.id.aSaveIcon),
-            "bookmark"
-        )
+        IconLoader.applySvg(findViewById(R.id.aCopyIcon), "link", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.aShareIcon), "share", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.aSaveIcon), "bookmark", R.color.iconTint)
         IconLoader.applySvg(
             findViewById(R.id.cIcon),
             "chat",
@@ -188,7 +176,7 @@ class ArticleActivity : AppCompatActivity() {
         )
         IconLoader.applySvg(
             findViewById(R.id.acEmojiIcon),
-            "emoji",
+            "emojis",
             R.color.iconTint
         )
 

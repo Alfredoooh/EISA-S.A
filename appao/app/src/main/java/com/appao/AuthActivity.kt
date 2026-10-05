@@ -33,7 +33,7 @@ class AuthActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         setContentView(R.layout.activity_auth)
         SystemBarHelper.sync(this)
 
@@ -50,16 +50,8 @@ class AuthActivity : AppCompatActivity() {
         registerPassword = findViewById(R.id.registerPassword)
 
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
-            val bars = insets.getInsets(
-                WindowInsetsCompat.Type.systemBars()
-            )
-            val ime = insets.getInsets(
-                WindowInsetsCompat.Type.ime()
-            ).bottom
-            view.updatePadding(
-                top = bars.top,
-                bottom = maxOf(bars.bottom, ime)
-            )
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            view.updatePadding(bottom = ime)
             insets
         }
 

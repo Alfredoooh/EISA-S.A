@@ -60,8 +60,8 @@ class SettingsActivity : AppCompatActivity() {
                 when (rowDef.id) {
                     R.id.rowTheme -> showThemePicker(row)
                     R.id.rowLang -> showLangPicker(row)
-                    R.id.rowData -> toggleDataSaving()
-                    R.id.rowUsage -> showUsage()
+                    R.id.rowData -> openDataSaver()
+                    R.id.rowUsage -> openUsage()
                     R.id.rowLoc -> openLocationSettings()
                     R.id.rowAccount -> startActivity(Intent(this, AuthActivity::class.java))
                     R.id.rowTerms -> showTerms()
@@ -96,23 +96,33 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun showThemePicker(anchor: View) {
-        val options = listOf("Escuro" to "dark", "Claro" to "light", "Sistema" to "system")
+        val options = listOf(
+            Triple("Escuro", "dark", "moon"),
+            Triple("Claro", "light", "sun"),
+            Triple("Sistema", "system", "monitor")
+        )
         val current = ThemeManager.current(this)
-        HtmlStylePopup.show(anchor, options.map { (label, value) ->
-            HtmlStylePopup.Item(label = label, iconName = "theme", checked = value == current, useSvg = true) {
+        HtmlStylePopup.show(anchor, options.map { (label, value, icon) ->
+            HtmlStylePopup.Item(label = label, iconName = icon, checked = value == current, useSvg = true) {
                 ThemeManager.applyImmediately(this, value)
             }
         })
     }
 
     private fun showLangPicker(anchor: View) {
-        val options = listOf("pt" to "Português", "en" to "English", "es" to "Español", "fr" to "Français", "de" to "Deutsch")
+        val options = listOf(
+            Triple("pt", "Português", "flags/pt"),
+            Triple("en", "English", "flags/en"),
+            Triple("es", "Español", "flags/es"),
+            Triple("fr", "Français", "flags/fr"),
+            Triple("de", "Deutsch", "flags/de")
+        )
         val current = getSharedPreferences("appao", MODE_PRIVATE).getString("lang", "pt") ?: "pt"
-        HtmlStylePopup.show(anchor, options.map { (code, label) ->
-            HtmlStylePopup.Item(label = label, iconName = "language", checked = code == current, useSvg = true) {
+        HtmlStylePopup.show(anchor, options.map { (code, label, flag) ->
+            HtmlStylePopup.Item(label = label, iconName = flag, checked = code == current, useSvg = false) {
                 getSharedPreferences("appao", MODE_PRIVATE).edit().putString("lang", code).apply()
                 refreshValues()
-            AppAoToast.show(this, label)
+                AppAoToast.show(this, label)
             }
         })
     }
@@ -120,19 +130,12 @@ class SettingsActivity : AppCompatActivity() {
     private fun dataSavingEnabled(): Boolean =
         getSharedPreferences("appao", MODE_PRIVATE).getBoolean("data_saving", false)
 
-    private fun toggleDataSaving() {
-        val next = !dataSavingEnabled()
-        getSharedPreferences("appao", MODE_PRIVATE).edit().putBoolean("data_saving", next).apply()
-        refreshValues()
+    private fun openDataSaver() {
+        startActivity(Intent(this, DataSaverActivity::class.java))
     }
 
-    private fun showUsage() {
-        NativeM3Dialog.content(this, "Atividade de uso", TextView(this).apply {
-            text = "Atividade de uso da aplicação\n\nConsultas, leituras e interações recentes ficam nesta secção."
-            setTextColor(ContextCompat.getColor(context, R.color.text))
-            setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 15f)
-            setPadding(dp(20), dp(4), dp(20), dp(12))
-        }, negative = "Fechar")
+    private fun openUsage() {
+        startActivity(Intent(this, UsageActivity::class.java))
     }
 
     private fun openLocationSettings() {

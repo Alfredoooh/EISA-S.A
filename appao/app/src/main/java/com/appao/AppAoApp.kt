@@ -17,6 +17,7 @@ class AppAoApp : Application() {
         // This prevents the light-theme preference from starting with the
         // system's dark resource set.
         ThemeManager.apply(this)
+        UsageTracker.install(this)
 
         installCrashRecorder()
     }

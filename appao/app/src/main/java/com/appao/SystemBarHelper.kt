@@ -25,7 +25,7 @@ object SystemBarHelper {
         )
 
         activity.window.statusBarColor =
-            color
+            Color.TRANSPARENT
 
         activity.window.navigationBarColor =
             color
@@ -71,7 +71,7 @@ object SystemBarHelper {
             )
 
         activity.window.statusBarColor =
-            bg
+            Color.TRANSPARENT
 
         activity.window.navigationBarColor =
             bg

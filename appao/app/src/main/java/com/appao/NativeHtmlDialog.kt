@@ -167,6 +167,19 @@ object NativeHtmlDialog {
         val window = dialog.window ?: return
 
         try {
+            window.setStatusBarColor(android.graphics.Color.TRANSPARENT)
+            window.setNavigationBarColor(
+                androidx.core.content.ContextCompat.getColor(
+                    dialog.context,
+                    R.color.dialogSurface
+                )
+            )
+            androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+                .isAppearanceLightStatusBars = !ThemeManager.resolvedDark(dialog.context)
+        } catch (_: Throwable) {
+        }
+
+        try {
             window.setDimAmount(
                 if (
                     (

@@ -257,7 +257,7 @@ object NewsRepository {
                         title = title.take(500),
                         summary = cleanText(
                             article.optString("description")
-                        ).take(1600),
+                        ),
                         link = link.take(4000),
                         source = source.take(120),
                         date = article
@@ -454,7 +454,7 @@ object NewsRepository {
                         )
                         put(
                             "summary",
-                            item.summary.take(1600)
+                            item.summary
                         )
                         put(
                             "link",

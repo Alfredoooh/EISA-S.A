@@ -486,12 +486,83 @@ class MainActivity : AppCompatActivity() {
 
         IconLoader.applySvg(
             findViewById(R.id.sideCloseIcon),
-            "arrow_right",
+            "back",
             R.color.iconTint
         )
 
         findViewById<View>(R.id.sideClose).setOnClickListener {
             closeSidePanel()
+        }
+
+        populateAppsAndFriends()
+    }
+
+    private var sideAppsReady = false
+
+    private fun populateAppsAndFriends() {
+        if (sideAppsReady) return
+        sideAppsReady = true
+
+        val grid = findViewById<android.widget.GridLayout>(R.id.sideAppsGrid)
+        grid.removeAllViews()
+
+        AppsPopup.APPS.forEach { app ->
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = android.view.Gravity.CENTER
+                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_card_pressed)
+                isClickable = true
+                isFocusable = true
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+                setOnClickListener {
+                    val path = app.url ?: return@setOnClickListener
+                    showNavProgress()
+                    startActivity(Intent(this@MainActivity, AppViewerActivity::class.java).apply {
+                        putExtra("url", "file:///android_asset/$path")
+                    })
+                }
+            }
+
+            val icon = ImageView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(38), dp(38))
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+            }
+            IconLoader.applyPng(icon, app.png)
+            card.addView(icon)
+
+            card.addView(TextView(this).apply {
+                text = app.name
+                textSize = 14f
+                gravity = android.view.Gravity.CENTER
+                setTextColor(ContextCompat.getColor(context, R.color.text))
+                setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+                setPadding(0, dp(8), 0, 0)
+            })
+
+            val lp = android.widget.GridLayout.LayoutParams().apply {
+                width = 0
+                height = dp(122)
+                columnSpec = android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, 1f)
+                setMargins(dp(4), dp(4), dp(4), dp(4))
+            }
+            grid.addView(card, lp)
+        }
+
+        val appsTab = findViewById<TextView>(R.id.sideTabApps)
+        val friendsTab = findViewById<TextView>(R.id.sideTabFriends)
+        val appsContent = findViewById<View>(R.id.sideAppsScroll)
+        val friendsContent = findViewById<View>(R.id.sideFriendsContent)
+        appsTab.setOnClickListener {
+            appsContent.visibility = View.VISIBLE
+            friendsContent.visibility = View.GONE
+            appsTab.setTextColor(ContextCompat.getColor(this, R.color.onpri))
+            friendsTab.setTextColor(ContextCompat.getColor(this, R.color.dim))
+        }
+        friendsTab.setOnClickListener {
+            appsContent.visibility = View.GONE
+            friendsContent.visibility = View.VISIBLE
+            appsTab.setTextColor(ContextCompat.getColor(this, R.color.dim))
+            friendsTab.setTextColor(ContextCompat.getColor(this, R.color.onpri))
         }
     }
 
@@ -513,7 +584,6 @@ class MainActivity : AppCompatActivity() {
                 val unique = deduplicate(cached)
                 items.clear()
                 items.addAll(unique)
-                adapter.submit(unique)
             }
 
             loadNews(false)
@@ -641,7 +711,7 @@ class MainActivity : AppCompatActivity() {
         exhausted = false
         page = 1
 
-        if (force && items.isEmpty()) {
+        if (force) {
             adapter.showSkeleton(8)
         }
 
@@ -677,7 +747,9 @@ class MainActivity : AppCompatActivity() {
                 items.addAll(clean)
                 NewsRepository.writeCache(this@MainActivity, clean)
                 adapter.submit(clean)
-            } else if (items.isEmpty()) {
+            } else if (items.isNotEmpty()) {
+                adapter.submit(items)
+            } else {
                 adapter.submit(emptyList())
                 exhausted = true
             }
@@ -1407,10 +1479,10 @@ class MainActivity : AppCompatActivity() {
         )
 
         drawerPanel.setBackgroundColor(
-            ContextCompat.getColor(this, R.color.bgElevated)
+            ContextCompat.getColor(this, R.color.bg)
         )
         findViewById<View>(R.id.drawerHeader).setBackgroundColor(
-            ContextCompat.getColor(this, R.color.bgElevated)
+            ContextCompat.getColor(this, R.color.bg)
         )
         findViewById<TextView>(R.id.drName).setTextColor(
             ContextCompat.getColor(this, R.color.text)

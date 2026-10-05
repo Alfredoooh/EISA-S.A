@@ -219,7 +219,7 @@ object NativeM3Dialog {
             )
 
             val surface = ContextCompat.getColor(dialog.context, R.color.dialogSurface)
-            window.statusBarColor = surface
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
             window.navigationBarColor = surface
             androidx.core.view.WindowInsetsControllerCompat(window, window.decorView).apply {
                 val dark = ThemeManager.resolvedDark(dialog.context)

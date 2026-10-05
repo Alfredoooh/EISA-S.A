@@ -113,7 +113,7 @@ object NativeSheetDialog {
                     }
                 )
 
-                window.statusBarColor = surfaceColor
+                window.statusBarColor = android.graphics.Color.TRANSPARENT
                 window.navigationBarColor = surfaceColor
                 androidx.core.view.WindowInsetsControllerCompat(window, window.decorView).apply {
                     val dark = ThemeManager.resolvedDark(context)

@@ -301,7 +301,7 @@ class NewsAdapter(
             card,
             FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(context, 158)
+                ViewGroup.LayoutParams.WRAP_CONTENT
             )
         )
     }
@@ -315,120 +315,69 @@ class NewsAdapter(
         root.removeAllViews()
         root.transitionName = null
 
-        val columns = when {
-            items.size == 2 -> 2
-            items.size == 4 -> 2
-            else -> 3
+        val horizontal = android.widget.HorizontalScrollView(context).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            clipToPadding = false
+            clipChildren = false
         }
 
-        val section = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
+        val row = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(context, 16), dp(context, 8), dp(context, 16), dp(context, 8))
             clipChildren = false
             clipToPadding = false
         }
 
-        root.addView(
-            section,
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-        )
-
-        items.chunked(columns).forEachIndexed { rowIndex, chunk ->
-            val row = LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                clipChildren = false
-                clipToPadding = false
-            }
-
-            if (rowIndex > 0) {
-                section.addView(
-                    SpaceView(context),
-                    LinearLayout.LayoutParams(
-                        1,
-                        dp(context, GRID_GAP_DP)
-                    )
-                )
-            }
-
-            section.addView(
-                row,
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    dp(context, GROUP_CARD_MAX_DP)
-                )
-            )
-
-            chunk.forEachIndexed { index, item ->
-                val card = createTextCard(
-                    context = context,
-                    item = item,
-                    square = true
-                ).apply {
-                    transitionName = transitionName(item)
-                    setOnClickListener {
-                        try {
-                            onClick(item, this)
-                        } catch (t: Throwable) {
-                            android.util.Log.e("NewsAdapter", "Grouped article click failed", t)
-                        }
+        items.forEachIndexed { index, item ->
+            val card = createTextCard(
+                context = context,
+                item = item,
+                square = false,
+                compact = true
+            ).apply {
+                transitionName = transitionName(item)
+                setOnClickListener {
+                    try {
+                        onClick(item, this)
+                    } catch (t: Throwable) {
+                        android.util.Log.e("NewsAdapter", "Grouped article click failed", t)
                     }
                 }
-
-                val lp = LinearLayout.LayoutParams(
-                    0,
-                    dp(context, GROUP_CARD_MAX_DP),
-                    1f
-                )
-
-                if (index > 0) {
-                    lp.marginStart = dp(context, GRID_GAP_DP)
-                }
-
-                if (chunk.size < columns && index == chunk.lastIndex) {
-                    lp.weight = 1f
-                }
-
-                row.addView(card, lp)
             }
 
-            // Keep every group card visually square after the real row width is known.
-            row.post {
-                val available = (
-                    row.width -
-                        dp(context, GRID_GAP_DP) * (chunk.size - 1)
-                    ).coerceAtLeast(dp(context, 80))
-
-                val size = (
-                    available.toFloat() / chunk.size
-                ).toInt()
-                    .coerceAtMost(dp(context, GROUP_CARD_MAX_DP))
-                    .coerceAtLeast(dp(context, 92))
-
-                for (i in 0 until row.childCount) {
-                    val child = row.getChildAt(i)
-                    val lp = child.layoutParams as LinearLayout.LayoutParams
-                    lp.width = size
-                    lp.height = size
-                    lp.weight = 0f
-                    child.layoutParams = lp
-                }
-            }
+            val lp = LinearLayout.LayoutParams(dp(context, 184), dp(context, 168))
+            if (index > 0) lp.marginStart = dp(context, GRID_GAP_DP)
+            row.addView(card, lp)
         }
+
+        horizontal.addView(
+            row,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+
+        root.addView(
+            horizontal,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(context, 184)
+            )
+        )
     }
 
     private fun createTextCard(
         context: android.content.Context,
         item: NewsItem,
-        square: Boolean
+        square: Boolean,
+        compact: Boolean = false
     ): FrameLayout {
 
         val card = FrameLayout(context).apply {
             background = ContextCompat.getDrawable(
                 context,
-                R.drawable.bg_card_pressed
+                R.drawable.bg_news_text_card
             )
             clipToOutline = true
             isClickable = true
@@ -439,10 +388,10 @@ class NewsAdapter(
         val body = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(
-                dp(context, if (square) 12 else 16),
-                dp(context, if (square) 12 else 16),
-                dp(context, if (square) 12 else 16),
-                dp(context, if (square) 12 else 16)
+                dp(context, if (square || compact) 10 else 16),
+                dp(context, if (square || compact) 10 else 16),
+                dp(context, if (square || compact) 10 else 16),
+                dp(context, if (square || compact) 10 else 16)
             )
         }
 
@@ -525,7 +474,7 @@ class NewsAdapter(
 
         val title = TextView(context).apply {
             text = item.title
-            textSize = if (square) 16f else 19f
+            textSize = if (square) 16f else if (compact) 16f else 19f
             setTextColor(
                 ContextCompat.getColor(
                     context,
@@ -539,7 +488,11 @@ class NewsAdapter(
                 )
             )
             setLineSpacing(0f, 1.25f)
-            maxLines = if (square) 4 else 5
+            maxLines = when {
+                compact -> 3
+                square -> 4
+                else -> 5
+            }
             ellipsize = android.text.TextUtils.TruncateAt.END
         }
 
@@ -549,9 +502,37 @@ class NewsAdapter(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
-                topMargin = dp(context, if (square) 12 else 16)
+                topMargin = dp(context, if (square || compact) 10 else 16)
             }
         )
+
+        if (item.summary.isNotBlank()) {
+            val summary = TextView(context).apply {
+                text = item.summary
+                textSize = if (square) 12.5f else if (compact) 12f else 13.5f
+                setTextColor(ContextCompat.getColor(context, R.color.dim))
+                setLineSpacing(0f, 1.3f)
+                maxLines = when {
+                    compact -> 2
+                    square -> 4
+                    else -> Int.MAX_VALUE
+                }
+                ellipsize = if (compact || square) {
+                    android.text.TextUtils.TruncateAt.END
+                } else {
+                    null
+                }
+            }
+            body.addView(
+                summary,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    topMargin = dp(context, 8)
+                }
+            )
+        }
 
         if (!square) {
             val meta = TextView(context).apply {
@@ -746,8 +727,8 @@ class NewsAdapter(
 
     /**
      * Image articles stay independent. Consecutive no-image articles are kept
-     * together in their own section. A single no-image article remains a long
-     * card; 2/4 use two columns; other groups use three columns.
+     * together in their own horizontal section. A single no-image article remains
+     * a normal growing card; multiple cards can be swiped horizontally.
      */
     private fun rebuildRows() {
         rows.clear()

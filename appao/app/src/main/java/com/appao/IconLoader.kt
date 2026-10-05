@@ -33,27 +33,52 @@ object IconLoader {
         cache.get(key)?.let { return it }
 
         return try {
-            openSvg(context, name).use { stream ->
-                val svg = SVG.getFromInputStream(stream)
-                svg.setDocumentWidth(sizePx.toFloat())
-                svg.setDocumentHeight(sizePx.toFloat())
-
-                val bmp = Bitmap.createBitmap(
-                    sizePx,
-                    sizePx,
-                    Bitmap.Config.ARGB_8888
-                )
-
-                Canvas(bmp).drawPicture(
-                    svg.renderToPicture()
-                )
-
-                cache.put(key, bmp)
-                bmp
+            val raw = openSvg(context, name).use {
+                it.readBytes().toString(Charsets.UTF_8)
             }
+            val source = normalizeSvgStrokeWeight(raw)
+            val renderSize = (sizePx * 4).coerceAtLeast(96)
+            val svg = SVG.getFromString(source)
+            svg.setDocumentWidth(renderSize.toFloat())
+            svg.setDocumentHeight(renderSize.toFloat())
+
+            val large = Bitmap.createBitmap(
+                renderSize,
+                renderSize,
+                Bitmap.Config.ARGB_8888
+            )
+
+            Canvas(large).apply {
+                drawFilter = android.graphics.PaintFlagsDrawFilter(0, 3)
+                drawPicture(svg.renderToPicture())
+            }
+
+            val bmp = Bitmap.createScaledBitmap(large, sizePx, sizePx, true)
+            if (large !== bmp) large.recycle()
+            cache.put(key, bmp)
+            bmp
         } catch (_: Throwable) {
             null
         }
+    }
+
+    private fun normalizeSvgStrokeWeight(raw: String): String {
+        fun reduce(value: String): String {
+            val number = value.toFloatOrNull() ?: return value
+            return String.format(java.util.Locale.US, "%.3f", number * 0.82f)
+        }
+
+        var out = raw.replace(
+            Regex("(stroke-width\\s*=\\s*[\"\\'])([0-9]*\\.?[0-9]+)([\"\\'])")
+        ) { match ->
+            match.groupValues[1] + reduce(match.groupValues[2]) + match.groupValues[3]
+        }
+        out = out.replace(
+            Regex("(stroke-width\\s*:\\s*)([0-9]*\\.?[0-9]+)")
+        ) { match ->
+            match.groupValues[1] + reduce(match.groupValues[2])
+        }
+        return out
     }
 
     private fun openSvg(

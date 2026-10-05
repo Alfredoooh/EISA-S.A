@@ -88,6 +88,7 @@ class ArticleActivity : AppCompatActivity() {
         itemImage = intent.getStringExtra("image").orEmpty()
         itemLink = intent.getStringExtra("link").orEmpty()
         itemTitle = intent.getStringExtra("title").orEmpty()
+        UsageTracker.recordNewsSource(this, intent.getStringExtra("source").orEmpty())
 
         val itemSummary = intent.getStringExtra("summary").orEmpty()
         val itemSource = intent.getStringExtra("source").orEmpty()

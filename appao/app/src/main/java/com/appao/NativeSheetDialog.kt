@@ -43,18 +43,17 @@ object NativeSheetDialog {
 
         dialog.setOnShowListener {
 
+            val surfaceColor = ContextCompat.getColor(
+                context,
+                R.color.dialogSurface
+            )
+
             val sheet =
                 dialog.findViewById<FrameLayout>(
                     com.google.android.material.R.id.design_bottom_sheet
                 )
 
             sheet?.let {
-
-                val surfaceColor =
-                    ContextCompat.getColor(
-                        context,
-                        R.color.dialogSurface
-                    )
 
                 val currentBackground =
                     it.background

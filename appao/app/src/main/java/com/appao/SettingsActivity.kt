@@ -82,13 +82,16 @@ class SettingsActivity : AppCompatActivity() {
             IconLoader.applySvg(row.findViewById(R.id.rowIcon), rowDef.svg, R.color.iconTint)
         }
         findViewById<View>(R.id.rowTheme).findViewById<TextView>(R.id.rowValue).apply {
-            visibility = View.VISIBLE; text = ThemeManager.label(this@SettingsActivity)
+            setVisibility(View.VISIBLE)
+            setText(ThemeManager.label(this@SettingsActivity))
         }
         findViewById<View>(R.id.rowLang).findViewById<TextView>(R.id.rowValue).apply {
-            visibility = View.VISIBLE; text = languageLabel()
+            setVisibility(View.VISIBLE)
+            setText(languageLabel())
         }
         findViewById<View>(R.id.rowData).findViewById<TextView>(R.id.rowValue).apply {
-            visibility = View.VISIBLE; text = if (dataSavingEnabled()) "Ligada" else "Desligada"
+            setVisibility(View.VISIBLE)
+            setText(if (dataSavingEnabled()) "Ligada" else "Desligada")
         }
     }
 

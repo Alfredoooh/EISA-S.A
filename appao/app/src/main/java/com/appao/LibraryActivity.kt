@@ -113,7 +113,7 @@ class LibraryActivity : AppCompatActivity() {
         list.itemAnimator = null
         list.adapter = NewsAdapter(
             items.toMutableList(),
-            onClick = { item, source ->
+            { item, source ->
                 openArticle(item, source)
             }
         )

@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>Pull to Refresh + Drawers</title>
+<style>
+:root{
+  --bg:#fff;
+  --text:#000;
+  --line:#EEEEEE;
+  --accent:#E8890C;
+  --track:#E8E8E8;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{
+  margin:0;width:100%;height:100%;overflow:hidden;
+  background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  overscroll-behavior:none;
+  user-select:none;-webkit-user-select:none;
+}
+#viewport{
+  position:relative;width:100%;height:100%;overflow:hidden;
+  background:var(--bg);touch-action:none;
+}
+
+/* ============================================================
+   LOADER — atrás da tela, aparece no espaço que se abre
+   ============================================================ */
+#indicator{
+  position:absolute;left:50%;top:0;
+  width:28px;height:28px;margin-left:-14px;
+  opacity:0;pointer-events:none;
+  transform-origin:50% 50%;
+  will-change:transform,opacity;
+  z-index:1;
+  transform:translate3d(0,-14px,0) scale(0);
+}
+#spinner{
+  width:100%;height:100%;
+  border-radius:50%;
+  border:2.5px solid var(--track);
+  border-top-color:var(--accent);
+  border-right-color:var(--accent);
+  will-change:transform;
+  transform:rotate(0deg);
+}
+@keyframes spin{
+  from{transform:rotate(var(--rot-start,0deg))}
+  to  {transform:rotate(calc(var(--rot-start,0deg) + 360deg))}
+}
+
+/* ============================================================
+   SCREEN
+   ============================================================ */
+#screen{
+  position:absolute;inset:0;
+  background:var(--bg);
+  z-index:2;
+  will-change:transform;
+  backface-visibility:hidden;
+  transform:translate3d(0,0,0);
+}
+#appbar{
+  height:64px;
+  display:flex;align-items:center;justify-content:center;
+  border-bottom:1px solid var(--line);
+  font-size:20px;font-weight:700;letter-spacing:-.3px;
+}
+#content{
+  display:flex;align-items:center;justify-content:center;
+  height:calc(100% - 64px);
+  font-size:34px;font-weight:700;letter-spacing:-.6px;
+}
+
+/* ============================================================
+   SCRIM — escurece a tela, sem capturar cliques
+   ============================================================ */
+#scrim{
+  position:absolute;inset:0;
+  background:#000;
+  opacity:0;
+  pointer-events:none;
+  z-index:3;
+  will-change:opacity;
+}
+
+/* ============================================================
+   DRAWERS — por cima
+   ============================================================ */
+.drawer{
+  position:absolute;inset:0;
+  background:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+  font-size:34px;font-weight:700;letter-spacing:-.6px;
+  z-index:4;
+  will-change:transform;
+  backface-visibility:hidden;
+}
+#drawer-1{transform:translate3d(-100%,0,0)}
+#drawer-2{transform:translate3d(100%,0,0)}
+</style>
+</head>
+<body>
+<div id="viewport">
+
+  <div id="indicator"><div id="spinner"></div></div>
+
+  <div id="screen">
+    <header id="appbar">Tela Principal</header>
+    <main id="content">Tela Principal</main>
+  </div>
+
+  <div id="scrim"></div>
+
+  <aside id="drawer-1" class="drawer">Tela 1</aside>
+  <aside id="drawer-2" class="drawer">Tela 2</aside>
+
+</div>
+
+<script>
+(() => {
+  const viewport  = document.getElementById('viewport');
+  const screen    = document.getElementById('screen');
+  const indicator = document.getElementById('indicator');
+  const spinner   = document.getElementById('spinner');
+  const scrim     = document.getElementById('scrim');
+  const drawer1   = document.getElementById('drawer-1');
+  const drawer2   = document.getElementById('drawer-2');
+
+  let W = viewport.clientWidth;
+
+  const THRESHOLD = 72;
+  const MAX_PULL  = 130;
+  const PARALLAX  = 0.34;
+  const OPEN_PASS = 0.18;   /* abrir: 18% a partir de fechado */
+  const CLOSE_PASS= 0.22;   /* fechar: 22% a partir de aberto */
+  const FLICK_V   = 0.4;    /* px/ms — flick decide logo */
+  const MAX_DIM   = 0.35;
+  const EASE      = 'cubic-bezier(.32,.72,0,1)';
+  const DURATION  = 0.5;
+
+  /* Vertical */
+  let vCurrent = 0, vTarget = 0, vVelocity = 0;
+  let refreshing = false;
+  let currentRot = 0;
+
+  /* Horizontal */
+  let hOffset = 0;
+  let hStart  = 0;
+
+  /* Gesto */
+  let gesture   = null;
+  let dragging  = false;
+  let startX = 0, startY = 0;
+  let animating = false;
+  let lastTime  = 0;
+
+  /* Flick */
+  let lastX = 0, lastT = 0, vX = 0;
+
+  const resist = (dy) =>
+    Math.min(MAX_PULL, (1 - Math.exp(-dy * 0.55 / MAX_PULL)) * MAX_PULL);
+
+  /* ============================================================
+     RENDER
+     ============================================================ */
+  const render = () => {
+    const screenX = hOffset * PARALLAX;
+
+    drawer1.style.transform = `translate3d(${hOffset - W}px, 0, 0)`;
+    drawer2.style.transform = `translate3d(${hOffset + W}px, 0, 0)`;
+
+    screen.style.transform = `translate3d(${screenX}px, ${vCurrent}px, 0)`;
+
+    const p = Math.min(1, Math.abs(hOffset) / W);
+    scrim.style.opacity = p * MAX_DIM;
+
+    const appearT = Math.min(1, vCurrent / 55);
+    const zoom    = 1 - Math.pow(1 - appearT, 3);
+    const topY    = (vCurrent * 0.5) - 14;
+
+    indicator.style.opacity = zoom;
+    indicator.style.transform =
+      `translate3d(0, ${topY}px, 0) scale(${zoom})`;
+
+    if (!refreshing) {
+      const rot = Math.min(1, vCurrent / THRESHOLD) * 300;
+      currentRot = rot;
+      spinner.style.transform = `rotate(${rot}deg)`;
+    }
+  };
+
+  /* ============================================================
+     RAF — mola vertical
+     ============================================================ */
+  const raf = (time) => {
+    const dt = lastTime ? Math.min((time - lastTime) / 1000, 0.033) : 0.016;
+    lastTime = time;
+
+    if (dragging && gesture === 'v') {
+      vCurrent += (vTarget - vCurrent) * 0.55;
+    } else {
+      const force = -180 * (vCurrent - vTarget);
+      vVelocity += force * dt;
+      vVelocity *= Math.exp(-22 * dt);
+      vCurrent  += vVelocity * dt;
+
+      if (Math.abs(vCurrent - vTarget) < 0.3 && Math.abs(vVelocity) < 0.5) {
+        vCurrent = vTarget; vVelocity = 0;
+      }
+    }
+
+    render();
+
+    const done = Math.abs(vCurrent - vTarget) < 0.3 && Math.abs(vVelocity) < 0.5;
+    if (dragging || !done) requestAnimationFrame(raf);
+    else { animating = false; lastTime = 0; }
+  };
+
+  const startRaf = () => {
+    if (!animating) { animating = true; lastTime = 0; requestAnimationFrame(raf); }
+  };
+
+  /* ============================================================
+     GESTO
+     ============================================================ */
+  const onStart = (x, y) => {
+    startX = x; startY = y;
+    hStart = hOffset;
+    gesture = null;
+    dragging = true;
+    vVelocity = 0;
+    lastX = x; lastT = performance.now(); vX = 0;
+  };
+
+  const onMove = (x, y, evt) => {
+    if (!dragging) return;
+
+    const now = performance.now();
+    const dt = now - lastT;
+    if (dt > 0) vX = (x - lastX) / dt;
+    lastX = x; lastT = now;
+
+    const dx = x - startX;
+    const dy = y - startY;
+
+    if (gesture === null) {
+      if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+      gesture = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+      if (gesture === 'v') startY = y;
+    }
+
+    if (gesture === 'h') {
+      if (evt && evt.cancelable) evt.preventDefault();
+
+      let next = hStart + dx;
+      if (hStart >= W - 2)       next = Math.max(0, Math.min(W, next));
+      else if (hStart <= -W + 2) next = Math.max(-W, Math.min(0, next));
+      else                       next = Math.max(-W, Math.min(W, next));
+
+      hOffset = next;
+      render();
+      return;
+    }
+
+    if (refreshing) return;
+    if (Math.abs(hOffset) > 1) return;
+
+    const vdy = y - startY;
+    vTarget = vdy <= 0 ? 0 : resist(vdy);
+    startRaf();
+  };
+
+  const onEnd = () => {
+    if (!dragging) return;
+    dragging = false;
+
+    /* Sem gesto → não faz nada (não fecha por toque) */
+    if (gesture === null) return;
+
+    /* ---------- Horizontal — decisão direcional ---------- */
+    if (gesture === 'h') {
+      gesture = null;
+
+      const flick = Math.abs(vX) >= FLICK_V;
+
+      const startedOpenLeft  = hStart >= W - 2;
+      const startedOpenRight = hStart <= -W + 2;
+
+      if (startedOpenLeft) {
+        /* Estava aberto à esquerda → decidir fechar ou manter */
+        const closing = (hOffset <= W * (1 - CLOSE_PASS)) || (flick && vX < 0);
+        snapH(closing ? 0 : W);
+        return;
+      }
+
+      if (startedOpenRight) {
+        /* Estava aberto à direita */
+        const closing = (hOffset >= -W * (1 - CLOSE_PASS)) || (flick && vX > 0);
+        snapH(closing ? 0 : -W);
+        return;
+      }
+
+      /* Estava fechado → decidir abrir esquerda, direita, ou manter */
+      const openLeft  = (hOffset >= W * OPEN_PASS) || (flick && vX > 0);
+      const openRight = (hOffset <= -W * OPEN_PASS) || (flick && vX < 0);
+
+      if (openLeft)       snapH(W);
+      else if (openRight) snapH(-W);
+      else                snapH(0);
+      return;
+    }
+
+    /* ---------- Vertical ---------- */
+    gesture = null;
+    if (vCurrent >= THRESHOLD) beginRefresh();
+    else { vTarget = 0; vVelocity = 0; startRaf(); }
+  };
+
+  /* ============================================================
+     SNAP
+     ============================================================ */
+  const snapH = (target) => {
+    hOffset = target;
+
+    drawer1.style.transition = `transform ${DURATION}s ${EASE}`;
+    drawer2.style.transition = `transform ${DURATION}s ${EASE}`;
+    screen.style.transition  = `transform ${DURATION}s ${EASE}`;
+    scrim.style.transition   = `opacity ${DURATION}s ${EASE}`;
+
+    render();
+
+    setTimeout(() => {
+      drawer1.style.transition = '';
+      drawer2.style.transition = '';
+      screen.style.transition  = '';
+      scrim.style.transition   = '';
+    }, DURATION * 1000 + 60);
+  };
+
+  /* ============================================================
+     REFRESH
+     ============================================================ */
+  const beginRefresh = () => {
+    refreshing = true;
+    vTarget = THRESHOLD;
+    vVelocity = 0;
+
+    spinner.style.setProperty('--rot-start', `${currentRot}deg`);
+    spinner.style.animation = 'spin .8s linear infinite';
+
+    startRaf();
+    setTimeout(finishRefresh, 1400);
+  };
+
+  const finishRefresh = () => {
+    refreshing = false;
+    vTarget = 0;
+    vVelocity = -Math.max(2, vCurrent * 0.05);
+    startRaf();
+
+    setTimeout(() => {
+      spinner.style.animation = '';
+      spinner.style.setProperty('--rot-start', '0deg');
+      spinner.style.transform = 'rotate(0deg)';
+      currentRot = 0;
+    }, 700);
+  };
+
+  /* ============================================================
+     TOUCH
+     ============================================================ */
+  viewport.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 1) return;
+    onStart(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+
+  viewport.addEventListener('touchmove', (e) => {
+    if (!dragging) return;
+    onMove(e.touches[0].clientX, e.touches[0].clientY, e);
+  }, { passive: false });
+
+  viewport.addEventListener('touchend', onEnd, { passive: true });
+  viewport.addEventListener('touchcancel', onEnd, { passive: true });
+
+  /* ============================================================
+     MOUSE (desktop)
+     ============================================================ */
+  let mouseDown = false;
+  viewport.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    mouseDown = true;
+    onStart(e.clientX, e.clientY);
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!mouseDown) return;
+    onMove(e.clientX, e.clientY, e);
+  });
+  window.addEventListener('mouseup', () => {
+    if (!mouseDown) return;
+    mouseDown = false;
+    onEnd();
+  });
+
+  window.addEventListener('resize', () => {
+    W = viewport.clientWidth;
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

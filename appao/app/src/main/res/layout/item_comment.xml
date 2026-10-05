@@ -4,9 +4,17 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:padding="12dp"
+    android:layout_marginStart="12dp"
+    android:layout_marginEnd="12dp"
+    android:layout_marginTop="4dp"
+    android:layout_marginBottom="4dp"
+    android:background="@drawable/bg_comment_container"
+    android:foreground="?attr/selectableItemBackground"
     android:clickable="true"
     android:focusable="true"
-    android:background="?attr/selectableItemBackground">
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:clipToOutline="true">
 
     <ImageView
         android:id="@+id/cmAvatar"
@@ -66,8 +74,9 @@
             android:id="@+id/cmPicker"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="@color/bg"
+            android:layout_marginTop="10dp"
+            android:elevation="2dp"
+            android:background="@drawable/bg_comment_picker"
             android:padding="6dp"
             android:orientation="horizontal"
             android:visibility="gone"/>

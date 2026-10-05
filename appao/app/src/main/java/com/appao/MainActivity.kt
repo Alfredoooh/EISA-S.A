@@ -49,6 +49,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var header: View
     private lateinit var drawerPanel: View
     private lateinit var drawerHeader: View
+    private lateinit var sidePanel: View
+    private lateinit var pullIndicator: PullRefreshIndicatorView
 
     private val items = mutableListOf<NewsItem>()
     private val categories = listOf(
@@ -61,6 +63,24 @@ class MainActivity : AppCompatActivity() {
     private var loading = false
     private var exhausted = false
     private var drawerOpen = false
+    private var sidePanelOpen = false
+
+    private var drawerAnimator: ValueAnimator? = null
+    private var sidePanelAnimator: ValueAnimator? = null
+
+    // Instagram-style pull-to-refresh state. The values mirror the supplied
+    // reference: 72dp trigger, 130dp maximum, exponential resistance and a
+    // damped spring for the return/hold motion.
+    private var pullDragging = false
+    private var pullRefreshing = false
+    private var pullCurrentY = 0f
+    private var pullTargetY = 0f
+    private var pullVelocity = 0f
+    private var pullLastTimeNs = 0L
+    private var pullFramePosted = false
+    private var pullRotation = 0f
+    private var pullSpinnerAnimator: ValueAnimator? = null
+    private var pullFinishPosted = false
 
     private var headerHeight = 0
     private var bottomBarHeight = 0
@@ -86,12 +106,15 @@ class MainActivity : AppCompatActivity() {
         header = findViewById(R.id.header)
         drawerPanel = findViewById(R.id.drawerPanel)
         drawerHeader = findViewById(R.id.drawerHeader)
+        sidePanel = findViewById(R.id.sidePanel)
+        pullIndicator = findViewById(R.id.pullIndicator)
 
         safeStartup("insets") { setupInsets() }
         safeStartup("feed") { setupFeed() }
         safeStartup("header") { setupHeader() }
         safeStartup("bottom-input") { setupBottomInput() }
         safeStartup("drawer") { setupDrawer() }
+        safeStartup("side-panel") { setupSidePanel() }
         safeStartup("categories") { setupCategories() }
 
         // Render a stable first frame before starting the adapter animation,
@@ -193,8 +216,7 @@ class MainActivity : AppCompatActivity() {
         adapter = NewsAdapter(
             initial = items.toList(),
             onClick = { item, source -> openArticle(item, source) },
-            showTopCards = true,
-            onTopAdd = { openSidePanel() }
+            showTopCards = true
         )
 
         recycler.layoutManager = LinearLayoutManager(this)
@@ -215,83 +237,35 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        swipe.setOnRefreshListener {
-            NewsRepository.resetDedup()
-            resetBarsInstantly()
-            loadNews(true)
-        }
-
-        // Instagram-style pull: the entire home surface follows the user's
-        // downward gesture while the RecyclerView is at the very top.
-        val pullSlop = dp(8)
-        val pullThreshold = dp(72)
-        var pullDownY = 0f
-        var pullActive = false
-        var pullDistance = 0f
-
-        swipe.setOnTouchListener { _, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    pullDownY = event.rawY
-                    pullActive = !recycler.canScrollVertically(-1)
-                    pullDistance = 0f
-                }
-
-                MotionEvent.ACTION_MOVE -> {
-                    if (pullActive) {
-                        val dy = event.rawY - pullDownY
-                        if (dy > pullSlop && !recycler.canScrollVertically(-1)) {
-                            pullDistance = (dy * 0.55f).coerceIn(0f, dp(96).toFloat())
-                            mainContent.translationY = pullDistance
-                        } else if (dy < 0f) {
-                            pullActive = false
-                            pullDistance = 0f
-                            mainContent.animate()
-                                .translationY(0f)
-                                .setDuration(160L)
-                                .setInterpolator(Curves.IOS)
-                                .start()
-                        }
-                    }
-                }
-
-                MotionEvent.ACTION_UP,
-                MotionEvent.ACTION_CANCEL -> {
-                    if (pullActive) {
-                        val shouldHold = pullDistance >= pullThreshold || swipe.isRefreshing
-                        pullActive = false
-
-                        if (shouldHold) {
-                            mainContent.animate()
-                                .translationY(dp(56).toFloat())
-                                .setDuration(140L)
-                                .setInterpolator(Curves.IOS)
-                                .start()
-                        } else {
-                            mainContent.animate()
-                                .translationY(0f)
-                                .setDuration(190L)
-                                .setInterpolator(Curves.IOS)
-                                .start()
-                        }
-                    }
-                }
-            }
-            false
-        }
+        // The stock SwipeRefreshLayout animation is disabled. Pull-to-refresh
+        // is implemented by the root gesture host so the entire home container
+        // follows the finger exactly like the supplied HTML reference.
+        swipe.isEnabled = false
+        pullIndicator.alpha = 0f
+        pullIndicator.scaleX = 0f
+        pullIndicator.scaleY = 0f
     }
 
     private fun setupHeader() {
-        IconLoader.applyPng(
+        IconLoader.applySvg(
+            findViewById(R.id.hAddIcon),
+            "add",
+            R.color.iconTint
+        )
+        IconLoader.applySvg(
             findViewById(R.id.hMoreIcon),
             "menu",
             R.color.iconTint
         )
-        IconLoader.applyPng(
+        IconLoader.applySvg(
             findViewById(R.id.hCatChevron),
-            "chevron_down",
+            "chevron-down",
             R.color.iconTint
         )
+
+        findViewById<View>(R.id.hAdd).setOnClickListener {
+            openSidePanel()
+        }
         findViewById<View>(R.id.hMore).setOnClickListener {
             openDrawer()
         }
@@ -373,16 +347,20 @@ class MainActivity : AppCompatActivity() {
         }
 
         IconLoader.applyPng(
+            findViewById(R.id.drAvatar),
+            "logo"
+        )
+        IconLoader.applyPng(
             findViewById(R.id.drIconProfile),
-            "drawer_profile"
+            "profile"
         )
         IconLoader.applyPng(
             findViewById(R.id.drIconLibrary),
-            "drawer_bookmark"
+            "bookmark"
         )
         IconLoader.applyPng(
             findViewById(R.id.drIconSettings),
-            "drawer_settings"
+            "settings"
         )
 
         IconLoader.applySvg(
@@ -420,7 +398,62 @@ class MainActivity : AppCompatActivity() {
         host.listener = object : DrawerHostLayout.Listener {
             override fun isDrawerOpen(): Boolean = drawerOpen
 
+            override fun isSidePanelOpen(): Boolean = sidePanelOpen
+
+            override fun canStartPull(x: Float, y: Float): Boolean {
+                if (drawerOpen || sidePanelOpen || pullRefreshing || loading) return false
+                if (!::recycler.isInitialized || !recycler.isShown) return false
+                if (recycler.canScrollVertically(-1)) return false
+
+                val reservedBottom = if (bottomBarHeight > 0) {
+                    bottomBarHeight + dp(12)
+                } else {
+                    dp(70)
+                }
+                return y < rootMainHeight() - reservedBottom
+            }
+
+            override fun onPullGestureStart() {
+                pullDragging = true
+                pullVelocity = 0f
+                pullTargetY = pullCurrentY
+                pullLastTimeNs = 0L
+                recycler.stopScroll()
+                mainContent.animate().cancel()
+                startPullLoop()
+            }
+
+            override fun onPullGestureProgress(distance: Float) {
+                if (!pullDragging || pullRefreshing) return
+                val maxPull = dp(130).toFloat()
+                val threshold = dp(72).toFloat()
+                val k = 0.55f
+                pullTargetY = (
+                    (1f - kotlin.math.exp(-distance * k / maxPull)) * maxPull
+                ).coerceAtMost(maxPull)
+                if (pullCurrentY > threshold && pullTargetY < threshold) {
+                    // Keep the indicator state continuous when crossing the
+                    // trigger boundary in the opposite direction.
+                }
+                startPullLoop()
+            }
+
+            override fun onPullGestureEnd() {
+                if (!pullDragging || pullRefreshing) return
+                pullDragging = false
+
+                val threshold = dp(72).toFloat()
+                if (pullCurrentY >= threshold) {
+                    beginPullRefresh()
+                } else {
+                    pullTargetY = 0f
+                    pullVelocity = 0f
+                    startPullLoop()
+                }
+            }
+
             override fun onDrawerGestureStart(opening: Boolean) {
+                drawerAnimator?.cancel()
                 drawerPanel.animate().cancel()
                 mainContent.animate().cancel()
                 if (opening) {
@@ -446,18 +479,82 @@ class MainActivity : AppCompatActivity() {
                 progress: Float,
                 velocity: Float
             ) {
-                finishDrawerGesture(
-                    opening,
-                    progress,
-                    velocity
-                )
+                finishDrawerGesture(opening, progress, velocity)
             }
 
-            override fun onLeftPanelSwipe() {
-                if (!drawerOpen) {
-                    openSidePanel()
+            override fun onSidePanelGestureStart(opening: Boolean) {
+                sidePanelAnimator?.cancel()
+                sidePanel.animate().cancel()
+                mainContent.animate().cancel()
+                if (opening) {
+                    beginSidePanelOpenGesture()
+                } else {
+                    val width = sidePanelWidth()
+                    val current = ((width + sidePanel.translationX) / width)
+                        .coerceIn(0f, 1f)
+                    sidePanelOpen = true
+                    sidePanel.visibility = View.VISIBLE
+                    setSidePanelProgress(current)
                 }
             }
+
+            override fun onSidePanelGestureProgress(progress: Float) {
+                if (sidePanelOpen || progress > 0f) {
+                    setSidePanelProgress(progress)
+                }
+            }
+
+            override fun onSidePanelGestureEnd(
+                opening: Boolean,
+                progress: Float,
+                velocity: Float
+            ) {
+                finishSidePanelGesture(opening, progress, velocity)
+            }
+        }
+    }
+
+    private fun setupSidePanel() {
+        sidePanelOpen = false
+        sidePanel.visibility = View.GONE
+
+        sidePanel.post {
+            if (isFinishing || isDestroyed) return@post
+            sidePanel.layoutParams = sidePanel.layoutParams.apply {
+                width = rootMainWidth()
+                height = ViewGroup.LayoutParams.MATCH_PARENT
+            }
+            sidePanel.requestLayout()
+            sidePanel.translationX = -rootMainWidth().toFloat()
+        }
+
+        ViewCompat.setOnApplyWindowInsetsListener(
+            findViewById(R.id.sideHeader)
+        ) { view, insets ->
+            val top = insets.getInsets(
+                WindowInsetsCompat.Type.statusBars()
+            ).top
+            val lp = view.layoutParams
+            lp.height = dp(56) + top
+            view.layoutParams = lp
+            view.setPadding(
+                view.paddingLeft,
+                top + dp(2),
+                view.paddingRight,
+                view.paddingBottom
+            )
+            insets
+        }
+        ViewCompat.requestApplyInsets(findViewById(R.id.sideHeader))
+
+        IconLoader.applySvg(
+            findViewById(R.id.sideCloseIcon),
+            "arrow_right",
+            R.color.iconTint
+        )
+
+        findViewById<View>(R.id.sideClose).setOnClickListener {
+            closeSidePanel()
         }
     }
 
@@ -635,11 +732,6 @@ class MainActivity : AppCompatActivity() {
 
             loading = false
             swipe.isRefreshing = false
-            mainContent.animate()
-                .translationY(0f)
-                .setDuration(240L)
-                .setInterpolator(Curves.IOS)
-                .start()
 
             val clean = deduplicate(result)
 
@@ -838,6 +930,10 @@ class MainActivity : AppCompatActivity() {
         drawerPanel.width.toFloat().takeIf { it > 0f }
             ?: (rootMainWidth() * 0.82f).coerceAtLeast(1f)
 
+    private fun sidePanelWidth(): Float =
+        sidePanel.width.toFloat().takeIf { it > 0f }
+            ?: rootMainWidth().toFloat().coerceAtLeast(1f)
+
     private fun rootMainWidth(): Int =
         if (::mainContent.isInitialized && mainContent.width > 0) {
             mainContent.width
@@ -849,15 +945,15 @@ class MainActivity : AppCompatActivity() {
         val p = progressValue.coerceIn(0f, 1f)
         val width = drawerWidth()
 
-        // Drawer stays on the RIGHT and follows the finger as a single container.
-        // Do not transform the home surface here: that created a visible two-phase motion.
         drawerPanel.translationX = width * (1f - p)
-        mainContent.translationX = 0f
-        mainContent.scaleX = 1f
-        mainContent.scaleY = 1f
 
-        // Edge-to-edge: system bars are transparent while the drawer is moving,
-        // so the drawer itself can visually reach behind the status/navigation bars.
+        // Pixel-perfect horizontal relationship from the supplied reference:
+        // the drawer follows the finger 1:1 and the current screen follows at
+        // 34% parallax, producing the requested delayed/pushed feel.
+        mainContent.translationX = -rootMainWidth() * 0.34f * p
+
+        findViewById<View>(R.id.gestureScrim).alpha = p * 0.35f
+
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
 
@@ -873,12 +969,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun beginDrawerOpenGesture() {
         drawerOpen = true
+        sidePanelOpen = false
         drawerPanel.visibility = View.VISIBLE
         drawerPanel.animate().cancel()
         mainContent.animate().cancel()
 
-        // Keep the exact finger position as the animation starting point.
-        // Never reset to zero here: that caused the visible two-phase jump.
         val width = drawerWidth()
         val current = ((width - drawerPanel.translationX) / width)
             .coerceIn(0f, 1f)
@@ -891,51 +986,43 @@ class MainActivity : AppCompatActivity() {
         velocity: Float
     ) {
         if (opening) {
-            val shouldOpen =
-                progress > 0.20f ||
-                    velocity < -0.55f
-
-            if (shouldOpen) {
-                openDrawer(progress)
-            } else {
-                closeDrawer()
-            }
+            val shouldOpen = progress > 0.18f || velocity < -0.4f
+            if (shouldOpen) openDrawer(progress) else closeDrawer()
         } else {
-            val shouldClose =
-                progress < 0.80f ||
-                    velocity > 0.55f
+            val shouldClose = progress < 0.78f || velocity > 0.4f
+            if (shouldClose) closeDrawer() else openDrawer(progress)
+        }
+    }
 
-            if (shouldClose) {
-                closeDrawer()
-            } else {
-                openDrawer(progress)
+    private fun animateDrawerTo(target: Float, current: Float) {
+        drawerAnimator?.cancel()
+        val distance = kotlin.math.abs(target - current)
+        val duration = 500L
+
+        drawerAnimator = ValueAnimator.ofFloat(current, target).apply {
+            this.duration = duration
+            interpolator = Curves.IOS
+            addUpdateListener {
+                setDrawerProgress(it.animatedValue as Float)
             }
+            start()
         }
     }
 
     private fun openDrawer(gestureProgress: Float? = null) {
         drawerOpen = true
+        sidePanelOpen = false
         drawerPanel.visibility = View.VISIBLE
-
+        drawerAnimator?.cancel()
         drawerPanel.animate().cancel()
         mainContent.animate().cancel()
-        mainContent.translationX = 0f
-        mainContent.scaleX = 1f
-        mainContent.scaleY = 1f
 
         val width = drawerWidth()
-        val current = (gestureProgress ?: ((width - drawerPanel.translationX) / width))
+        val current = (gestureProgress
+            ?: ((width - drawerPanel.translationX) / width))
             .coerceIn(0f, 1f)
         setDrawerProgress(current)
-
-        val duration = (300L * (1f - current)).toLong().coerceAtLeast(120L)
-
-        drawerPanel.animate()
-            .translationX(0f)
-            .setDuration(duration)
-            .setInterpolator(Curves.IOS)
-            .start()
-
+        animateDrawerTo(1f, current)
     }
 
     private fun closeDrawer() {
@@ -945,39 +1032,263 @@ class MainActivity : AppCompatActivity() {
         val current = ((width - drawerPanel.translationX) / width)
             .coerceIn(0f, 1f)
         drawerOpen = false
-
-        drawerPanel.animate().cancel()
-        mainContent.animate().cancel()
+        drawerAnimator?.cancel()
         setDrawerProgress(current)
 
-        val duration = (300L * current).toLong().coerceAtLeast(120L)
-
-        drawerPanel.animate()
-            .translationX(width)
-            .setDuration(duration)
-            .setInterpolator(Curves.IOS)
-            .withEndAction {
-                drawerPanel.visibility = View.GONE
-                drawerPanel.translationX = width
-                mainContent.translationX = 0f
-                mainContent.scaleX = 1f
-                mainContent.scaleY = 1f
-                SystemBarHelper.sync(this)
+        drawerAnimator = ValueAnimator.ofFloat(current, 0f).apply {
+            duration = 500L
+            interpolator = Curves.IOS
+            addUpdateListener {
+                setDrawerProgress(it.animatedValue as Float)
             }
-            .start()
-
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    if (drawerOpen) return
+                    drawerPanel.visibility = View.GONE
+                    drawerPanel.translationX = width
+                    mainContent.translationX = 0f
+                    findViewById<View>(R.id.gestureScrim).alpha = 0f
+                    SystemBarHelper.sync(this@MainActivity)
+                }
+            })
+            start()
+        }
     }
 
-    private fun openSidePanel() {
+    private fun setSidePanelProgress(progressValue: Float) {
+        val p = progressValue.coerceIn(0f, 1f)
+        val width = sidePanelWidth()
+
+        sidePanel.translationX = -width * (1f - p)
+
+        // Same 34% parallax in the opposite direction.
+        mainContent.translationX = rootMainWidth() * 0.34f * p
+
+        findViewById<View>(R.id.gestureScrim).alpha = p * 0.35f
+
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        androidx.core.view.WindowInsetsControllerCompat(
+            window,
+            window.decorView
+        ).apply {
+            val dark = ThemeManager.resolvedDark(this@MainActivity)
+            isAppearanceLightStatusBars = !dark
+            isAppearanceLightNavigationBars = !dark
+        }
+    }
+
+    private fun beginSidePanelOpenGesture() {
+        sidePanelOpen = true
+        drawerOpen = false
+        sidePanel.visibility = View.VISIBLE
+        sidePanelAnimator?.cancel()
+        mainContent.animate().cancel()
+
+        val width = sidePanelWidth()
+        val current = ((width + sidePanel.translationX) / width)
+            .coerceIn(0f, 1f)
+        setSidePanelProgress(current)
+    }
+
+    private fun finishSidePanelGesture(
+        opening: Boolean,
+        progress: Float,
+        velocity: Float
+    ) {
+        if (opening) {
+            val shouldOpen = progress > 0.18f || velocity > 0.4f
+            if (shouldOpen) openSidePanel(progress) else closeSidePanel()
+        } else {
+            val shouldClose = progress < 0.78f || velocity < -0.4f
+            if (shouldClose) closeSidePanel() else openSidePanel(progress)
+        }
+    }
+
+    private fun animateSidePanelTo(target: Float, current: Float) {
+        sidePanelAnimator?.cancel()
+        val distance = kotlin.math.abs(target - current)
+        val duration = 500L
+        sidePanelAnimator = ValueAnimator.ofFloat(current, target).apply {
+            this.duration = duration
+            interpolator = Curves.IOS
+            addUpdateListener {
+                setSidePanelProgress(it.animatedValue as Float)
+            }
+            start()
+        }
+    }
+
+    private fun openSidePanel(gestureProgress: Float? = null) {
         if (drawerOpen || isFinishing || isDestroyed) return
 
-        startActivity(
-            Intent(this, SidePanelActivity::class.java)
-        )
-        overridePendingTransition(
-            R.anim.slide_in_left,
-            R.anim.hold
-        )
+        sidePanelOpen = true
+        sidePanel.visibility = View.VISIBLE
+        sidePanelAnimator?.cancel()
+        val width = sidePanelWidth()
+        val current = (gestureProgress
+            ?: ((width + sidePanel.translationX) / width))
+            .coerceIn(0f, 1f)
+        setSidePanelProgress(current)
+        animateSidePanelTo(1f, current)
+    }
+
+    private fun closeSidePanel() {
+        if (!sidePanelOpen && sidePanel.visibility != View.VISIBLE) return
+
+        val width = sidePanelWidth()
+        val current = ((width + sidePanel.translationX) / width)
+            .coerceIn(0f, 1f)
+        sidePanelOpen = false
+        sidePanelAnimator?.cancel()
+
+        sidePanelAnimator = ValueAnimator.ofFloat(current, 0f).apply {
+            duration = 500L
+            interpolator = Curves.IOS
+            addUpdateListener {
+                setSidePanelProgress(it.animatedValue as Float)
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    if (sidePanelOpen) return
+                    sidePanel.visibility = View.GONE
+                    sidePanel.translationX = -width
+                    mainContent.translationX = 0f
+                    findViewById<View>(R.id.gestureScrim).alpha = 0f
+                    SystemBarHelper.sync(this@MainActivity)
+                }
+            })
+            start()
+        }
+    }
+
+    private fun rootMainHeight(): Int =
+        if (findViewById<View>(R.id.rootMain).height > 0) {
+            findViewById<View>(R.id.rootMain).height
+        } else {
+            resources.displayMetrics.heightPixels
+        }
+
+    private fun startPullLoop() {
+        if (pullFramePosted) return
+        pullFramePosted = true
+        findViewById<View>(R.id.rootMain).postOnAnimation(pullFrameRunnable)
+    }
+
+    private val pullFrameRunnable = object : Runnable {
+        override fun run() {
+            val now = android.os.SystemClock.elapsedRealtimeNanos()
+            val dt = if (pullLastTimeNs != 0L) {
+                kotlin.math.min(
+                    (now - pullLastTimeNs).toDouble() / 1_000_000_000.0,
+                    0.033
+                )
+            } else {
+                0.016
+            }
+            pullLastTimeNs = now
+
+            if (pullDragging) {
+                pullCurrentY += (pullTargetY - pullCurrentY) * 0.55f
+            } else {
+                val stiffness = 180.0
+                val damping = 22.0
+                val force = -stiffness * (pullCurrentY - pullTargetY)
+                pullVelocity += (force * dt).toFloat()
+                pullVelocity *= kotlin.math.exp(-damping * dt).toFloat()
+                pullCurrentY += (pullVelocity * dt).toFloat()
+            }
+
+            applyPullVisual(pullCurrentY)
+
+            val settled =
+                kotlin.math.abs(pullCurrentY - pullTargetY) < 0.3f &&
+                    kotlin.math.abs(pullVelocity) < 0.5f
+
+            if (pullDragging || !settled) {
+                findViewById<View>(R.id.rootMain).postOnAnimation(this)
+            } else {
+                pullCurrentY = pullTargetY
+                pullVelocity = 0f
+                applyPullVisual(pullCurrentY)
+                pullFramePosted = false
+                pullLastTimeNs = 0L
+            }
+        }
+    }
+
+    private fun applyPullVisual(y: Float) {
+        mainContent.translationY = y
+
+        val threshold = dp(72).toFloat()
+        val appearT = (y / dp(55).toFloat()).coerceAtMost(1f)
+        val zoom = 1f - (1f - appearT) * (1f - appearT) * (1f - appearT)
+        val topY = y * 0.5f - dp(14).toFloat()
+
+        pullIndicator.alpha = zoom
+        pullIndicator.scaleX = zoom
+        pullIndicator.scaleY = zoom
+        pullIndicator.translationY = topY
+
+        if (!pullRefreshing) {
+            pullRotation = (
+                (y / threshold).coerceIn(0f, 1f) * 300f
+            )
+            pullIndicator.rotationDegrees = pullRotation
+        }
+    }
+
+    private fun beginPullRefresh() {
+        pullRefreshing = true
+        pullTargetY = dp(72).toFloat()
+        pullVelocity = 0f
+
+        pullIndicator.rotationDegrees = pullRotation
+        pullSpinnerAnimator?.cancel()
+        val start = pullRotation
+        pullSpinnerAnimator = ValueAnimator.ofFloat(start, start + 360f).apply {
+            duration = 800L
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = android.view.animation.LinearInterpolator()
+            addUpdateListener {
+                pullRotation = it.animatedValue as Float
+                pullIndicator.rotationDegrees = pullRotation
+            }
+            start()
+        }
+
+        startPullLoop()
+
+        // Match the supplied reference timing: the refresh phase lasts
+        // 1400 ms independently of network latency. The fetched content may
+        // arrive earlier and is rendered immediately, but the physical pull
+        // animation remains on the same timing curve.
+        pullFinishPosted = true
+        findViewById<View>(R.id.rootMain).postDelayed({
+            pullFinishPosted = false
+            if (pullRefreshing && !isFinishing && !isDestroyed) {
+                finishPullRefresh()
+            }
+        }, 1400L)
+
+        loadNews(true)
+    }
+
+    private fun finishPullRefresh() {
+        if (!pullRefreshing) return
+        pullRefreshing = false
+        pullTargetY = 0f
+        pullVelocity = -kotlin.math.max(2f, pullCurrentY * 0.05f)
+        startPullLoop()
+
+        findViewById<View>(R.id.rootMain).postDelayed({
+            if (!pullRefreshing && kotlin.math.abs(pullCurrentY) < 1f) {
+                pullSpinnerAnimator?.cancel()
+                pullSpinnerAnimator = null
+                pullRotation = 0f
+                pullIndicator.rotationDegrees = 0f
+            }
+        }, 700L)
     }
 
     private fun openCatSheet() {
@@ -1107,6 +1418,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
+        if (sidePanelOpen) {
+            closeSidePanel()
+            return
+        }
         if (drawerOpen) {
             closeDrawer()
             return
@@ -1188,16 +1503,20 @@ class MainActivity : AppCompatActivity() {
             R.drawable.logo
         )
         IconLoader.applyPng(
+            findViewById(R.id.drAvatar),
+            "logo"
+        )
+        IconLoader.applyPng(
             findViewById(R.id.drIconProfile),
-            "drawer_profile"
+            "profile"
         )
         IconLoader.applyPng(
             findViewById(R.id.drIconLibrary),
-            "drawer_bookmark"
+            "bookmark"
         )
         IconLoader.applyPng(
             findViewById(R.id.drIconSettings),
-            "drawer_settings"
+            "settings"
         )
         IconLoader.applySvg(
             findViewById(R.id.drBackIcon),
@@ -1238,6 +1557,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         progressAnimator?.cancel()
         barAnimator?.cancel()
+        pullSpinnerAnimator?.cancel()
         super.onDestroy()
     }
 

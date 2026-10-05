@@ -45,6 +45,23 @@
             android:clipToPadding="false"
             android:elevation="4dp">
 
+            <FrameLayout
+                android:id="@+id/hAdd"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:layout_gravity="start|center_vertical"
+                android:background="@drawable/bg_transparent_pressed"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:id="@+id/hAddIcon"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:scaleType="fitCenter" />
+            </FrameLayout>
+
             <LinearLayout
                 android:id="@+id/hCat"
                 android:layout_width="wrap_content"
@@ -160,6 +177,71 @@
         </LinearLayout>
     </FrameLayout>
 
+    <!-- Indicator stays outside the home container, so the whole home surface
+         can move down while the loader remains in the exposed area. -->
+    <com.appao.PullRefreshIndicatorView
+        android:id="@+id/pullIndicator"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_gravity="top|center_horizontal"
+        android:alpha="0"
+        android:elevation="30dp" />
+
+    <!-- Reference scrim: follows the horizontal progress without capturing
+         touches, dimming the exposed current screen exactly like the HTML. -->
+    <View
+        android:id="@+id/gestureScrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#000000"
+        android:alpha="0"
+        android:elevation="10dp"
+        android:clickable="false"
+        android:focusable="false"
+        android:importantForAccessibility="no" />
+
+    <!-- Empty opposite screen. It enters from the LEFT and pushes the home
+         surface to the RIGHT during both edge-swipe and button navigation. -->
+    <FrameLayout
+        android:id="@+id/sidePanel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:background="@color/bg"
+        android:translationX="-1000dp"
+        android:elevation="22dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:clipChildren="true"
+        android:clipToPadding="false">
+
+        <FrameLayout
+            android:id="@+id/sideHeader"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_gravity="top"
+            android:background="@color/bg"
+            android:elevation="4dp">
+
+            <FrameLayout
+                android:id="@+id/sideClose"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:layout_gravity="end|center_vertical"
+                android:background="@drawable/bg_transparent_pressed"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:id="@+id/sideCloseIcon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:scaleType="fitCenter" />
+            </FrameLayout>
+        </FrameLayout>
+    </FrameLayout>
+
     <!-- Full-height native drawer kept on the RIGHT; it draws edge-to-edge under system bars. -->
     <LinearLayout
         android:id="@+id/drawerPanel"
@@ -213,7 +295,6 @@
                     android:id="@+id/drAvatar"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:src="@drawable/logo"
                     android:scaleType="centerInside"
                     android:padding="8dp" />
             </FrameLayout>

@@ -8,11 +8,8 @@ import android.widget.FrameLayout
 import kotlin.math.abs
 
 /**
- * Horizontal edge-gesture host for the right drawer and the opposite left panel.
- *
- * Right drawer: opens with a right-to-left swipe from the right edge and closes
- * with a left-to-right swipe. Left panel: opens with a left-to-right swipe from
- * the left edge. Vertical gestures remain available to child scrolling views.
+ * Horizontal edge-gesture host for the right drawer and the opposite left panel,
+ * plus a vertical pull-to-refresh gesture when the feed is already at the top.
  */
 class DrawerHostLayout @JvmOverloads constructor(
     context: Context,
@@ -23,13 +20,19 @@ class DrawerHostLayout @JvmOverloads constructor(
     interface Listener {
         fun isDrawerOpen(): Boolean
 
-        fun onDrawerGestureStart(
-            opening: Boolean
-        )
+        fun isSidePanelOpen(): Boolean
 
-        fun onDrawerGestureProgress(
-            progress: Float
-        )
+        fun canStartPull(x: Float, y: Float): Boolean
+
+        fun onPullGestureStart()
+
+        fun onPullGestureProgress(distance: Float)
+
+        fun onPullGestureEnd()
+
+        fun onDrawerGestureStart(opening: Boolean)
+
+        fun onDrawerGestureProgress(progress: Float)
 
         fun onDrawerGestureEnd(
             opening: Boolean,
@@ -37,7 +40,15 @@ class DrawerHostLayout @JvmOverloads constructor(
             velocity: Float
         )
 
-        fun onLeftPanelSwipe()
+        fun onSidePanelGestureStart(opening: Boolean)
+
+        fun onSidePanelGestureProgress(progress: Float)
+
+        fun onSidePanelGestureEnd(
+            opening: Boolean,
+            progress: Float,
+            velocity: Float
+        )
     }
 
     var listener: Listener? = null
@@ -52,7 +63,9 @@ class DrawerHostLayout @JvmOverloads constructor(
         NONE,
         RIGHT_OPEN,
         RIGHT_CLOSE,
-        LEFT_PANEL
+        LEFT_PANEL_OPEN,
+        LEFT_PANEL_CLOSE,
+        PULL_REFRESH
     }
 
     private var downX = 0f
@@ -65,9 +78,7 @@ class DrawerHostLayout @JvmOverloads constructor(
     private var mode = GestureMode.NONE
     private var velocityX = 0f
 
-    override fun onInterceptTouchEvent(
-        event: MotionEvent
-    ): Boolean {
+    override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 downX = event.x
@@ -77,11 +88,7 @@ class DrawerHostLayout @JvmOverloads constructor(
                 velocityX = 0f
                 tracking = true
                 intercepted = false
-
-                mode = when {
-                    listener?.isDrawerOpen() == true -> GestureMode.RIGHT_CLOSE
-                    else -> GestureMode.NONE
-                }
+                mode = GestureMode.NONE
                 return false
             }
 
@@ -96,7 +103,18 @@ class DrawerHostLayout @JvmOverloads constructor(
                         return false
                     }
 
-                    if (abs(dy) >= abs(dx)) {
+                    if (abs(dy) > abs(dx)) {
+                        if (
+                            dy > touchSlop &&
+                            listener?.canStartPull(downX, downY) == true
+                        ) {
+                            mode = GestureMode.PULL_REFRESH
+                            intercepted = true
+                            listener?.onPullGestureStart()
+                            listener?.onPullGestureProgress(dy)
+                            return true
+                        }
+
                         tracking = false
                         mode = GestureMode.NONE
                         return false
@@ -114,8 +132,17 @@ class DrawerHostLayout @JvmOverloads constructor(
                                 GestureMode.NONE
                             }
                         }
+
+                        listener?.isSidePanelOpen() == true -> {
+                            if (dx < 0f) GestureMode.LEFT_PANEL_CLOSE
+                            else {
+                                tracking = false
+                                GestureMode.NONE
+                            }
+                        }
+
                         startNearRight && dx < 0f -> GestureMode.RIGHT_OPEN
-                        startNearLeft && dx > 0f -> GestureMode.LEFT_PANEL
+                        startNearLeft && dx > 0f -> GestureMode.LEFT_PANEL_OPEN
                         else -> {
                             tracking = false
                             GestureMode.NONE
@@ -123,70 +150,124 @@ class DrawerHostLayout @JvmOverloads constructor(
                     }
 
                     when (mode) {
-                        GestureMode.LEFT_PANEL -> {
-                            // The opposite screen is an Activity; once the edge
-                            // gesture crosses the slop it opens as one smooth motion.
-                            tracking = false
-                            intercepted = true
-                            listener?.onLeftPanelSwipe()
-                            return true
-                        }
-
-                        GestureMode.RIGHT_OPEN -> {
-                            intercepted = true
-                            listener?.onDrawerGestureStart(true)
-                        }
-
+                        GestureMode.RIGHT_OPEN,
                         GestureMode.RIGHT_CLOSE -> {
                             intercepted = true
-                            listener?.onDrawerGestureStart(false)
+                            listener?.onDrawerGestureStart(
+                                mode == GestureMode.RIGHT_OPEN
+                            )
                         }
 
+                        GestureMode.LEFT_PANEL_OPEN,
+                        GestureMode.LEFT_PANEL_CLOSE -> {
+                            intercepted = true
+                            listener?.onSidePanelGestureStart(
+                                mode == GestureMode.LEFT_PANEL_OPEN
+                            )
+                        }
+
+                        GestureMode.PULL_REFRESH,
                         GestureMode.NONE -> return false
                     }
                 }
 
-                if (mode == GestureMode.RIGHT_OPEN || mode == GestureMode.RIGHT_CLOSE) {
-                    updateVelocity(event.x)
-                    dispatchDrawerProgress(event.x)
-                    return true
+                when (mode) {
+                    GestureMode.RIGHT_OPEN,
+                    GestureMode.RIGHT_CLOSE -> {
+                        updateVelocity(event.x)
+                        dispatchDrawerProgress(event.x)
+                        return true
+                    }
+
+                    GestureMode.LEFT_PANEL_OPEN,
+                    GestureMode.LEFT_PANEL_CLOSE -> {
+                        updateVelocity(event.x)
+                        dispatchSidePanelProgress(event.x)
+                        return true
+                    }
+
+                    GestureMode.PULL_REFRESH -> {
+                        listener?.onPullGestureProgress(dy.coerceAtLeast(0f))
+                        return true
+                    }
+
+                    GestureMode.NONE -> return false
                 }
             }
 
             MotionEvent.ACTION_UP,
             MotionEvent.ACTION_CANCEL -> {
+                // Keep state intact when this stream was intercepted. Android will
+                // deliver the terminal event to onTouchEvent(), which dispatches
+                // the gesture end and resets the state.
+                if (intercepted) return false
+
                 tracking = false
-                intercepted = false
                 mode = GestureMode.NONE
+                return false
             }
         }
 
         return false
     }
 
-    override fun onTouchEvent(
-        event: MotionEvent
-    ): Boolean {
+    override fun onTouchEvent(event: MotionEvent): Boolean {
         if (!intercepted) return false
 
         when (event.actionMasked) {
             MotionEvent.ACTION_MOVE -> {
-                if (mode == GestureMode.RIGHT_OPEN || mode == GestureMode.RIGHT_CLOSE) {
-                    updateVelocity(event.x)
-                    dispatchDrawerProgress(event.x)
+                when (mode) {
+                    GestureMode.RIGHT_OPEN,
+                    GestureMode.RIGHT_CLOSE -> {
+                        updateVelocity(event.x)
+                        dispatchDrawerProgress(event.x)
+                    }
+
+                    GestureMode.LEFT_PANEL_OPEN,
+                    GestureMode.LEFT_PANEL_CLOSE -> {
+                        updateVelocity(event.x)
+                        dispatchSidePanelProgress(event.x)
+                    }
+
+                    GestureMode.PULL_REFRESH -> {
+                        listener?.onPullGestureProgress(
+                            (event.y - downY).coerceAtLeast(0f)
+                        )
+                    }
+
+                    GestureMode.NONE -> Unit
                 }
                 return true
             }
 
             MotionEvent.ACTION_UP,
             MotionEvent.ACTION_CANCEL -> {
-                if (mode == GestureMode.RIGHT_OPEN || mode == GestureMode.RIGHT_CLOSE) {
-                    val progress = calculateProgress(event.x)
-                    listener?.onDrawerGestureEnd(
-                        mode == GestureMode.RIGHT_OPEN,
-                        progress,
-                        velocityX
-                    )
+                when (mode) {
+                    GestureMode.RIGHT_OPEN,
+                    GestureMode.RIGHT_CLOSE -> {
+                        val progress = calculateProgress(event.x)
+                        listener?.onDrawerGestureEnd(
+                            mode == GestureMode.RIGHT_OPEN,
+                            if (mode == GestureMode.RIGHT_OPEN) progress else 1f - progress,
+                            velocityX
+                        )
+                    }
+
+                    GestureMode.LEFT_PANEL_OPEN,
+                    GestureMode.LEFT_PANEL_CLOSE -> {
+                        val progress = calculateProgress(event.x)
+                        listener?.onSidePanelGestureEnd(
+                            mode == GestureMode.LEFT_PANEL_OPEN,
+                            if (mode == GestureMode.LEFT_PANEL_OPEN) progress else 1f - progress,
+                            velocityX
+                        )
+                    }
+
+                    GestureMode.PULL_REFRESH -> {
+                        listener?.onPullGestureEnd()
+                    }
+
+                    GestureMode.NONE -> Unit
                 }
 
                 tracking = false
@@ -206,25 +287,24 @@ class DrawerHostLayout @JvmOverloads constructor(
         )
     }
 
-    private fun calculateProgress(
-        x: Float
-    ): Float {
-        val widthPx = width.coerceAtLeast(1)
-        return (
-            abs(x - downX) / widthPx.toFloat()
-        ).coerceIn(0f, 1f)
+    private fun dispatchSidePanelProgress(x: Float) {
+        val raw = calculateProgress(x)
+        listener?.onSidePanelGestureProgress(
+            if (mode == GestureMode.LEFT_PANEL_OPEN) raw else 1f - raw
+        )
     }
 
-    private fun updateVelocity(
-        currentX: Float
-    ) {
+    private fun calculateProgress(x: Float): Float {
+        val widthPx = width.coerceAtLeast(1)
+        return (abs(x - downX) / widthPx.toFloat()).coerceIn(0f, 1f)
+    }
+
+    private fun updateVelocity(currentX: Float) {
         val now = System.currentTimeMillis()
         val dt = now - lastTime
-
         if (dt > 0L) {
             velocityX = (currentX - lastX) / dt
         }
-
         lastX = currentX
         lastTime = now
     }

@@ -137,17 +137,23 @@ object NativeSheetDialog {
 
         val root =
             LinearLayout(context).apply {
-
-                orientation =
-                    LinearLayout.VERTICAL
-
-                setBackgroundColor(
-                    ContextCompat.getColor(
-                        context,
-                        R.color.dialogSurface
+                orientation = LinearLayout.VERTICAL
+                background = MaterialShapeDrawable().apply {
+                    fillColor = ColorStateList.valueOf(
+                        ContextCompat.getColor(
+                            context,
+                            R.color.dialogSurface
+                        )
                     )
-                )
-
+                    shapeAppearanceModel =
+                        shapeAppearanceModel
+                            .toBuilder()
+                            .setTopLeftCornerSize(dp(context, 28).toFloat())
+                            .setTopRightCornerSize(dp(context, 28).toFloat())
+                            .setBottomLeftCornerSize(0f)
+                            .setBottomRightCornerSize(0f)
+                            .build()
+                }
                 setPadding(
                     dp(context, 8),
                     0,
@@ -158,15 +164,13 @@ object NativeSheetDialog {
 
         val handle =
             View(context).apply {
-
-                background =
-                    rounded(
-                        ContextCompat.getColor(
-                            context,
-                            R.color.line
-                        ),
-                        dp(context, 2)
-                    )
+                background = rounded(
+                    ContextCompat.getColor(
+                        context,
+                        R.color.line
+                    ),
+                    dp(context, 2)
+                )
             }
 
         root.addView(
@@ -175,41 +179,27 @@ object NativeSheetDialog {
                 dp(context, 38),
                 dp(context, 4)
             ).apply {
-                gravity =
-                    Gravity.CENTER_HORIZONTAL
-
-                topMargin =
-                    dp(context, 10)
-
-                bottomMargin =
-                    dp(context, 12)
+                gravity = Gravity.CENTER_HORIZONTAL
+                topMargin = dp(context, 10)
+                bottomMargin = dp(context, 12)
             }
         )
 
         val titleView =
             TextView(context).apply {
-
-                text =
-                    title
-
-                gravity =
-                    Gravity.CENTER
-
-                textSize =
-                    17f
-
+                text = title
+                gravity = Gravity.CENTER
+                textSize = 17f
                 setTypeface(
                     android.graphics.Typeface.DEFAULT,
                     android.graphics.Typeface.BOLD
                 )
-
                 setTextColor(
                     ContextCompat.getColor(
                         context,
                         R.color.text
                     )
                 )
-
                 setPadding(
                     dp(context, 18),
                     dp(context, 4),
@@ -228,72 +218,74 @@ object NativeSheetDialog {
 
         val list =
             LinearLayout(context).apply {
-                orientation =
-                    LinearLayout.VERTICAL
+                orientation = LinearLayout.VERTICAL
             }
 
         items.forEachIndexed { index, label ->
-
             val row =
-                TextView(context).apply {
-
-                    text =
-                        if (
-                            index ==
-                            checkedIndex
-                        ) {
-                            "✓  $label"
-                        } else {
-                            label
-                        }
-
-                    gravity =
-                        Gravity.CENTER_VERTICAL
-
-                    minHeight =
-                        dp(context, 54)
-
-                    textSize =
-                        15f
-
-                    setTypeface(
-                        android.graphics.Typeface.create(
-                            "sans-serif-medium",
-                            android.graphics.Typeface.NORMAL
-                        )
-                    )
-
-                    setTextColor(
-                        ContextCompat.getColor(
-                            context,
-                            R.color.text
-                        )
-                    )
-
+                LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    minimumHeight = dp(context, 54)
                     setPadding(
                         dp(context, 14),
                         0,
-                        dp(context, 14),
+                        dp(context, 10),
                         0
                     )
+                    background = ContextCompat.getDrawable(
+                        context,
+                        R.drawable.bg_sheet_item
+                    )
+                    isClickable = true
+                    isFocusable = true
 
-                    background =
-                        ContextCompat.getDrawable(
-                            context,
-                            R.drawable.bg_sheet_item
+                    val labelView = TextView(context).apply {
+                        text = label
+                        textSize = 15f
+                        setTypeface(
+                            android.graphics.Typeface.create(
+                                "sans-serif-medium",
+                                android.graphics.Typeface.NORMAL
+                            )
                         )
+                        setTextColor(
+                            ContextCompat.getColor(
+                                context,
+                                R.color.text
+                            )
+                        )
+                        gravity = Gravity.CENTER_VERTICAL
+                    }
 
-                    isClickable =
-                        true
+                    addView(
+                        labelView,
+                        LinearLayout.LayoutParams(
+                            0,
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            1f
+                        )
+                    )
 
-                    isFocusable =
-                        true
+                    if (index == checkedIndex) {
+                        val check = android.widget.ImageView(context).apply {
+                            layoutParams = LinearLayout.LayoutParams(
+                                dp(context, 20),
+                                dp(context, 20)
+                            )
+                            scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
+                            contentDescription = "Selecionado"
+                        }
+                        IconLoader.applySvg(
+                            check,
+                            "check",
+                            R.color.iconTint
+                        )
+                        addView(check)
+                    }
 
                     setOnClickListener {
-
-                        onSelected(
-                            index
-                        )
+                        onSelected(index)
                     }
                 }
 
@@ -303,8 +295,7 @@ object NativeSheetDialog {
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     dp(context, 54)
                 ).apply {
-                    topMargin =
-                        dp(context, 2)
+                    topMargin = dp(context, 2)
                 }
             )
         }
@@ -317,34 +308,16 @@ object NativeSheetDialog {
             )
         )
 
-        val dialog =
-            show(
-                context,
-                root
-            )
+        val dialog = show(context, root)
 
-        /*
-         * Selecting an item must close the sheet only after the callback has
-         * been accepted, preventing touch callbacks from being lost.
-         */
-        for (
-            i in 0 until list.childCount
-        ) {
-
-            list.getChildAt(i)
-                .setOnClickListener {
-
-                    val index =
-                        list.indexOfChild(
-                            it
-                        )
-
-                    onSelected(
-                        index
-                    )
-
-                    dialog.dismiss()
-                }
+        // Dismiss only after the selection callback has been delivered.
+        for (i in 0 until list.childCount) {
+            val row = list.getChildAt(i)
+            row.setOnClickListener {
+                val index = list.indexOfChild(it)
+                onSelected(index)
+                dialog.dismiss()
+            }
         }
 
         return dialog

@@ -37,8 +37,7 @@ import kotlin.math.max
 class NewsAdapter(
     initial: List<NewsItem>,
     private val onClick: (NewsItem, View) -> Unit,
-    private val showTopCards: Boolean = false,
-    private val onTopAdd: (() -> Unit)? = null
+    private val showTopCards: Boolean = false
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
@@ -94,8 +93,6 @@ class NewsAdapter(
     class DynamicTextVH(v: View) : RecyclerView.ViewHolder(v)
 
     class TopCardsVH(v: View) : RecyclerView.ViewHolder(v) {
-        val add: View = v.findViewById(R.id.topAdd)
-        val addIcon: ImageView = v.findViewById(R.id.topAddIcon)
         val weatherIcon: ImageView = v.findViewById(R.id.topWeatherIcon)
         val weatherTemp: TextView = v.findViewById(R.id.topWeatherTemp)
         val weatherCity: TextView = v.findViewById(R.id.topWeatherCity)
@@ -160,11 +157,6 @@ class NewsAdapter(
     }
 
     private fun bindTopCards(holder: TopCardsVH) {
-        IconLoader.applySvg(
-            holder.addIcon,
-            "add",
-            R.color.iconTint
-        )
         IconLoader.applyPng(
             holder.savingsIcon,
             "leaf",
@@ -195,9 +187,6 @@ class NewsAdapter(
             holder.weatherCity.text = "Luanda"
         }
 
-        holder.add.setOnClickListener {
-            onTopAdd?.invoke()
-        }
     }
 
     fun setWeather(result: WeatherHelper.Result) {
@@ -225,7 +214,7 @@ class NewsAdapter(
         if (item.logo.isNotBlank()) {
             Glide.with(holder.favicon)
                 .load(item.logo)
-                .override(dp(holder.itemView.context, 58), dp(holder.itemView.context, 58))
+                .override(dp(holder.itemView.context, 38), dp(holder.itemView.context, 38))
                 .dontAnimate()
                 .into(holder.favicon)
         } else {
@@ -497,10 +486,10 @@ class NewsAdapter(
         val favicon = ImageView(context).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             setPadding(
-                dp(context, 2),
-                dp(context, 2),
-                dp(context, 2),
-                dp(context, 2)
+                dp(context, 1),
+                dp(context, 1),
+                dp(context, 1),
+                dp(context, 1)
             )
         }
 
@@ -515,8 +504,8 @@ class NewsAdapter(
         metaRow.addView(
             faviconFrame,
             LinearLayout.LayoutParams(
-                dp(context, if (square) 56 else 64),
-                dp(context, if (square) 56 else 64)
+                dp(context, if (square) 32 else 38),
+                dp(context, if (square) 32 else 38)
             )
         )
 
@@ -607,7 +596,7 @@ class NewsAdapter(
 
         Glide.with(favicon).clear(favicon)
         if (item.logo.isNotBlank()) {
-            val size = if (square) 52 else 58
+            val size = if (square) 30 else 36
             Glide.with(favicon)
                 .load(item.logo)
                 .override(

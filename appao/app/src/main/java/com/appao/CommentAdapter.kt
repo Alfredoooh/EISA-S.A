@@ -227,7 +227,7 @@ class CommentAdapter(
             child.alpha = 0f
             child.scaleX = 0.45f
             child.scaleY = 0.45f
-            child.translationY = dp(child, 7)
+            child.translationY = dp(child, 7).toFloat()
 
             AnimatorSet().apply {
                 playTogether(

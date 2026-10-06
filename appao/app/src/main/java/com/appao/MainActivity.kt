@@ -303,8 +303,8 @@ class MainActivity : AppCompatActivity() {
         IconLoader.applyPng(findViewById(R.id.drIconVerify), "verified")
         IconLoader.applyPng(findViewById(R.id.drIconSaved), "bookmark")
         IconLoader.applyPng(findViewById(R.id.drIconSettings), "settings")
-        IconLoader.applyPng(findViewById(R.id.drIconFriends), "profile")
-        IconLoader.applyPng(findViewById(R.id.drIconReport), "alert")
+        IconLoader.applyPng(findViewById(R.id.drIconFriends), "friends")
+        IconLoader.applyPng(findViewById(R.id.drIconReport), "flag")
         IconLoader.applyPng(findViewById(R.id.drIconAi), "magic_wand")
 
         IconLoader.applySvg(
@@ -1571,8 +1571,8 @@ class MainActivity : AppCompatActivity() {
         IconLoader.applyPng(findViewById(R.id.drIconVerify), "verified")
         IconLoader.applyPng(findViewById(R.id.drIconSaved), "bookmark")
         IconLoader.applyPng(findViewById(R.id.drIconSettings), "settings")
-        IconLoader.applyPng(findViewById(R.id.drIconFriends), "profile")
-        IconLoader.applyPng(findViewById(R.id.drIconReport), "alert")
+        IconLoader.applyPng(findViewById(R.id.drIconFriends), "friends")
+        IconLoader.applyPng(findViewById(R.id.drIconReport), "flag")
         IconLoader.applyPng(findViewById(R.id.drIconAi), "magic_wand")
         IconLoader.applySvg(
             findViewById(R.id.drBackIcon),

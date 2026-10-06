@@ -42,7 +42,7 @@ object AppAoToast {
                 dp(context, 16),
                 0,
                 dp(context, 16),
-                dp(context, 28)
+                dp(context, 46)
             )
             view.layoutParams = params
         }
@@ -62,13 +62,13 @@ object AppAoToast {
         }
 
         view.alpha = 0f
-        view.translationY = dp(context, 14).toFloat()
+        view.translationY = dp(context, 22).toFloat()
         snackbar.addCallback(object : Snackbar.Callback() {
             override fun onShown(sb: Snackbar?) {
                 view.animate()
                     .alpha(1f)
                     .translationY(0f)
-                    .setDuration(360L)
+                    .setDuration(480L)
                     .setInterpolator(Curves.SMOOTH)
                     .start()
             }

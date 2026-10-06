@@ -612,21 +612,96 @@ object NewsRepository {
     ): String {
         if (value.isBlank()) return ""
 
-        return try {
+        val htmlText = try {
             Html.fromHtml(
                 value,
                 Html.FROM_HTML_MODE_LEGACY
-            )
-                .toString()
-                .replace('\u00A0', ' ')
-                .replace(Regex("\\s+"), " ")
-                .trim()
+            ).toString()
         } catch (_: Throwable) {
             value
-                .replace('\u00A0', ' ')
-                .replace(Regex("\\s+"), " ")
-                .trim()
         }
+
+        return repairMojibake(htmlText)
+            .replace('\u00A0', ' ')
+            .replace('\uFFFD', ' ')
+            .replace(Regex("\\s+"), " ")
+            .trim()
+    }
+
+    /** Repairs common UTF-8 text that was decoded once as Latin-1/Windows-1252. */
+    private fun repairMojibake(value: String): String {
+        var current = value
+
+        fun score(text: String): Int {
+            var count = 0
+            text.forEach { ch ->
+                when (ch) {
+                    '\u00C3', '\u00C2', '\u00E2', '\u00F0', '\u00FF', '\uFFFD' -> count++
+                }
+            }
+            return count
+        }
+
+        repeat(2) {
+            val before = score(current)
+            if (before == 0) return current
+
+            val candidate = runCatching {
+                String(
+                    current.toByteArray(Charset.forName("windows-1252")),
+                    Charsets.UTF_8
+                )
+            }.getOrElse {
+                runCatching {
+                    String(
+                        current.toByteArray(Charsets.ISO_8859_1),
+                        Charsets.UTF_8
+                    )
+                }.getOrNull()
+            } ?: return@repeat
+
+            if (score(candidate) < before && candidate.count { it == '?' } <= current.count { it == '?' }) {
+                current = candidate
+            } else {
+                return@repeat
+            }
+        }
+
+        // A small conservative cleanup for U+FFFD sequences that cannot be
+        // reconstructed by charset conversion alone. These are common Portuguese
+        // words observed in feeds produced by partially broken encoders.
+        val replacements = linkedMapOf(
+            "re�ne" to "reúne",
+            "n�o" to "não",
+            "s�o" to "são",
+            "fam�lias" to "famílias",
+            "recorr�ncia" to "recorrência",
+            "rela��es" to "relações",
+            "solu��es" to "soluções",
+            "d�vidas" to "dívidas",
+            "frequ�ncia" to "frequência",
+            "lan�ados" to "lançados",
+            "renegocia��o" to "renegociação",
+            "comunica��o" to "comunicação",
+            "prote��o" to "proteção",
+            "detec��o" to "detecção",
+            "neutrinos de alta energia" to "neutrinos de alta energia",
+            "�reas" to "áreas",
+            "�nica" to "única",
+            "Pr�½mio" to "Prêmio",
+            "Fi�½sica" to "Física",
+            "Ci�½ncias" to "Ciências",
+            "contribui��es" to "contribuições",
+            "observat�rio" to "observatório",
+            "constru�do" to "construído",
+            "ter�½a-feira" to "terça-feira",
+            "mais visitadas" to "mais visitadas"
+        )
+        var repaired = current
+        replacements.forEach { (broken, fixed) ->
+            repaired = repaired.replace(broken, fixed, ignoreCase = false)
+        }
+        return repaired
     }
 
     private fun stableId(

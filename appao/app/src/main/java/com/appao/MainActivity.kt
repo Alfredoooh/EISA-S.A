@@ -1,6 +1,8 @@
 package com.appao
 
 import android.Manifest
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -9,6 +11,7 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -28,29 +31,39 @@ import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.bumptech.glide.Glide
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import java.net.URLEncoder
 import java.util.Locale
+import kotlin.math.abs
 
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var rootHost: DrawerHostLayout
+    private lateinit var homePage: View
+    private lateinit var homeHeader: View
+    private lateinit var feedPanel: View
+    private lateinit var feedHeader: View
+    private lateinit var appsPanel: View
+    private lateinit var appsBottomTabs: View
+    private lateinit var appsTabIndicator: View
+    private lateinit var appsContent: View
+    private lateinit var conversationsContent: View
+
     private lateinit var adapter: NewsAdapter
     private lateinit var recycler: RecyclerView
-    private lateinit var swipe: SwipeRefreshLayout
     private lateinit var progress: View
     private lateinit var biPill: View
     private lateinit var biInput: EditText
     private lateinit var biSend: FrameLayout
-    private lateinit var biAdd: FrameLayout
-    private lateinit var mainContent: View
-    private lateinit var header: View
-    private lateinit var drawerPanel: View
-    private lateinit var drawerHeader: View
-    private lateinit var sidePanel: View
     private lateinit var pullIndicator: PullRefreshIndicatorView
+    private lateinit var homeFeedStack: View
+    private lateinit var stackBack: ImageView
+    private lateinit var stackFront: ImageView
 
     private val items = mutableListOf<NewsItem>()
     private val categories = listOf(
@@ -62,15 +75,22 @@ class MainActivity : AppCompatActivity() {
     private var page = 1
     private var loading = false
     private var exhausted = false
-    private var drawerOpen = false
-    private var sidePanelOpen = false
 
-    private var drawerAnimator: ValueAnimator? = null
-    private var sidePanelAnimator: ValueAnimator? = null
+    private var feedOpen = false
+    private var appsOpen = false
+    private var feedAnimator: ValueAnimator? = null
+    private var appsAnimator: ValueAnimator? = null
 
-    // Instagram-style pull-to-refresh state. The values mirror the supplied
-    // reference: 72dp trigger, 130dp maximum, exponential resistance and a
-    // damped spring for the return/hold motion.
+    private var appsTabIsApps = true
+    private var appsReady = false
+
+    private var feedHeaderHeight = 0
+    private var feedBarProgress = 0f
+    private var feedBarAnimator: ValueAnimator? = null
+
+    private var bottomBarHeight = 0
+    private var sendButtonShown = false
+
     private var pullDragging = false
     private var pullRefreshing = false
     private var pullCurrentY = 0f
@@ -82,86 +102,167 @@ class MainActivity : AppCompatActivity() {
     private var pullSpinnerAnimator: ValueAnimator? = null
     private var pullFinishPosted = false
 
-    private var headerHeight = 0
-    private var bottomBarHeight = 0
-    private var barProgress = 0f
-    private var barAnimator: ValueAnimator? = null
-    private var progressAnimator: ValueAnimator? = null
-    private var sendButtonShown = false
+    private var restoredState = false
+    private var restoredFeedPosition = 0
+    private var restoredFeedOffset = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         WindowCompat.setDecorFitsSystemWindows(window, true)
         setContentView(R.layout.activity_main)
-        try { SystemBarHelper.sync(this) } catch (t: Throwable) { android.util.Log.e("MainActivity", "System bars init failed", t) }
+        try { SystemBarHelper.sync(this) } catch (_: Throwable) { }
 
-        mainContent = findViewById(R.id.mainContent)
+        rootHost = findViewById(R.id.rootMain)
+        homePage = findViewById(R.id.homePage)
+        homeHeader = findViewById(R.id.homeHeader)
+        feedPanel = findViewById(R.id.feedPanel)
+        feedHeader = findViewById(R.id.feedHeader)
+        appsPanel = findViewById(R.id.appsPanel)
+        appsBottomTabs = findViewById(R.id.appsBottomTabs)
+        appsTabIndicator = findViewById(R.id.appsTabIndicator)
+        appsContent = findViewById(R.id.appsContent)
+        conversationsContent = findViewById(R.id.conversationsContent)
+        recycler = findViewById(R.id.feedRecycler)
         progress = findViewById(R.id.appProgress)
-        recycler = findViewById(R.id.recycler)
-        swipe = findViewById(R.id.swipe)
         biPill = findViewById(R.id.biPill)
         biInput = findViewById(R.id.biInput)
         biSend = findViewById(R.id.biSend)
-        biAdd = findViewById(R.id.biAdd)
-        header = findViewById(R.id.header)
-        drawerPanel = findViewById(R.id.drawerPanel)
-        drawerHeader = findViewById(R.id.drawerHeader)
-        sidePanel = findViewById(R.id.sidePanel)
         pullIndicator = findViewById(R.id.pullIndicator)
+        homeFeedStack = findViewById(R.id.homeFeedStack)
+        stackBack = findViewById(R.id.stackBack)
+        stackFront = findViewById(R.id.stackFront)
 
-        safeStartup("insets") { setupInsets() }
-        safeStartup("feed") { setupFeed() }
-        safeStartup("header") { setupHeader() }
-        safeStartup("bottom-input") { setupBottomInput() }
-        safeStartup("drawer") { setupDrawer() }
-        safeStartup("side-panel") { setupSidePanel() }
-        safeStartup("categories") { setupCategories() }
+        restoreState(savedInstanceState)
 
-        // Render a stable first frame before starting the adapter animation,
-        // cache read and network activity. This prevents startup work from
-        // competing with layout creation on lower-end devices.
+        safeStartup { setupInsets() }
+        safeStartup { setupHome() }
+        safeStartup { setupFeed() }
+        safeStartup { setupFeedHeader() }
+        safeStartup { setupBottomInput() }
+        safeStartup { setupAppsPanel() }
+        safeStartup { setupTouchHost() }
+
         recycler.post {
             if (isFinishing || isDestroyed) return@post
-            safeStartup("initial-data") { setupInitialData() }
+            if (restoredState && items.isNotEmpty()) {
+                adapter.submit(items)
+                updateFeedStack()
+                restoreFeedScroll()
+                if (feedOpen) openFeedPanelImmediate()
+                if (appsOpen) openAppsPanelImmediate()
+            } else {
+                setupInitialData()
+            }
         }
 
         recycler.postDelayed({
-            if (isFinishing || isDestroyed) return@postDelayed
-            safeStartup("weather") { initWeather() }
+            if (!isFinishing && !isDestroyed) safeStartup { initWeather() }
         }, 800L)
     }
 
-    private inline fun safeStartup(
-        stage: String,
-        block: () -> Unit
-    ) {
-        try {
-            block()
-        } catch (t: Throwable) {
-            android.util.Log.e(
-                "MainActivity",
-                "Startup stage failed: $stage",
-                t
-            )
+    private inline fun safeStartup(block: () -> Unit) {
+        try { block() } catch (t: Throwable) {
+            android.util.Log.e("MainActivity", "Startup step failed", t)
         }
     }
+
+    private fun restoreState(savedInstanceState: Bundle?) {
+        val state = savedInstanceState ?: return
+        currentCat = state.getString("main.category", "Todas") ?: "Todas"
+        page = state.getInt("main.page", 1).coerceAtLeast(1)
+        feedOpen = state.getBoolean("main.feed_open", false)
+        appsOpen = state.getBoolean("main.apps_open", false)
+        restoredFeedPosition = state.getInt("main.feed_position", 0).coerceAtLeast(0)
+        restoredFeedOffset = state.getInt("main.feed_offset", 0)
+        appsTabIsApps = state.getBoolean("main.apps_tab_apps", true)
+
+        val raw = state.getString("main.items").orEmpty()
+        if (raw.isNotBlank()) {
+            runCatching {
+                val array = JSONArray(raw)
+                for (i in 0 until array.length()) {
+                    val o = array.optJSONObject(i) ?: continue
+                    items += NewsItem(
+                        id = o.optString("id"),
+                        title = o.optString("title"),
+                        summary = o.optString("summary"),
+                        link = o.optString("link"),
+                        source = o.optString("source"),
+                        date = o.optString("date"),
+                        image = o.optString("image"),
+                        logo = o.optString("logo")
+                    )
+                }
+            }
+        }
+        restoredState = items.isNotEmpty()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString("main.category", currentCat)
+        outState.putInt("main.page", page)
+        outState.putBoolean("main.feed_open", feedOpen)
+        outState.putBoolean("main.apps_open", appsOpen)
+        outState.putBoolean("main.apps_tab_apps", appsTabIsApps)
+
+        val lm = recycler.layoutManager as? LinearLayoutManager
+        val position = lm?.findFirstVisibleItemPosition() ?: 0
+        val offset = if (lm != null && position >= 0) {
+            lm.findViewByPosition(position)?.top ?: 0
+        } else {
+            0
+        }
+        outState.putInt("main.feed_position", position)
+        outState.putInt("main.feed_offset", offset)
+        outState.putString("main.items", itemsToJson(items))
+    }
+
+    private fun itemsToJson(source: List<NewsItem>): String = JSONArray().apply {
+        source.take(60).forEach { item ->
+            put(JSONObject().apply {
+                put("id", item.id)
+                put("title", item.title)
+                put("summary", item.summary)
+                put("link", item.link)
+                put("source", item.source)
+                put("date", item.date)
+                put("image", item.image)
+                put("logo", item.logo)
+            })
+        }
+    }.toString()
 
     private fun setupInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(biPill) { view, insets ->
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
             val lp = view.layoutParams as FrameLayout.LayoutParams
-            lp.bottomMargin = if (ime > 0) ime + dp(16) else dp(20)
+            lp.bottomMargin = if (ime > 0) ime + dp(14) else dp(18)
             view.layoutParams = lp
             if (view.height > 0) bottomBarHeight = view.height
-            applyBarTranslation(barProgress)
             insets
         }
 
-        headerHeight = dp(56)
-        recycler.updatePadding(top = headerHeight)
-        applyBarTranslation(barProgress)
-        ViewCompat.requestApplyInsets(mainContent)
+        feedHeaderHeight = dp(56)
+        recycler.updatePadding(top = feedHeaderHeight, bottom = dp(28))
+        ViewCompat.requestApplyInsets(rootHost)
+    }
+
+    private fun setupHome() {
+        IconLoader.applySvg(findViewById(R.id.homeMenuIcon), "menu", R.color.iconTint)
+
+        homeFeedStack.setOnClickListener { openFeedPanel() }
+        findViewById<View>(R.id.homeMenu).setOnClickListener { openAppsPanel() }
+
+        stackBack.scaleType = ImageView.ScaleType.CENTER_CROP
+        stackFront.scaleType = ImageView.ScaleType.CENTER_CROP
+        stackBack.rotation = -8.5f
+        stackFront.rotation = 7.5f
+        stackBack.translationX = -dp(5).toFloat()
+        stackBack.translationY = dp(2).toFloat()
+        stackFront.translationX = dp(4).toFloat()
+        stackFront.translationY = 0f
     }
 
     private fun setupFeed() {
@@ -170,364 +271,169 @@ class MainActivity : AppCompatActivity() {
             onClick = { item, source -> openArticle(item, source) },
             showTopCards = true
         )
-
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
-        recycler.setHasFixedSize(false)
         recycler.itemAnimator = null
-        recycler.setItemViewCacheSize(4)
+        recycler.setHasFixedSize(false)
+        recycler.setItemViewCacheSize(5)
         recycler.overScrollMode = View.OVER_SCROLL_ALWAYS
 
         recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
-                if (dy != 0) {
-                    updateBarsFromScroll(dy)
-                }
-
-                if (!rv.canScrollVertically(1) && !loading && !exhausted) {
-                    loadMore()
-                }
+                if (dy != 0) updateFeedBarsFromScroll(dy)
+                if (!rv.canScrollVertically(1) && !loading && !exhausted) loadMore()
             }
         })
 
-        // The stock SwipeRefreshLayout animation is disabled. Pull-to-refresh
-        // is implemented by the root gesture host so the entire home container
-        // follows the finger exactly like the supplied HTML reference.
-        swipe.isEnabled = false
         pullIndicator.alpha = 0f
         pullIndicator.scaleX = 0f
         pullIndicator.scaleY = 0f
     }
 
-    private fun setupHeader() {
-        IconLoader.applySvg(
-            findViewById(R.id.hAddIcon),
-            "apps",
-            R.color.iconTint
-        )
-        IconLoader.applySvg(
-            findViewById(R.id.hMoreIcon),
-            "menu",
-            R.color.iconTint
-        )
-        IconLoader.applySvg(
-            findViewById(R.id.hCatChevron),
-            "chevron-down",
-            R.color.iconTint
-        )
+    private fun setupFeedHeader() {
+        IconLoader.applySvg(findViewById(R.id.feedBackIcon), "back", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "publish", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedChevron), "chevron-down", R.color.iconTint)
 
-        findViewById<View>(R.id.hAdd).setOnClickListener {
-            openSidePanel()
-        }
-        findViewById<View>(R.id.hMore).setOnClickListener {
-            openDrawer()
-        }
-        findViewById<View>(R.id.hCat).setOnClickListener {
-            openCatSheet()
-        }
+        findViewById<TextView>(R.id.feedCategoryLabel).text = currentCat
+        findViewById<View>(R.id.feedBack).setOnClickListener { closeFeedPanel() }
+        findViewById<View>(R.id.feedPublish).setOnClickListener { openPublish() }
+        findViewById<View>(R.id.feedCategory).setOnClickListener { openCatSheet() }
     }
 
     private fun setupBottomInput() {
-        IconLoader.applySvg(
-            biAdd.findViewById(R.id.biAddIcon),
-            "add",
-            R.color.iconTint
-        )
-        IconLoader.applySvg(
-            biSend.findViewById(R.id.biSendIcon),
-            "arrow_up",
-            R.color.onpri
-        )
+        IconLoader.applySvg(findViewById(R.id.biAddIcon), "add", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow_up", R.color.onpri)
 
         biInput.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(
-                s: CharSequence?,
-                start: Int,
-                count: Int,
-                after: Int
-            ) = Unit
-
-            override fun onTextChanged(
-                s: CharSequence?,
-                start: Int,
-                before: Int,
-                count: Int
-            ) {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 setSendVisible(!s.isNullOrBlank())
             }
-
             override fun afterTextChanged(s: Editable?) = Unit
         })
 
         biInput.setOnFocusChangeListener { _, focused ->
-            if (focused) {
-                animateBarProgressTo(0f, 220L)
-            }
             animatePillFocus(focused)
         }
 
-        biSend.setOnClickListener {
-            sendToAi()
-        }
-
+        biSend.setOnClickListener { sendToAi() }
         biInput.setOnEditorActionListener { _, _, _ ->
             sendToAi()
             true
         }
+        findViewById<View>(R.id.biAdd).setOnClickListener { showAppsPopup(it) }
+    }
 
-        biAdd.setOnClickListener {
-            showAppsPopup(it)
+    private fun animatePillFocus(focused: Boolean) {
+        val target = if (focused) 1.015f else 1f
+        biPill.animate()
+            .scaleX(target)
+            .scaleY(target)
+            .setDuration(220L)
+            .setInterpolator(Curves.SMOOTH)
+            .start()
+    }
+
+    private fun setSendVisible(hasText: Boolean) {
+        if (hasText == sendButtonShown) return
+        sendButtonShown = hasText
+
+        if (hasText) {
+            biSend.visibility = View.VISIBLE
+            biSend.alpha = 0f
+            biSend.scaleX = 0.8f
+            biSend.scaleY = 0.8f
+            biSend.animate()
+                .alpha(1f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(220L)
+                .setInterpolator(Curves.SPRING)
+                .start()
+        } else {
+            biSend.animate()
+                .alpha(0f)
+                .scaleX(0.8f)
+                .scaleY(0.8f)
+                .setDuration(160L)
+                .setInterpolator(Curves.SMOOTH)
+                .withEndAction {
+                    if (!sendButtonShown) biSend.visibility = View.GONE
+                }
+                .start()
         }
     }
 
-    private fun setupDrawer() {
-        drawerOpen = false
-        drawerPanel.visibility = View.GONE
+    private fun setupAppsPanel() {
+        if (appsReady) return
+        appsReady = true
 
-        drawerPanel.post {
-            if (isFinishing || isDestroyed) return@post
+        IconLoader.applyPng(findViewById(R.id.appsProfileAvatar), "avatar")
+        IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow_right", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
 
-            val targetWidth = rootMainWidth()
-
-            drawerPanel.layoutParams =
-                drawerPanel.layoutParams.apply {
-                    width = targetWidth
-                    height = ViewGroup.LayoutParams.MATCH_PARENT
-                }
-
-            drawerPanel.requestLayout()
-            drawerPanel.translationX = targetWidth.toFloat()
-        }
-
-        IconLoader.applyPng(findViewById(R.id.drAvatar), "avatar")
-        IconLoader.applyPng(findViewById(R.id.drIconVerify), "verified")
-        IconLoader.applyPng(findViewById(R.id.drIconSaved), "bookmark")
-        IconLoader.applyPng(findViewById(R.id.drIconSettings), "settings")
-        IconLoader.applyPng(findViewById(R.id.drIconFriends), "friends")
-        IconLoader.applyPng(findViewById(R.id.drIconReport), "flag")
-        IconLoader.applyPng(findViewById(R.id.drIconAi), "magic_wand")
-
-        IconLoader.applySvg(
-            findViewById(R.id.drBackIcon),
-            "arrow_left",
-            R.color.iconTint
-        )
-
-        findViewById<View>(R.id.drBack).setOnClickListener {
-            closeDrawer()
-        }
-
-        findViewById<View>(R.id.drPublish).setOnClickListener {
-            openPublish()
-        }
-
-        findViewById<View>(R.id.drVerify).setOnClickListener {
-            closeDrawer()
+        findViewById<View>(R.id.appsProfile).setOnClickListener {
             startActivity(Intent(this, AuthActivity::class.java))
         }
-
-        findViewById<View>(R.id.drSaved).setOnClickListener {
-            closeDrawer()
-            startActivity(Intent(this, LibraryActivity::class.java))
-        }
-
-        findViewById<View>(R.id.drSettings).setOnClickListener {
-            closeDrawer()
+        findViewById<View>(R.id.appsBack).setOnClickListener { closeAppsPanel() }
+        findViewById<View>(R.id.appsSettings).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
 
-        findViewById<View>(R.id.drFriends).setOnClickListener {
-            closeDrawer()
-            AppAoToast.show(this, "Amigos — em breve")
+        val appsTab = findViewById<TextView>(R.id.appsTab)
+        val conversationsTab = findViewById<TextView>(R.id.conversationsTab)
+        appsTab.setOnClickListener { selectAppsTab(true, true) }
+        conversationsTab.setOnClickListener { selectAppsTab(false, true) }
+
+        populateAppsGrid()
+        appsBottomTabs.post { selectAppsTab(appsTabIsApps, false) }
+    }
+
+    private fun selectAppsTab(apps: Boolean, animated: Boolean) {
+        appsTabIsApps = apps
+        appsContent.visibility = if (apps) View.VISIBLE else View.GONE
+        conversationsContent.visibility = if (apps) View.GONE else View.VISIBLE
+
+        val appsTab = findViewById<TextView>(R.id.appsTab)
+        val conversationsTab = findViewById<TextView>(R.id.conversationsTab)
+        val active = ContextCompat.getColor(this, R.color.onpri)
+        val inactive = ContextCompat.getColor(this, R.color.dim)
+        appsTab.setTextColor(if (apps) active else inactive)
+        conversationsTab.setTextColor(if (apps) inactive else active)
+
+        val available = (appsBottomTabs.width - appsBottomTabs.paddingLeft - appsBottomTabs.paddingRight).coerceAtLeast(2)
+        val tabWidth = available / 2
+        val target = if (apps) 0f else tabWidth.toFloat()
+        appsTabIndicator.layoutParams = appsTabIndicator.layoutParams.apply {
+            width = tabWidth
+            height = appsBottomTabs.height - appsBottomTabs.paddingTop - appsBottomTabs.paddingBottom
         }
 
-        findViewById<View>(R.id.drReport).setOnClickListener {
-            closeDrawer()
-            AppAoToast.show(this, "Comunicar um problema — em breve")
-        }
-
-        findViewById<View>(R.id.drAiSettings).setOnClickListener {
-            closeDrawer()
-            AppAoToast.show(this, "Configurações de IA — em breve")
-        }
-
-        val host = findViewById<DrawerHostLayout>(R.id.rootMain)
-        host.listener = object : DrawerHostLayout.Listener {
-            override fun isDrawerOpen(): Boolean = drawerOpen
-
-            override fun isSidePanelOpen(): Boolean = sidePanelOpen
-
-            override fun canStartPull(x: Float, y: Float): Boolean {
-                if (drawerOpen || sidePanelOpen || pullRefreshing || loading) return false
-                if (!::recycler.isInitialized || !recycler.isShown) return false
-                if (recycler.canScrollVertically(-1)) return false
-
-                val reservedBottom = if (bottomBarHeight > 0) {
-                    bottomBarHeight + dp(12)
-                } else {
-                    dp(70)
-                }
-                return y < rootMainHeight() - reservedBottom
-            }
-
-            override fun onPullGestureStart() {
-                pullDragging = true
-                pullVelocity = 0f
-                pullTargetY = pullCurrentY
-                pullLastTimeNs = 0L
-                recycler.stopScroll()
-                mainContent.animate().cancel()
-                startPullLoop()
-            }
-
-            override fun onPullGestureProgress(distance: Float) {
-                if (!pullDragging || pullRefreshing) return
-                val maxPull = dp(130).toFloat()
-                val threshold = dp(72).toFloat()
-                val k = 0.55f
-                pullTargetY = (
-                    (1f - kotlin.math.exp(-distance * k / maxPull)) * maxPull
-                ).coerceAtMost(maxPull)
-                if (pullCurrentY > threshold && pullTargetY < threshold) {
-                    // Keep the indicator state continuous when crossing the
-                    // trigger boundary in the opposite direction.
-                }
-                startPullLoop()
-            }
-
-            override fun onPullGestureEnd() {
-                if (!pullDragging || pullRefreshing) return
-                pullDragging = false
-
-                val threshold = dp(72).toFloat()
-                if (pullCurrentY >= threshold) {
-                    beginPullRefresh()
-                } else {
-                    pullTargetY = 0f
-                    pullVelocity = 0f
-                    startPullLoop()
-                }
-            }
-
-            override fun onDrawerGestureStart(opening: Boolean) {
-                drawerAnimator?.cancel()
-                drawerPanel.animate().cancel()
-                mainContent.animate().cancel()
-                if (opening) {
-                    beginDrawerOpenGesture()
-                } else {
-                    val width = drawerWidth()
-                    val current = ((width - drawerPanel.translationX) / width)
-                        .coerceIn(0f, 1f)
-                    drawerOpen = true
-                    drawerPanel.visibility = View.VISIBLE
-                    setDrawerProgress(current)
-                }
-            }
-
-            override fun onDrawerGestureProgress(progress: Float) {
-                if (drawerOpen || progress > 0f) {
-                    setDrawerProgress(progress)
-                }
-            }
-
-            override fun onDrawerGestureEnd(
-                opening: Boolean,
-                progress: Float,
-                velocity: Float
-            ) {
-                finishDrawerGesture(opening, progress, velocity)
-            }
-
-            override fun onSidePanelGestureStart(opening: Boolean) {
-                sidePanelAnimator?.cancel()
-                sidePanel.animate().cancel()
-                mainContent.animate().cancel()
-                if (opening) {
-                    beginSidePanelOpenGesture()
-                } else {
-                    val width = sidePanelWidth()
-                    val current = ((width + sidePanel.translationX) / width)
-                        .coerceIn(0f, 1f)
-                    sidePanelOpen = true
-                    sidePanel.visibility = View.VISIBLE
-                    setSidePanelProgress(current)
-                }
-            }
-
-            override fun onSidePanelGestureProgress(progress: Float) {
-                if (sidePanelOpen || progress > 0f) {
-                    setSidePanelProgress(progress)
-                }
-            }
-
-            override fun onSidePanelGestureEnd(
-                opening: Boolean,
-                progress: Float,
-                velocity: Float
-            ) {
-                finishSidePanelGesture(opening, progress, velocity)
-            }
+        appsTabIndicator.animate().cancel()
+        if (animated) {
+            appsTabIndicator.animate()
+                .translationX(target)
+                .setDuration(280L)
+                .setInterpolator(Curves.SMOOTH)
+                .start()
+        } else {
+            appsTabIndicator.translationX = target
         }
     }
 
-    private fun setupSidePanel() {
-        sidePanelOpen = false
-        sidePanel.visibility = View.GONE
-
-        sidePanel.post {
-            if (isFinishing || isDestroyed) return@post
-            sidePanel.layoutParams = sidePanel.layoutParams.apply {
-                width = rootMainWidth()
-                height = ViewGroup.LayoutParams.MATCH_PARENT
-            }
-            sidePanel.requestLayout()
-            sidePanel.translationX = -rootMainWidth().toFloat()
-        }
-
-        findViewById<View>(R.id.sideHeader).apply {
-            layoutParams = layoutParams.apply { height = dp(56) }
-            setPadding(paddingLeft, 0, paddingRight, paddingBottom)
-        }
-
-        IconLoader.applySvg(
-            findViewById(R.id.sideCloseIcon),
-            "back",
-            R.color.iconTint
-        )
-        IconLoader.applySvg(
-            findViewById(R.id.sidePublishIcon),
-            "publish",
-            R.color.iconTint
-        )
-
-        findViewById<View>(R.id.sideClose).setOnClickListener {
-            closeSidePanel()
-        }
-        findViewById<View>(R.id.sidePublish).setOnClickListener {
-            openPublish()
-        }
-
-        populateAppsAndFriends()
-    }
-
-    private var sideAppsReady = false
-
-    private fun populateAppsAndFriends() {
-        if (sideAppsReady) return
-        sideAppsReady = true
-
-        val grid = findViewById<android.widget.GridLayout>(R.id.sideAppsGrid)
+    private fun populateAppsGrid() {
+        val grid = findViewById<android.widget.GridLayout>(R.id.appsGrid)
         grid.removeAllViews()
 
         AppsPopup.APPS.forEach { app ->
             val card = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                gravity = android.view.Gravity.CENTER
-                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_card_pressed)
+                gravity = Gravity.CENTER
+                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_news_text_card)
                 isClickable = true
                 isFocusable = true
-                setPadding(dp(12), dp(12), dp(12), dp(12))
+                setPadding(dp(10), dp(10), dp(10), dp(10))
                 setOnClickListener {
                     val path = app.url ?: return@setOnClickListener
                     showNavProgress()
@@ -547,220 +453,305 @@ class MainActivity : AppCompatActivity() {
             card.addView(TextView(this).apply {
                 text = app.name
                 textSize = 14f
-                gravity = android.view.Gravity.CENTER
+                gravity = Gravity.CENTER
                 setTextColor(ContextCompat.getColor(context, R.color.text))
                 setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
                 setPadding(0, dp(8), 0, 0)
+                maxLines = 2
+                ellipsize = android.text.TextUtils.TruncateAt.END
             })
 
             val lp = android.widget.GridLayout.LayoutParams().apply {
                 width = 0
-                height = dp(122)
+                height = dp(112)
                 columnSpec = android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, 1f)
                 setMargins(dp(4), dp(4), dp(4), dp(4))
             }
             grid.addView(card, lp)
         }
-
-        val appsTab = findViewById<TextView>(R.id.sideTabApps)
-        val friendsTab = findViewById<TextView>(R.id.sideTabFriends)
-        val indicator = findViewById<View>(R.id.sideTabIndicator)
-        val indicatorHost = findViewById<View>(R.id.sideBottomTabs)
-        val appsContent = findViewById<View>(R.id.sideAppsScroll)
-        val friendsContent = findViewById<View>(R.id.sideFriendsContent)
-
-        fun selectTab(apps: Boolean, animated: Boolean) {
-            appsContent.visibility = if (apps) View.VISIBLE else View.GONE
-            friendsContent.visibility = if (apps) View.GONE else View.VISIBLE
-
-            appsTab.setTextColor(
-                ContextCompat.getColor(this, if (apps) R.color.onpri else R.color.dim)
-            )
-            friendsTab.setTextColor(
-                ContextCompat.getColor(this, if (apps) R.color.dim else R.color.onpri)
-            )
-
-            val width = indicatorHost.width
-            if (width <= 0) {
-                indicatorHost.post { selectTab(apps, animated) }
-                return
-            }
-
-            val innerWidth = width - dp(10)
-            val tabWidth = (innerWidth / 2f).coerceAtLeast(1f)
-            indicator.layoutParams = indicator.layoutParams.apply {
-                this.width = tabWidth.toInt()
-            }
-            val target = if (apps) 0f else tabWidth
-
-            indicator.animate().cancel()
-            if (animated) {
-                indicator.animate()
-                    .translationX(target)
-                    .setDuration(260L)
-                    .setInterpolator(Curves.IOS)
-                    .start()
-            } else {
-                indicator.translationX = target
-            }
-        }
-
-        appsTab.setOnClickListener { selectTab(true, true) }
-        friendsTab.setOnClickListener { selectTab(false, true) }
-        indicatorHost.post { selectTab(true, false) }
     }
 
-    private fun setupCategories() {
-        // The sheet itself is populated when opened so theme changes are reflected immediately.
+    private fun setupTouchHost() {
+        rootHost.listener = object : DrawerHostLayout.Listener {
+            override fun isDrawerOpen(): Boolean = feedOpen
+            override fun isSidePanelOpen(): Boolean = appsOpen
+
+            override fun canStartPull(x: Float, y: Float): Boolean {
+                if (!feedOpen || appsOpen || pullRefreshing || loading) return false
+                if (!::recycler.isInitialized || !recycler.isShown) return false
+                return !recycler.canScrollVertically(-1)
+            }
+
+            override fun onPullGestureStart() {
+                pullDragging = true
+                pullVelocity = 0f
+                pullTargetY = pullCurrentY
+                pullLastTimeNs = 0L
+                recycler.stopScroll()
+                startPullLoop()
+            }
+
+            override fun onPullGestureProgress(distance: Float) {
+                if (!pullDragging || pullRefreshing) return
+                val maxPull = dp(128).toFloat()
+                val k = 0.55f
+                pullTargetY = (1f - kotlin.math.exp(-distance * k / maxPull))
+                    .times(maxPull)
+                    .coerceAtMost(maxPull)
+                startPullLoop()
+            }
+
+            override fun onPullGestureEnd() {
+                if (!pullDragging || pullRefreshing) return
+                pullDragging = false
+                if (pullCurrentY >= dp(70)) beginPullRefresh() else {
+                    pullTargetY = 0f
+                    pullVelocity = 0f
+                    startPullLoop()
+                }
+            }
+
+            override fun onDrawerGestureStart(opening: Boolean) {
+                feedAnimator?.cancel()
+                feedPanel.animate().cancel()
+                if (opening) beginFeedOpenGesture() else beginFeedCloseGesture()
+            }
+
+            override fun onDrawerGestureProgress(progress: Float) {
+                setFeedProgress(progress)
+            }
+
+            override fun onDrawerGestureEnd(opening: Boolean, progress: Float, velocity: Float) {
+                finishFeedGesture(opening, progress, velocity)
+            }
+
+            override fun onSidePanelGestureStart(opening: Boolean) {
+                appsAnimator?.cancel()
+                appsPanel.animate().cancel()
+                if (opening) beginAppsOpenGesture() else beginAppsCloseGesture()
+            }
+
+            override fun onSidePanelGestureProgress(progress: Float) {
+                setAppsProgress(progress)
+            }
+
+            override fun onSidePanelGestureEnd(opening: Boolean, progress: Float, velocity: Float) {
+                finishAppsGesture(opening, progress, velocity)
+            }
+        }
+    }
+
+    private fun beginFeedOpenGesture() {
+        feedOpen = true
+        appsOpen = false
+        feedPanel.visibility = View.VISIBLE
+        feedHeader.translationY = 0f
+        setFeedProgress(0f)
+    }
+
+    private fun beginFeedCloseGesture() {
+        feedOpen = true
+        feedPanel.visibility = View.VISIBLE
+        setFeedProgress(1f)
+    }
+
+    private fun finishFeedGesture(opening: Boolean, progress: Float, velocity: Float) {
+        val shouldOpen = if (opening) progress > 0.18f || velocity < -0.45f
+        else progress > 0.62f && velocity <= 0.45f
+        if (opening) {
+            if (shouldOpen) openFeedPanel(progress) else closeFeedPanel(progress)
+        } else {
+            if (shouldOpen) openFeedPanel(progress) else closeFeedPanel(progress)
+        }
+    }
+
+    private fun beginAppsOpenGesture() {
+        feedOpen = false
+        appsOpen = true
+        appsPanel.visibility = View.VISIBLE
+        setAppsProgress(0f)
+    }
+
+    private fun beginAppsCloseGesture() {
+        appsOpen = true
+        appsPanel.visibility = View.VISIBLE
+        setAppsProgress(1f)
+    }
+
+    private fun finishAppsGesture(opening: Boolean, progress: Float, velocity: Float) {
+        val shouldOpen = if (opening) progress > 0.18f || velocity > 0.45f
+        else progress > 0.62f && velocity >= -0.45f
+        if (opening) {
+            if (shouldOpen) openAppsPanel(progress) else closeAppsPanel(progress)
+        } else {
+            if (shouldOpen) openAppsPanel(progress) else closeAppsPanel(progress)
+        }
+    }
+
+    private fun setFeedProgress(progressValue: Float) {
+        val p = progressValue.coerceIn(0f, 1f)
+        val width = rootHost.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
+        feedPanel.translationX = width * (1f - p)
+        homePage.scaleX = 1f - 0.025f * p
+        homePage.scaleY = 1f - 0.025f * p
+    }
+
+    private fun setAppsProgress(progressValue: Float) {
+        val p = progressValue.coerceIn(0f, 1f)
+        val width = rootHost.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
+        appsPanel.translationX = -width * (1f - p)
+        homePage.scaleX = 1f - 0.025f * p
+        homePage.scaleY = 1f - 0.025f * p
+    }
+
+    private fun openFeedPanelImmediate() {
+        feedOpen = true
+        appsOpen = false
+        appsPanel.visibility = View.GONE
+        feedPanel.visibility = View.VISIBLE
+        setFeedProgress(1f)
+        resetFeedBar()
+    }
+
+    private fun openAppsPanelImmediate() {
+        appsOpen = true
+        feedOpen = false
+        feedPanel.visibility = View.GONE
+        appsPanel.visibility = View.VISIBLE
+        setAppsProgress(1f)
+    }
+
+    private fun openFeedPanel(gestureProgress: Float? = null) {
+        if (isFinishing || isDestroyed) return
+        feedOpen = true
+        appsOpen = false
+        appsPanel.visibility = View.GONE
+        feedPanel.visibility = View.VISIBLE
+        resetFeedBar()
+
+        val current = gestureProgress ?: ((rootHost.width - feedPanel.translationX) / rootHost.width.coerceAtLeast(1)).coerceIn(0f, 1f)
+        animateFeedTo(1f, current)
+    }
+
+    private fun closeFeedPanel(gestureProgress: Float? = null) {
+        feedOpen = false
+        val width = rootHost.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
+        val current = gestureProgress ?: ((width - feedPanel.translationX) / width).coerceIn(0f, 1f)
+        animateFeedTo(0f, current) {
+            if (!feedOpen) {
+                feedPanel.visibility = View.GONE
+                feedPanel.translationX = width.toFloat()
+                homePage.scaleX = 1f
+                homePage.scaleY = 1f
+            }
+        }
+    }
+
+    private fun animateFeedTo(target: Float, current: Float, end: (() -> Unit)? = null) {
+        feedAnimator?.cancel()
+        feedAnimator = ValueAnimator.ofFloat(current, target).apply {
+            duration = 420L
+            interpolator = Curves.IOS
+            addUpdateListener { setFeedProgress(it.animatedValue as Float) }
+            if (end != null) {
+                addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) { end() }
+                })
+            }
+            start()
+        }
+    }
+
+    private fun openAppsPanel(gestureProgress: Float? = null) {
+        if (isFinishing || isDestroyed) return
+        appsOpen = true
+        feedOpen = false
+        feedPanel.visibility = View.GONE
+        appsPanel.visibility = View.VISIBLE
+        val width = rootHost.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
+        val current = gestureProgress ?: ((appsPanel.translationX + width) / width).coerceIn(0f, 1f)
+        animateAppsTo(1f, current)
+    }
+
+    private fun closeAppsPanel(gestureProgress: Float? = null) {
+        appsOpen = false
+        val width = rootHost.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
+        val current = gestureProgress ?: ((appsPanel.translationX + width) / width).coerceIn(0f, 1f)
+        animateAppsTo(0f, current) {
+            if (!appsOpen) {
+                appsPanel.visibility = View.GONE
+                appsPanel.translationX = -width.toFloat()
+                homePage.scaleX = 1f
+                homePage.scaleY = 1f
+            }
+        }
+    }
+
+    private fun animateAppsTo(target: Float, current: Float, end: (() -> Unit)? = null) {
+        appsAnimator?.cancel()
+        appsAnimator = ValueAnimator.ofFloat(current, target).apply {
+            duration = 420L
+            interpolator = Curves.IOS
+            addUpdateListener { setAppsProgress(it.animatedValue as Float) }
+            if (end != null) {
+                addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) { end() }
+                })
+            }
+            start()
+        }
     }
 
     private fun setupInitialData() {
         adapter.showSkeleton(8)
-
         lifecycleScope.launch {
-            val cached = withContext(Dispatchers.IO) {
-                NewsRepository.readCache(this@MainActivity)
-            }
-
+            val cached = withContext(Dispatchers.IO) { NewsRepository.readCache(this@MainActivity) }
             if (isFinishing || isDestroyed) return@launch
-
             if (cached.isNotEmpty()) {
                 val unique = deduplicate(cached)
                 items.clear()
                 items.addAll(unique)
+                adapter.submit(unique)
+                updateFeedStack()
             }
-
             loadNews(false)
         }
     }
 
-    private fun updateBarsFromScroll(dy: Int) {
-        val headerTravel = (
-            if (headerHeight > 0) headerHeight
-            else dp(56)
-        ).toFloat().coerceAtLeast(1f)
-
-        val bottomTravel = (
-            if (bottomBarHeight > 0) bottomBarHeight + dp(40)
-            else dp(86)
-        ).toFloat().coerceAtLeast(1f)
-
+    private fun updateFeedBarsFromScroll(dy: Int) {
+        val travel = feedHeaderHeight.takeIf { it > 0 } ?: dp(56)
         val direction = if (dy > 0) 1f else -1f
-        val delta = kotlin.math.abs(dy).toFloat() / headerTravel
-        barProgress = (
-            barProgress + direction * delta
-        ).coerceIn(0f, 1f)
-
-        if (recycler.computeVerticalScrollOffset() <= 0) {
-            barProgress = 0f
-        }
-
-        val target = barProgress
-        header.translationY = -headerTravel * target
-        biPill.translationY = bottomTravel * target
+        feedBarProgress = (feedBarProgress + abs(dy).toFloat() / travel * direction).coerceIn(0f, 1f)
+        if (recycler.computeVerticalScrollOffset() <= 0) feedBarProgress = 0f
+        feedHeader.translationY = -travel * feedBarProgress
     }
 
-    private fun applyBarTranslation(progress: Float) {
-        val headerTravel = (
-            if (headerHeight > 0) headerHeight
-            else dp(56)
-        ).toFloat()
-
-        val bottomTravel = (
-            if (bottomBarHeight > 0) bottomBarHeight + dp(40)
-            else dp(86)
-        ).toFloat()
-
-        header.translationY = -headerTravel * progress
-        biPill.translationY = bottomTravel * progress
+    private fun resetFeedBar() {
+        feedBarAnimator?.cancel()
+        feedBarProgress = 0f
+        feedHeader.translationY = 0f
     }
 
-    private fun animateBarProgressTo(
-        target: Float,
-        duration: Long = 260L
-    ) {
-        barAnimator?.cancel()
-        val start = barProgress
-        barAnimator = ValueAnimator.ofFloat(start, target.coerceIn(0f, 1f)).apply {
-            this.duration = duration
-            interpolator = Curves.IOS
-            addUpdateListener {
-                barProgress = it.animatedValue as Float
-                applyBarTranslation(barProgress)
-            }
-            start()
-        }
-    }
-
-    private fun resetBarsInstantly() {
-        barAnimator?.cancel()
-        barProgress = 0f
-        header.translationY = 0f
-        biPill.translationY = 0f
-    }
-
-    private fun animatePillFocus(focused: Boolean) {
-        val target = if (focused) dp(340) else dp(320)
-        val lp = biPill.layoutParams
-
-        ValueAnimator.ofInt(lp.width, target).apply {
-            duration = 400L
-            interpolator = Curves.IOS
-            addUpdateListener {
-                lp.width = it.animatedValue as Int
-                biPill.layoutParams = lp
-            }
-            start()
-        }
-    }
-
-    private fun setSendVisible(hasText: Boolean) {
-        if (hasText == sendButtonShown) return
-        sendButtonShown = hasText
-
-        if (hasText) {
-            val lp = biSend.layoutParams as LinearLayout.LayoutParams
-            lp.width = dp(36)
-            lp.marginStart = dp(2)
-            biSend.layoutParams = lp
-            biSend.visibility = View.VISIBLE
-            biSend.scaleX = 0.4f
-            biSend.scaleY = 0.4f
-            biSend.alpha = 0f
-            biSend.animate()
-                .scaleX(1f)
-                .scaleY(1f)
-                .alpha(1f)
-                .setDuration(300L)
-                .setInterpolator(Curves.SPRING)
-                .start()
-        } else {
-            biSend.animate()
-                .alpha(0f)
-                .scaleX(0.4f)
-                .scaleY(0.4f)
-                .setDuration(250L)
-                .withEndAction {
-                    val lp = biSend.layoutParams as LinearLayout.LayoutParams
-                    lp.width = 0
-                    lp.marginStart = 0
-                    biSend.layoutParams = lp
-                    biSend.visibility = View.GONE
-                }
-                .start()
+    private fun openCatSheet() {
+        val checked = categories.indexOf(currentCat).coerceAtLeast(0)
+        NativeSheetDialog.showSelection(this, "Categoria", categories, checked) { index ->
+            val selected = categories.getOrNull(index) ?: return@showSelection
+            if (selected == currentCat) return@showSelection
+            currentCat = selected
+            findViewById<TextView>(R.id.feedCategoryLabel).text = selected
+            page = 1
+            exhausted = false
+            NewsRepository.resetDedup()
+            loadNews(true)
         }
     }
 
     private fun loadNews(force: Boolean) {
         if (loading) return
-
         loading = true
         exhausted = false
         page = 1
-
-        if (force) {
-            adapter.showSkeleton(8)
-        }
+        if (force) adapter.showSkeleton(8)
 
         lifecycleScope.launch {
             val result = try {
@@ -783,10 +774,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             if (isFinishing || isDestroyed) return@launch
-
             loading = false
-            swipe.isRefreshing = false
-
             val clean = deduplicate(result)
 
             if (clean.isNotEmpty()) {
@@ -794,8 +782,10 @@ class MainActivity : AppCompatActivity() {
                 items.addAll(clean)
                 NewsRepository.writeCache(this@MainActivity, clean)
                 adapter.submit(clean)
+                updateFeedStack()
             } else if (items.isNotEmpty()) {
                 adapter.submit(items)
+                updateFeedStack()
             } else {
                 adapter.submit(emptyList())
                 exhausted = true
@@ -805,7 +795,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadMore() {
         if (loading) return
-
         loading = true
         exhausted = false
         adapter.showBottomSkeleton(3)
@@ -814,7 +803,7 @@ class MainActivity : AppCompatActivity() {
             var candidatePage = page + 1
             var fresh: List<NewsItem> = emptyList()
 
-            for (attempt in 0 until 4) {
+            for (attempt in 0 until 5) {
                 val result = try {
                     when (currentCat) {
                         "Todas" -> NewsRepository.fetchGeneral(candidatePage)
@@ -837,44 +826,31 @@ class MainActivity : AppCompatActivity() {
                 if (isFinishing || isDestroyed) return@launch
 
                 val seen = HashSet<String>()
-                items.forEach {
-                    seen += normalizeUrl(it.link)
-                    seen += normalizeTitle(it.title)
-                }
-
+                items.forEach { seen += normalizeUrl(it.link); seen += normalizeTitle(it.title) }
                 fresh = result.filter { item ->
                     val urlKey = normalizeUrl(item.link)
                     val titleKey = normalizeTitle(item.title)
-                    if (urlKey.isBlank() || titleKey.isBlank()) {
-                        false
-                    } else if (urlKey in seen || titleKey in seen) {
-                        false
-                    } else {
+                    if (urlKey.isBlank() || titleKey.isBlank()) false
+                    else if (urlKey in seen || titleKey in seen) false
+                    else {
                         seen += urlKey
                         seen += titleKey
                         true
                     }
                 }
-
                 if (fresh.isNotEmpty()) break
                 candidatePage++
-                if (attempt < 3) kotlinx.coroutines.delay(500L)
+                if (attempt < 4) kotlinx.coroutines.delay(450L)
             }
 
             if (isFinishing || isDestroyed) return@launch
-
             loading = false
 
             if (fresh.isEmpty()) {
-                // Keep the bottom skeleton visible while the feed retries. This
-                // makes the end of the list feel continuous instead of ending
-                // on a hard stop between page requests.
                 adapter.showBottomSkeleton(3)
                 recycler.postDelayed({
-                    if (!isFinishing && !isDestroyed && !recycler.canScrollVertically(1) && !loading) {
-                        loadMore()
-                    }
-                }, 1400L)
+                    if (!isFinishing && !isDestroyed && feedOpen && !recycler.canScrollVertically(1) && !loading) loadMore()
+                }, 1200L)
                 return@launch
             }
 
@@ -883,21 +859,29 @@ class MainActivity : AppCompatActivity() {
             items.addAll(fresh)
             adapter.append(fresh)
             NewsRepository.writeCache(this@MainActivity, items)
+            updateFeedStack()
         }
     }
 
+    private fun updateFeedStack() {
+        val withImages = items.filter { it.image.isNotBlank() }.take(2)
+        val fallback = if (withImages.isEmpty()) null else withImages.firstOrNull()
+        loadStackImage(stackBack, withImages.getOrNull(1)?.image ?: fallback?.image)
+        loadStackImage(stackFront, withImages.getOrNull(0)?.image ?: fallback?.image)
+    }
+
+    private fun loadStackImage(view: ImageView, url: String?) {
+        if (url.isNullOrBlank()) {
+            Glide.with(view).load(R.drawable.logo).dontAnimate().into(view)
+        } else {
+            Glide.with(view).load(url).dontAnimate().centerCrop().into(view)
+        }
+        view.clipToOutline = true
+    }
+
     private fun initWeather() {
-        if (
-            ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                100
-            )
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 100)
         }
         loadWeatherFor(-8.84, 13.23)
     }
@@ -905,21 +889,10 @@ class MainActivity : AppCompatActivity() {
     private fun loadWeatherFor(lat: Double, lon: Double) {
         lifecycleScope.launch {
             try {
-                val result = WeatherHelper.fetch(
-                    this@MainActivity,
-                    lat,
-                    lon
-                ) ?: return@launch
-
-                if (isFinishing || isDestroyed) return@launch
-
-                adapter.setWeather(result)
+                val result = WeatherHelper.fetch(this@MainActivity, lat, lon) ?: return@launch
+                if (!isFinishing && !isDestroyed) adapter.setWeather(result)
             } catch (t: Throwable) {
-                android.util.Log.w(
-                    "MainActivity",
-                    "Weather update failed",
-                    t
-                )
+                android.util.Log.w("MainActivity", "Weather update failed", t)
             }
         }
     }
@@ -927,404 +900,73 @@ class MainActivity : AppCompatActivity() {
     private fun sendToAi() {
         val query = biInput.text.toString().trim()
         if (query.isEmpty()) return
-
         showNavProgress()
         biInput.setText("")
         biInput.clearFocus()
-
         biPill.postDelayed({
             if (isFinishing || isDestroyed) return@postDelayed
-
-            startActivity(
-                Intent(this, AppViewerActivity::class.java).apply {
-                    putExtra(
-                        "url",
-                        "file:///android_asset/apps/ai.html?q=" +
-                            URLEncoder.encode(query, "UTF-8")
-                    )
-                }
-            )
+            startActivity(Intent(this, AppViewerActivity::class.java).apply {
+                putExtra("url", "file:///android_asset/apps/ai.html?q=" + URLEncoder.encode(query, "UTF-8"))
+            })
         }, 80L)
+    }
+
+    private fun showAppsPopup(anchor: View) {
+        anchor.animate().scaleX(0.9f).scaleY(0.9f).setDuration(110L).withEndAction {
+            anchor.animate().scaleX(1f).scaleY(1f).setDuration(210L).start()
+        }.start()
+        AppsPopup.show(anchor) { app ->
+            val path = app.url ?: return@show
+            showNavProgress()
+            startActivity(Intent(this, AppViewerActivity::class.java).apply {
+                putExtra("url", "file:///android_asset/$path")
+            })
+        }
     }
 
     private fun showNavProgress() {
         progress.visibility = View.VISIBLE
-        progressAnimator?.cancel()
-
         val width = resources.displayMetrics.widthPixels
         val lp = progress.layoutParams as FrameLayout.LayoutParams
         lp.width = 0
-        val top = ViewCompat.getRootWindowInsets(progress)
-            ?.getInsets(WindowInsetsCompat.Type.statusBars())
-            ?.top ?: 0
-        lp.topMargin = top
+        lp.topMargin = 0
         progress.layoutParams = lp
         progress.alpha = 1f
-
-        progressAnimator = ValueAnimator.ofInt(
-            0,
-            (width * 0.88f).toInt()
-        ).apply {
-            duration = 1400L
+        ValueAnimator.ofInt(0, (width * 0.88f).toInt()).apply {
+            duration = 1200L
             interpolator = Curves.PROGRESS
-            addUpdateListener {
-                val params = progress.layoutParams as FrameLayout.LayoutParams
-                params.width = it.animatedValue as Int
-                progress.layoutParams = params
+            addUpdateListener { a ->
+                val p = progress.layoutParams as FrameLayout.LayoutParams
+                p.width = a.animatedValue as Int
+                progress.layoutParams = p
             }
             start()
-        }
-    }
-
-    private fun showAppsPopup(anchor: View) {
-        anchor.animate()
-            .scaleX(0.88f)
-            .scaleY(0.88f)
-            .setDuration(120L)
-            .withEndAction {
-                anchor.animate()
-                    .scaleX(1f)
-                    .scaleY(1f)
-                    .setDuration(220L)
-                    .start()
-            }
-            .start()
-
-        AppsPopup.show(anchor) { app ->
-            val path = app.url ?: return@show
-            showNavProgress()
-            startActivity(
-                Intent(this, AppViewerActivity::class.java).apply {
-                    putExtra(
-                        "url",
-                        "file:///android_asset/$path"
-                    )
-                }
-            )
-        }
-    }
-
-    private fun drawerWidth(): Float =
-        drawerPanel.width.toFloat().takeIf { it > 0f }
-            ?: (rootMainWidth() * 0.82f).coerceAtLeast(1f)
-
-    private fun sidePanelWidth(): Float =
-        sidePanel.width.toFloat().takeIf { it > 0f }
-            ?: rootMainWidth().toFloat().coerceAtLeast(1f)
-
-    private fun rootMainWidth(): Int =
-        if (::mainContent.isInitialized && mainContent.width > 0) {
-            mainContent.width
-        } else {
-            resources.displayMetrics.widthPixels
-        }
-
-    private fun setDrawerProgress(progressValue: Float) {
-        val p = progressValue.coerceIn(0f, 1f)
-        val width = drawerWidth()
-
-        drawerPanel.translationX = width * (1f - p)
-
-        // Pixel-perfect horizontal relationship from the supplied reference:
-        // the drawer follows the finger 1:1 and the current screen follows at
-        // 34% parallax, producing the requested delayed/pushed feel.
-        mainContent.translationX = -rootMainWidth() * 0.34f * p
-
-        findViewById<View>(R.id.gestureScrim).alpha = 0f
-    }
-
-    private fun beginDrawerOpenGesture() {
-        drawerOpen = true
-        sidePanelOpen = false
-        drawerPanel.visibility = View.VISIBLE
-        drawerPanel.animate().cancel()
-        mainContent.animate().cancel()
-
-        val width = drawerWidth()
-        val current = ((width - drawerPanel.translationX) / width)
-            .coerceIn(0f, 1f)
-        setDrawerProgress(current)
-    }
-
-    private fun finishDrawerGesture(
-        opening: Boolean,
-        progress: Float,
-        velocity: Float
-    ) {
-        if (opening) {
-            val shouldOpen = progress > 0.18f || velocity < -0.4f
-            if (shouldOpen) openDrawer(progress) else closeDrawer()
-        } else {
-            val shouldClose = progress < 0.78f || velocity > 0.4f
-            if (shouldClose) closeDrawer() else openDrawer(progress)
-        }
-    }
-
-    private fun animateDrawerTo(target: Float, current: Float) {
-        drawerAnimator?.cancel()
-        val distance = kotlin.math.abs(target - current)
-        val duration = 500L
-
-        drawerAnimator = ValueAnimator.ofFloat(current, target).apply {
-            this.duration = duration
-            interpolator = Curves.IOS
-            addUpdateListener {
-                setDrawerProgress(it.animatedValue as Float)
-            }
-            start()
-        }
-    }
-
-    private fun openDrawer(gestureProgress: Float? = null) {
-        drawerOpen = true
-        sidePanelOpen = false
-        drawerPanel.visibility = View.VISIBLE
-        drawerAnimator?.cancel()
-        drawerPanel.animate().cancel()
-        mainContent.animate().cancel()
-
-        val width = drawerWidth()
-        val current = (gestureProgress
-            ?: ((width - drawerPanel.translationX) / width))
-            .coerceIn(0f, 1f)
-        setDrawerProgress(current)
-        animateDrawerTo(1f, current)
-    }
-
-    private fun closeDrawer() {
-        if (!drawerOpen && drawerPanel.visibility != View.VISIBLE) return
-
-        val width = drawerWidth()
-        val current = ((width - drawerPanel.translationX) / width)
-            .coerceIn(0f, 1f)
-        drawerOpen = false
-        drawerAnimator?.cancel()
-        setDrawerProgress(current)
-
-        drawerAnimator = ValueAnimator.ofFloat(current, 0f).apply {
-            duration = 500L
-            interpolator = Curves.IOS
-            addUpdateListener {
-                setDrawerProgress(it.animatedValue as Float)
-            }
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    if (drawerOpen) return
-                    drawerPanel.visibility = View.GONE
-                    drawerPanel.translationX = width
-                    mainContent.translationX = 0f
-                    findViewById<View>(R.id.gestureScrim).alpha = 0f
-                    SystemBarHelper.sync(this@MainActivity)
-                }
-            })
-            start()
-        }
-    }
-
-    private fun setSidePanelProgress(progressValue: Float) {
-        val p = progressValue.coerceIn(0f, 1f)
-        val width = sidePanelWidth()
-
-        sidePanel.translationX = -width * (1f - p)
-
-        // Same 34% parallax in the opposite direction.
-        mainContent.translationX = rootMainWidth() * 0.34f * p
-
-        findViewById<View>(R.id.gestureScrim).alpha = 0f
-    }
-
-    private fun beginSidePanelOpenGesture() {
-        sidePanelOpen = true
-        drawerOpen = false
-        sidePanel.visibility = View.VISIBLE
-        sidePanelAnimator?.cancel()
-        mainContent.animate().cancel()
-
-        val width = sidePanelWidth()
-        val current = ((width + sidePanel.translationX) / width)
-            .coerceIn(0f, 1f)
-        setSidePanelProgress(current)
-    }
-
-    private fun finishSidePanelGesture(
-        opening: Boolean,
-        progress: Float,
-        velocity: Float
-    ) {
-        if (opening) {
-            val shouldOpen = progress > 0.18f || velocity > 0.4f
-            if (shouldOpen) openSidePanel(progress) else closeSidePanel()
-        } else {
-            val shouldClose = progress < 0.78f || velocity < -0.4f
-            if (shouldClose) closeSidePanel() else openSidePanel(progress)
-        }
-    }
-
-    private fun animateSidePanelTo(target: Float, current: Float) {
-        sidePanelAnimator?.cancel()
-        val distance = kotlin.math.abs(target - current)
-        val duration = 500L
-        sidePanelAnimator = ValueAnimator.ofFloat(current, target).apply {
-            this.duration = duration
-            interpolator = Curves.IOS
-            addUpdateListener {
-                setSidePanelProgress(it.animatedValue as Float)
-            }
-            start()
-        }
-    }
-
-    private fun openSidePanel(gestureProgress: Float? = null) {
-        if (drawerOpen || isFinishing || isDestroyed) return
-
-        sidePanelOpen = true
-        sidePanel.visibility = View.VISIBLE
-        sidePanelAnimator?.cancel()
-        val width = sidePanelWidth()
-        val current = (gestureProgress
-            ?: ((width + sidePanel.translationX) / width))
-            .coerceIn(0f, 1f)
-        setSidePanelProgress(current)
-        animateSidePanelTo(1f, current)
-    }
-
-    private fun closeSidePanel() {
-        if (!sidePanelOpen && sidePanel.visibility != View.VISIBLE) return
-
-        val width = sidePanelWidth()
-        val current = ((width + sidePanel.translationX) / width)
-            .coerceIn(0f, 1f)
-        sidePanelOpen = false
-        sidePanelAnimator?.cancel()
-
-        sidePanelAnimator = ValueAnimator.ofFloat(current, 0f).apply {
-            duration = 500L
-            interpolator = Curves.IOS
-            addUpdateListener {
-                setSidePanelProgress(it.animatedValue as Float)
-            }
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    if (sidePanelOpen) return
-                    sidePanel.visibility = View.GONE
-                    sidePanel.translationX = -width
-                    mainContent.translationX = 0f
-                    findViewById<View>(R.id.gestureScrim).alpha = 0f
-                    SystemBarHelper.sync(this@MainActivity)
-                }
-            })
-            start()
-        }
-    }
-
-    private fun rootMainHeight(): Int =
-        if (findViewById<View>(R.id.rootMain).height > 0) {
-            findViewById<View>(R.id.rootMain).height
-        } else {
-            resources.displayMetrics.heightPixels
-        }
-
-    private fun startPullLoop() {
-        if (pullFramePosted) return
-        pullFramePosted = true
-        findViewById<View>(R.id.rootMain).postOnAnimation(pullFrameRunnable)
-    }
-
-    private val pullFrameRunnable = object : Runnable {
-        override fun run() {
-            val now = android.os.SystemClock.elapsedRealtimeNanos()
-            val dt = if (pullLastTimeNs != 0L) {
-                kotlin.math.min(
-                    (now - pullLastTimeNs).toDouble() / 1_000_000_000.0,
-                    0.033
-                )
-            } else {
-                0.016
-            }
-            pullLastTimeNs = now
-
-            if (pullDragging) {
-                pullCurrentY += (pullTargetY - pullCurrentY) * 0.55f
-            } else {
-                val stiffness = 180.0
-                val damping = 22.0
-                val force = -stiffness * (pullCurrentY - pullTargetY)
-                pullVelocity += (force * dt).toFloat()
-                pullVelocity *= kotlin.math.exp(-damping * dt).toFloat()
-                pullCurrentY += (pullVelocity * dt).toFloat()
-            }
-
-            applyPullVisual(pullCurrentY)
-
-            val settled =
-                kotlin.math.abs(pullCurrentY - pullTargetY) < 0.3f &&
-                    kotlin.math.abs(pullVelocity) < 0.5f
-
-            if (pullDragging || !settled) {
-                findViewById<View>(R.id.rootMain).postOnAnimation(this)
-            } else {
-                pullCurrentY = pullTargetY
-                pullVelocity = 0f
-                applyPullVisual(pullCurrentY)
-                pullFramePosted = false
-                pullLastTimeNs = 0L
-            }
-        }
-    }
-
-    private fun applyPullVisual(y: Float) {
-        mainContent.translationY = y
-
-        val threshold = dp(72).toFloat()
-        val appearT = (y / dp(55).toFloat()).coerceAtMost(1f)
-        val zoom = 1f - (1f - appearT) * (1f - appearT) * (1f - appearT)
-        val topY = y * 0.5f - dp(14).toFloat()
-
-        pullIndicator.alpha = zoom
-        pullIndicator.scaleX = zoom
-        pullIndicator.scaleY = zoom
-        pullIndicator.translationY = topY
-
-        if (!pullRefreshing) {
-            pullRotation = (
-                (y / threshold).coerceIn(0f, 1f) * 300f
-            )
-            pullIndicator.rotationDegrees = pullRotation
         }
     }
 
     private fun beginPullRefresh() {
         pullRefreshing = true
-        pullTargetY = dp(72).toFloat()
+        pullDragging = false
         pullVelocity = 0f
+        pullTargetY = dp(70).toFloat()
+        pullCurrentY = maxOf(pullCurrentY, dp(70).toFloat())
 
-        pullIndicator.rotationDegrees = pullRotation
         pullSpinnerAnimator?.cancel()
-        val start = pullRotation
-        pullSpinnerAnimator = ValueAnimator.ofFloat(start, start + 360f).apply {
-            duration = 800L
+        pullSpinnerAnimator = ValueAnimator.ofFloat(0f, 360f).apply {
+            duration = 900L
             repeatCount = ValueAnimator.INFINITE
             interpolator = android.view.animation.LinearInterpolator()
-            addUpdateListener {
-                pullRotation = it.animatedValue as Float
-                pullIndicator.rotationDegrees = pullRotation
-            }
+            addUpdateListener { pullRotation = it.animatedValue as Float; pullIndicator.rotationDegrees = pullRotation }
             start()
         }
 
         startPullLoop()
 
-        // Match the supplied reference timing: the refresh phase lasts
-        // 1400 ms independently of network latency. The fetched content may
-        // arrive earlier and is rendered immediately, but the physical pull
-        // animation remains on the same timing curve.
         pullFinishPosted = true
-        findViewById<View>(R.id.rootMain).postDelayed({
+        rootHost.postDelayed({
             pullFinishPosted = false
-            if (pullRefreshing && !isFinishing && !isDestroyed) {
-                finishPullRefresh()
-            }
-        }, 1400L)
+            if (pullRefreshing && !isFinishing && !isDestroyed) finishPullRefresh()
+        }, 1250L)
 
         loadNews(true)
     }
@@ -1333,37 +975,64 @@ class MainActivity : AppCompatActivity() {
         if (!pullRefreshing) return
         pullRefreshing = false
         pullTargetY = 0f
-        pullVelocity = -kotlin.math.max(2f, pullCurrentY * 0.05f)
+        pullVelocity = -maxOf(2f, pullCurrentY * 0.05f)
         startPullLoop()
-
-        findViewById<View>(R.id.rootMain).postDelayed({
-            if (!pullRefreshing && kotlin.math.abs(pullCurrentY) < 1f) {
+        rootHost.postDelayed({
+            if (!pullRefreshing && abs(pullCurrentY) < 1f) {
                 pullSpinnerAnimator?.cancel()
                 pullSpinnerAnimator = null
                 pullRotation = 0f
                 pullIndicator.rotationDegrees = 0f
             }
-        }, 700L)
+        }, 600L)
     }
 
-    private fun openCatSheet() {
-        val checked = categories.indexOf(currentCat).coerceAtLeast(0)
+    private fun startPullLoop() {
+        if (pullFramePosted) return
+        pullFramePosted = true
+        rootHost.postOnAnimation(pullFrameRunnable)
+    }
 
-        NativeSheetDialog.showSelection(
-            this,
-            "Categoria",
-            categories,
-            checked
-        ) { index ->
-            val selected = categories.getOrNull(index) ?: return@showSelection
-            if (selected == currentCat) return@showSelection
+    private val pullFrameRunnable = object : Runnable {
+        override fun run() {
+            val now = android.os.SystemClock.elapsedRealtimeNanos()
+            val dt = if (pullLastTimeNs != 0L) kotlin.math.min((now - pullLastTimeNs).toDouble() / 1_000_000_000.0, 0.033) else 0.016
+            pullLastTimeNs = now
 
-            currentCat = selected
-            findViewById<TextView>(R.id.hCatLabel).text = selected
-            NewsRepository.resetDedup()
-            resetBarsInstantly()
-            loadNews(true)
+            val target = pullTargetY
+            if (abs(target - pullCurrentY) > 0.2f) {
+                val stiffness = if (pullDragging) 18f else 28f
+                pullVelocity += (target - pullCurrentY) * stiffness * dt.toFloat()
+                pullVelocity *= if (pullDragging) 0.82f else 0.88f
+                pullCurrentY += pullVelocity * dt.toFloat()
+                applyPullVisual(pullCurrentY)
+                rootHost.postOnAnimation(this)
+            } else {
+                pullCurrentY = target
+                pullVelocity *= 0.85f
+                applyPullVisual(pullCurrentY)
+                pullFramePosted = false
+                if (pullDragging || pullRefreshing) rootHost.postOnAnimation(this)
+            }
         }
+    }
+
+    private fun applyPullVisual(y: Float) {
+        val h = rootHost.height.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels
+        val headerTravel = dp(56).toFloat()
+        val shift = y.coerceAtLeast(0f)
+        pullIndicator.translationY = shift * 0.35f
+        pullIndicator.alpha = (shift / dp(52).toFloat()).coerceIn(0f, 1f)
+        pullIndicator.scaleX = (0.25f + shift / dp(72).toFloat()).coerceIn(0.25f, 1f)
+        pullIndicator.scaleY = pullIndicator.scaleX
+        if (!feedOpen) {
+            pullIndicator.alpha = 0f
+        }
+        // The feed surface itself follows the pull instead of the home page.
+        feedPanel.translationY = shift
+        feedPanel.translationX = if (feedOpen) 0f else (rootHost.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels).toFloat()
+        feedHeader.translationY = -headerTravel * feedBarProgress
+        if (h <= 0) return
     }
 
     private fun openPublish() {
@@ -1371,22 +1040,12 @@ class MainActivity : AppCompatActivity() {
         overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
     }
 
-    private fun openArticle(
-        item: NewsItem,
-        source: View
-    ) {
-        val transitionName =
-            "news_container_${item.id.hashCode().toUInt().toString(36)}"
+    private fun openArticle(item: NewsItem, source: View) {
+        if (item.link.isBlank() || item.title.isBlank()) return
+        val transitionName = "news_container_${item.id.hashCode().toUInt().toString(36)}"
+        ViewCompat.setTransitionName(source, transitionName)
 
-        ViewCompat.setTransitionName(
-            source,
-            transitionName
-        )
-
-        val intent = Intent(
-            this,
-            ArticleActivity::class.java
-        ).apply {
+        val intent = Intent(this, ArticleActivity::class.java).apply {
             putExtra("id", item.id)
             putExtra("title", item.title)
             putExtra("summary", item.summary)
@@ -1399,26 +1058,18 @@ class MainActivity : AppCompatActivity() {
             putExtra("transition_is_image", item.image.isNotBlank())
         }
 
-        val options =
-            android.app.ActivityOptions.makeSceneTransitionAnimation(
-                this,
-                source,
-                transitionName
-            )
-
-        startActivity(
-            intent,
-            options.toBundle()
-        )
+        val options = android.app.ActivityOptions.makeSceneTransitionAnimation(this, source, transitionName)
+        startActivity(intent, options.toBundle())
     }
 
-    private fun deduplicate(
-        source: List<NewsItem>
-    ): List<NewsItem> {
+    private fun openFeedAndKeepPosition() {
+        openFeedPanel()
+    }
+
+    private fun deduplicate(source: List<NewsItem>): List<NewsItem> {
         val out = ArrayList<NewsItem>(source.size)
         val urls = HashSet<String>()
         val titles = HashSet<String>()
-
         source.forEach { item ->
             val url = normalizeUrl(item.link)
             val title = normalizeTitle(item.title)
@@ -1427,71 +1078,44 @@ class MainActivity : AppCompatActivity() {
             if (!titles.add(title)) return@forEach
             out += item
         }
-
         return out
     }
 
-    private fun normalizeUrl(value: String): String = value.trim()
-        .lowercase(Locale.ROOT)
-        .removePrefix("https://")
-        .removePrefix("http://")
-        .removePrefix("www.")
-        .substringBefore('#')
-        .trimEnd('/')
+    private fun normalizeUrl(value: String): String = value.trim().lowercase(Locale.ROOT)
+        .removePrefix("https://").removePrefix("http://").removePrefix("www.")
+        .substringBefore('#').trimEnd('/')
 
-    private fun normalizeTitle(value: String): String = value.trim()
-        .lowercase(Locale.ROOT)
-        .replace(Regex("[\\p{Punct}]+"), " ")
-        .replace(Regex("\\s+"), " ")
-        .trim()
+    private fun normalizeTitle(value: String): String = value.trim().lowercase(Locale.ROOT)
+        .replace(Regex("[\\p{Punct}]+"), " ").replace(Regex("\\s+"), " ").trim()
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(
-            requestCode,
-            permissions,
-            grantResults
-        )
+    private fun restoreFeedScroll() {
+        recycler.post {
+            val lm = recycler.layoutManager as? LinearLayoutManager ?: return@post
+            lm.scrollToPositionWithOffset(restoredFeedPosition, restoredFeedOffset)
+            resetFeedBar()
+        }
+    }
 
-        if (
-            requestCode == 100 &&
-            grantResults.isNotEmpty() &&
-            grantResults[0] == PackageManager.PERMISSION_GRANTED
-        ) {
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 100 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             try {
                 val manager = getSystemService(LOCATION_SERVICE) as LocationManager
-                val location = manager.getLastKnownLocation(
-                    LocationManager.NETWORK_PROVIDER
-                )
-                if (location != null) {
-                    loadWeatherFor(
-                        location.latitude,
-                        location.longitude
-                    )
-                }
-            } catch (_: SecurityException) {
-            }
+                val location = manager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                if (location != null) loadWeatherFor(location.latitude, location.longitude)
+            } catch (_: SecurityException) { }
         }
     }
 
     override fun onBackPressed() {
-        if (sidePanelOpen) {
-            closeSidePanel()
-            return
+        when {
+            feedOpen -> closeFeedPanel()
+            appsOpen -> closeAppsPanel()
+            else -> super.onBackPressed()
         }
-        if (drawerOpen) {
-            closeDrawer()
-            return
-        }
-        super.onBackPressed()
     }
 
-    override fun onConfigurationChanged(
-        newConfig: android.content.res.Configuration
-    ) {
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
         SystemBarHelper.sync(this)
         refreshNativeTheme()
@@ -1501,124 +1125,48 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         SystemBarHelper.sync(this)
         refreshNativeTheme()
-
-        if (progress.alpha > 0f) {
-            progress.animate()
-                .alpha(0f)
-                .setDuration(250L)
-                .withEndAction {
-                    progressAnimator?.cancel()
-                    val lp = progress.layoutParams as FrameLayout.LayoutParams
-                    lp.width = 0
-                    progress.layoutParams = lp
-                }
-                .start()
-        }
+        progress.animate().alpha(0f).setDuration(180L).withEndAction {
+            progress.visibility = View.GONE
+            (progress.layoutParams as? FrameLayout.LayoutParams)?.let { lp -> lp.width = 0; progress.layoutParams = lp }
+        }.start()
     }
 
     private fun refreshNativeTheme() {
         val bg = ContextCompat.getColor(this, R.color.bg)
-        findViewById<View>(R.id.rootMain).setBackgroundColor(bg)
-        recycler.setBackgroundColor(bg)
-        header.setBackgroundColor(bg)
-        biPill.background = ContextCompat.getDrawable(
-            this,
-            R.drawable.bg_pill_card
-        )
+        rootHost.setBackgroundColor(bg)
+        homePage.setBackgroundColor(bg)
+        feedPanel.setBackgroundColor(bg)
+        appsPanel.setBackgroundColor(bg)
+        homeHeader.setBackgroundColor(bg)
+        feedHeader.setBackgroundColor(bg)
 
-        IconLoader.applySvg(
-            findViewById(R.id.hAddIcon),
-            "apps",
-            R.color.iconTint
-        )
-        IconLoader.applySvg(
-            findViewById(R.id.hMoreIcon),
-            "menu",
-            R.color.iconTint
-        )
-        IconLoader.applySvg(
-            findViewById(R.id.hCatChevron),
-            "chevron-down",
-            R.color.iconTint
-        )
-        IconLoader.applySvg(
-            biAdd.findViewById(R.id.biAddIcon),
-            "add",
-            R.color.iconTint
-        )
-        IconLoader.applySvg(
-            biSend.findViewById(R.id.biSendIcon),
-            "arrow_up",
-            R.color.onpri
-        )
+        IconLoader.applySvg(findViewById(R.id.homeMenuIcon), "menu", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedBackIcon), "back", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "publish", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedChevron), "chevron-down", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.biAddIcon), "add", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow_up", R.color.onpri)
+        IconLoader.applyPng(findViewById(R.id.appsProfileAvatar), "avatar")
+        IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow_right", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
 
-        drawerPanel.setBackgroundColor(
-            ContextCompat.getColor(this, R.color.bg)
-        )
-        findViewById<View>(R.id.drawerHeader).setBackgroundColor(
-            ContextCompat.getColor(this, R.color.bg)
-        )
-        findViewById<TextView>(R.id.drName).setTextColor(
-            ContextCompat.getColor(this, R.color.text)
-        )
-        findViewById<TextView>(R.id.drUser).setTextColor(
-            ContextCompat.getColor(this, R.color.dim)
-        )
-        findViewById<TextView>(R.id.sideTitle)?.setTextColor(
-            ContextCompat.getColor(this, R.color.text)
-        )
-        IconLoader.applyPng(findViewById(R.id.drAvatar), "avatar")
-        IconLoader.applyPng(findViewById(R.id.drIconVerify), "verified")
-        IconLoader.applyPng(findViewById(R.id.drIconSaved), "bookmark")
-        IconLoader.applyPng(findViewById(R.id.drIconSettings), "settings")
-        IconLoader.applyPng(findViewById(R.id.drIconFriends), "friends")
-        IconLoader.applyPng(findViewById(R.id.drIconReport), "flag")
-        IconLoader.applyPng(findViewById(R.id.drIconAi), "magic_wand")
-        IconLoader.applySvg(
-            findViewById(R.id.drBackIcon),
-            "arrow_left",
-            R.color.iconTint
-        )
-        IconLoader.applySvg(
-            findViewById(R.id.drPublishIcon),
-            "publish",
-            R.color.iconTint
-        )
-        IconLoader.applySvg(
-            findViewById(R.id.sideCloseIcon),
-            "back",
-            R.color.iconTint
-        )
-        IconLoader.applySvg(
-            findViewById(R.id.sidePublishIcon),
-            "publish",
-            R.color.iconTint
-        )
-        adapter.refreshTopCards()
+        findViewById<TextView>(R.id.feedCategoryLabel).setTextColor(ContextCompat.getColor(this, R.color.text))
+        findViewById<TextView>(R.id.appsTitle).setTextColor(ContextCompat.getColor(this, R.color.text))
+        findViewById<TextView>(R.id.conversationsEmpty).setTextColor(ContextCompat.getColor(this, R.color.dim))
+        selectAppsTab(appsTabIsApps, false)
+        updateFeedStack()
     }
 
-    override fun dispatchTouchEvent(
-        event: MotionEvent
-    ): Boolean {
-        if (event.action == MotionEvent.ACTION_DOWN) {
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
             val focused = currentFocus
             if (focused is EditText) {
                 val rect = Rect()
                 focused.getGlobalVisibleRect(rect)
-                if (
-                    !rect.contains(
-                        event.rawX.toInt(),
-                        event.rawY.toInt()
-                    )
-                ) {
+                if (!rect.contains(event.rawX.toInt(), event.rawY.toInt())) {
                     focused.clearFocus()
-                    val input = getSystemService(
-                        INPUT_METHOD_SERVICE
-                    ) as InputMethodManager
-                    input.hideSoftInputFromWindow(
-                        focused.windowToken,
-                        0
-                    )
+                    val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.hideSoftInputFromWindow(focused.windowToken, 0)
                 }
             }
         }
@@ -1626,12 +1174,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        progressAnimator?.cancel()
-        barAnimator?.cancel()
+        feedAnimator?.cancel()
+        appsAnimator?.cancel()
+        feedBarAnimator?.cancel()
         pullSpinnerAnimator?.cancel()
         super.onDestroy()
     }
 
-    private fun dp(value: Int): Int =
-        (value * resources.displayMetrics.density + 0.5f).toInt()
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density + 0.5f).toInt()
 }

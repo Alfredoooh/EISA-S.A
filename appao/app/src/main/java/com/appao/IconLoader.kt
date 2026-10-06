@@ -132,7 +132,7 @@ object IconLoader {
         name: String,
         tintRes: Int = 0
     ) {
-        applySvgInternal(view, name, tintRes, 0.68f)
+        applySvgInternal(view, name, tintRes, 0.58f)
     }
 
     private fun applySvgInternal(

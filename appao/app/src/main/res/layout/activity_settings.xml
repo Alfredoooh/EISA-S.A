@@ -31,7 +31,7 @@
     <View android:layout_width="match_parent" android:layout_height="1dp"
         android:background="@color/line"/>
 
-    <ScrollView
+    <com.appao.BounceScrollView
         android:layout_width="match_parent" android:layout_height="0dp"
         android:layout_weight="1" android:overScrollMode="always">
 
@@ -49,5 +49,5 @@
             <include layout="@layout/row_setting" android:id="@+id/rowAccount"/>
             <include layout="@layout/row_setting" android:id="@+id/rowTerms"/>
         </LinearLayout>
-    </ScrollView>
+    </com.appao.BounceScrollView>
 </LinearLayout>

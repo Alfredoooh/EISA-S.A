@@ -38,10 +38,12 @@ class UsageActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         SystemBarHelper.sync(this)
-        if (rootReady) render()
+        if (rootReady && firstResumeHandled) render()
+        firstResumeHandled = true
     }
 
     private var rootReady = false
+    private var firstResumeHandled = false
 
     private fun render() {
         rootReady = true
@@ -71,18 +73,64 @@ class UsageActivity : AppCompatActivity() {
                 text = "Ainda não há fontes visitadas suficientes para apresentar."
                 textSize = 14f
                 setTextColor(ContextCompat.getColor(context, R.color.dim))
-                setPadding(dp(4), dp(8), dp(4), dp(8))
+                setPadding(dp(4), dp(10), dp(4), dp(10))
             })
         } else {
             sources.forEachIndexed { index, pair ->
-                list.addView(TextView(this).apply {
-                    text = "${index + 1}. ${pair.first}    ${pair.second} visita(s)"
+                val row = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    minimumHeight = dp(44)
+                    alpha = 0f
+                    translationY = dp(10).toFloat()
+                    setPadding(dp(4), 0, dp(4), 0)
+                }
+
+                row.addView(TextView(this).apply {
+                    text = "${index + 1}. ${pair.first}"
                     textSize = 14f
                     setTextColor(ContextCompat.getColor(context, R.color.text))
                     gravity = Gravity.CENTER_VERTICAL
-                    minHeight = dp(42)
-                    setPadding(dp(4), 0, dp(4), 0)
-                })
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                }, LinearLayout.LayoutParams(0, dp(44), 1f))
+
+                row.addView(TextView(this).apply {
+                    text = if (pair.second == 1) "1 visita" else "${pair.second} visitas"
+                    textSize = 13f
+                    setTextColor(ContextCompat.getColor(context, R.color.dim))
+                    gravity = Gravity.CENTER_VERTICAL or Gravity.END
+                    maxLines = 1
+                }, LinearLayout.LayoutParams(dp(82), dp(44)))
+
+                list.addView(row)
+                row.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setStartDelay(index * 35L)
+                    .setDuration(360L)
+                    .setInterpolator(Curves.SMOOTH)
+                    .start()
+            }
+        }
+
+        list.animate().alpha(1f).setDuration(220L).setInterpolator(Curves.SMOOTH).start()
+
+        list.post {
+            val cards = listOf(
+                findViewById<View>(R.id.usageBars).parent as View,
+                findViewById<View>(R.id.usagePie).parent as View
+            )
+            cards.forEachIndexed { index, card ->
+                card.alpha = 0f
+                card.translationY = dp(14).toFloat()
+                card.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setStartDelay(index * 70L)
+                    .setDuration(420L)
+                    .setInterpolator(Curves.SMOOTH)
+                    .start()
             }
         }
     }

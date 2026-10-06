@@ -41,9 +41,9 @@ import kotlin.math.max
 class ArticleActivity : AppCompatActivity() {
 
     private lateinit var root: View
-    private lateinit var heroContainer: FrameLayout
+    private lateinit var heroContainer: RoundedClipFrameLayout
     private lateinit var hero: ImageView
-    private lateinit var textHero: FrameLayout
+    private lateinit var textHero: RoundedClipFrameLayout
     private lateinit var textHeroFavicon: ImageView
     private lateinit var textHeroSource: TextView
     private lateinit var textHeroTitle: TextView
@@ -71,6 +71,7 @@ class ArticleActivity : AppCompatActivity() {
     private var articleBarOffset = 0f
     private var articleBarHeight = 0
     private var currentReact = ""
+    private var closingArticle = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -121,6 +122,17 @@ class ArticleActivity : AppCompatActivity() {
             itemSource = itemSource,
             itemLogo = itemLogo
         )
+
+        if (itemImage.isNotBlank()) {
+            heroContainer.setCornerRadiusDp(18f)
+            heroContainer.post {
+                if (!isFinishing && !isDestroyed) {
+                    heroContainer.animateCornerRadiusDp(18f, 0f, 480L)
+                }
+            }
+        } else {
+            textHero.setCornerRadiusDp(18f)
+        }
 
         val topbar = findViewById<View>(R.id.aTopBar)
         ViewCompat.setOnApplyWindowInsetsListener(topbar) { view, insets ->
@@ -213,7 +225,7 @@ class ArticleActivity : AppCompatActivity() {
         }
 
         findViewById<View>(R.id.aBack).setOnClickListener {
-            finishAfterTransition()
+            finishArticle()
         }
 
         commentsAdapter = CommentAdapter(comments) { index, reaction ->
@@ -325,6 +337,19 @@ class ArticleActivity : AppCompatActivity() {
                     }
                 }
         }
+    }
+
+    private fun finishArticle() {
+        if (closingArticle) return
+        closingArticle = true
+
+        val target = if (itemImage.isNotBlank()) heroContainer else textHero
+        target.animateCornerRadiusDp(0f, 18f, 320L)
+        target.postDelayed({
+            if (!isFinishing && !isDestroyed) {
+                finishAfterTransition()
+            }
+        }, 90L)
     }
 
     private fun configureHero(
@@ -868,6 +893,10 @@ class ArticleActivity : AppCompatActivity() {
         } catch (_: Exception) {
             ""
         }
+    }
+
+    override fun onBackPressed() {
+        finishArticle()
     }
 
     override fun onResume() {

@@ -525,13 +525,6 @@ object HtmlStylePopup {
             cornerRadius =
                 radius.toFloat()
 
-            setStroke(
-                1,
-                ContextCompat.getColor(
-                    context,
-                    R.color.popupBorder
-                )
-            )
         }
     }
 

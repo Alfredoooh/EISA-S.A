@@ -132,19 +132,31 @@ class UsageChartView @JvmOverloads constructor(
         }
 
         paint.color = ContextCompat.getColor(context, R.color.bg)
-        canvas.drawCircle(cx, cy, radius * 0.60f, paint)
+        canvas.drawCircle(cx, cy, radius * 0.69f, paint)
 
-        paint.textAlign = Paint.Align.LEFT
-        paint.textSize = sp(12f)
+        paint.textSize = sp(11.5f)
+        val dotX = w * 0.66f
+        val labelX = dotX + dp(12)
+        val rightX = w - dp(8)
         var y = dp(28).toFloat()
         sourceLabels.take(values.size).forEachIndexed { index, label ->
             if (values.getOrElse(index) { 0L } <= 0L) return@forEachIndexed
+
+            paint.textAlign = Paint.Align.LEFT
             paint.color = ContextCompat.getColor(context, palette[index % palette.size])
-            canvas.drawCircle(w * 0.68f, y - dp(4), dp(5).toFloat(), paint)
+            canvas.drawCircle(dotX, y - dp(4), dp(4).toFloat(), paint)
+
+            val pct = (values[index] * 100f / total).toFloat()
+            val pctText = "${pct.toInt()}%"
             paint.color = ContextCompat.getColor(context, R.color.text)
-            val pct = values[index] * 100 / total
-            val safeLabel = if (label.length > 18) label.take(18) + "…" else label
-            canvas.drawText("$safeLabel  ${pct.toInt()}%", w * 0.68f + dp(12), y, paint)
+            paint.textAlign = Paint.Align.RIGHT
+            canvas.drawText(pctText, rightX, y, paint)
+
+            paint.textAlign = Paint.Align.LEFT
+            val labelMaxWidth = (rightX - paint.measureText(pctText) - dp(10) - labelX).coerceAtLeast(dp(30).toFloat())
+            val safeLabel = fitText(label, labelMaxWidth, paint)
+            canvas.drawText(safeLabel, labelX, y, paint)
+
             y += dp(24)
             if (y > h - dp(8)) return
         }
@@ -154,7 +166,7 @@ class UsageChartView @JvmOverloads constructor(
         animator?.cancel()
         animationFraction = 0f
         animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 520L
+            duration = 680L
             interpolator = Curves.SMOOTH
             addUpdateListener {
                 animationFraction = it.animatedValue as Float
@@ -162,6 +174,17 @@ class UsageChartView @JvmOverloads constructor(
             }
             start()
         }
+    }
+
+
+    private fun fitText(value: String, maxWidth: Float, paint: Paint): String {
+        if (paint.measureText(value) <= maxWidth) return value
+        val ellipsis = "…"
+        var end = value.length
+        while (end > 1 && paint.measureText(value, 0, end) + paint.measureText(ellipsis) > maxWidth) {
+            end--
+        }
+        return if (end <= 1) ellipsis else value.substring(0, end) + ellipsis
     }
 
     private fun dp(value: Int): Int =

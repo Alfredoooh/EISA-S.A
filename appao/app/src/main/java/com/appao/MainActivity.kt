@@ -87,6 +87,7 @@ class MainActivity : AppCompatActivity() {
     private var barProgress = 0f
     private var barAnimator: ValueAnimator? = null
     private var progressAnimator: ValueAnimator? = null
+    private var sendButtonShown = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -175,6 +176,7 @@ class MainActivity : AppCompatActivity() {
         recycler.setHasFixedSize(false)
         recycler.itemAnimator = null
         recycler.setItemViewCacheSize(4)
+        recycler.overScrollMode = View.OVER_SCROLL_ALWAYS
 
         recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
@@ -313,6 +315,10 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<View>(R.id.drBack).setOnClickListener {
             closeDrawer()
+        }
+
+        findViewById<View>(R.id.drPublish).setOnClickListener {
+            openPublish()
         }
 
         findViewById<View>(R.id.drVerify).setOnClickListener {
@@ -489,9 +495,17 @@ class MainActivity : AppCompatActivity() {
             "back",
             R.color.iconTint
         )
+        IconLoader.applySvg(
+            findViewById(R.id.sidePublishIcon),
+            "publish",
+            R.color.iconTint
+        )
 
         findViewById<View>(R.id.sideClose).setOnClickListener {
             closeSidePanel()
+        }
+        findViewById<View>(R.id.sidePublish).setOnClickListener {
+            openPublish()
         }
 
         populateAppsAndFriends()
@@ -550,20 +564,50 @@ class MainActivity : AppCompatActivity() {
 
         val appsTab = findViewById<TextView>(R.id.sideTabApps)
         val friendsTab = findViewById<TextView>(R.id.sideTabFriends)
+        val indicator = findViewById<View>(R.id.sideTabIndicator)
+        val indicatorHost = findViewById<View>(R.id.sideBottomTabs)
         val appsContent = findViewById<View>(R.id.sideAppsScroll)
         val friendsContent = findViewById<View>(R.id.sideFriendsContent)
-        appsTab.setOnClickListener {
-            appsContent.visibility = View.VISIBLE
-            friendsContent.visibility = View.GONE
-            appsTab.setTextColor(ContextCompat.getColor(this, R.color.onpri))
-            friendsTab.setTextColor(ContextCompat.getColor(this, R.color.dim))
+
+        fun selectTab(apps: Boolean, animated: Boolean) {
+            appsContent.visibility = if (apps) View.VISIBLE else View.GONE
+            friendsContent.visibility = if (apps) View.GONE else View.VISIBLE
+
+            appsTab.setTextColor(
+                ContextCompat.getColor(this, if (apps) R.color.onpri else R.color.dim)
+            )
+            friendsTab.setTextColor(
+                ContextCompat.getColor(this, if (apps) R.color.dim else R.color.onpri)
+            )
+
+            val width = indicatorHost.width
+            if (width <= 0) {
+                indicatorHost.post { selectTab(apps, animated) }
+                return
+            }
+
+            val innerWidth = width - dp(10)
+            val tabWidth = (innerWidth / 2f).coerceAtLeast(1f)
+            indicator.layoutParams = indicator.layoutParams.apply {
+                this.width = tabWidth.toInt()
+            }
+            val target = if (apps) 0f else tabWidth
+
+            indicator.animate().cancel()
+            if (animated) {
+                indicator.animate()
+                    .translationX(target)
+                    .setDuration(260L)
+                    .setInterpolator(Curves.IOS)
+                    .start()
+            } else {
+                indicator.translationX = target
+            }
         }
-        friendsTab.setOnClickListener {
-            appsContent.visibility = View.GONE
-            friendsContent.visibility = View.VISIBLE
-            appsTab.setTextColor(ContextCompat.getColor(this, R.color.dim))
-            friendsTab.setTextColor(ContextCompat.getColor(this, R.color.onpri))
-        }
+
+        appsTab.setOnClickListener { selectTab(true, true) }
+        friendsTab.setOnClickListener { selectTab(false, true) }
+        indicatorHost.post { selectTab(true, false) }
     }
 
     private fun setupCategories() {
@@ -671,6 +715,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setSendVisible(hasText: Boolean) {
+        if (hasText == sendButtonShown) return
+        sendButtonShown = hasText
+
         if (hasText) {
             val lp = biSend.layoutParams as LinearLayout.LayoutParams
             lp.width = dp(36)
@@ -757,60 +804,82 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadMore() {
-        if (loading || exhausted) return
+        if (loading) return
 
         loading = true
-        val nextPage = page + 1
+        exhausted = false
+        adapter.showBottomSkeleton(3)
 
         lifecycleScope.launch {
-            val result = try {
-                when (currentCat) {
-                    "Todas" -> NewsRepository.fetchGeneral(nextPage)
-                    "Angola" -> NewsRepository.fetchByCategory("general", nextPage, "AO")
-                    "Internacional" -> NewsRepository.fetchByCategory("general", nextPage, "")
-                    "Economia" -> NewsRepository.fetchByCategory("business", nextPage)
-                    "Desporto" -> NewsRepository.fetchByCategory("sports", nextPage)
-                    "Tecnologia" -> NewsRepository.fetchByCategory("technology", nextPage)
-                    "Cultura" -> NewsRepository.fetchByCategory("entertainment", nextPage)
-                    "Política" -> NewsRepository.fetchByCategory("politics", nextPage)
-                    "Saúde" -> NewsRepository.fetchByCategory("health", nextPage)
-                    else -> emptyList()
+            var candidatePage = page + 1
+            var fresh: List<NewsItem> = emptyList()
+
+            for (attempt in 0 until 4) {
+                val result = try {
+                    when (currentCat) {
+                        "Todas" -> NewsRepository.fetchGeneral(candidatePage)
+                        "Angola" -> NewsRepository.fetchByCategory("general", candidatePage, "AO")
+                        "Internacional" -> NewsRepository.fetchByCategory("general", candidatePage, "")
+                        "Economia" -> NewsRepository.fetchByCategory("business", candidatePage)
+                        "Desporto" -> NewsRepository.fetchByCategory("sports", candidatePage)
+                        "Tecnologia" -> NewsRepository.fetchByCategory("technology", candidatePage)
+                        "Cultura" -> NewsRepository.fetchByCategory("entertainment", candidatePage)
+                        "Política" -> NewsRepository.fetchByCategory("politics", candidatePage)
+                        "Saúde" -> NewsRepository.fetchByCategory("health", candidatePage)
+                        else -> emptyList()
+                    }
+                } catch (t: Throwable) {
+                    if (t is kotlinx.coroutines.CancellationException) throw t
+                    android.util.Log.e("MainActivity", "Load more failed", t)
+                    emptyList()
                 }
-            } catch (t: Throwable) {
-                if (t is kotlinx.coroutines.CancellationException) throw t
-                android.util.Log.e("MainActivity", "Load more failed", t)
-                emptyList()
+
+                if (isFinishing || isDestroyed) return@launch
+
+                val seen = HashSet<String>()
+                items.forEach {
+                    seen += normalizeUrl(it.link)
+                    seen += normalizeTitle(it.title)
+                }
+
+                fresh = result.filter { item ->
+                    val urlKey = normalizeUrl(item.link)
+                    val titleKey = normalizeTitle(item.title)
+                    if (urlKey.isBlank() || titleKey.isBlank()) {
+                        false
+                    } else if (urlKey in seen || titleKey in seen) {
+                        false
+                    } else {
+                        seen += urlKey
+                        seen += titleKey
+                        true
+                    }
+                }
+
+                if (fresh.isNotEmpty()) break
+                candidatePage++
+                if (attempt < 3) kotlinx.coroutines.delay(500L)
             }
 
             if (isFinishing || isDestroyed) return@launch
 
             loading = false
-            val seen = HashSet<String>()
-            items.forEach {
-                seen += normalizeUrl(it.link)
-                seen += normalizeTitle(it.title)
-            }
-
-            val fresh = result.filter { item ->
-                val urlKey = normalizeUrl(item.link)
-                val titleKey = normalizeTitle(item.title)
-                if (urlKey.isBlank() || titleKey.isBlank()) {
-                    false
-                } else if (urlKey in seen || titleKey in seen) {
-                    false
-                } else {
-                    seen += urlKey
-                    seen += titleKey
-                    true
-                }
-            }
 
             if (fresh.isEmpty()) {
-                exhausted = true
+                // Keep the bottom skeleton visible while the feed retries. This
+                // makes the end of the list feel continuous instead of ending
+                // on a hard stop between page requests.
+                adapter.showBottomSkeleton(3)
+                recycler.postDelayed({
+                    if (!isFinishing && !isDestroyed && !recycler.canScrollVertically(1) && !loading) {
+                        loadMore()
+                    }
+                }, 1400L)
                 return@launch
             }
 
-            page = nextPage
+            adapter.hideBottomSkeleton()
+            page = candidatePage
             items.addAll(fresh)
             adapter.append(fresh)
             NewsRepository.writeCache(this@MainActivity, items)
@@ -961,7 +1030,7 @@ class MainActivity : AppCompatActivity() {
         // 34% parallax, producing the requested delayed/pushed feel.
         mainContent.translationX = -rootMainWidth() * 0.34f * p
 
-        findViewById<View>(R.id.gestureScrim).alpha = p * 0.35f
+        findViewById<View>(R.id.gestureScrim).alpha = 0f
     }
 
     private fun beginDrawerOpenGesture() {
@@ -1061,7 +1130,7 @@ class MainActivity : AppCompatActivity() {
         // Same 34% parallax in the opposite direction.
         mainContent.translationX = rootMainWidth() * 0.34f * p
 
-        findViewById<View>(R.id.gestureScrim).alpha = p * 0.35f
+        findViewById<View>(R.id.gestureScrim).alpha = 0f
     }
 
     private fun beginSidePanelOpenGesture() {
@@ -1297,6 +1366,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun openPublish() {
+        startActivity(Intent(this, PublishActivity::class.java))
+        overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+    }
+
     private fun openArticle(
         item: NewsItem,
         source: View
@@ -1503,6 +1577,21 @@ class MainActivity : AppCompatActivity() {
         IconLoader.applySvg(
             findViewById(R.id.drBackIcon),
             "arrow_left",
+            R.color.iconTint
+        )
+        IconLoader.applySvg(
+            findViewById(R.id.drPublishIcon),
+            "publish",
+            R.color.iconTint
+        )
+        IconLoader.applySvg(
+            findViewById(R.id.sideCloseIcon),
+            "back",
+            R.color.iconTint
+        )
+        IconLoader.applySvg(
+            findViewById(R.id.sidePublishIcon),
+            "publish",
             R.color.iconTint
         )
         adapter.refreshTopCards()

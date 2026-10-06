@@ -101,7 +101,8 @@ object NativeSheetDialog {
 
             dialog.window?.let { window ->
 
-                window.setDimAmount(
+                window.setBackgroundDrawableResource(android.R.color.transparent)
+            window.setDimAmount(
                     if (
                         ThemeManager.resolvedDark(
                             context

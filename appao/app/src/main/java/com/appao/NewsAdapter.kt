@@ -63,6 +63,7 @@ class NewsAdapter(
     private val rows = mutableListOf<RenderRow>()
     private val activeShimmers = CopyOnWriteArraySet<WeakReference<ShimmerDrawable>>()
     private var shimmerAnim: ValueAnimator? = null
+    private var bottomSkeletonCount = 0
 
     private var weather: WeatherHelper.Result? = null
 
@@ -317,7 +318,7 @@ class NewsAdapter(
 
         val horizontal = android.widget.HorizontalScrollView(context).apply {
             isHorizontalScrollBarEnabled = false
-            overScrollMode = View.OVER_SCROLL_NEVER
+            overScrollMode = View.OVER_SCROLL_ALWAYS
             clipToPadding = false
             clipChildren = false
         }
@@ -382,7 +383,7 @@ class NewsAdapter(
             clipToOutline = true
             isClickable = true
             isFocusable = true
-            elevation = dp(context, 1).toFloat()
+            elevation = 0f
         }
 
         val body = LinearLayout(context).apply {
@@ -647,6 +648,7 @@ class NewsAdapter(
         activeShimmers.clear()
         shimmerAnim?.cancel()
         shimmerAnim = null
+        bottomSkeletonCount = 0
 
         if (showTopCards) {
             rows += RenderRow.TopCards
@@ -663,6 +665,7 @@ class NewsAdapter(
     }
 
     fun submit(items: List<NewsItem>) {
+        bottomSkeletonCount = 0
         replaceArticles(items)
         rebuildRows()
         notifyDataSetChanged()
@@ -697,6 +700,23 @@ class NewsAdapter(
         if (fresh.isEmpty()) return
 
         articles += fresh
+        rebuildRows()
+        notifyDataSetChanged()
+        stopShimmerIfNoSkeleton()
+    }
+
+    fun showBottomSkeleton(count: Int = 3) {
+        val target = count.coerceIn(1, 6)
+        if (bottomSkeletonCount == target && rows.any { it === RenderRow.Skeleton }) return
+        bottomSkeletonCount = target
+        rebuildRows()
+        notifyDataSetChanged()
+        startShimmerIfNeeded()
+    }
+
+    fun hideBottomSkeleton() {
+        if (bottomSkeletonCount == 0) return
+        bottomSkeletonCount = 0
         rebuildRows()
         notifyDataSetChanged()
         stopShimmerIfNoSkeleton()
@@ -764,6 +784,10 @@ class NewsAdapter(
             } else {
                 rows += RenderRow.TextGroup(group.toList())
             }
+        }
+
+        repeat(bottomSkeletonCount.coerceIn(0, 6)) {
+            rows += RenderRow.Skeleton
         }
     }
 

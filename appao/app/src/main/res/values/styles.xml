@@ -39,6 +39,20 @@
         <item name="android:focusable">true</item>
     </style>
 
+
+    <style name="DrawerGridItem">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">108dp</item>
+        <item name="android:layout_columnWeight">1</item>
+        <item name="android:layout_margin">5dp</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:gravity">start|center_vertical</item>
+        <item name="android:padding">14dp</item>
+        <item name="android:background">@drawable/bg_card_pressed</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+    </style>
+
     <style name="SettingsLabel">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>

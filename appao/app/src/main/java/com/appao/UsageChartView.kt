@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.View
+import android.animation.ValueAnimator
 import androidx.core.content.ContextCompat
 import kotlin.math.min
 
@@ -27,19 +28,21 @@ class UsageChartView @JvmOverloads constructor(
     private var sourceLabels = emptyList<String>()
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private var animationFraction = 1f
+    private var animator: ValueAnimator? = null
 
     fun setBarData(values: LongArray, labels: List<String>) {
         type = ChartType.BAR
         this.values = values.copyOf()
         this.labels = labels.toList()
-        invalidate()
+        animateIn()
     }
 
     fun setPieData(values: List<Int>, labels: List<String>) {
         type = ChartType.PIE
         this.values = values.map { it.coerceAtLeast(0).toLong() }.toLongArray()
         sourceLabels = labels.toList()
-        invalidate()
+        animateIn()
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -78,7 +81,7 @@ class UsageChartView @JvmOverloads constructor(
 
         values.forEachIndexed { index, value ->
             val x = gap + index * (slot + gap) + slot / 2f
-            val ratio = value.toFloat() / maxValue.toFloat()
+            val ratio = (value.toFloat() / maxValue.toFloat()) * animationFraction
             val barTop = bottom - (bottom - top) * ratio
             val rect = RectF(x - barWidth / 2f, barTop, x + barWidth / 2f, bottom)
             canvas.drawRoundRect(rect, dp(8).toFloat(), dp(8).toFloat(), paint)
@@ -113,7 +116,7 @@ class UsageChartView @JvmOverloads constructor(
         paint.style = Paint.Style.FILL
         values.forEachIndexed { index, value ->
             if (value <= 0L) return@forEachIndexed
-            val sweep = 360f * value.toFloat() / total
+            val sweep = 360f * value.toFloat() / total * animationFraction
             paint.color = ContextCompat.getColor(context, palette[index % palette.size])
             canvas.drawArc(
                 cx - radius,
@@ -129,7 +132,7 @@ class UsageChartView @JvmOverloads constructor(
         }
 
         paint.color = ContextCompat.getColor(context, R.color.bg)
-        canvas.drawCircle(cx, cy, radius * 0.54f, paint)
+        canvas.drawCircle(cx, cy, radius * 0.60f, paint)
 
         paint.textAlign = Paint.Align.LEFT
         paint.textSize = sp(12f)
@@ -144,6 +147,20 @@ class UsageChartView @JvmOverloads constructor(
             canvas.drawText("$safeLabel  ${pct.toInt()}%", w * 0.68f + dp(12), y, paint)
             y += dp(24)
             if (y > h - dp(8)) return
+        }
+    }
+
+    private fun animateIn() {
+        animator?.cancel()
+        animationFraction = 0f
+        animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 520L
+            interpolator = Curves.SMOOTH
+            addUpdateListener {
+                animationFraction = it.animatedValue as Float
+                invalidate()
+            }
+            start()
         }
     }
 

@@ -206,6 +206,7 @@ object NativeM3Dialog {
 
         try {
 
+            window.setBackgroundDrawableResource(android.R.color.transparent)
             window.setDimAmount(
                 if (
                     ThemeManager.resolvedDark(

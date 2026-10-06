@@ -50,6 +50,7 @@
         <activity android:name=".SidePanelActivity" android:exported="false" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize"/>
         <activity android:name=".UsageActivity" android:exported="false" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize"/>
         <activity android:name=".DataSaverActivity" android:exported="false" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize"/>
+        <activity android:name=".PublishActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize"/>
 
         <activity
             android:name=".AppViewerActivity"

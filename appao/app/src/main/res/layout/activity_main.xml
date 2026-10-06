@@ -28,7 +28,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:clipToPadding="false"
-                android:overScrollMode="never"
+                android:overScrollMode="always"
                 android:paddingBottom="142dp"
                 android:scrollbars="none" />
 
@@ -122,7 +122,7 @@
             android:layout_gravity="bottom|center_horizontal"
             android:layout_marginBottom="20dp"
             android:orientation="horizontal"
-            android:gravity="center_vertical"
+            android:gravity="bottom"
             android:background="@drawable/bg_pill_card"
             android:paddingStart="6dp"
             android:paddingEnd="6dp"
@@ -201,7 +201,7 @@
         android:id="@+id/gestureScrim"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#000000"
+        android:background="@android:color/transparent"
         android:alpha="0"
         android:elevation="10dp"
         android:clickable="false"
@@ -232,11 +232,28 @@
             android:elevation="0dp">
 
             <FrameLayout
-                android:id="@+id/sideClose"
+                android:id="@+id/sidePublish"
                 android:layout_width="42dp"
                 android:layout_height="42dp"
                 android:layout_gravity="start|center_vertical"
                 android:layout_marginStart="4dp"
+                android:background="@drawable/bg_transparent_pressed"
+                android:clickable="true"
+                android:focusable="true">
+                <ImageView
+                    android:id="@+id/sidePublishIcon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:scaleType="fitCenter" />
+            </FrameLayout>
+
+            <FrameLayout
+                android:id="@+id/sideClose"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:layout_gravity="end|center_vertical"
+                android:layout_marginEnd="4dp"
                 android:background="@drawable/bg_transparent_pressed"
                 android:clickable="true"
                 android:focusable="true">
@@ -270,7 +287,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:fillViewport="true"
-                android:overScrollMode="never">
+                android:overScrollMode="always">
                 <GridLayout
                     android:id="@+id/sideAppsGrid"
                     android:layout_width="match_parent"
@@ -301,7 +318,7 @@
             </FrameLayout>
         </FrameLayout>
 
-        <LinearLayout
+        <FrameLayout
             android:id="@+id/sideBottomTabs"
             android:layout_width="match_parent"
             android:layout_height="64dp"
@@ -310,35 +327,46 @@
             android:layout_marginEnd="12dp"
             android:layout_marginBottom="12dp"
             android:padding="5dp"
-            android:orientation="horizontal"
             android:background="@drawable/bg_auth_segment">
 
-            <TextView
-                android:id="@+id/sideTabApps"
+            <View
+                android:id="@+id/sideTabIndicator"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:text="Apps"
-                android:textColor="@color/onpri"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:clickable="true"
-                android:focusable="true" />
+                android:background="@drawable/bg_auth_indicator" />
 
-            <TextView
-                android:id="@+id/sideTabFriends"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:text="Amigos"
-                android:textColor="@color/dim"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:clickable="true"
-                android:focusable="true" />
-        </LinearLayout>
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/sideTabApps"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="Apps"
+                    android:textColor="@color/onpri"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+                <TextView
+                    android:id="@+id/sideTabFriends"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="Amigos"
+                    android:textColor="@color/dim"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:clickable="true"
+                    android:focusable="true" />
+            </LinearLayout>
+        </FrameLayout>
     </FrameLayout>
 
     <!-- Full-height native drawer kept on the RIGHT; it draws edge-to-edge under system bars. -->
@@ -356,26 +384,41 @@
         android:clipChildren="true"
         android:clipToPadding="false">
 
-        <LinearLayout
+        <FrameLayout
             android:id="@+id/drawerHeader"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingStart="4dp"
-            android:paddingEnd="18dp"
-            android:paddingTop="12dp"
-            android:paddingBottom="18dp">
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="14dp">
 
             <FrameLayout
                 android:id="@+id/drBack"
                 android:layout_width="42dp"
                 android:layout_height="42dp"
+                android:layout_gravity="start|top"
                 android:background="@drawable/bg_transparent_pressed"
                 android:clickable="true"
                 android:focusable="true">
-
                 <ImageView
                     android:id="@+id/drBackIcon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:scaleType="fitCenter" />
+            </FrameLayout>
+
+            <FrameLayout
+                android:id="@+id/drPublish"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:layout_gravity="end|top"
+                android:background="@drawable/bg_transparent_pressed"
+                android:clickable="true"
+                android:focusable="true">
+                <ImageView
+                    android:id="@+id/drPublishIcon"
                     android:layout_width="22dp"
                     android:layout_height="22dp"
                     android:layout_gravity="center"
@@ -385,82 +428,102 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="52dp"
                 android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp">
 
                 <FrameLayout
-                    android:layout_width="64dp"
-                    android:layout_height="64dp"
+                    android:layout_width="54dp"
+                    android:layout_height="54dp"
                     android:background="@drawable/bg_circle_card"
                     android:clipToOutline="true">
-
                     <ImageView
                         android:id="@+id/drAvatar"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:scaleType="centerInside"
-                        android:padding="6dp" />
+                        android:scaleType="centerCrop"
+                        android:padding="0dp" />
                 </FrameLayout>
 
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:layout_marginStart="14dp"
+                    android:layout_marginStart="12dp"
                     android:orientation="vertical">
-
                     <TextView
                         android:id="@+id/drName"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Convidado"
                         android:textColor="@color/text"
-                        android:textSize="19sp"
+                        android:textSize="18sp"
                         android:textStyle="bold" />
-
                     <TextView
                         android:id="@+id/drUser"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
+                        android:layout_marginTop="3dp"
+                        android:maxLines="2"
                         android:text="Inicia sessão para personalizar"
                         android:textColor="@color/dim"
-                        android:textSize="13.5sp"
-                        android:maxLines="2" />
+                        android:textSize="13sp" />
                 </LinearLayout>
             </LinearLayout>
-        </LinearLayout>
+        </FrameLayout>
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:background="@color/line" />
 
-        <LinearLayout android:id="@+id/drVerify" style="@style/DrawerItem" android:minHeight="58dp">
-            <ImageView android:id="@+id/drIconVerify" android:layout_width="28dp" android:layout_height="28dp"/>
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Verificação" android:textColor="@color/text" android:textSize="15sp"/>
-        </LinearLayout>
-        <LinearLayout android:id="@+id/drSaved" style="@style/DrawerItem" android:minHeight="58dp">
-            <ImageView android:id="@+id/drIconSaved" android:layout_width="28dp" android:layout_height="28dp"/>
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Guardados" android:textColor="@color/text" android:textSize="15sp"/>
-        </LinearLayout>
-        <LinearLayout android:id="@+id/drSettings" style="@style/DrawerItem" android:minHeight="58dp">
-            <ImageView android:id="@+id/drIconSettings" android:layout_width="28dp" android:layout_height="28dp"/>
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Definições" android:textColor="@color/text" android:textSize="15sp"/>
-        </LinearLayout>
-        <LinearLayout android:id="@+id/drFriends" style="@style/DrawerItem" android:minHeight="58dp">
-            <ImageView android:id="@+id/drIconFriends" android:layout_width="28dp" android:layout_height="28dp"/>
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Amigos" android:textColor="@color/text" android:textSize="15sp"/>
-        </LinearLayout>
-        <LinearLayout android:id="@+id/drReport" style="@style/DrawerItem" android:minHeight="58dp">
-            <ImageView android:id="@+id/drIconReport" android:layout_width="28dp" android:layout_height="28dp"/>
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Comunicar um problema" android:textColor="@color/text" android:textSize="15sp"/>
-        </LinearLayout>
-        <LinearLayout android:id="@+id/drAiSettings" style="@style/DrawerItem" android:minHeight="58dp">
-            <ImageView android:id="@+id/drIconAi" android:layout_width="28dp" android:layout_height="28dp"/>
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Configurações de IA" android:textColor="@color/text" android:textSize="15sp"/>
-        </LinearLayout>
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:overScrollMode="always"
+            android:scrollbars="none">
+
+            <GridLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:columnCount="2"
+                android:padding="8dp"
+                android:useDefaultMargins="false">
+
+                <LinearLayout android:id="@+id/drVerify" style="@style/DrawerGridItem">
+                    <ImageView android:id="@+id/drIconVerify" android:layout_width="30dp" android:layout_height="30dp" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Verificação" android:textColor="@color/text" android:textSize="14sp" android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout android:id="@+id/drSaved" style="@style/DrawerGridItem">
+                    <ImageView android:id="@+id/drIconSaved" android:layout_width="30dp" android:layout_height="30dp" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Guardados" android:textColor="@color/text" android:textSize="14sp" android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout android:id="@+id/drSettings" style="@style/DrawerGridItem">
+                    <ImageView android:id="@+id/drIconSettings" android:layout_width="30dp" android:layout_height="30dp" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Definições" android:textColor="@color/text" android:textSize="14sp" android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout android:id="@+id/drFriends" style="@style/DrawerGridItem">
+                    <ImageView android:id="@+id/drIconFriends" android:layout_width="30dp" android:layout_height="30dp" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Amigos" android:textColor="@color/text" android:textSize="14sp" android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout android:id="@+id/drReport" style="@style/DrawerGridItem">
+                    <ImageView android:id="@+id/drIconReport" android:layout_width="30dp" android:layout_height="30dp" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Comunicar um problema" android:textColor="@color/text" android:textSize="14sp" android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout android:id="@+id/drAiSettings" style="@style/DrawerGridItem">
+                    <ImageView android:id="@+id/drIconAi" android:layout_width="30dp" android:layout_height="30dp" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Configurações de IA" android:textColor="@color/text" android:textSize="14sp" android:textStyle="bold" />
+                </LinearLayout>
+            </GridLayout>
+        </ScrollView>
     </LinearLayout>
 
     <!-- Native progress: its top margin is set from the status-bar inset. -->

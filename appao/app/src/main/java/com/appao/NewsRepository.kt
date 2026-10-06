@@ -13,6 +13,7 @@ import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
+import java.nio.charset.Charset
 import java.net.URLEncoder
 import java.security.MessageDigest
 import java.util.Locale
@@ -184,9 +185,9 @@ object NewsRepository {
                     return@withContext emptyList()
                 }
 
-                val raw = String(
+                val raw = decodeBody(
                     body.bytes(),
-                    Charsets.UTF_8
+                    response.header("Content-Type")
                 )
 
                 if (
@@ -295,7 +296,8 @@ object NewsRepository {
     }
 
     suspend fun fetchArticleFull(
-        url: String
+        url: String,
+        expectedTitle: String = ""
     ): String? = withContext(Dispatchers.IO) {
         try {
             if (!url.startsWith("http", true)) {
@@ -328,15 +330,30 @@ object NewsRepository {
                     return@withContext null
                 }
 
-                val raw = String(
+                val raw = decodeBody(
                     body.bytes(),
-                    Charsets.UTF_8
+                    response.header("Content-Type")
                 )
 
-                JSONObject(raw)
-                    .optJSONObject("article")
-                    ?.optString("body")
-                    ?.take(200_000)
+                val article = JSONObject(raw).optJSONObject("article")
+                    ?: return@withContext null
+
+                val responseUrl = article.optString("url").trim()
+                val responseTitle = cleanText(article.optString("title"))
+                if (responseUrl.isNotBlank() && normalizeUrl(responseUrl) != normalizeUrl(url)) {
+                    Log.w(TAG, "Rejected mismatched article response for $url")
+                    return@withContext null
+                }
+                if (expectedTitle.isNotBlank() && responseTitle.isNotBlank()) {
+                    val a = normalizeTitle(responseTitle)
+                    val b = normalizeTitle(expectedTitle)
+                    if (a != b && !a.contains(b) && !b.contains(a)) {
+                        Log.w(TAG, "Rejected mismatched article title for $url")
+                        return@withContext null
+                    }
+                }
+
+                cleanText(article.optString("body")).take(200_000)
             }
         } catch (t: Throwable) {
             if (
@@ -564,6 +581,30 @@ object NewsRepository {
         }
 
         return out
+    }
+
+    private fun decodeBody(bytes: ByteArray, contentType: String?): String {
+        val declared = runCatching {
+            contentType
+                ?.substringAfter("charset=", "")
+                ?.trim()
+                ?.trim('"', '\'')
+                ?.takeIf { it.isNotBlank() }
+                ?.let { Charset.forName(it) }
+        }.getOrNull()
+
+        val utf8 = runCatching { String(bytes, declared ?: Charsets.UTF_8) }.getOrElse { String(bytes, Charsets.UTF_8) }
+        if (!utf8.contains('\uFFFD')) return utf8
+
+        val windows1252 = runCatching { Charset.forName("windows-1252") }.getOrNull()
+        val latin = windows1252?.let { runCatching { String(bytes, it) }.getOrNull() }
+            ?: runCatching { String(bytes, Charsets.ISO_8859_1) }.getOrNull()
+
+        return if (latin != null && latin.count { it == '\uFFFD' } < utf8.count { it == '\uFFFD' }) {
+            latin
+        } else {
+            utf8
+        }
     }
 
     private fun cleanText(

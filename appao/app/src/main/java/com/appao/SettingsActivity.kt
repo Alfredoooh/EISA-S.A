@@ -54,7 +54,7 @@ class SettingsActivity : AppCompatActivity() {
         IconLoader.applySvg(findViewById(R.id.setBackIcon), "back", R.color.iconTint)
         rows.forEach { rowDef ->
             val row = findViewById<View>(rowDef.id)
-            IconLoader.applySvg(row.findViewById(R.id.rowIcon), rowDef.svg, R.color.iconTint)
+            IconLoader.applySvgThin(row.findViewById(R.id.rowIcon), rowDef.svg, R.color.iconTint)
             row.findViewById<TextView>(R.id.rowTitle).text = rowDef.title
             row.setOnClickListener {
                 when (rowDef.id) {
@@ -79,7 +79,7 @@ class SettingsActivity : AppCompatActivity() {
             val row = findViewById<View>(rowDef.id)
             row.findViewById<TextView>(R.id.rowTitle).setTextColor(text)
             row.findViewById<TextView>(R.id.rowValue).setTextColor(dim)
-            IconLoader.applySvg(row.findViewById(R.id.rowIcon), rowDef.svg, R.color.iconTint)
+            IconLoader.applySvgThin(row.findViewById(R.id.rowIcon), rowDef.svg, R.color.iconTint)
         }
         findViewById<View>(R.id.rowTheme).findViewById<TextView>(R.id.rowValue).apply {
             setVisibility(View.VISIBLE)

@@ -27,16 +27,17 @@ object IconLoader {
     fun svgBitmap(
         context: Context,
         name: String,
-        sizePx: Int
+        sizePx: Int,
+        strokeScale: Float = 0.82f
     ): Bitmap? {
-        val key = "svg:$name:$sizePx"
+        val key = "svg:$name:$sizePx:$strokeScale"
         cache.get(key)?.let { return it }
 
         return try {
             val raw = openSvg(context, name).use {
                 it.readBytes().toString(Charsets.UTF_8)
             }
-            val source = normalizeSvgStrokeWeight(raw)
+            val source = normalizeSvgStrokeWeight(raw, strokeScale)
             val renderSize = (sizePx * 4).coerceAtLeast(96)
             val svg = SVG.getFromString(source)
             svg.setDocumentWidth(renderSize.toFloat())
@@ -62,10 +63,10 @@ object IconLoader {
         }
     }
 
-    private fun normalizeSvgStrokeWeight(raw: String): String {
+    private fun normalizeSvgStrokeWeight(raw: String, strokeScale: Float): String {
         fun reduce(value: String): String {
             val number = value.toFloatOrNull() ?: return value
-            return String.format(java.util.Locale.US, "%.3f", number * 0.82f)
+            return String.format(java.util.Locale.US, "%.3f", number * strokeScale)
         }
 
         var out = raw.replace(
@@ -123,11 +124,29 @@ object IconLoader {
         name: String,
         tintRes: Int = 0
     ) {
+        applySvgInternal(view, name, tintRes, 0.82f)
+    }
+
+    fun applySvgThin(
+        view: ImageView,
+        name: String,
+        tintRes: Int = 0
+    ) {
+        applySvgInternal(view, name, tintRes, 0.68f)
+    }
+
+    private fun applySvgInternal(
+        view: ImageView,
+        name: String,
+        tintRes: Int,
+        strokeScale: Float
+    ) {
         val size = resolveSize(view)
         val bmp = svgBitmap(
             view.context,
             name,
-            size
+            size,
+            strokeScale
         )
 
         if (bmp != null) {

@@ -14,7 +14,7 @@
         android:layout_marginTop="56dp"
         android:clipToPadding="false"
         android:fillViewport="false"
-        android:overScrollMode="never"
+        android:overScrollMode="always"
         android:scrollbars="none">
 
         <LinearLayout
@@ -285,13 +285,13 @@
             android:textStyle="bold" />
 
         <FrameLayout
-            android:id="@+id/aCopy"
+            android:id="@+id/aBrowser"
             android:layout_width="42dp"
             android:layout_height="42dp"
             android:background="@drawable/bg_news_row"
             android:clickable="true">
             <ImageView
-                android:id="@+id/aCopyIcon"
+                android:id="@+id/aBrowserIcon"
                 android:layout_width="22dp"
                 android:layout_height="22dp"
                 android:layout_gravity="center" />

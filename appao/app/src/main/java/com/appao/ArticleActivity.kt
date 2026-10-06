@@ -1,10 +1,9 @@
 package com.appao
 
 import android.app.ActivityOptions
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Intent
 import android.os.Bundle
+import android.net.Uri
 import android.text.Editable
 import android.text.TextWatcher
 import android.transition.ChangeBounds
@@ -167,7 +166,7 @@ class ArticleActivity : AppCompatActivity() {
             "send",
             R.color.onpri
         )
-        IconLoader.applySvg(findViewById(R.id.aCopyIcon), "link", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.aBrowserIcon), "launch", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.aShareIcon), "share", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.aSaveIcon), "bookmark", R.color.iconTint)
         IconLoader.applySvg(
@@ -283,31 +282,16 @@ class ArticleActivity : AppCompatActivity() {
             showReactSheet()
         }
 
-        findViewById<View>(R.id.aCopy).setOnClickListener {
-            val clipboard =
-                getSystemService(ClipboardManager::class.java)
-            clipboard.setPrimaryClip(
-                ClipData.newPlainText(
-                    "link",
-                    itemLink
-                )
-            )
-            AppAoToast.show(this, "Link copiado")
+        findViewById<View>(R.id.aBrowser).setOnClickListener {
+            runCatching {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(itemLink)))
+            }.onFailure {
+                AppAoToast.show(this, "Não foi possível abrir o navegador")
+            }
         }
 
         findViewById<View>(R.id.aShare).setOnClickListener {
-            startActivity(
-                Intent.createChooser(
-                    Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(
-                            Intent.EXTRA_TEXT,
-                            "$itemTitle $itemLink"
-                        )
-                    },
-                    "Partilhar"
-                )
-            )
+            showShareSheet()
         }
 
         findViewById<View>(R.id.aSave).setOnClickListener {
@@ -322,7 +306,7 @@ class ArticleActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             val full = try {
-                NewsRepository.fetchArticleFull(itemLink)
+                NewsRepository.fetchArticleFull(itemLink, itemTitle)
             } catch (t: Throwable) {
                 if (t is kotlinx.coroutines.CancellationException) {
                     throw t
@@ -447,6 +431,102 @@ class ArticleActivity : AppCompatActivity() {
             .setDuration(250L)
             .setInterpolator(Curves.SPRING)
             .start()
+    }
+
+    private fun showShareSheet() {
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(4), dp(8), dp(20))
+        }
+
+        root.addView(TextView(this).apply {
+            text = "Partilhar notícia"
+            gravity = android.view.Gravity.CENTER
+            textSize = 17f
+            setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(this@ArticleActivity, R.color.text))
+            setPadding(dp(18), dp(12), dp(18), dp(16))
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        val apps = listOf(
+            Triple("WhatsApp", "whatsapp", "com.whatsapp"),
+            Triple("Instagram", "instagram", "com.instagram.android"),
+            Triple("X", "x", "com.twitter.android"),
+            Triple("Facebook", "facebook", "com.facebook.katana"),
+            Triple("Messenger", "messenger", "com.facebook.orca"),
+            Triple("Telegram", "telegram", "org.telegram.messenger"),
+            Triple("LinkedIn", "linkedin", "com.linkedin.android"),
+            Triple("Mais", "share", null)
+        )
+
+        val grid = android.widget.GridLayout(this).apply {
+            columnCount = 4
+            useDefaultMargins = false
+        }
+
+        lateinit var shareDialog: com.google.android.material.bottomsheet.BottomSheetDialog
+
+        apps.forEachIndexed { index, (label, iconName, packageName) ->
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = android.view.Gravity.CENTER
+                background = ContextCompat.getDrawable(this@ArticleActivity, R.drawable.bg_sheet_item)
+                isClickable = true
+                isFocusable = true
+                setPadding(dp(4), dp(10), dp(4), dp(10))
+            }
+
+            val icon = ImageView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(42), dp(42))
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+            }
+            IconLoader.applyPng(icon, iconName)
+            item.addView(icon)
+
+            item.addView(TextView(this).apply {
+                text = label
+                textSize = 11.5f
+                gravity = android.view.Gravity.CENTER
+                setTextColor(ContextCompat.getColor(this@ArticleActivity, R.color.dim))
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = dp(6)
+            })
+
+            item.setOnClickListener {
+                shareDialog.dismiss()
+                if (packageName == null) {
+                    startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, "$itemTitle\n$itemLink")
+                    }, "Partilhar"))
+                } else {
+                    val share = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, "$itemTitle\n$itemLink")
+                        `package` = packageName
+                    }
+                    if (share.resolveActivity(packageManager) != null) {
+                        startActivity(share)
+                    } else {
+                        startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, "$itemTitle\n$itemLink")
+                        }, "Partilhar"))
+                    }
+                }
+                (root.parent as? View)?.let { }
+            }
+
+            grid.addView(item, android.widget.GridLayout.LayoutParams().apply {
+                width = 0
+                height = dp(92)
+                columnSpec = android.widget.GridLayout.spec(index % 4, 1f)
+                setMargins(dp(2), dp(2), dp(2), dp(2))
+            })
+        }
+
+        root.addView(grid, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        shareDialog = NativeSheetDialog.show(this, root)
     }
 
     private fun showReactSheet() {

@@ -4,7 +4,9 @@ import android.content.Context
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.ViewConfiguration
+import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import kotlin.math.abs
 
 /**
@@ -74,6 +76,7 @@ class DrawerHostLayout @JvmOverloads constructor(
     private var intercepted = false
     private var mode = GestureMode.NONE
     private var velocityX = 0f
+    private var horizontalChildGesture = false
 
     override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
@@ -86,11 +89,13 @@ class DrawerHostLayout @JvmOverloads constructor(
                 tracking = true
                 intercepted = false
                 mode = GestureMode.NONE
+                horizontalChildGesture = hasHorizontalScrollTarget(this, downX, downY)
                 return false
             }
 
             MotionEvent.ACTION_MOVE -> {
                 if (!tracking) return false
+                if (horizontalChildGesture) return false
 
                 val dx = event.x - downX
                 val dy = event.y - downY
@@ -265,6 +270,7 @@ class DrawerHostLayout @JvmOverloads constructor(
 
                 tracking = false
                 intercepted = false
+                horizontalChildGesture = false
                 mode = GestureMode.NONE
                 return true
             }
@@ -290,6 +296,26 @@ class DrawerHostLayout @JvmOverloads constructor(
     private fun calculateProgress(x: Float): Float {
         val widthPx = width.coerceAtLeast(1)
         return (abs(x - downX) / widthPx.toFloat()).coerceIn(0f, 1f)
+    }
+
+    private fun hasHorizontalScrollTarget(view: ViewGroup, x: Float, y: Float): Boolean {
+        for (index in view.childCount - 1 downTo 0) {
+            val child = view.getChildAt(index)
+            if (child.visibility != VISIBLE || child.alpha <= 0f) continue
+
+            val left = child.left.toFloat()
+            val top = child.top.toFloat()
+            val right = child.right.toFloat()
+            val bottom = child.bottom.toFloat()
+            if (x < left || x > right || y < top || y > bottom) continue
+
+            val localX = x - left + child.scrollX
+            val localY = y - top + child.scrollY
+
+            if (child is HorizontalScrollView) return true
+            if (child is ViewGroup && hasHorizontalScrollTarget(child, localX, localY)) return true
+        }
+        return false
     }
 
     private fun updateVelocity(currentX: Float) {

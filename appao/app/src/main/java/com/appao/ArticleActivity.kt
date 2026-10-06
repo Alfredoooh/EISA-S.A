@@ -344,12 +344,12 @@ class ArticleActivity : AppCompatActivity() {
         closingArticle = true
 
         val target = if (itemImage.isNotBlank()) heroContainer else textHero
-        target.animateCornerRadiusDp(0f, 18f, 320L)
+        target.animateCornerRadiusDp(0f, 18f, 440L)
         target.postDelayed({
             if (!isFinishing && !isDestroyed) {
                 finishAfterTransition()
             }
-        }, 90L)
+        }, 180L)
     }
 
     private fun configureHero(

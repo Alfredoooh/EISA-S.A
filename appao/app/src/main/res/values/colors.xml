@@ -40,7 +40,7 @@
     <color name="bubbleBlue">#0F6CBD</color>
     <color name="bubbleCyan">#00767A</color>
     <color name="dotGreen">#0B6A0B</color>
-    <color name="pillBg">#F2F5F8</color>
+    <color name="pillBg">#FFFFFF</color>
     <color name="pillBorder">#00000000</color>
     <color name="iconTint">#13171B</color>
     <color name="skeleton">#E8EDF2</color>

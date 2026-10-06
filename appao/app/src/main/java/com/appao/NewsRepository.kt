@@ -628,6 +628,9 @@ object NewsRepository {
             .trim()
     }
 
+    /** Public display sanitizer used for older cached feed entries. */
+    fun cleanForDisplay(value: String): String = cleanText(value)
+
     /** Repairs common UTF-8 text that was decoded once as Latin-1/Windows-1252. */
     private fun repairMojibake(value: String): String {
         var current = value

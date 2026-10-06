@@ -200,7 +200,7 @@
                             android:paddingStart="6dp"
                             android:paddingTop="9dp"
                             android:minHeight="24dp"
-                            android:textColor="#E5484D"
+                            android:textColor="@color/fluent3Light"
                             android:textSize="12.5sp" />
 
                         <TextView
@@ -314,7 +314,7 @@
                             android:paddingStart="6dp"
                             android:paddingTop="9dp"
                             android:minHeight="24dp"
-                            android:textColor="#E5484D"
+                            android:textColor="@color/fluent3Light"
                             android:textSize="12.5sp" />
 
                         <TextView

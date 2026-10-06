@@ -97,7 +97,7 @@ class UsageChartView @JvmOverloads constructor(
         val w = width.toFloat()
         val h = height.toFloat()
         val total = values.sum().coerceAtLeast(1L).toFloat()
-        val radius = min(w, h) * 0.31f
+        val radius = min(w, h) * 0.30f
         val cx = w * 0.34f
         val cy = h * 0.48f
 
@@ -132,7 +132,7 @@ class UsageChartView @JvmOverloads constructor(
         }
 
         paint.color = ContextCompat.getColor(context, R.color.bg)
-        canvas.drawCircle(cx, cy, radius * 0.69f, paint)
+        canvas.drawCircle(cx, cy, radius * 0.75f, paint)
 
         paint.textSize = sp(11.5f)
         val dotX = w * 0.66f
@@ -166,7 +166,7 @@ class UsageChartView @JvmOverloads constructor(
         animator?.cancel()
         animationFraction = 0f
         animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 680L
+            duration = 760L
             interpolator = Curves.SMOOTH
             addUpdateListener {
                 animationFraction = it.animatedValue as Float

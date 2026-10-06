@@ -13,7 +13,7 @@
         android:layout_height="56dp"
         android:layout_gravity="top"
         android:background="@color/bg"
-        android:elevation="4dp">
+        android:elevation="0dp">
 
         <FrameLayout
             android:id="@+id/sideClose"

@@ -3,23 +3,26 @@ package com.appao
 import android.view.View
 import android.widget.PopupWindow
 
+/** Quick-add menu opened from the fixed AI composer. */
 object AppsPopup {
-    data class App(val name: String, val png: String, val url: String?)
+    data class Option(val label: String, val svg: String, val actionKey: String)
 
-    val APPS = listOf(
-        App("IA",          "magic_wand",       "apps/ai.html"),
-        App("Loja",        "store",            "apps/store.html"),
-        App("Notícias",    "news_feed",        "apps/news.html"),
-        App("Jogos",       "game_controller",  "apps/games.html"),
-        App("Verificados", "verified",         "apps/verified.html"),
-        App("Guardados",   "stack",            "apps/saved.html")
+    private val OPTIONS = listOf(
+        Option("Carregar ficheiro", "file", "file"),
+        Option("Abrir câmera", "camera", "camera"),
+        Option("Carregar imagem", "image", "image"),
+        Option("Pensar mais", "think", "think")
     )
 
-    fun show(anchor: View, onPick: (App) -> Unit): PopupWindow {
+    fun show(anchor: View, onPick: (String) -> Unit): PopupWindow {
         return HtmlStylePopup.show(
             anchor,
-            APPS.map { app ->
-                HtmlStylePopup.Item(app.name, app.png) { onPick(app) }
+            OPTIONS.map { option ->
+                HtmlStylePopup.Item(
+                    label = option.label,
+                    iconName = option.svg,
+                    useSvg = true
+                ) { onPick(option.actionKey) }
             },
             placeAbove = true
         )

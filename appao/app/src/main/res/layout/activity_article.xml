@@ -256,7 +256,7 @@
         android:paddingStart="4dp"
         android:paddingEnd="10dp"
         android:background="@color/bg"
-        android:elevation="8dp">
+        android:elevation="0dp">
 
         <FrameLayout
             android:id="@+id/aBack"

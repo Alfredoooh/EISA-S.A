@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.graphics.Rect
 import android.location.LocationManager
 import android.os.Bundle
+import android.provider.MediaStore
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
@@ -185,10 +186,10 @@ class MainActivity : AppCompatActivity() {
                     val o = array.optJSONObject(i) ?: continue
                     items += NewsItem(
                         id = o.optString("id"),
-                        title = o.optString("title"),
-                        summary = o.optString("summary"),
+                        title = NewsRepository.cleanForDisplay(o.optString("title")),
+                        summary = NewsRepository.cleanForDisplay(o.optString("summary")),
                         link = o.optString("link"),
-                        source = o.optString("source"),
+                        source = NewsRepository.cleanForDisplay(o.optString("source")),
                         date = o.optString("date"),
                         image = o.optString("image"),
                         logo = o.optString("logo")
@@ -252,6 +253,10 @@ class MainActivity : AppCompatActivity() {
     private fun setupHome() {
         IconLoader.applySvg(findViewById(R.id.homeMenuIcon), "menu", R.color.iconTint)
 
+        homeFeedStack.background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
+        homeFeedStack.foreground = null
+        homeFeedStack.stateListAnimator = null
+        homeFeedStack.isFocusable = false
         homeFeedStack.setOnClickListener { openFeedPanel() }
         findViewById<View>(R.id.homeMenu).setOnClickListener { openAppsPanel() }
 
@@ -338,30 +343,25 @@ class MainActivity : AppCompatActivity() {
     private fun setSendVisible(hasText: Boolean) {
         if (hasText == sendButtonShown) return
         sendButtonShown = hasText
+        biSend.animate().cancel()
 
         if (hasText) {
             biSend.visibility = View.VISIBLE
             biSend.alpha = 0f
-            biSend.scaleX = 0.8f
-            biSend.scaleY = 0.8f
+            biSend.scaleX = 0.88f
+            biSend.scaleY = 0.88f
             biSend.animate()
                 .alpha(1f)
                 .scaleX(1f)
                 .scaleY(1f)
-                .setDuration(220L)
-                .setInterpolator(Curves.SPRING)
+                .setDuration(200L)
+                .setInterpolator(Curves.SMOOTH)
                 .start()
         } else {
-            biSend.animate()
-                .alpha(0f)
-                .scaleX(0.8f)
-                .scaleY(0.8f)
-                .setDuration(160L)
-                .setInterpolator(Curves.SMOOTH)
-                .withEndAction {
-                    if (!sendButtonShown) biSend.visibility = View.GONE
-                }
-                .start()
+            biSend.alpha = 0f
+            biSend.scaleX = 1f
+            biSend.scaleY = 1f
+            biSend.visibility = View.GONE
         }
     }
 
@@ -404,13 +404,32 @@ class MainActivity : AppCompatActivity() {
 
         val available = (appsBottomTabs.width - appsBottomTabs.paddingLeft - appsBottomTabs.paddingRight).coerceAtLeast(2)
         val tabWidth = available / 2
-        val target = if (apps) 0f else tabWidth.toFloat()
-        appsTabIndicator.layoutParams = appsTabIndicator.layoutParams.apply {
+        val tabHeight = (appsBottomTabs.height - appsBottomTabs.paddingTop - appsBottomTabs.paddingBottom).coerceAtLeast(2)
+        val baseX = appsBottomTabs.paddingLeft
+
+        appsTabIndicator.layoutParams = (appsTabIndicator.layoutParams as FrameLayout.LayoutParams).apply {
             width = tabWidth
-            height = appsBottomTabs.height - appsBottomTabs.paddingTop - appsBottomTabs.paddingBottom
+            height = tabHeight
+            leftMargin = baseX
+            topMargin = appsBottomTabs.paddingTop
+        }
+        appsTab.layoutParams = (appsTab.layoutParams as FrameLayout.LayoutParams).apply {
+            width = tabWidth
+            height = tabHeight
+            leftMargin = baseX
+            topMargin = appsBottomTabs.paddingTop
+        }
+        conversationsTab.layoutParams = (conversationsTab.layoutParams as FrameLayout.LayoutParams).apply {
+            width = tabWidth
+            height = tabHeight
+            leftMargin = baseX + tabWidth
+            topMargin = appsBottomTabs.paddingTop
         }
 
+        appsTabIndicator.visibility = View.VISIBLE
+        appsTabIndicator.alpha = 1f
         appsTabIndicator.animate().cancel()
+        val target = if (apps) 0f else tabWidth.toFloat()
         if (animated) {
             appsTabIndicator.animate()
                 .translationX(target)
@@ -423,52 +442,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun populateAppsGrid() {
-        val grid = findViewById<android.widget.GridLayout>(R.id.appsGrid)
-        grid.removeAllViews()
-
-        AppsPopup.APPS.forEach { app ->
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
-                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_news_text_card)
-                isClickable = true
-                isFocusable = true
-                setPadding(dp(10), dp(10), dp(10), dp(10))
-                setOnClickListener {
-                    val path = app.url ?: return@setOnClickListener
-                    showNavProgress()
-                    startActivity(Intent(this@MainActivity, AppViewerActivity::class.java).apply {
-                        putExtra("url", "file:///android_asset/$path")
-                    })
-                }
-            }
-
-            val icon = ImageView(this).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(38), dp(38))
-                scaleType = ImageView.ScaleType.CENTER_INSIDE
-            }
-            IconLoader.applyPng(icon, app.png)
-            card.addView(icon)
-
-            card.addView(TextView(this).apply {
-                text = app.name
-                textSize = 14f
-                gravity = Gravity.CENTER
-                setTextColor(ContextCompat.getColor(context, R.color.text))
-                setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
-                setPadding(0, dp(8), 0, 0)
-                maxLines = 2
-                ellipsize = android.text.TextUtils.TruncateAt.END
-            })
-
-            val lp = android.widget.GridLayout.LayoutParams().apply {
-                width = 0
-                height = dp(112)
-                columnSpec = android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, 1f)
-                setMargins(dp(4), dp(4), dp(4), dp(4))
-            }
-            grid.addView(card, lp)
-        }
+        // Apps tab remains available but intentionally contains no app cards.
+        findViewById<android.widget.GridLayout>(R.id.appsGrid).removeAllViews()
     }
 
     private fun setupTouchHost() {
@@ -488,23 +463,28 @@ class MainActivity : AppCompatActivity() {
                 pullTargetY = pullCurrentY
                 pullLastTimeNs = 0L
                 recycler.stopScroll()
+                feedPanel.animate().cancel()
                 startPullLoop()
             }
 
             override fun onPullGestureProgress(distance: Float) {
                 if (!pullDragging || pullRefreshing) return
-                val maxPull = dp(128).toFloat()
+                val maxPull = dp(130).toFloat()
+                val threshold = dp(72).toFloat()
                 val k = 0.55f
                 pullTargetY = (1f - kotlin.math.exp(-distance * k / maxPull))
                     .times(maxPull)
                     .coerceAtMost(maxPull)
+                if (pullCurrentY > threshold && pullTargetY < threshold) {
+                    // Keep the indicator state continuous around the trigger boundary.
+                }
                 startPullLoop()
             }
 
             override fun onPullGestureEnd() {
                 if (!pullDragging || pullRefreshing) return
                 pullDragging = false
-                if (pullCurrentY >= dp(70)) beginPullRefresh() else {
+                if (pullCurrentY >= dp(72)) beginPullRefresh() else {
                     pullTargetY = 0f
                     pullVelocity = 0f
                     startPullLoop()
@@ -864,10 +844,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateFeedStack() {
-        val withImages = items.filter { it.image.isNotBlank() }.take(2)
-        val fallback = if (withImages.isEmpty()) null else withImages.firstOrNull()
-        loadStackImage(stackBack, withImages.getOrNull(1)?.image ?: fallback?.image)
-        loadStackImage(stackFront, withImages.getOrNull(0)?.image ?: fallback?.image)
+        val available = items.filter { it.image.isNotBlank() }
+        val chosen = when {
+            available.size >= 2 -> available.shuffled().take(2)
+            available.size == 1 -> listOf(available.first(), available.first())
+            else -> emptyList()
+        }
+        val fallback = chosen.firstOrNull()
+        loadStackImage(stackBack, chosen.getOrNull(1)?.image ?: fallback?.image)
+        loadStackImage(stackFront, chosen.getOrNull(0)?.image ?: fallback?.image)
     }
 
     private fun loadStackImage(view: ImageView, url: String?) {
@@ -912,15 +897,37 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showAppsPopup(anchor: View) {
-        anchor.animate().scaleX(0.9f).scaleY(0.9f).setDuration(110L).withEndAction {
-            anchor.animate().scaleX(1f).scaleY(1f).setDuration(210L).start()
-        }.start()
-        AppsPopup.show(anchor) { app ->
-            val path = app.url ?: return@show
-            showNavProgress()
-            startActivity(Intent(this, AppViewerActivity::class.java).apply {
-                putExtra("url", "file:///android_asset/$path")
-            })
+        AppsPopup.show(anchor) { action ->
+            when (action) {
+                "file" -> {
+                    startActivity(
+                        Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "*/*"
+                        }
+                    )
+                }
+                "image" -> {
+                    startActivity(
+                        Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "image/*"
+                        }
+                    )
+                }
+                "camera" -> {
+                    val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+                    if (intent.resolveActivity(packageManager) != null) {
+                        startActivity(intent)
+                    }
+                }
+                "think" -> {
+                    showNavProgress()
+                    startActivity(Intent(this, AppViewerActivity::class.java).apply {
+                        putExtra("url", "file:///android_asset/apps/ai.html?mode=think")
+                    })
+                }
+            }
         }
     }
 
@@ -944,33 +951,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun beginPullRefresh() {
-        pullRefreshing = true
-        pullDragging = false
-        pullVelocity = 0f
-        pullTargetY = dp(70).toFloat()
-        pullCurrentY = maxOf(pullCurrentY, dp(70).toFloat())
-
-        pullSpinnerAnimator?.cancel()
-        pullSpinnerAnimator = ValueAnimator.ofFloat(0f, 360f).apply {
-            duration = 900L
-            repeatCount = ValueAnimator.INFINITE
-            interpolator = android.view.animation.LinearInterpolator()
-            addUpdateListener { pullRotation = it.animatedValue as Float; pullIndicator.rotationDegrees = pullRotation }
-            start()
-        }
-
-        startPullLoop()
-
-        pullFinishPosted = true
-        rootHost.postDelayed({
-            pullFinishPosted = false
-            if (pullRefreshing && !isFinishing && !isDestroyed) finishPullRefresh()
-        }, 1250L)
-
-        loadNews(true)
-    }
-
     private fun finishPullRefresh() {
         if (!pullRefreshing) return
         pullRefreshing = false
@@ -984,7 +964,7 @@ class MainActivity : AppCompatActivity() {
                 pullRotation = 0f
                 pullIndicator.rotationDegrees = 0f
             }
-        }, 600L)
+        }, 700L)
     }
 
     private fun startPullLoop() {
@@ -996,43 +976,97 @@ class MainActivity : AppCompatActivity() {
     private val pullFrameRunnable = object : Runnable {
         override fun run() {
             val now = android.os.SystemClock.elapsedRealtimeNanos()
-            val dt = if (pullLastTimeNs != 0L) kotlin.math.min((now - pullLastTimeNs).toDouble() / 1_000_000_000.0, 0.033) else 0.016
+            val dt = if (pullLastTimeNs != 0L) {
+                kotlin.math.min(
+                    (now - pullLastTimeNs).toDouble() / 1_000_000_000.0,
+                    0.033
+                )
+            } else {
+                0.016
+            }
             pullLastTimeNs = now
 
-            val target = pullTargetY
-            if (abs(target - pullCurrentY) > 0.2f) {
-                val stiffness = if (pullDragging) 18f else 28f
-                pullVelocity += (target - pullCurrentY) * stiffness * dt.toFloat()
-                pullVelocity *= if (pullDragging) 0.82f else 0.88f
-                pullCurrentY += pullVelocity * dt.toFloat()
-                applyPullVisual(pullCurrentY)
+            if (pullDragging) {
+                pullCurrentY += (pullTargetY - pullCurrentY) * 0.55f
+            } else {
+                val stiffness = 180.0
+                val damping = 22.0
+                val force = -stiffness * (pullCurrentY - pullTargetY)
+                pullVelocity += (force * dt).toFloat()
+                pullVelocity *= kotlin.math.exp(-damping * dt).toFloat()
+                pullCurrentY += (pullVelocity * dt).toFloat()
+            }
+
+            applyPullVisual(pullCurrentY)
+
+            val settled =
+                kotlin.math.abs(pullCurrentY - pullTargetY) < 0.3f &&
+                    kotlin.math.abs(pullVelocity) < 0.5f
+
+            if (pullDragging || !settled) {
                 rootHost.postOnAnimation(this)
             } else {
-                pullCurrentY = target
-                pullVelocity *= 0.85f
+                pullCurrentY = pullTargetY
+                pullVelocity = 0f
                 applyPullVisual(pullCurrentY)
                 pullFramePosted = false
-                if (pullDragging || pullRefreshing) rootHost.postOnAnimation(this)
+                pullLastTimeNs = 0L
             }
         }
     }
 
     private fun applyPullVisual(y: Float) {
-        val h = rootHost.height.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels
-        val headerTravel = dp(56).toFloat()
-        val shift = y.coerceAtLeast(0f)
-        pullIndicator.translationY = shift * 0.35f
-        pullIndicator.alpha = (shift / dp(52).toFloat()).coerceIn(0f, 1f)
-        pullIndicator.scaleX = (0.25f + shift / dp(72).toFloat()).coerceIn(0.25f, 1f)
-        pullIndicator.scaleY = pullIndicator.scaleX
-        if (!feedOpen) {
-            pullIndicator.alpha = 0f
+        val threshold = dp(72).toFloat()
+        val appearT = (y / dp(55).toFloat()).coerceAtMost(1f)
+        val zoom = 1f - (1f - appearT) * (1f - appearT) * (1f - appearT)
+        val topY = y * 0.5f - dp(14).toFloat()
+
+        pullIndicator.alpha = zoom
+        pullIndicator.scaleX = zoom
+        pullIndicator.scaleY = zoom
+        pullIndicator.translationY = topY
+
+        if (!pullRefreshing) {
+            pullRotation = (y / threshold).coerceIn(0f, 1f) * 300f
+            pullIndicator.rotationDegrees = pullRotation
         }
-        // The feed surface itself follows the pull instead of the home page.
-        feedPanel.translationY = shift
+
+        feedPanel.translationY = y.coerceAtLeast(0f)
         feedPanel.translationX = if (feedOpen) 0f else (rootHost.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels).toFloat()
-        feedHeader.translationY = -headerTravel * feedBarProgress
-        if (h <= 0) return
+        feedHeader.translationY = -(feedHeaderHeight.takeIf { it > 0 } ?: dp(56)).toFloat() * feedBarProgress
+    }
+
+    private fun beginPullRefresh() {
+        pullRefreshing = true
+        pullDragging = false
+        pullTargetY = dp(72).toFloat()
+        pullVelocity = 0f
+
+        pullIndicator.rotationDegrees = pullRotation
+        pullSpinnerAnimator?.cancel()
+        val start = pullRotation
+        pullSpinnerAnimator = ValueAnimator.ofFloat(start, start + 360f).apply {
+            duration = 800L
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = android.view.animation.LinearInterpolator()
+            addUpdateListener {
+                pullRotation = it.animatedValue as Float
+                pullIndicator.rotationDegrees = pullRotation
+            }
+            start()
+        }
+
+        startPullLoop()
+
+        pullFinishPosted = true
+        rootHost.postDelayed({
+            pullFinishPosted = false
+            if (pullRefreshing && !isFinishing && !isDestroyed) {
+                finishPullRefresh()
+            }
+        }, 1400L)
+
+        loadNews(true)
     }
 
     private fun openPublish() {
@@ -1153,8 +1187,12 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.feedCategoryLabel).setTextColor(ContextCompat.getColor(this, R.color.text))
         findViewById<TextView>(R.id.appsTitle).setTextColor(ContextCompat.getColor(this, R.color.text))
         findViewById<TextView>(R.id.conversationsEmpty).setTextColor(ContextCompat.getColor(this, R.color.dim))
+        biPill.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_card)
+        appsBottomTabs.background = ContextCompat.getDrawable(this, R.drawable.bg_auth_segment)
+        appsTabIndicator.background = ContextCompat.getDrawable(this, R.drawable.bg_auth_indicator)
         selectAppsTab(appsTabIsApps, false)
-        updateFeedStack()
+        if (::adapter.isInitialized) adapter.notifyDataSetChanged()
+        // Theme changes update colors only; the feed data and images stay in place.
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {

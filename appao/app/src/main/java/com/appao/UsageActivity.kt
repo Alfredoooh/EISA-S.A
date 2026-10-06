@@ -123,12 +123,16 @@ class UsageActivity : AppCompatActivity() {
             )
             cards.forEachIndexed { index, card ->
                 card.alpha = 0f
-                card.translationY = dp(14).toFloat()
+                card.translationY = dp(18).toFloat()
+                card.scaleX = 0.985f
+                card.scaleY = 0.985f
                 card.animate()
                     .alpha(1f)
                     .translationY(0f)
-                    .setStartDelay(index * 70L)
-                    .setDuration(420L)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setStartDelay(index * 90L)
+                    .setDuration(520L)
                     .setInterpolator(Curves.SMOOTH)
                     .start()
             }

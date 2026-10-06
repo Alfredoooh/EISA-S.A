@@ -196,7 +196,7 @@ class NewsAdapter(
 
         holder.source.text = item.source
         holder.time.text = ago(item.date)
-        holder.title.text = item.title
+        holder.title.text = NewsRepository.cleanForDisplay(item.title)
 
         Glide.with(holder.favicon).clear(holder.favicon)
         if (item.logo.isNotBlank()) {
@@ -442,7 +442,7 @@ class NewsAdapter(
         )
 
         val source = TextView(context).apply {
-            text = item.source.ifBlank { "Fonte" }
+            text = NewsRepository.cleanForDisplay(item.source).ifBlank { "Fonte" }
             textSize = if (square) 13.5f else 14f
             setTextColor(
                 ContextCompat.getColor(
@@ -509,7 +509,7 @@ class NewsAdapter(
 
         if (item.summary.isNotBlank()) {
             val summary = TextView(context).apply {
-                text = item.summary
+                text = NewsRepository.cleanForDisplay(item.summary)
                 textSize = if (square) 12.5f else if (compact) 12f else 13.5f
                 setTextColor(ContextCompat.getColor(context, R.color.dim))
                 setLineSpacing(0f, 1.3f)

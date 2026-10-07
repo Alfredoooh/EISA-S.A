@@ -56,6 +56,15 @@ workflows:
           PROJECT_DIR="$CM_BUILD_DIR/appao"
           if [ ! -d "$PROJECT_DIR/app" ]; then PROJECT_DIR="$CM_BUILD_DIR"; fi
           cd "$PROJECT_DIR"
+          # Defensive source sanitation for the known malformed identifiers from previous uploads.
+          python3 - <<'PYFIX'
+          from pathlib import Path
+          src = Path("app/src/main/java/com/appao/MainActivity.kt")
+          text = src.read_text(encoding="utf-8")
+          text = text.replace("getChildAte", "getChildAt")
+          text = text.replace("bg_popup_materiale", "bg_popup_material")
+          src.write_text(text, encoding="utf-8")
+          PYFIX
           chmod +x ./gradlew || true
           if [ -f "gradle/wrapper/gradle-wrapper.jar" ]; then
             ./gradlew clean assembleDebug --stacktrace --no-daemon

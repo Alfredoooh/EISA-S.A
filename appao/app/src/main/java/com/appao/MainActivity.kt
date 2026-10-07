@@ -443,7 +443,11 @@ class MainActivity : AppCompatActivity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(8), dp(12), dp(18))
-            background = ContextCompat.getDrawable(this@MainActivity, R.drawable/bg_popup_material)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = dp(26).toFloat()
+                setColor(ContextCompat.getColor(this@MainActivity, R.color.popupBg))
+            }
         }
 
         root.addView(TextView(this).apply {

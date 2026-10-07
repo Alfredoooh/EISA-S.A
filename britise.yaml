@@ -1,0 +1,121 @@
+format_version: '13'
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: android
+
+app:
+  envs:
+    - PACKAGE_NAME: "com.appao"
+      opts:
+        is_expand: false
+
+trigger_map:
+  - push_branch: main
+    workflow: appao-android-debug
+
+workflows:
+  appao-android-debug:
+    title: appao-android-debug
+    meta:
+      bitrise.io:
+        stack: osx-xcode-16.x
+        machine_type_id: g2-m1.4core
+
+    envs:
+      - JAVA_TOOL_OPTIONS: "-Djava.version=17"
+
+    steps:
+      - activate-ssh-key@4:
+          run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+
+      - git-clone@8: {}
+
+      - cache-pull@2: {}
+
+      - script@1:
+          title: Configure Android SDK
+          inputs:
+            - content: |-
+                #!/usr/bin/env bash
+                set -e
+                PROJECT_DIR="$BITRISE_SOURCE_DIR/appao"
+                if [ ! -d "$PROJECT_DIR/app" ]; then PROJECT_DIR="$BITRISE_SOURCE_DIR"; fi
+                echo "sdk.dir=$ANDROID_HOME" > "$PROJECT_DIR/local.properties"
+                envman add --key PROJECT_DIR --value "$PROJECT_DIR"
+
+      - script@1:
+          title: Set up signing keystore
+          inputs:
+            - content: |-
+                #!/usr/bin/env bash
+                set -e
+                PROJECT_DIR="$BITRISE_SOURCE_DIR/appao"
+                if [ ! -d "$PROJECT_DIR/app" ]; then PROJECT_DIR="$BITRISE_SOURCE_DIR"; fi
+                if [ -f "$PROJECT_DIR/looply-debug.keystore" ]; then
+                  echo "Repository keystore present; debug builds use Gradle's debug signing automatically."
+                elif [ -n "${LOOPLY_KEYSTORE_BASE64:-}" ]; then
+                  echo "Decoding repository keystore..."
+                  if printf '%s' "$LOOPLY_KEYSTORE_BASE64" | base64 --decode > "$PROJECT_DIR/looply-debug.keystore" 2>/dev/null; then
+                    :
+                  else
+                    printf '%s' "$LOOPLY_KEYSTORE_BASE64" | base64 -D > "$PROJECT_DIR/looply-debug.keystore"
+                  fi
+                  chmod 600 "$PROJECT_DIR/looply-debug.keystore"
+                else
+                  echo "No custom repository keystore supplied; continuing because this workflow builds Debug."
+                fi
+
+      - script@1:
+          title: Build app ao Debug APK
+          inputs:
+            - content: |-
+                #!/usr/bin/env bash
+                set -e
+                PROJECT_DIR="$BITRISE_SOURCE_DIR/appao"
+                if [ ! -d "$PROJECT_DIR/app" ]; then PROJECT_DIR="$BITRISE_SOURCE_DIR"; fi
+                cd "$PROJECT_DIR"
+                chmod +x ./gradlew || true
+                if [ -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+                  ./gradlew clean assembleDebug --stacktrace --no-daemon
+                elif command -v gradle >/dev/null 2>&1; then
+                  echo "gradle-wrapper.jar is missing; using the system Gradle executable."
+                  gradle clean assembleDebug --stacktrace --no-daemon
+                else
+                  echo "ERROR: gradle-wrapper.jar is missing and no Gradle executable is available."
+                  exit 1
+                fi
+
+      - script@1:
+          title: Verify APK size
+          inputs:
+            - content: |-
+                #!/usr/bin/env bash
+                set -e
+                APK_DIR="$BITRISE_SOURCE_DIR/appao/app/build/outputs/apk/debug"
+                apk=$(find "$APK_DIR" -maxdepth 1 -type f -name '*.apk' | head -1)
+                if [ -z "$apk" ]; then
+                  echo "ERROR: No APK was generated."
+                  exit 1
+                fi
+
+                if bytes=$(stat -f%z "$apk" 2>/dev/null); then :; else bytes=$(stat -c%s "$apk"); fi
+                mib=$((bytes / 1024 / 1024))
+                echo "APK: $apk"
+                echo "Bytes: $bytes"
+                echo "Size: ${mib} MiB"
+                echo "Target: below 5 MiB"
+
+                if [ "$bytes" -lt 5242880 ]; then
+                  echo "APK is below the 5 MiB target."
+                else
+                  echo "WARNING: APK is above the 5 MiB target; R8/resource shrinking remains enabled."
+                fi
+
+      - cache-push@2:
+          inputs:
+            - cache_paths: |-
+                ~/.gradle/caches
+                ~/.gradle/wrapper/dists
+
+      - deploy-to-bitrise-io@2:
+          inputs:
+            - deploy_path: $BITRISE_SOURCE_DIR/appao/app/build/outputs/apk/debug

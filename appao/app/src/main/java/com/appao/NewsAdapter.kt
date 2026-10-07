@@ -638,6 +638,59 @@ class NewsAdapter(
         super.onDetachedFromRecyclerView(recyclerView)
     }
 
+
+    fun refreshTheme(recyclerView: RecyclerView) {
+        val text = ContextCompat.getColor(recyclerView.context, R.color.text)
+        val dim = ContextCompat.getColor(recyclerView.context, R.color.dim)
+        for (i in 0 until recyclerView.childCount) {
+            val child = recyclerView.getChildAt(i)
+            val holder = recyclerView.getChildViewHolder(child)
+            when (holder) {
+                is ImageVH -> {
+                    holder.source.setTextColor(text)
+                    holder.time.setTextColor(dim)
+                    holder.title.setTextColor(text)
+                    holder.itemView.background = ContextCompat.getDrawable(recyclerView.context, R.drawable.bg_news_row)
+                    holder.imageCard.background = ContextCompat.getDrawable(recyclerView.context, R.drawable.bg_news_image_card)
+                    (holder.favicon.parent as? View)?.background = rounded(
+                        ContextCompat.getColor(recyclerView.context, R.color.bgElevated),
+                        dp(recyclerView.context, 999).toFloat()
+                    )
+                }
+                is TopCardsVH -> {
+                    holder.weatherTemp.setTextColor(text)
+                    holder.weatherCity.setTextColor(dim)
+                    holder.itemView.findViewById<View>(R.id.cardWeather)?.background =
+                        ContextCompat.getDrawable(recyclerView.context, R.drawable.bg_top_card)
+                    holder.itemView.findViewById<View>(R.id.cardSavings)?.background =
+                        ContextCompat.getDrawable(recyclerView.context, R.drawable.bg_top_card)
+                    holder.itemView.findViewById<View>(R.id.cardHistory)?.background =
+                        ContextCompat.getDrawable(recyclerView.context, R.drawable.bg_top_card)
+                }
+                is DynamicTextVH -> {
+                    val root = child as? ViewGroup
+                    val card = root?.getChildAt(0)
+                    if (card != null) {
+                        card.background = ContextCompat.getDrawable(recyclerView.context, R.drawable.bg_news_text_card)
+                        updateTextTheme(card, text, dim, recyclerView.context)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun updateTextTheme(view: View, text: Int, dim: Int, context: android.content.Context) {
+        if (view is TextView) {
+            val size = view.textSize / context.resources.displayMetrics.scaledDensity
+            view.setTextColor(if (size >= 15f) text else dim)
+        }
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                updateTextTheme(view.getChildAt(i), text, dim, context)
+            }
+        }
+    }
+
     override fun getItemCount(): Int = rows.size
 
     fun showSkeleton(

@@ -65,4 +65,10 @@
         <item name="android:textStyle">bold</item>
         <item name="android:letterSpacing">0.05</item>
     </style>
+
+    <style name="AppAo.ModalWindowAnimations">
+        <item name="android:windowEnterAnimation">@anim/modal_slide_in</item>
+        <item name="android:windowExitAnimation">@anim/modal_slide_out</item>
+    </style>
+
 </resources>

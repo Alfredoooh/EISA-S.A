@@ -63,6 +63,7 @@ class AuthActivity : AppCompatActivity() {
 
         findViewById<View>(R.id.authClose).setOnClickListener {
             finish()
+            overridePendingTransition(R.anim.publish_return_enter, R.anim.publish_return_exit)
         }
 
         loginTab.setOnClickListener {
@@ -99,6 +100,15 @@ class AuthActivity : AppCompatActivity() {
             intent.getBooleanExtra("register", false),
             false
         )
+
+        // Same transition family as the publication screen: this screen rises
+        // from below while the previous screen is gently pushed back.
+        overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+    }
+
+    override fun onBackPressed() {
+        finish()
+        overridePendingTransition(R.anim.publish_return_enter, R.anim.publish_return_exit)
     }
 
     private fun setRegister(

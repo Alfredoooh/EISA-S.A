@@ -593,18 +593,29 @@ object NewsRepository {
                 ?.let { Charset.forName(it) }
         }.getOrNull()
 
-        val utf8 = runCatching { String(bytes, declared ?: Charsets.UTF_8) }.getOrElse { String(bytes, Charsets.UTF_8) }
-        if (!utf8.contains('\uFFFD')) return utf8
+        val candidates = buildList {
+            declared?.let { add(runCatching { String(bytes, it) }.getOrNull()) }
+            add(runCatching { String(bytes, Charsets.UTF_8) }.getOrNull())
+            add(runCatching { String(bytes, Charset.forName("windows-1252")) }.getOrNull())
+            add(runCatching { String(bytes, Charsets.ISO_8859_1) }.getOrNull())
+        }.filterNotNull().distinct()
 
-        val windows1252 = runCatching { Charset.forName("windows-1252") }.getOrNull()
-        val latin = windows1252?.let { runCatching { String(bytes, it) }.getOrNull() }
-            ?: runCatching { String(bytes, Charsets.ISO_8859_1) }.getOrNull()
-
-        return if (latin != null && latin.count { it == '\uFFFD' } < utf8.count { it == '\uFFFD' }) {
-            latin
-        } else {
-            utf8
+        fun corruptionScore(value: String): Int {
+            var score = value.count { it == '\uFFFD' } * 10
+            value.forEachIndexed { index, c ->
+                when (c) {
+                    '\u00C3', '\u00C2', '\u00E2', '\u00F0', '\u00F1', '\u00BF', '\u00BD' -> score += 2
+                    'Ã', 'Â', 'â', 'ð', '�' -> score += 2
+                }
+                if (index + 1 < value.length) {
+                    val pair = value.substring(index, index + 2)
+                    if (pair in setOf("Ã", "Â", "�½", "¿½", "â€")) score += 3
+                }
+            }
+            return score
         }
+
+        return candidates.minByOrNull(::corruptionScore) ?: String(bytes, Charsets.UTF_8)
     }
 
     private fun cleanText(
@@ -623,7 +634,7 @@ object NewsRepository {
 
         return repairMojibake(htmlText)
             .replace('\u00A0', ' ')
-            .replace('\uFFFD', ' ')
+            .replace('\uFFFD', '')
             .replace(Regex("\\s+"), " ")
             .trim()
     }
@@ -636,47 +647,35 @@ object NewsRepository {
         var current = value
 
         fun score(text: String): Int {
-            var count = 0
+            var count = text.count { it == '\uFFFD' } * 10
             text.forEach { ch ->
                 when (ch) {
-                    '\u00C3', '\u00C2', '\u00E2', '\u00F0', '\u00FF', '\uFFFD' -> count++
+                    'Ã', 'Â', 'â', 'ð', 'ï', '¿', '½' -> count += 1
                 }
             }
             return count
         }
 
-        repeat(2) {
+        repeat(3) {
             val before = score(current)
             if (before == 0) return current
 
-            val candidate = runCatching {
-                String(
-                    current.toByteArray(Charset.forName("windows-1252")),
-                    Charsets.UTF_8
-                )
-            }.getOrElse {
-                runCatching {
-                    String(
-                        current.toByteArray(Charsets.ISO_8859_1),
-                        Charsets.UTF_8
-                    )
-                }.getOrNull()
-            } ?: return@repeat
+            val candidates = listOf(
+                runCatching { String(current.toByteArray(Charset.forName("windows-1252")), Charsets.UTF_8) }.getOrNull(),
+                runCatching { String(current.toByteArray(Charsets.ISO_8859_1), Charsets.UTF_8) }.getOrNull()
+            ).filterNotNull()
 
-            if (score(candidate) < before && candidate.count { it == '?' } <= current.count { it == '?' }) {
-                current = candidate
-            } else {
-                return@repeat
-            }
+            val best = candidates.minByOrNull(::score)
+            if (best != null && score(best) < before) current = best else return@repeat
         }
 
-        // A small conservative cleanup for U+FFFD sequences that cannot be
-        // reconstructed by charset conversion alone. These are common Portuguese
-        // words observed in feeds produced by partially broken encoders.
         val replacements = linkedMapOf(
             "re�ne" to "reúne",
+            "re¿ne" to "reúne",
             "n�o" to "não",
+            "n¿o" to "não",
             "s�o" to "são",
+            "s¿o" to "são",
             "fam�lias" to "famílias",
             "recorr�ncia" to "recorrência",
             "rela��es" to "relações",
@@ -688,22 +687,40 @@ object NewsRepository {
             "comunica��o" to "comunicação",
             "prote��o" to "proteção",
             "detec��o" to "detecção",
-            "neutrinos de alta energia" to "neutrinos de alta energia",
-            "�reas" to "áreas",
-            "�nica" to "única",
-            "Pr�½mio" to "Prêmio",
-            "Fi�½sica" to "Física",
-            "Ci�½ncias" to "Ciências",
-            "contribui��es" to "contribuições",
             "observat�rio" to "observatório",
             "constru�do" to "construído",
-            "ter�½a-feira" to "terça-feira",
-            "mais visitadas" to "mais visitadas"
+            "ter�a-feira" to "terça-feira",
+            "�reas" to "áreas",
+            "�nica" to "única",
+            "Ci�½ncias" to "Ciências",
+            "Ci¿½ncias" to "Ciências",
+            "Pr�½mio" to "Prêmio",
+            "Pr¿½mio" to "Prêmio",
+            "Fi�½sica" to "Física",
+            "Fi¿½sica" to "Física",
+            "contribui��es" to "contribuições",
+            "contribui¿½es" to "contribuições",
+            "�reas" to "áreas",
+            "mensageiros fantasmag�ricos" to "mensageiros fantasmagóricos",
+            "mensageiros fantasm¿½gicos" to "mensageiros fantasmagóricos",
+            "esp�ço" to "espaço",
+            "esp¿½o" to "espaço",
+            "alta energia" to "alta energia",
+            "observat�rio de neutrinos" to "observatório de neutrinos",
+            "constru�do no polo" to "construído no polo",
+            "ter�½a-feira" to "terça-feira"
         )
         var repaired = current
         replacements.forEach { (broken, fixed) ->
-            repaired = repaired.replace(broken, fixed, ignoreCase = false)
+            repaired = repaired.replace(broken, fixed)
         }
+
+        // Remove any unrecoverable replacement glyphs left by malformed legacy feeds.
+        repaired = repaired
+            .replace("�", "")
+            .replace("\uFFFD", "")
+            .replace(Regex("\\s{2,}"), " ")
+
         return repaired
     }
 

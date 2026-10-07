@@ -3,6 +3,7 @@ package com.appao
 import android.app.ActivityOptions
 import android.content.Intent
 import android.os.Bundle
+import android.graphics.Color
 import android.net.Uri
 import android.text.Editable
 import android.text.TextWatcher
@@ -43,10 +44,8 @@ class ArticleActivity : AppCompatActivity() {
     private lateinit var root: View
     private lateinit var heroContainer: RoundedClipFrameLayout
     private lateinit var hero: ImageView
-    private lateinit var textHero: RoundedClipFrameLayout
-    private lateinit var textHeroFavicon: ImageView
-    private lateinit var textHeroSource: TextView
-    private lateinit var textHeroTitle: TextView
+    private lateinit var sheetCard: RoundedClipFrameLayout
+    private lateinit var heroSpacer: View
     private lateinit var title: TextView
     private lateinit var summary: TextView
     private lateinit var body: TextView
@@ -100,10 +99,8 @@ class ArticleActivity : AppCompatActivity() {
         root = findViewById(R.id.rootArticle)
         heroContainer = findViewById(R.id.aHeroContainer)
         hero = findViewById(R.id.aHero)
-        textHero = findViewById(R.id.aTextHero)
-        textHeroFavicon = findViewById(R.id.aTextHeroFavicon)
-        textHeroSource = findViewById(R.id.aTextHeroSource)
-        textHeroTitle = findViewById(R.id.aTextHeroTitle)
+        sheetCard = findViewById(R.id.aSheetCard)
+        heroSpacer = findViewById(R.id.aHeroSpacer)
         title = findViewById(R.id.aTitle)
         summary = findViewById(R.id.aSummary)
         body = findViewById(R.id.aBody)
@@ -118,11 +115,10 @@ class ArticleActivity : AppCompatActivity() {
         acComposer = findViewById(R.id.acComposer)
         acEmoji = findViewById(R.id.acEmoji)
 
-        configureHero(
-            itemSource = itemSource,
-            itemLogo = itemLogo
-        )
+        configureHero(itemSource, itemLogo)
 
+        sheetCard.setCornerRadiusDp(22f)
+        sheetCard.minimumHeight = (resources.displayMetrics.heightPixels - dp(if (itemImage.isNotBlank()) 280 else 120)).coerceAtLeast(0)
         if (itemImage.isNotBlank()) {
             heroContainer.setCornerRadiusDp(18f)
             heroContainer.post {
@@ -130,8 +126,6 @@ class ArticleActivity : AppCompatActivity() {
                     heroContainer.animateCornerRadiusDp(18f, 0f, 480L)
                 }
             }
-        } else {
-            textHero.setCornerRadiusDp(18f)
         }
 
         val topbar = findViewById<View>(R.id.aTopBar)
@@ -159,7 +153,7 @@ class ArticleActivity : AppCompatActivity() {
 
             val scrollParams =
                 scroll.layoutParams as FrameLayout.LayoutParams
-            scrollParams.topMargin = dp(56)
+            scrollParams.topMargin = 0
             scrollParams.bottomMargin = articleBar.measuredHeight + dp(8)
             scroll.layoutParams = scrollParams
 
@@ -167,6 +161,11 @@ class ArticleActivity : AppCompatActivity() {
             applyArticleBarOffset()
             insets
         }
+
+        scroll.setOnScrollChangeListener { _, _, _, _, _ ->
+            updateSheetChrome()
+        }
+        sheetCard.post { updateSheetChrome() }
 
         IconLoader.applySvg(
             findViewById(R.id.aBackIcon),
@@ -343,13 +342,54 @@ class ArticleActivity : AppCompatActivity() {
         if (closingArticle) return
         closingArticle = true
 
-        val target = if (itemImage.isNotBlank()) heroContainer else textHero
-        target.animateCornerRadiusDp(0f, 18f, 440L)
-        target.postDelayed({
+        sheetCard.animateCornerRadiusDp(0f, 22f, 440L)
+        if (itemImage.isNotBlank()) {
+            heroContainer.animateCornerRadiusDp(0f, 18f, 440L)
+        }
+
+        window.decorView.postDelayed({
             if (!isFinishing && !isDestroyed) {
-                finishAfterTransition()
+                supportFinishAfterTransition()
             }
-        }, 180L)
+        }, 220L)
+    }
+
+    private fun updateSheetChrome() {
+        if (!::sheetCard.isInitialized || !::scroll.isInitialized) return
+        val appbarHeight = findViewById<View>(R.id.aTopBar).height.coerceAtLeast(dp(56))
+        val location = IntArray(2)
+        sheetCard.getLocationOnScreen(location)
+        val cardTop = location[1].toFloat()
+        val distance = cardTop - appbarHeight
+        val flattenZone = dp(50).toFloat()
+        val progress = (distance / flattenZone).coerceIn(0f, 1f)
+        sheetCard.setCornerRadiusDp(22f * progress)
+
+        val solid = distance <= flattenZone
+        updateArticleAppbar(solid)
+    }
+
+    private fun updateArticleAppbar(solid: Boolean) {
+        val topbar = findViewById<View>(R.id.aTopBar)
+        val bg = if (solid) ContextCompat.getColor(this, R.color.bg) else Color.TRANSPARENT
+        topbar.background = android.graphics.drawable.ColorDrawable(bg)
+        val ids = intArrayOf(R.id.aBack, R.id.aBrowser, R.id.aSave, R.id.aShare)
+        ids.forEach { id ->
+            val v = findViewById<View>(id)
+            val drawable = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+                setColor(if (solid) ContextCompat.getColor(this@ArticleActivity, R.color.card) else 0x38FFFFFF)
+            }
+            v.background = drawable
+        }
+        val tint = if (solid) {
+            ContextCompat.getColor(this, R.color.iconTint)
+        } else {
+            Color.WHITE
+        }
+        intArrayOf(R.id.aBackIcon, R.id.aBrowserIcon, R.id.aSaveIcon, R.id.aShareIcon).forEach {
+            findViewById<ImageView>(it).setColorFilter(tint, android.graphics.PorterDuff.Mode.SRC_IN)
+        }
     }
 
     private fun configureHero(
@@ -358,35 +398,14 @@ class ArticleActivity : AppCompatActivity() {
     ) {
         if (itemImage.isNotBlank()) {
             heroContainer.visibility = View.VISIBLE
-            textHero.visibility = View.GONE
+            heroSpacer.layoutParams = heroSpacer.layoutParams.apply { height = dp(280) }
 
             if (transitionName.isNotBlank()) {
-                ViewCompat.setTransitionName(
-                    heroContainer,
-                    transitionName
-                )
+                ViewCompat.setTransitionName(heroContainer, transitionName)
             }
         } else {
             heroContainer.visibility = View.GONE
-            textHero.visibility = View.VISIBLE
-
-            textHeroSource.text = itemSource
-            textHeroTitle.text = itemTitle
-
-            if (itemLogo.isNotBlank()) {
-                Glide.with(this)
-                    .load(itemLogo)
-                    .override(dp(34), dp(34))
-                    .dontAnimate()
-                    .into(textHeroFavicon)
-            }
-
-            if (transitionName.isNotBlank()) {
-                ViewCompat.setTransitionName(
-                    textHero,
-                    transitionName
-                )
-            }
+            heroSpacer.layoutParams = heroSpacer.layoutParams.apply { height = dp(120) }
         }
     }
 

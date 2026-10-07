@@ -18,6 +18,7 @@
 
         <FrameLayout
             android:id="@+id/homeHeader"
+            android:translationZ="0dp"
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:layout_gravity="top"
@@ -29,7 +30,7 @@
                 android:layout_width="46dp"
                 android:layout_height="46dp"
                 android:layout_gravity="start|center_vertical"
-                android:layout_marginStart="2dp"
+                android:layout_marginStart="12dp"
                 android:background="@drawable/bg_transparent_pressed"
                 android:clickable="true"
                 android:focusable="true">
@@ -44,8 +45,8 @@
             <!-- Feed shortcut: two tilted, overlapping news-image cards. -->
             <FrameLayout
                 android:id="@+id/homeFeedStack"
-                android:layout_width="44dp"
-                android:layout_height="32dp"
+                android:layout_width="30dp"
+                android:layout_height="22dp"
                 android:layout_gravity="end|center_vertical"
                 android:background="@android:color/transparent"
                 android:clickable="true"
@@ -54,8 +55,8 @@
 
                 <ImageView
                     android:id="@+id/stackBack"
-                    android:layout_width="24dp"
-                    android:layout_height="28dp"
+                    android:layout_width="17dp"
+                    android:layout_height="20dp"
                     android:layout_gravity="center"
                     android:background="@drawable/bg_stack_card"
                     android:clipToOutline="true"
@@ -64,8 +65,8 @@
 
                 <ImageView
                     android:id="@+id/stackFront"
-                    android:layout_width="26dp"
-                    android:layout_height="30dp"
+                    android:layout_width="18dp"
+                    android:layout_height="21dp"
                     android:layout_gravity="center"
                     android:background="@drawable/bg_stack_card"
                     android:clipToOutline="true"
@@ -74,83 +75,115 @@
             </FrameLayout>
         </FrameLayout>
 
-        <!-- Fixed AI composer. The buttons are bottom-anchored overlays so they do not move
-             while the EditText grows upward. -->
-        <FrameLayout
+        <!-- Fixed AI composer. Mirrors the supplied HTML geometry: full-width bottom bar,
+             vertically growing textarea, and a stable action row at the bottom. -->
+        <LinearLayout
             android:id="@+id/biPill"
-            android:layout_width="320dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:minHeight="94dp"
-            android:maxHeight="210dp"
             android:layout_gravity="bottom|center_horizontal"
-            android:layout_marginBottom="18dp"
+            android:layout_marginStart="14dp"
+            android:layout_marginEnd="14dp"
+            android:layout_marginBottom="10dp"
+            android:orientation="vertical"
             android:background="@drawable/bg_pill_card"
             android:clipChildren="false"
+            android:clipToPadding="false"
+            android:paddingStart="14dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="12dp"
             android:elevation="0dp">
 
             <EditText
                 android:id="@+id/biInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_gravity="bottom|start"
-                android:layout_marginStart="48dp"
-                android:layout_marginEnd="48dp"
-                android:layout_marginBottom="24dp"
-                android:minHeight="78dp"
-                android:maxHeight="144dp"
-                android:background="@null"
+                android:minHeight="26dp"
+                android:maxHeight="200dp"
+                android:background="@android:color/transparent"
                 android:hint="@string/ask_ai"
                 android:textColorHint="@color/dim"
                 android:textColor="@color/text"
-                android:textSize="15.5sp"
+                android:textSize="16sp"
+                android:fontFamily="sans"
                 android:imeOptions="actionSend"
                 android:inputType="textCapSentences|textMultiLine"
                 android:minLines="1"
-                android:maxLines="6"
+                android:maxLines="20"
                 android:gravity="top|start"
                 android:scrollbars="vertical"
-                android:paddingStart="4dp"
-                android:paddingEnd="4dp"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp" />
+                android:overScrollMode="always"
+                android:includeFontPadding="true"
+                android:padding="0dp" />
 
-            <FrameLayout
-                android:id="@+id/biAdd"
-                android:layout_width="42dp"
-                android:layout_height="42dp"
-                android:layout_gravity="start|bottom"
-                android:layout_marginStart="8dp"
-                android:layout_marginBottom="10dp"
-                android:background="@drawable/bg_circle_card"
-                android:clickable="true"
-                android:focusable="true">
-                <ImageView
-                    android:id="@+id/biAddIcon"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:layout_gravity="center"
-                    android:scaleType="fitCenter" />
-            </FrameLayout>
+            <LinearLayout
+                android:id="@+id/biActions"
+                android:layout_width="match_parent"
+                android:layout_height="36dp"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-            <FrameLayout
-                android:id="@+id/biSend"
-                android:layout_width="42dp"
-                android:layout_height="42dp"
-                android:layout_gravity="end|bottom"
-                android:layout_marginEnd="8dp"
-                android:layout_marginBottom="10dp"
-                android:background="@drawable/bg_circle_pri"
-                android:visibility="gone"
-                android:clickable="true"
-                android:focusable="true">
-                <ImageView
-                    android:id="@+id/biSendIcon"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_gravity="center"
-                    android:scaleType="fitCenter" />
-            </FrameLayout>
-        </FrameLayout>
+                <LinearLayout
+                    android:id="@+id/biLeftActions"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <FrameLayout
+                        android:id="@+id/biAdd"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:background="@android:color/transparent"
+                        android:clickable="true"
+                        android:focusable="true">
+                        <ImageView
+                            android:id="@+id/biAddIcon"
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:scaleType="fitCenter"
+                            android:alpha="0.4" />
+                    </FrameLayout>
+
+                    <FrameLayout
+                        android:id="@+id/biSlider"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_marginStart="16dp"
+                        android:background="@android:color/transparent"
+                        android:clickable="true"
+                        android:focusable="true">
+                        <ImageView
+                            android:id="@+id/biSliderIcon"
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:scaleType="fitCenter"
+                            android:alpha="0.4" />
+                    </FrameLayout>
+                </LinearLayout>
+
+                <FrameLayout
+                    android:id="@+id/biSend"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/bg_ai_send"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <ImageView
+                        android:id="@+id/biSendIcon"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_gravity="center"
+                        android:scaleType="fitCenter"
+                        android:alpha="1.0" />
+                </FrameLayout>
+            </LinearLayout>
+        </LinearLayout>
     </FrameLayout>
 
     <!-- News feed replaces the old drawer surface and enters from the right edge. -->
@@ -164,7 +197,9 @@
         android:visibility="gone"
         android:elevation="0dp"
         android:clipChildren="true"
-        android:clipToPadding="false">
+        android:clipToPadding="false"
+        android:clickable="true"
+        android:focusable="true">
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/feedRecycler"
@@ -175,78 +210,87 @@
             android:paddingBottom="28dp"
             android:scrollbars="none" />
 
-        <FrameLayout
+        <LinearLayout
             android:id="@+id/feedHeader"
+            android:translationZ="0dp"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="104dp"
             android:layout_gravity="top"
+            android:orientation="vertical"
             android:background="@color/bg"
             android:elevation="0dp">
 
             <FrameLayout
-                android:id="@+id/feedBack"
-                android:layout_width="46dp"
-                android:layout_height="46dp"
-                android:layout_gravity="start|center_vertical"
-                android:layout_marginStart="2dp"
-                android:background="@drawable/bg_transparent_pressed"
-                android:clickable="true"
-                android:focusable="true">
-                <ImageView
-                    android:id="@+id/feedBackIcon"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:layout_gravity="center"
-                    android:scaleType="fitCenter" />
-            </FrameLayout>
+                android:id="@+id/feedToolbar"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:background="@color/bg"
+                android:elevation="0dp">
 
-            <LinearLayout
-                android:id="@+id/feedCategory"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="14dp"
-                android:paddingEnd="12dp"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp"
-                android:background="@drawable/bg_transparent_pressed"
-                android:clickable="true"
-                android:focusable="true">
+                <FrameLayout
+                    android:id="@+id/feedBack"
+                    android:layout_width="46dp"
+                    android:layout_height="46dp"
+                    android:layout_gravity="start|center_vertical"
+                    android:layout_marginStart="2dp"
+                    android:background="@drawable/bg_transparent_pressed"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <ImageView
+                        android:id="@+id/feedBackIcon"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:scaleType="fitCenter" />
+                </FrameLayout>
+
                 <TextView
-                    android:id="@+id/feedCategoryLabel"
+                    android:id="@+id/feedToolbarTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Todas"
-                    android:textColor="@color/text"
-                    android:textSize="17sp"
-                    android:textStyle="bold" />
-                <ImageView
-                    android:id="@+id/feedChevron"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:layout_marginStart="6dp"
-                    android:scaleType="fitCenter" />
-            </LinearLayout>
-
-            <FrameLayout
-                android:id="@+id/feedPublish"
-                android:layout_width="46dp"
-                android:layout_height="46dp"
-                android:layout_gravity="end|center_vertical"
-                android:layout_marginEnd="2dp"
-                android:background="@drawable/bg_transparent_pressed"
-                android:clickable="true"
-                android:focusable="true">
-                <ImageView
-                    android:id="@+id/feedPublishIcon"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
                     android:layout_gravity="center"
-                    android:scaleType="fitCenter" />
+                    android:text="Notícias"
+                    android:textColor="@color/text"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <FrameLayout
+                    android:id="@+id/feedMore"
+                    android:layout_width="46dp"
+                    android:layout_height="46dp"
+                    android:layout_gravity="end|center_vertical"
+                    android:layout_marginEnd="10dp"
+                    android:background="@drawable/bg_transparent_pressed"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <ImageView
+                        android:id="@+id/feedMoreIcon"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:scaleType="fitCenter" />
+                </FrameLayout>
             </FrameLayout>
-        </FrameLayout>
+
+            <HorizontalScrollView
+                android:id="@+id/feedTabsScroll"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:fillViewport="false"
+                android:scrollbars="none"
+                android:overScrollMode="always"
+                android:clipToPadding="false">
+
+                <LinearLayout
+                    android:id="@+id/feedTabsHost"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="10dp" />
+            </HorizontalScrollView>
+        </LinearLayout>
     </FrameLayout>
 
     <!-- Apps & Conversations enters from the left edge. -->
@@ -260,28 +304,32 @@
         android:visibility="gone"
         android:elevation="0dp"
         android:clipChildren="true"
-        android:clipToPadding="false">
+        android:clipToPadding="false"
+        android:clickable="true"
+        android:focusable="true">
 
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:layout_gravity="top"
-            android:background="@color/bg">
+            android:background="@color/bg"
+            android:elevation="0dp"
+            android:translationZ="0dp">
 
             <FrameLayout
                 android:id="@+id/appsProfile"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
                 android:layout_gravity="start|center_vertical"
-                android:layout_marginStart="5dp"
+                android:layout_marginStart="14dp"
                 android:background="@drawable/bg_circle_card"
                 android:clipChildren="false"
                 android:clickable="true"
                 android:focusable="true">
                 <ImageView
                     android:id="@+id/appsProfileAvatar"
-                    android:layout_width="34dp"
-                    android:layout_height="34dp"
+                    android:layout_width="38dp"
+                    android:layout_height="38dp"
                     android:layout_gravity="center"
                     android:background="@drawable/bg_circle_card"
                     android:clipToOutline="true"
@@ -303,7 +351,7 @@
                 android:layout_width="46dp"
                 android:layout_height="46dp"
                 android:layout_gravity="end|center_vertical"
-                android:layout_marginEnd="2dp"
+                android:layout_marginEnd="12dp"
                 android:background="@drawable/bg_transparent_pressed"
                 android:clickable="true"
                 android:focusable="true">
@@ -366,11 +414,11 @@
         <!-- Bottom floating switcher with a separate settings button. -->
         <FrameLayout
             android:id="@+id/appsBottomTabs"
-            android:layout_width="238dp"
-            android:layout_height="46dp"
+            android:layout_width="232dp"
+            android:layout_height="44dp"
             android:layout_gravity="bottom|start"
-            android:layout_marginStart="12dp"
-            android:layout_marginBottom="12dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginBottom="16dp"
             android:background="@drawable/bg_auth_segment"
             android:padding="4dp"
             android:clipChildren="false">
@@ -408,11 +456,11 @@
 
         <FrameLayout
             android:id="@+id/appsSettings"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
             android:layout_gravity="bottom|end"
             android:layout_marginEnd="12dp"
-            android:layout_marginBottom="12dp"
+            android:layout_marginBottom="16dp"
             android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">

@@ -102,17 +102,21 @@ object NativeSheetDialog {
             dialog.window?.let { window ->
 
                 window.setBackgroundDrawableResource(android.R.color.transparent)
-            window.setDimAmount(
-                    if (
-                        ThemeManager.resolvedDark(
-                            context
-                        )
-                    ) {
-                        0.22f
-                    } else {
-                        0.18f
-                    }
+                window.setDimAmount(
+                    if (ThemeManager.resolvedDark(context)) 0.22f else 0.18f
                 )
+
+                // Opaque sheet: it enters by moving upward, never by fading in.
+                sheet?.post {
+                    if (sheet.isAttachedToWindow) {
+                        sheet.translationY = sheet.height.toFloat()
+                        sheet.animate()
+                            .translationY(0f)
+                            .setDuration(300L)
+                            .setInterpolator(Curves.IOS)
+                            .start()
+                    }
+                }
 
                 window.statusBarColor = android.graphics.Color.TRANSPARENT
                 window.navigationBarColor = surfaceColor

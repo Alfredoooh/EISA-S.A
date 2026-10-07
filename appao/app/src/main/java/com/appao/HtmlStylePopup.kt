@@ -168,12 +168,10 @@ object HtmlStylePopup {
                         true
 
                     alpha =
-                        0f
+                        1f
 
                     translationY =
-                        -dp(
-                            ITEM_TRANSLATE_DP
-                        ).toFloat()
+                        dp(ITEM_TRANSLATE_DP).toFloat()
                 }
 
             val icon =
@@ -418,88 +416,32 @@ object HtmlStylePopup {
          * opacity 0 + scale .5 -> opacity 1 + scale 1
          */
         root.pivotX =
-            (
-                anchorRight -
-                    left
-                )
+            (anchorRight - left)
                 .toFloat()
-                .coerceIn(
-                    0f,
-                    width.toFloat()
-                )
+                .coerceIn(0f, width.toFloat())
 
-        root.pivotY =
-            if (
-                placeAbove
-            ) {
-                height.toFloat()
-            } else {
-                0f
-            }
-
-        root.scaleX =
-            0.5f
-
-        root.scaleY =
-            0.5f
-
-        root.alpha =
-            0f
+        root.pivotY = if (placeAbove) height.toFloat() else 0f
+        root.scaleX = 1f
+        root.scaleY = 1f
+        root.alpha = 1f
+        root.translationY = dp(14).toFloat()
 
         root.animate()
-            .scaleX(1f)
-            .scaleY(1f)
-            .setDuration(500L)
-            .setInterpolator(
-                Curves.SPRING
-            )
+            .translationY(0f)
+            .setDuration(240L)
+            .setInterpolator(Curves.IOS)
             .start()
 
-        root.animate()
-            .alpha(1f)
-            .setDuration(220L)
-            .setInterpolator(
-                Curves.SMOOTH
-            )
-            .start()
-
-        for (
-            index in 0 until root.childCount
-        ) {
-
-            val row =
-                root.getChildAt(
-                    index
-                )
-
-            row.postDelayed(
-                {
-
-                    if (
-                        !row.isAttachedToWindow
-                    ) {
-                        return@postDelayed
-                    }
-
-                    row.animate()
-                        .translationY(0f)
-                        .setDuration(450L)
-                        .setInterpolator(
-                            Curves.SPRING
-                        )
-                        .start()
-
-                    row.animate()
-                        .alpha(1f)
-                        .setDuration(300L)
-                        .setInterpolator(
-                            Curves.SMOOTH
-                        )
-                        .start()
-                },
-                index *
-                    ITEM_DELAY_MS
-            )
+        for (index in 0 until root.childCount) {
+            val row = root.getChildAt(index)
+            row.postDelayed({
+                if (!row.isAttachedToWindow) return@postDelayed
+                row.animate()
+                    .translationY(0f)
+                    .setDuration(250L)
+                    .setInterpolator(Curves.IOS)
+                    .start()
+            }, index * ITEM_DELAY_MS)
         }
 
         return popup

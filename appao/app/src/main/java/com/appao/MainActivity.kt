@@ -49,6 +49,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var homeHeader: View
     private lateinit var feedPanel: View
     private lateinit var feedHeader: View
+    private lateinit var feedTabsHost: LinearLayout
+    private lateinit var feedTabsScroll: android.widget.HorizontalScrollView
     private lateinit var appsPanel: View
     private lateinit var appsBottomTabs: View
     private lateinit var appsTabIndicator: View
@@ -68,11 +70,17 @@ class MainActivity : AppCompatActivity() {
 
     private val items = mutableListOf<NewsItem>()
     private val categories = listOf(
-        "Todas", "Angola", "Internacional", "Economia", "Desporto",
-        "Tecnologia", "Cultura", "Política", "Saúde", "Local 📍"
+        "Angola", "Internacional", "Economia", "Política", "Desporto",
+        "Futebol", "Tecnologia", "Ciência", "Inteligência Artificial", "Biotecnologia",
+        "Carreira", "Empregos", "Finanças", "Ações", "Mercados", "Cripto",
+        "Negócios", "Startups", "Imobiliário", "Energia", "Agricultura", "Ambiente",
+        "Saúde", "Educação", "Cultura", "Entretenimento", "Cinema", "Música",
+        "Gaming", "Automóvel", "Viagens", "Gastronomia", "Moda", "Segurança",
+        "Direito", "Local"
     )
 
-    private var currentCat = "Todas"
+    private var currentCat = "Para você"
+    private val fixedTabs = listOf("Para você", "Seguindo")
     private var page = 1
     private var loading = false
     private var exhausted = false
@@ -90,7 +98,9 @@ class MainActivity : AppCompatActivity() {
     private var feedBarAnimator: ValueAnimator? = null
 
     private var bottomBarHeight = 0
-    private var sendButtonShown = false
+
+    private val categoryPrefs by lazy { getSharedPreferences("appao", MODE_PRIVATE) }
+    private val hiddenCategoryPrefsKey = "feed_hidden_categories"
 
     private var pullDragging = false
     private var pullRefreshing = false
@@ -119,6 +129,8 @@ class MainActivity : AppCompatActivity() {
         homeHeader = findViewById(R.id.homeHeader)
         feedPanel = findViewById(R.id.feedPanel)
         feedHeader = findViewById(R.id.feedHeader)
+        feedTabsHost = findViewById(R.id.feedTabsHost)
+        feedTabsScroll = findViewById(R.id.feedTabsScroll)
         appsPanel = findViewById(R.id.appsPanel)
         appsBottomTabs = findViewById(R.id.appsBottomTabs)
         appsTabIndicator = findViewById(R.id.appsTabIndicator)
@@ -170,7 +182,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun restoreState(savedInstanceState: Bundle?) {
         val state = savedInstanceState ?: return
-        currentCat = state.getString("main.category", "Todas") ?: "Todas"
+        currentCat = (state.getString("main.category", "Para você") ?: "Para você").let { if (it == "Todas") "Para você" else it }
         page = state.getInt("main.page", 1).coerceAtLeast(1)
         feedOpen = state.getBoolean("main.feed_open", false)
         appsOpen = state.getBoolean("main.apps_open", false)
@@ -238,19 +250,25 @@ class MainActivity : AppCompatActivity() {
     private fun setupInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(biPill) { view, insets ->
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            val lp = view.layoutParams as FrameLayout.LayoutParams
-            lp.bottomMargin = if (ime > 0) ime + dp(14) else dp(18)
+            val lp = view.layoutParams as ViewGroup.MarginLayoutParams
+            lp.bottomMargin = dp(10) + if (ime > 0) ime else 0
             view.layoutParams = lp
             if (view.height > 0) bottomBarHeight = view.height
             insets
         }
 
-        feedHeaderHeight = dp(56)
+        biPill.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            bottomBarHeight = v.height
+        }
+
+        feedHeaderHeight = dp(104)
         recycler.updatePadding(top = feedHeaderHeight, bottom = dp(28))
         ViewCompat.requestApplyInsets(rootHost)
     }
 
     private fun setupHome() {
+        homeHeader.elevation = 0f
+        homeHeader.translationZ = 0f
         IconLoader.applySvg(findViewById(R.id.homeMenuIcon), "menu", R.color.iconTint)
 
         homeFeedStack.background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
@@ -296,31 +314,207 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupFeedHeader() {
+        feedHeader.elevation = 0f
+        feedHeader.translationZ = 0f
         IconLoader.applySvg(findViewById(R.id.feedBackIcon), "back", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "publish", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedChevron), "chevron-down", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more_vert", R.color.iconTint)
 
-        findViewById<TextView>(R.id.feedCategoryLabel).text = currentCat
         findViewById<View>(R.id.feedBack).setOnClickListener { closeFeedPanel() }
-        findViewById<View>(R.id.feedPublish).setOnClickListener { openPublish() }
-        findViewById<View>(R.id.feedCategory).setOnClickListener { openCatSheet() }
+        findViewById<View>(R.id.feedMore).setOnClickListener { showFeedMorePopup(it) }
+
+        refreshFeedTabs(scrollToSelection = false)
+    }
+
+    private fun hiddenCategories(): MutableSet<String> {
+        val raw = categoryPrefs.getStringSet(hiddenCategoryPrefsKey, emptySet()) ?: emptySet()
+        return raw.toMutableSet()
+    }
+
+    private fun refreshFeedTabs(scrollToSelection: Boolean = true) {
+        if (!::feedTabsHost.isInitialized) return
+        feedTabsHost.removeAllViews()
+
+        val hidden = hiddenCategories()
+        val visibleCategories = categories.filter { it !in hidden }
+        val tabs = fixedTabs + visibleCategories
+
+        tabs.forEach { label ->
+            val isPrimary = label == "Para você"
+            val tab = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                minimumWidth = dp(80)
+                setPadding(dp(10), 0, dp(10), 0)
+                isClickable = true
+                isFocusable = true
+            }
+
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+            }
+            val tv = TextView(this).apply {
+                text = label
+                textSize = 16f
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
+                setTypeface(android.graphics.Typeface.DEFAULT, if (label == currentCat) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+                maxLines = 1
+            }
+            row.addView(tv)
+
+            if (isPrimary) {
+                val chevron = ImageView(this).apply {
+                    layoutParams = LinearLayout.LayoutParams(dp(15), dp(15)).apply { marginStart = dp(5) }
+                    scaleType = ImageView.ScaleType.CENTER_INSIDE
+                }
+                IconLoader.applySvg(chevron, "chevron-down", R.color.iconTint)
+                row.addView(chevron)
+                chevron.setOnClickListener { showCategoryManager() }
+            }
+
+            tab.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(34)))
+            val indicator = View(this).apply {
+                setBackgroundColor(ContextCompat.getColor(this@MainActivity, if (label == currentCat) R.color.text else android.R.color.transparent))
+                alpha = if (label == currentCat) 1f else 0f
+            }
+            tab.addView(indicator, LinearLayout.LayoutParams(dp(62), dp(2)))
+
+            tab.setOnClickListener {
+                if (label == "Para você") {
+                    currentCat = "Para você"
+                    updateFeedCategoryAndReload(true)
+                } else {
+                    currentCat = label
+                    updateFeedCategoryAndReload(true)
+                }
+            }
+
+            feedTabsHost.addView(tab, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        }
+
+        val plus = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(52), ViewGroup.LayoutParams.MATCH_PARENT)
+            isClickable = true
+            isFocusable = true
+        }
+        val plusIcon = ImageView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+        }
+        IconLoader.applySvg(plusIcon, "add", R.color.iconTint)
+        plus.addView(plusIcon)
+        plus.setOnClickListener { showCategoryManager() }
+        feedTabsHost.addView(plus)
+
+        if (scrollToSelection) {
+            feedTabsHost.post {
+                val selectedIndex = tabs.indexOf(currentCat).coerceAtLeast(0)
+                val selected = feedTabsHost.getChildAt(selectedIndex)
+                selected?.let { feedTabsScroll.smoothScrollTo((it.left - dp(12)).coerceAtLeast(0), 0) }
+            }
+        }
+    }
+
+    private fun updateFeedCategoryAndReload(force: Boolean) {
+        findViewById<TextView>(R.id.feedToolbarTitle).text = if (currentCat == "Para você") "Notícias" else currentCat
+        page = 1
+        exhausted = false
+        NewsRepository.resetDedup()
+        refreshFeedTabs(false)
+        loadNews(force)
+    }
+
+    private fun showFeedMorePopup(anchor: View) {
+        HtmlStylePopup.show(
+            anchor,
+            listOf(
+                HtmlStylePopup.Item("Editar categorias", "category", false, true) { showCategoryManager() },
+                HtmlStylePopup.Item("Atualizar notícias", "refresh", false, true) { loadNews(true) }
+            ),
+            placeAbove = false
+        )
+    }
+
+    private fun showCategoryManager() {
+        val hidden = hiddenCategories()
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(8), dp(12), dp(18))
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable/bg_popup_material)
+        }
+
+        root.addView(TextView(this).apply {
+            text = "Categorias"
+            gravity = Gravity.CENTER
+            textSize = 18f
+            setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
+            setPadding(dp(18), dp(8), dp(18), dp(14))
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        val scroll = BounceScrollView(this).apply {
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+
+        categories.forEach { category ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(52)
+                setPadding(dp(12), 0, dp(8), 0)
+            }
+            val label = TextView(this).apply {
+                text = category
+                textSize = 15f
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
+                setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL))
+            }
+            val sw = androidx.appcompat.widget.SwitchCompat(this).apply {
+                isChecked = category !in hidden
+                showText = false
+            }
+            sw.setOnCheckedChangeListener { _, checked ->
+                val updated = hiddenCategories()
+                if (checked) updated.remove(category) else updated.add(category)
+                categoryPrefs.edit().putStringSet(hiddenCategoryPrefsKey, updated).apply()
+                if (!checked && currentCat == category) currentCat = "Para você"
+                refreshFeedTabs(false)
+                if (currentCat == "Para você") findViewById<TextView>(R.id.feedToolbarTitle).text = "Notícias"
+            }
+            row.addView(label, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+            row.addView(sw, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            row.setOnClickListener { sw.isChecked = !sw.isChecked }
+            list.addView(row)
+        }
+
+        scroll.addView(list, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(420)))
+        NativeSheetDialog.show(this, root)
     }
 
     private fun setupBottomInput() {
         IconLoader.applySvg(findViewById(R.id.biAddIcon), "add", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.biSliderIcon), "slider", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow_up", R.color.onpri)
+
+        // Exact HTML behavior: the send button is always present, so typing never
+        // causes it to appear/disappear or blink. Only the textarea grows.
+        biInput.setSingleLine(false)
+        biInput.maxLines = 20
+        biInput.setLineSpacing(0f, 1.6f)
+        biInput.gravity = Gravity.TOP or Gravity.START
+        biInput.includeFontPadding = true
+        biInput.setPadding(0, 0, 0, 0)
+        biInput.isVerticalScrollBarEnabled = false
 
         biInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                setSendVisible(!s.isNullOrBlank())
+                resizeComposerInput()
             }
             override fun afterTextChanged(s: Editable?) = Unit
         })
-
-        biInput.setOnFocusChangeListener { _, focused ->
-            animatePillFocus(focused)
-        }
 
         biSend.setOnClickListener { sendToAi() }
         biInput.setOnEditorActionListener { _, _, _ ->
@@ -328,47 +522,55 @@ class MainActivity : AppCompatActivity() {
             true
         }
         findViewById<View>(R.id.biAdd).setOnClickListener { showAppsPopup(it) }
+
+        applyComposerSurface()
+        biInput.post { resizeComposerInput() }
     }
 
-    private fun animatePillFocus(focused: Boolean) {
-        val target = if (focused) 1.015f else 1f
-        biPill.animate()
-            .scaleX(target)
-            .scaleY(target)
-            .setDuration(220L)
-            .setInterpolator(Curves.SMOOTH)
-            .start()
-    }
-
-    private fun setSendVisible(hasText: Boolean) {
-        if (hasText == sendButtonShown) return
-        sendButtonShown = hasText
-        biSend.animate().cancel()
-
-        if (hasText) {
-            biSend.visibility = View.VISIBLE
-            biSend.alpha = 0f
-            biSend.scaleX = 0.88f
-            biSend.scaleY = 0.88f
-            biSend.animate()
-                .alpha(1f)
-                .scaleX(1f)
-                .scaleY(1f)
-                .setDuration(200L)
-                .setInterpolator(Curves.SMOOTH)
-                .start()
-        } else {
-            biSend.alpha = 0f
-            biSend.scaleX = 1f
-            biSend.scaleY = 1f
-            biSend.visibility = View.GONE
+    private fun resizeComposerInput() {
+        if (!::biInput.isInitialized) return
+        val density = resources.displayMetrics.density
+        val minHeight = (26f * density + 0.5f).toInt()
+        val maxHeight = (200f * density + 0.5f).toInt()
+        val lineHeight = ((biInput.paint.fontMetrics.descent - biInput.paint.fontMetrics.ascent) * 1.6f).toInt().coerceAtLeast(1)
+        val lines = biInput.lineCount.coerceAtLeast(1)
+        val desired = (lines * lineHeight).coerceIn(minHeight, maxHeight)
+        val lp = biInput.layoutParams
+        if (lp.height != desired) {
+            lp.height = desired
+            biInput.layoutParams = lp
         }
+        val atMax = desired >= maxHeight
+        biInput.isVerticalScrollBarEnabled = atMax
+        if (!atMax) biInput.scrollTo(0, 0)
+    }
+
+    private fun applyComposerSurface() {
+        val dark = ThemeManager.resolvedDark(this)
+        val fill = if (dark) android.graphics.Color.rgb(26, 30, 35) else android.graphics.Color.rgb(250, 250, 250)
+        val border = if (dark) android.graphics.Color.TRANSPARENT else android.graphics.Color.rgb(235, 235, 235)
+        val radius = dp(24).toFloat()
+        biPill.background = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+            setColor(fill)
+            cornerRadius = radius
+            val strokePx = maxOf(1, kotlin.math.round(1.5f * resources.displayMetrics.density).toInt())
+            setStroke(strokePx, border)
+        }
+        biInput.setTextColor(ContextCompat.getColor(this, R.color.text))
+        biInput.setHintTextColor(if (dark) android.graphics.Color.rgb(150, 155, 162) else android.graphics.Color.rgb(153, 153, 153))
+        findViewById<View>(R.id.biAddIcon).alpha = 0.4f
+        findViewById<View>(R.id.biSliderIcon).alpha = 0.4f
+        biSend.background = ContextCompat.getDrawable(this, R.drawable.bg_ai_send)
     }
 
     private fun setupAppsPanel() {
         if (appsReady) return
         appsReady = true
 
+        val appsHeader = appsPanel.getChildAt(0)
+        appsHeader?.elevation = 0f
+        appsHeader?.translationZ = 0f
         IconLoader.applyPng(findViewById(R.id.appsProfileAvatar), "avatar")
         IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow_right", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
@@ -572,16 +774,14 @@ class MainActivity : AppCompatActivity() {
         val p = progressValue.coerceIn(0f, 1f)
         val width = rootHost.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
         feedPanel.translationX = width * (1f - p)
-        homePage.scaleX = 1f - 0.025f * p
-        homePage.scaleY = 1f - 0.025f * p
+        homePage.translationX = -homePage.width.coerceAtLeast(width) * 0.34f * p
     }
 
     private fun setAppsProgress(progressValue: Float) {
         val p = progressValue.coerceIn(0f, 1f)
         val width = rootHost.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
         appsPanel.translationX = -width * (1f - p)
-        homePage.scaleX = 1f - 0.025f * p
-        homePage.scaleY = 1f - 0.025f * p
+        homePage.translationX = homePage.width.coerceAtLeast(width) * 0.34f * p
     }
 
     private fun openFeedPanelImmediate() {
@@ -621,8 +821,7 @@ class MainActivity : AppCompatActivity() {
             if (!feedOpen) {
                 feedPanel.visibility = View.GONE
                 feedPanel.translationX = width.toFloat()
-                homePage.scaleX = 1f
-                homePage.scaleY = 1f
+                homePage.translationX = 0f
             }
         }
     }
@@ -630,7 +829,7 @@ class MainActivity : AppCompatActivity() {
     private fun animateFeedTo(target: Float, current: Float, end: (() -> Unit)? = null) {
         feedAnimator?.cancel()
         feedAnimator = ValueAnimator.ofFloat(current, target).apply {
-            duration = 420L
+            duration = 500L
             interpolator = Curves.IOS
             addUpdateListener { setFeedProgress(it.animatedValue as Float) }
             if (end != null) {
@@ -661,8 +860,7 @@ class MainActivity : AppCompatActivity() {
             if (!appsOpen) {
                 appsPanel.visibility = View.GONE
                 appsPanel.translationX = -width.toFloat()
-                homePage.scaleX = 1f
-                homePage.scaleY = 1f
+                homePage.translationX = 0f
             }
         }
     }
@@ -670,7 +868,7 @@ class MainActivity : AppCompatActivity() {
     private fun animateAppsTo(target: Float, current: Float, end: (() -> Unit)? = null) {
         appsAnimator?.cancel()
         appsAnimator = ValueAnimator.ofFloat(current, target).apply {
-            duration = 420L
+            duration = 500L
             interpolator = Curves.IOS
             addUpdateListener { setAppsProgress(it.animatedValue as Float) }
             if (end != null) {
@@ -699,7 +897,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateFeedBarsFromScroll(dy: Int) {
-        val travel = feedHeaderHeight.takeIf { it > 0 } ?: dp(56)
+        val travel = feedHeaderHeight.takeIf { it > 0 } ?: dp(104)
         val direction = if (dy > 0) 1f else -1f
         feedBarProgress = (feedBarProgress + abs(dy).toFloat() / travel * direction).coerceIn(0f, 1f)
         if (recycler.computeVerticalScrollOffset() <= 0) feedBarProgress = 0f
@@ -712,19 +910,20 @@ class MainActivity : AppCompatActivity() {
         feedHeader.translationY = 0f
     }
 
-    private fun openCatSheet() {
-        val checked = categories.indexOf(currentCat).coerceAtLeast(0)
-        NativeSheetDialog.showSelection(this, "Categoria", categories, checked) { index ->
-            val selected = categories.getOrNull(index) ?: return@showSelection
-            if (selected == currentCat) return@showSelection
-            currentCat = selected
-            findViewById<TextView>(R.id.feedCategoryLabel).text = selected
-            page = 1
-            exhausted = false
-            NewsRepository.resetDedup()
-            loadNews(true)
+    private suspend fun fetchFeedCategory(category: String, pageNumber: Int): List<NewsItem> = when (category) {
+            "Para você", "Seguindo" -> NewsRepository.fetchGeneral(pageNumber)
+            "Angola" -> NewsRepository.fetchByCategory("general", pageNumber, "AO")
+            "Internacional" -> NewsRepository.fetchByCategory("general", pageNumber, "")
+            "Economia", "Finanças", "Ações", "Mercados", "Cripto", "Negócios" -> NewsRepository.fetchByCategory("business", pageNumber)
+            "Desporto", "Futebol" -> NewsRepository.fetchByCategory("sports", pageNumber)
+            "Tecnologia", "Inteligência Artificial" -> NewsRepository.fetchByCategory("technology", pageNumber)
+            "Cultura", "Entretenimento", "Cinema", "Música", "Gaming", "Moda", "Gastronomia", "Viagens", "Automóvel" -> NewsRepository.fetchByCategory("entertainment", pageNumber)
+            "Política", "Direito", "Segurança", "Local" -> NewsRepository.fetchByCategory("politics", pageNumber)
+            "Saúde" -> NewsRepository.fetchByCategory("health", pageNumber)
+            "Ciência", "Biotecnologia", "Educação", "Ambiente", "Energia", "Agricultura" -> NewsRepository.fetchByCategory("science", pageNumber)
+            "Carreira", "Empregos", "Startups", "Imobiliário" -> NewsRepository.fetchByCategory("business", pageNumber)
+            else -> NewsRepository.fetchGeneral(pageNumber)
         }
-    }
 
     private fun loadNews(force: Boolean) {
         if (loading) return
@@ -735,18 +934,7 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             val result = try {
-                when (currentCat) {
-                    "Todas" -> NewsRepository.fetchGeneral(page)
-                    "Angola" -> NewsRepository.fetchByCategory("general", page, "AO")
-                    "Internacional" -> NewsRepository.fetchByCategory("general", page, "")
-                    "Economia" -> NewsRepository.fetchByCategory("business", page)
-                    "Desporto" -> NewsRepository.fetchByCategory("sports", page)
-                    "Tecnologia" -> NewsRepository.fetchByCategory("technology", page)
-                    "Cultura" -> NewsRepository.fetchByCategory("entertainment", page)
-                    "Política" -> NewsRepository.fetchByCategory("politics", page)
-                    "Saúde" -> NewsRepository.fetchByCategory("health", page)
-                    else -> NewsRepository.fetchByCategory("general", page)
-                }
+                fetchFeedCategory(currentCat, page)
             } catch (t: Throwable) {
                 if (t is kotlinx.coroutines.CancellationException) throw t
                 android.util.Log.e("MainActivity", "News load failed", t)
@@ -785,18 +973,7 @@ class MainActivity : AppCompatActivity() {
 
             for (attempt in 0 until 5) {
                 val result = try {
-                    when (currentCat) {
-                        "Todas" -> NewsRepository.fetchGeneral(candidatePage)
-                        "Angola" -> NewsRepository.fetchByCategory("general", candidatePage, "AO")
-                        "Internacional" -> NewsRepository.fetchByCategory("general", candidatePage, "")
-                        "Economia" -> NewsRepository.fetchByCategory("business", candidatePage)
-                        "Desporto" -> NewsRepository.fetchByCategory("sports", candidatePage)
-                        "Tecnologia" -> NewsRepository.fetchByCategory("technology", candidatePage)
-                        "Cultura" -> NewsRepository.fetchByCategory("entertainment", candidatePage)
-                        "Política" -> NewsRepository.fetchByCategory("politics", candidatePage)
-                        "Saúde" -> NewsRepository.fetchByCategory("health", candidatePage)
-                        else -> emptyList()
-                    }
+                    fetchFeedCategory(currentCat, candidatePage)
                 } catch (t: Throwable) {
                     if (t is kotlinx.coroutines.CancellationException) throw t
                     android.util.Log.e("MainActivity", "Load more failed", t)
@@ -1173,26 +1350,39 @@ class MainActivity : AppCompatActivity() {
         appsPanel.setBackgroundColor(bg)
         homeHeader.setBackgroundColor(bg)
         feedHeader.setBackgroundColor(bg)
+        feedHeader.elevation = 0f
+        feedHeader.translationZ = 0f
+        homeHeader.elevation = 0f
+        homeHeader.translationZ = 0f
+        appsPanel.getChildAt(0)?.let {
+            it.elevation = 0f
+            it.translationZ = 0f
+            it.setBackgroundColor(bg)
+        }
 
         IconLoader.applySvg(findViewById(R.id.homeMenuIcon), "menu", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.feedBackIcon), "back", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "publish", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedChevron), "chevron-down", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more_vert", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biAddIcon), "add", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.biSliderIcon), "slider", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow_up", R.color.onpri)
+        val appsHeader = appsPanel.getChildAt(0)
+        appsHeader?.elevation = 0f
+        appsHeader?.translationZ = 0f
         IconLoader.applyPng(findViewById(R.id.appsProfileAvatar), "avatar")
         IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow_right", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
 
-        findViewById<TextView>(R.id.feedCategoryLabel).setTextColor(ContextCompat.getColor(this, R.color.text))
+        findViewById<TextView>(R.id.feedToolbarTitle).setTextColor(ContextCompat.getColor(this, R.color.text))
+        refreshFeedTabs(false)
         findViewById<TextView>(R.id.appsTitle).setTextColor(ContextCompat.getColor(this, R.color.text))
         findViewById<TextView>(R.id.conversationsEmpty).setTextColor(ContextCompat.getColor(this, R.color.dim))
-        biPill.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_card)
+        applyComposerSurface()
         appsBottomTabs.background = ContextCompat.getDrawable(this, R.drawable.bg_auth_segment)
         appsTabIndicator.background = ContextCompat.getDrawable(this, R.drawable.bg_auth_indicator)
         selectAppsTab(appsTabIsApps, false)
-        if (::adapter.isInitialized) adapter.notifyDataSetChanged()
-        // Theme changes update colors only; the feed data and images stay in place.
+        if (::adapter.isInitialized) adapter.refreshTheme(recycler)
+        // Theme changes update the current surface in place; no feed request or data rebuild is made.
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {

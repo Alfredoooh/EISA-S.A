@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="bg">#0D0F12</color>
-    <color name="bgElevated">#12161A</color>
+    <color name="bgElevated">#16191D</color>
     <color name="card">#1A1E23</color>
     <color name="card2">#22272D</color>
     <color name="text">#FFFFFF</color>
@@ -9,26 +9,16 @@
     <color name="line">#1F242A</color>
     <color name="border">#2C3138</color>
 
-    <color name="fluent0Light">#0F6CBD</color>
-    <color name="fluent0Dark">#479EF5</color>
-    <color name="fluent1Light">#8764B8</color>
-    <color name="fluent1Dark">#B4A0FF</color>
-    <color name="fluent2Light">#C239B3</color>
-    <color name="fluent2Dark">#E68AD8</color>
-    <color name="fluent3Light">#D13438</color>
-    <color name="fluent3Dark">#F1707B</color>
-    <color name="fluent4Light">#CA5010</color>
-    <color name="fluent4Dark">#FF8C5A</color>
-    <color name="fluent5Light">#986F0B</color>
-    <color name="fluent5Dark">#FFCC66</color>
-    <color name="fluent6Light">#0B6A0B</color>
-    <color name="fluent6Dark">#6BCB6B</color>
-    <color name="fluent7Light">#00767A</color>
-    <color name="fluent7Dark">#4DD0D6</color>
-    <color name="fluent8Light">#038387</color>
-    <color name="fluent8Dark">#3FD9DE</color>
-    <color name="fluent9Light">#515C6B</color>
-    <color name="fluent9Dark">#9BA7B4</color>
+    <color name="fluent0Light">#0F6CBD</color><color name="fluent0Dark">#479EF5</color>
+    <color name="fluent1Light">#8764B8</color><color name="fluent1Dark">#B4A0FF</color>
+    <color name="fluent2Light">#C239B3</color><color name="fluent2Dark">#E68AD8</color>
+    <color name="fluent3Light">#D13438</color><color name="fluent3Dark">#F1707B</color>
+    <color name="fluent4Light">#CA5010</color><color name="fluent4Dark">#FF8C5A</color>
+    <color name="fluent5Light">#986F0B</color><color name="fluent5Dark">#FFCC66</color>
+    <color name="fluent6Light">#0B6A0B</color><color name="fluent6Dark">#6BCB6B</color>
+    <color name="fluent7Light">#00767A</color><color name="fluent7Dark">#4DD0D6</color>
+    <color name="fluent8Light">#038387</color><color name="fluent8Dark">#3FD9DE</color>
+    <color name="fluent9Light">#515C6B</color><color name="fluent9Dark">#9BA7B4</color>
 
     <color name="accent">#479EF5</color>
     <color name="pri">#479EF5</color>

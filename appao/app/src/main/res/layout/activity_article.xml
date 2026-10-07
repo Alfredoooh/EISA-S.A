@@ -7,245 +7,208 @@
     android:clipChildren="false"
     android:clipToPadding="false">
 
+    <!-- Fixed hero, visually behind the transparent app bar. -->
+    <com.appao.RoundedClipFrameLayout
+        android:id="@+id/aHeroContainer"
+        android:layout_width="match_parent"
+        android:layout_height="320dp"
+        android:layout_gravity="top"
+        android:background="@android:color/transparent"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:clipToOutline="false"
+        android:visibility="gone">
+        <ImageView
+            android:id="@+id/aHero"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop" />
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="80dp"
+            android:layout_gravity="bottom"
+            android:background="@drawable/bg_article_hero_gradient" />
+    </com.appao.RoundedClipFrameLayout>
+
+    <!-- The sheet itself is the real scroll surface. -->
     <com.appao.BounceScrollView
         android:id="@+id/aScroll"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="56dp"
-        android:clipToPadding="false"
         android:fillViewport="false"
         android:overScrollMode="always"
-        android:scrollbars="none">
+        android:scrollbars="none"
+        android:clipToPadding="false"
+        android:background="@android:color/transparent">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingBottom="110dp">
+            android:orientation="vertical">
+
+            <Space
+                android:id="@+id/aHeroSpacer"
+                android:layout_width="match_parent"
+                android:layout_height="280dp" />
 
             <com.appao.RoundedClipFrameLayout
-                android:id="@+id/aHeroContainer"
+                android:id="@+id/aSheetCard"
                 android:layout_width="match_parent"
-                android:layout_height="250dp"
-                android:layout_marginTop="0dp"
-                android:background="@android:color/transparent"
-                android:clipToOutline="false"
-                android:visibility="gone">
-
-                <ImageView
-                    android:id="@+id/aHero"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:scaleType="centerCrop" />
-            </com.appao.RoundedClipFrameLayout>
-
-            <com.appao.RoundedClipFrameLayout
-                android:id="@+id/aTextHero"
-                android:layout_width="match_parent"
-                android:layout_height="170dp"
-                android:layout_marginStart="12dp"
-                android:layout_marginTop="8dp"
-                android:layout_marginEnd="12dp"
-                android:background="@drawable/bg_card_pressed"
-                android:clipToOutline="true"
-                android:padding="18dp"
-                android:visibility="gone">
+                android:layout_height="wrap_content"
+                android:background="@color/bg"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:clipToOutline="false">
 
                 <LinearLayout
+                    android:id="@+id/aSheetInner"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:orientation="vertical">
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingTop="12dp"
+                    android:paddingBottom="110dp">
 
                     <LinearLayout
+                        android:id="@+id/aSourceRow"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="center_vertical">
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:layout_marginBottom="14dp">
 
-                        <FrameLayout
-                            android:layout_width="38dp"
-                            android:layout_height="38dp"
-                            android:background="@drawable/bg_circle_card"
-                            android:clipToOutline="true">
+                        <ImageView
+                            android:id="@+id/aReactSlot"
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_marginEnd="6dp"
+                            android:visibility="gone" />
 
-                            <ImageView
-                                android:id="@+id/aTextHeroFavicon"
-                                android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:padding="3dp"
-                                android:scaleType="centerCrop" />
-                        </FrameLayout>
+                        <ImageView
+                            android:id="@+id/aFavicon"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:scaleType="centerCrop" />
 
                         <TextView
-                            android:id="@+id/aTextHeroSource"
-                            android:layout_width="0dp"
+                            android:id="@+id/aSource"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:layout_marginStart="10dp"
-                            android:ellipsize="end"
-                            android:maxLines="1"
-                            android:textColor="@color/dim"
-                            android:textSize="13.5sp"
+                            android:layout_marginStart="8dp"
+                            android:textColor="@color/text"
+                            android:textSize="13sp"
                             android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/aTime"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:textColor="@color/dim"
+                            android:textSize="13sp" />
                     </LinearLayout>
 
                     <TextView
-                        android:id="@+id/aTextHeroTitle"
+                        android:id="@+id/aTitle"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="14dp"
-                        android:ellipsize="end"
-                        android:maxLines="4"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
                         android:textColor="@color/text"
-                        android:textSize="22sp"
+                        android:textSize="21sp"
                         android:textStyle="bold"
-                        android:lineSpacingMultiplier="1.18" />
-                </LinearLayout>
-            </com.appao.RoundedClipFrameLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingStart="20dp"
-                android:paddingEnd="20dp"
-                android:paddingTop="16dp"
-                android:paddingBottom="8dp">
-
-                <ImageView
-                    android:id="@+id/aReactSlot"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:layout_marginEnd="6dp"
-                    android:visibility="gone" />
-
-                <FrameLayout
-                    android:layout_width="26dp"
-                    android:layout_height="26dp"
-                    android:background="@drawable/bg_circle_card"
-                    android:clipToOutline="true">
-                    <ImageView
-                        android:id="@+id/aFavicon"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:padding="2dp"
-                        android:scaleType="centerCrop" />
-                </FrameLayout>
-
-                <TextView
-                    android:id="@+id/aSource"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:textColor="@color/text"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/aTime"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:textColor="@color/dim"
-                    android:textSize="12sp" />
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/aTitle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingStart="20dp"
-                android:paddingEnd="20dp"
-                android:textColor="@color/text"
-                android:textSize="25sp"
-                android:textStyle="bold"
-                android:letterSpacing="-0.02"
-                android:lineSpacingMultiplier="1.2" />
-
-            <TextView
-                android:id="@+id/aSummary"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
-                android:layout_marginEnd="20dp"
-                android:layout_marginTop="14dp"
-                android:background="@drawable/bg_pill_card"
-                android:padding="14dp"
-                android:textColor="@color/dim"
-                android:textSize="14.5sp"
-                android:lineSpacingMultiplier="1.6"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/aBody"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingStart="20dp"
-                android:paddingEnd="20dp"
-                android:paddingTop="18dp"
-                android:textColor="@color/text"
-                android:textSize="16sp"
-                android:lineSpacingMultiplier="1.72" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
-                android:layout_marginEnd="12dp"
-                android:layout_marginTop="22dp"
-                android:background="@drawable/bg_comments_section"
-                android:clipToOutline="true"
-                android:clipChildren="false"
-                android:clipToPadding="false"
-                android:orientation="vertical"
-                android:paddingBottom="24dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingStart="20dp"
-                    android:paddingTop="18dp"
-                    android:paddingEnd="20dp"
-                    android:paddingBottom="6dp">
-
-                    <ImageView
-                        android:id="@+id/cIcon"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:scaleType="fitCenter" />
+                        android:lineSpacingMultiplier="1.3" />
 
                     <TextView
-                        android:layout_width="wrap_content"
+                        android:id="@+id/aSummary"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="Comentários"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="16dp"
+                        android:layout_marginTop="16dp"
+                        android:background="@drawable/bg_article_summary"
+                        android:paddingStart="16dp"
+                        android:paddingTop="14dp"
+                        android:paddingEnd="16dp"
+                        android:paddingBottom="14dp"
+                        android:textColor="@color/dim"
+                        android:textSize="15sp"
+                        android:lineSpacingMultiplier="1.6"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/aBody"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:paddingTop="18dp"
                         android:textColor="@color/text"
                         android:textSize="16sp"
-                        android:textStyle="bold" />
+                        android:lineSpacingMultiplier="1.75" />
 
-                    <TextView
-                        android:id="@+id/cCount"
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:id="@+id/aCommentsSection"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="6dp"
-                        android:textColor="@color/dim"
-                        android:textSize="16sp" />
-                </LinearLayout>
+                        android:layout_marginStart="12dp"
+                        android:layout_marginEnd="12dp"
+                        android:layout_marginTop="22dp"
+                        android:background="@drawable/bg_comments_section"
+                        android:clipToOutline="true"
+                        android:orientation="vertical"
+                        android:paddingBottom="24dp">
 
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/cList"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:nestedScrollingEnabled="false"
-                    android:overScrollMode="never"
-                    android:clipChildren="false"
-                    android:clipToPadding="false" />
-            </LinearLayout>
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingStart="20dp"
+                            android:paddingTop="18dp"
+                            android:paddingEnd="20dp"
+                            android:paddingBottom="6dp">
+
+                            <ImageView
+                                android:id="@+id/cIcon"
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:scaleType="fitCenter" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:text="Comentários"
+                                android:textColor="@color/text"
+                                android:textSize="16sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/cCount"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="6dp"
+                                android:textColor="@color/dim"
+                                android:textSize="16sp" />
+                        </LinearLayout>
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/cList"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:nestedScrollingEnabled="false"
+                            android:overScrollMode="never"
+                            android:clipChildren="false"
+                            android:clipToPadding="false" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.appao.RoundedClipFrameLayout>
         </LinearLayout>
     </com.appao.BounceScrollView>
 
+    <!-- One transparent/solid app bar, matching the HTML behavior. -->
     <LinearLayout
         android:id="@+id/aTopBar"
         android:layout_width="match_parent"
@@ -253,77 +216,78 @@
         android:layout_gravity="top"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="4dp"
-        android:paddingEnd="10dp"
-        android:background="@color/bg"
-        android:elevation="0dp">
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:background="@android:color/transparent"
+        android:elevation="0dp"
+        android:translationZ="0dp">
 
         <FrameLayout
             android:id="@+id/aBack"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
-            android:layout_marginStart="0dp"
-            android:background="@drawable/bg_news_row"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@android:color/transparent"
             android:clickable="true"
             android:focusable="true">
             <ImageView
                 android:id="@+id/aBackIcon"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
                 android:layout_gravity="center" />
         </FrameLayout>
 
-        <TextView
-            android:id="@+id/aTopTitle"
+        <Space
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="6dp"
-            android:text="Notícia"
-            android:textColor="@color/text"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+            android:layout_height="1dp"
+            android:layout_weight="1" />
 
         <FrameLayout
             android:id="@+id/aBrowser"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
-            android:background="@drawable/bg_news_row"
-            android:clickable="true">
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="6dp"
+            android:background="@android:color/transparent"
+            android:clickable="true"
+            android:focusable="true">
             <ImageView
                 android:id="@+id/aBrowserIcon"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
                 android:layout_gravity="center" />
         </FrameLayout>
 
         <FrameLayout
             android:id="@+id/aSave"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
-            android:background="@drawable/bg_news_row"
-            android:clickable="true">
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="6dp"
+            android:background="@android:color/transparent"
+            android:clickable="true"
+            android:focusable="true">
             <ImageView
                 android:id="@+id/aSaveIcon"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
                 android:layout_gravity="center" />
         </FrameLayout>
 
         <FrameLayout
             android:id="@+id/aShare"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
-            android:background="@drawable/bg_news_row"
-            android:clickable="true">
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="6dp"
+            android:background="@android:color/transparent"
+            android:clickable="true"
+            android:focusable="true">
             <ImageView
                 android:id="@+id/aShareIcon"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
                 android:layout_gravity="center" />
         </FrameLayout>
     </LinearLayout>
 
+    <!-- Existing comment bottom bar is intentionally preserved. -->
     <LinearLayout
         android:id="@+id/articleBar"
         android:layout_width="match_parent"
@@ -336,7 +300,8 @@
         android:paddingEnd="12dp"
         android:paddingTop="10dp"
         android:paddingBottom="10dp"
-        android:elevation="12dp">
+        android:elevation="0dp"
+        android:translationZ="0dp">
 
         <LinearLayout
             android:id="@+id/acComposer"
@@ -382,7 +347,7 @@
             android:layout_width="42dp"
             android:layout_height="42dp"
             android:layout_marginStart="8dp"
-            android:background="@drawable/bg_news_row"
+            android:background="@drawable/bg_transparent_pressed"
             android:clickable="true"
             android:focusable="true">
             <ImageView

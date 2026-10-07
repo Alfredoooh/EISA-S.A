@@ -104,7 +104,7 @@
                             android:id="@+id/aTime"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="6dp"
+                            android:layout_marginStart="10dp"
                             android:textColor="@color/dim"
                             android:textSize="13sp" />
                     </LinearLayout>
@@ -189,7 +189,7 @@
                                 android:id="@+id/cCount"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginStart="6dp"
+                                android:layout_marginStart="10dp"
                                 android:textColor="@color/dim"
                                 android:textSize="16sp" />
                         </LinearLayout>
@@ -245,7 +245,7 @@
             android:id="@+id/aBrowser"
             android:layout_width="36dp"
             android:layout_height="36dp"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="10dp"
             android:background="@android:color/transparent"
             android:clickable="true"
             android:focusable="true">
@@ -260,7 +260,7 @@
             android:id="@+id/aSave"
             android:layout_width="36dp"
             android:layout_height="36dp"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="10dp"
             android:background="@android:color/transparent"
             android:clickable="true"
             android:focusable="true">
@@ -275,7 +275,7 @@
             android:id="@+id/aShare"
             android:layout_width="36dp"
             android:layout_height="36dp"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="10dp"
             android:background="@android:color/transparent"
             android:clickable="true"
             android:focusable="true">

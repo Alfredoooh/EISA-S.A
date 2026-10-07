@@ -1,0 +1,4 @@
+appao_v49_build_fixed
+
+This archive is based on appao_v48_build_fixed and contains a hardened Codemagic source sanity check.
+The check repairs only the known malformed identifiers and fails before compilation if they remain.

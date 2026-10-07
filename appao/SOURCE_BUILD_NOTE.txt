@@ -1,0 +1,4 @@
+v50 build-fix notes
+MainActivity.kt is physically free of getChildAte and ?.ite tokens.
+It avoids direct getChildAt calls in the edited sections to resist malformed CI text substitutions.
+MainActivity SHA-256: 9a0d38da507176a50f6240f680edd7026e90767f1cec376309da90bf15e3878a

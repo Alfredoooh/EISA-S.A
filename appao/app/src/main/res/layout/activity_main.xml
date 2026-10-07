@@ -75,16 +75,26 @@
             </FrameLayout>
         </FrameLayout>
 
-        <!-- Fixed AI composer. Mirrors the supplied HTML geometry: full-width bottom bar,
-             vertically growing textarea, and a stable action row at the bottom. -->
+        <!-- Fixed AI composer: outer HTML bottombar + inner rounded container. -->
+        <FrameLayout
+            android:id="@+id/biBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:background="@color/bg"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:paddingStart="14dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="10dp"
+            android:elevation="0dp">
+
         <LinearLayout
             android:id="@+id/biPill"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom|center_horizontal"
-            android:layout_marginStart="14dp"
-            android:layout_marginEnd="14dp"
-            android:layout_marginBottom="10dp"
+            android:layout_gravity="center"
             android:orientation="vertical"
             android:background="@drawable/bg_pill_card"
             android:clipChildren="false"
@@ -112,8 +122,8 @@
                 android:minLines="1"
                 android:maxLines="20"
                 android:gravity="top|start"
-                android:scrollbars="vertical"
-                android:overScrollMode="always"
+                android:scrollbars="none"
+                android:overScrollMode="never"
                 android:includeFontPadding="true"
                 android:padding="0dp" />
 
@@ -184,6 +194,7 @@
                 </FrameLayout>
             </LinearLayout>
         </LinearLayout>
+    </FrameLayout>
     </FrameLayout>
 
     <!-- News feed replaces the old drawer surface and enters from the right edge. -->

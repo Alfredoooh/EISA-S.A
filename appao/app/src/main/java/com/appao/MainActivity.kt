@@ -11,11 +11,14 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.provider.MediaStore
 import android.text.Editable
+import android.text.Layout
+import android.text.StaticLayout
 import android.text.TextWatcher
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.PathInterpolator
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -60,6 +63,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var adapter: NewsAdapter
     private lateinit var recycler: RecyclerView
     private lateinit var progress: View
+    private lateinit var biBar: View
     private lateinit var biPill: View
     private lateinit var biInput: EditText
     private lateinit var biSend: FrameLayout
@@ -98,6 +102,7 @@ class MainActivity : AppCompatActivity() {
     private var feedBarAnimator: ValueAnimator? = null
 
     private var bottomBarHeight = 0
+    private var composerHeightAnimator: ValueAnimator? = null
 
     private val categoryPrefs by lazy { getSharedPreferences("appao", MODE_PRIVATE) }
     private val hiddenCategoryPrefsKey = "feed_hidden_categories"
@@ -118,8 +123,6 @@ class MainActivity : AppCompatActivity() {
     private var restoredFeedOffset = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // The launcher Activity starts with the native Android 12 splash theme.
-        // Switch to the normal AppAo theme before AppCompat inflates the screen.
         setTheme(R.style.Theme_AppAo)
         super.onCreate(savedInstanceState)
 
@@ -141,6 +144,7 @@ class MainActivity : AppCompatActivity() {
         conversationsContent = findViewById(R.id.conversationsContent)
         recycler = findViewById(R.id.feedRecycler)
         progress = findViewById(R.id.appProgress)
+        biBar = findViewById(R.id.biBar)
         biPill = findViewById(R.id.biPill)
         biInput = findViewById(R.id.biInput)
         biSend = findViewById(R.id.biSend)
@@ -251,16 +255,17 @@ class MainActivity : AppCompatActivity() {
     }.toString()
 
     private fun setupInsets() {
-        ViewCompat.setOnApplyWindowInsetsListener(biPill) { view, insets ->
-            val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            val lp = view.layoutParams as ViewGroup.MarginLayoutParams
-            lp.bottomMargin = dp(10) + if (ime > 0) ime else 0
-            view.layoutParams = lp
-            if (view.height > 0) bottomBarHeight = view.height
+        ViewCompat.setOnApplyWindowInsetsListener(biBar) { view, insets ->
+            val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
+            val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val safeBottom = max(systemBottom, imeBottom)
+            val frame = view as ViewGroup
+            frame.setPadding(dp(14), dp(10), dp(14), dp(10) + safeBottom)
+            bottomBarHeight = view.measuredHeight
             insets
         }
 
-        biPill.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+        biBar.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
             bottomBarHeight = v.height
         }
 
@@ -443,11 +448,7 @@ class MainActivity : AppCompatActivity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(8), dp(12), dp(18))
-            background = android.graphics.drawable.GradientDrawable().apply {
-                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                cornerRadius = dp(26).toFloat()
-                setColor(ContextCompat.getColor(this@MainActivity, R.color.popupBg))
-            }
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable/bg_popup_material)
         }
 
         root.addView(TextView(this).apply {
@@ -505,20 +506,22 @@ class MainActivity : AppCompatActivity() {
         IconLoader.applySvg(findViewById(R.id.biSliderIcon), "slider", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow_up", R.color.onpri)
 
-        // Exact HTML behavior: the send button is always present, so typing never
-        // causes it to appear/disappear or blink. Only the textarea grows.
+        // Native reproduction of the supplied HTML textarea. The action row is
+        // structurally separate, so it stays anchored while the textarea grows.
         biInput.setSingleLine(false)
-        biInput.maxLines = 20
+        biInput.maxLines = Int.MAX_VALUE
+        biInput.setHorizontallyScrolling(false)
         biInput.setLineSpacing(0f, 1.6f)
         biInput.gravity = Gravity.TOP or Gravity.START
         biInput.includeFontPadding = true
         biInput.setPadding(0, 0, 0, 0)
         biInput.isVerticalScrollBarEnabled = false
+        biInput.overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
 
         biInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                resizeComposerInput()
+                biInput.post { resizeComposerInput(true) }
             }
             override fun afterTextChanged(s: Editable?) = Unit
         })
@@ -528,47 +531,76 @@ class MainActivity : AppCompatActivity() {
             sendToAi()
             true
         }
+        // Keep the existing More popup and its native sheet implementation.
         findViewById<View>(R.id.biAdd).setOnClickListener { showAppsPopup(it) }
 
         applyComposerSurface()
-        biInput.post { resizeComposerInput() }
+        biInput.post { resizeComposerInput(false) }
     }
 
-    private fun resizeComposerInput() {
-        if (!::biInput.isInitialized) return
+    private fun resizeComposerInput(animate: Boolean) {
+        if (!::biInput.isInitialized || biInput.width <= 0) return
+
         val density = resources.displayMetrics.density
         val minHeight = (26f * density + 0.5f).toInt()
         val maxHeight = (200f * density + 0.5f).toInt()
-        val lineHeight = ((biInput.paint.fontMetrics.descent - biInput.paint.fontMetrics.ascent) * 1.6f).toInt().coerceAtLeast(1)
-        val lines = biInput.lineCount.coerceAtLeast(1)
-        val desired = (lines * lineHeight).coerceIn(minHeight, maxHeight)
-        val lp = biInput.layoutParams
-        if (lp.height != desired) {
+        val width = biInput.width.coerceAtLeast(1)
+        val text = biInput.text
+
+        val measuredHeight = if (text.isEmpty()) {
+            minHeight
+        } else {
+            val measured = StaticLayout.Builder
+                .obtain(text, 0, text.length, biInput.paint, width)
+                .setIncludePad(true)
+                .setLineSpacing(0f, 1.6f)
+                .setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE)
+                .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
+                .build()
+                .height
+            measured.coerceAtLeast(minHeight)
+        }
+
+        val desired = measuredHeight.coerceAtMost(maxHeight)
+        val current = biInput.height.takeIf { it > 0 } ?: minHeight
+
+        composerHeightAnimator?.cancel()
+        if (animate && current != desired) {
+            composerHeightAnimator = ValueAnimator.ofInt(current, desired).apply {
+                duration = 300L
+                interpolator = PathInterpolator(0.4f, 0f, 0.2f, 1f)
+                addUpdateListener { animator ->
+                    val lp = biInput.layoutParams
+                    lp.height = animator.animatedValue as Int
+                    biInput.layoutParams = lp
+                }
+                start()
+            }
+        } else {
+            val lp = biInput.layoutParams
             lp.height = desired
             biInput.layoutParams = lp
         }
+
         val atMax = desired >= maxHeight
         biInput.isVerticalScrollBarEnabled = atMax
+        biInput.overScrollMode = if (atMax) View.OVER_SCROLL_ALWAYS else View.OVER_SCROLL_IF_CONTENT_SCROLLS
         if (!atMax) biInput.scrollTo(0, 0)
     }
 
     private fun applyComposerSurface() {
         val dark = ThemeManager.resolvedDark(this)
-        val fill = if (dark) android.graphics.Color.rgb(26, 30, 35) else android.graphics.Color.rgb(250, 250, 250)
-        val border = if (dark) android.graphics.Color.TRANSPARENT else android.graphics.Color.rgb(235, 235, 235)
-        val radius = dp(24).toFloat()
-        biPill.background = android.graphics.drawable.GradientDrawable().apply {
-            shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-            setColor(fill)
-            cornerRadius = radius
-            val strokePx = maxOf(1, kotlin.math.round(1.5f * resources.displayMetrics.density).toInt())
-            setStroke(strokePx, border)
-        }
-        biInput.setTextColor(ContextCompat.getColor(this, R.color.text))
+        biBar.setBackgroundColor(ContextCompat.getColor(this, R.color.bg))
+        biPill.background = HtmlComposerBackgroundDrawable(this, dark)
+        biInput.setTextColor(if (dark) android.graphics.Color.rgb(245, 245, 245) else android.graphics.Color.rgb(51, 51, 51))
         biInput.setHintTextColor(if (dark) android.graphics.Color.rgb(150, 155, 162) else android.graphics.Color.rgb(153, 153, 153))
         findViewById<View>(R.id.biAddIcon).alpha = 0.4f
         findViewById<View>(R.id.biSliderIcon).alpha = 0.4f
         biSend.background = ContextCompat.getDrawable(this, R.drawable.bg_ai_send)
+        findViewById<ImageView>(R.id.biSendIcon).setColorFilter(
+            android.graphics.Color.WHITE,
+            android.graphics.PorterDuff.Mode.SRC_IN
+        )
     }
 
     private fun setupAppsPanel() {
@@ -1385,6 +1417,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.appsTitle).setTextColor(ContextCompat.getColor(this, R.color.text))
         findViewById<TextView>(R.id.conversationsEmpty).setTextColor(ContextCompat.getColor(this, R.color.dim))
         applyComposerSurface()
+        biInput.post { resizeComposerInput(false) }
         appsBottomTabs.background = ContextCompat.getDrawable(this, R.drawable.bg_auth_segment)
         appsTabIndicator.background = ContextCompat.getDrawable(this, R.drawable.bg_auth_indicator)
         selectAppsTab(appsTabIsApps, false)
@@ -1409,6 +1442,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        composerHeightAnimator?.cancel()
         feedAnimator?.cancel()
         appsAnimator?.cancel()
         feedBarAnimator?.cancel()

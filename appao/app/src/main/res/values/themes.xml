@@ -187,4 +187,7 @@
             @drawable/bg_popup_material
         </item>
     </style>
+    <style name="Theme.AppAo.Splash" parent="Theme.AppAo">
+        <item name="android:windowBackground">@drawable/splash_window</item>
+    </style>
 </resources>

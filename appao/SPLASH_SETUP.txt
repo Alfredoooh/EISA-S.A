@@ -1,0 +1,8 @@
+AppAo splash screen
+==================
+
+Android 12+ uses the native system splash on the launcher Activity.
+The system animates res/drawable/splash_icon_animated.xml on startup.
+Older Android versions use res/drawable/splash_window.xml as a static fallback.
+The original mipmap density resources from appao.zip are preserved.
+The normal Theme.AppAo resource and ThemeManager are left untouched.

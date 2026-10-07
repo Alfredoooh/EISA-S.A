@@ -118,6 +118,9 @@ class MainActivity : AppCompatActivity() {
     private var restoredFeedOffset = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // The launcher Activity starts with the native Android 12 splash theme.
+        // Switch to the normal AppAo theme before AppCompat inflates the screen.
+        setTheme(R.style.Theme_AppAo)
         super.onCreate(savedInstanceState)
 
         WindowCompat.setDecorFitsSystemWindows(window, true)

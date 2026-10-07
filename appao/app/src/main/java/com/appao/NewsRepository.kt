@@ -634,7 +634,7 @@ object NewsRepository {
 
         return repairMojibake(htmlText)
             .replace('\u00A0', ' ')
-            .replace('\uFFFD', '')
+            .replace("\uFFFD", "")
             .replace(Regex("\\s+"), " ")
             .trim()
     }

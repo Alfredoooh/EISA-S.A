@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="512dp"
+    android:height="512dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <group
+        android:name="splashLogo"
+        android:pivotX="256"
+        android:pivotY="256"
+        android:scaleX="0.78"
+        android:scaleY="0.78">
+
+        <!-- Clean vector rendition of the existing AppAo/Looply splash mark. -->
+        <path
+            android:fillColor="@android:color/transparent"
+            android:strokeColor="#050505"
+            android:strokeWidth="25"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M 181,301 L 181,236 C 181,213 194,198 215,198 C 237,198 251,214 251,238 L 251,258" />
+        <path
+            android:fillColor="@android:color/transparent"
+            android:strokeColor="#FBD727"
+            android:strokeWidth="18"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M 181,301 L 181,236 C 181,213 194,198 215,198 C 237,198 251,214 251,238 L 251,258" />
+        <path
+            android:fillColor="@android:color/transparent"
+            android:strokeColor="#F81F28"
+            android:strokeWidth="11"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M 181,301 L 181,236 C 181,213 194,198 215,198 C 237,198 251,214 251,238 L 251,258" />
+
+        <path
+            android:fillColor="@android:color/transparent"
+            android:strokeColor="#050505"
+            android:strokeWidth="25"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M 251,258 C 251,286 268,304 292,304 C 318,304 338,287 338,262 C 338,237 322,220 297,220 L 278,220" />
+        <path
+            android:fillColor="@android:color/transparent"
+            android:strokeColor="#FBD727"
+            android:strokeWidth="18"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M 251,258 C 251,286 268,304 292,304 C 318,304 338,287 338,262 C 338,237 322,220 297,220 L 278,220" />
+        <path
+            android:fillColor="@android:color/transparent"
+            android:strokeColor="#F81F28"
+            android:strokeWidth="11"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M 251,258 C 251,286 268,304 292,304 C 318,304 338,287 338,262 C 338,237 322,220 297,220 L 278,220" />
+    </group>
+</vector>

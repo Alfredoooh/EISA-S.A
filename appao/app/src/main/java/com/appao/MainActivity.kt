@@ -258,7 +258,7 @@ class MainActivity : AppCompatActivity() {
         ViewCompat.setOnApplyWindowInsetsListener(biBar) { view, insets ->
             val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
             val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            val safeBottom = max(systemBottom, imeBottom)
+            val safeBottom = if (systemBottom > imeBottom) systemBottom else imeBottom
             val frame = view as ViewGroup
             frame.setPadding(dp(14), dp(10), dp(14), dp(10) + safeBottom)
             bottomBarHeight = view.measuredHeight
@@ -607,9 +607,9 @@ class MainActivity : AppCompatActivity() {
         if (appsReady) return
         appsReady = true
 
-        val appsHeader = appsPanel.getChildAt(0)
-        appsHeader?.elevation = 0f
-        appsHeader?.translationZ = 0f
+        val appsHeader = findViewById<View>(R.id.appsHeaderBar)
+        appsHeader.elevation = 0f
+        appsHeader.translationZ = 0f
         IconLoader.applyPng(findViewById(R.id.appsProfileAvatar), "avatar")
         IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow_right", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
@@ -1393,11 +1393,10 @@ class MainActivity : AppCompatActivity() {
         feedHeader.translationZ = 0f
         homeHeader.elevation = 0f
         homeHeader.translationZ = 0f
-        appsPanel.getChildAt(0)?.let {
-            it.elevation = 0f
-            it.translationZ = 0f
-            it.setBackgroundColor(bg)
-        }
+        val appsHeader = findViewById<View>(R.id.appsHeaderBar)
+        appsHeader.elevation = 0f
+        appsHeader.translationZ = 0f
+        appsHeader.setBackgroundColor(bg)
 
         IconLoader.applySvg(findViewById(R.id.homeMenuIcon), "menu", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.feedBackIcon), "back", R.color.iconTint)
@@ -1405,9 +1404,9 @@ class MainActivity : AppCompatActivity() {
         IconLoader.applySvg(findViewById(R.id.biAddIcon), "add", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSliderIcon), "slider", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow_up", R.color.onpri)
-        val appsHeader = appsPanel.getChildAt(0)
-        appsHeader?.elevation = 0f
-        appsHeader?.translationZ = 0f
+        val appsHeader = findViewById<View>(R.id.appsHeaderBar)
+        appsHeader.elevation = 0f
+        appsHeader.translationZ = 0f
         IconLoader.applyPng(findViewById(R.id.appsProfileAvatar), "avatar")
         IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow_right", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)

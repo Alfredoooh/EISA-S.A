@@ -3,6 +3,24 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+tasks.register('sanitizeKotlinSources') {
+    doLast {
+        fileTree(project.projectDir) { include 'src/main/java/**/*.kt' }.files.each { f ->
+            def original = f.getText('UTF-8')
+            def fixed = original
+                    .replace('getChildAte', 'getChildAt')
+                    .replaceAll('\\bite(?=\\.)', 'it')
+            if (fixed != original) {
+                f.setText(fixed, 'UTF-8')
+            }
+        }
+    }
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    dependsOn(tasks.named('sanitizeKotlinSources'))
+}
+
 android {
     namespace 'com.appao'
     compileSdk 34

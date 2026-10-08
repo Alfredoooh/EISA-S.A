@@ -448,7 +448,7 @@ class MainActivity : AppCompatActivity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(8), dp(12), dp(18))
-            background = ContextCompat.getDrawable(this@MainActivity, R.drawable/bg_popup_material)
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_popup_material)
         }
 
         root.addView(TextView(this).apply {
@@ -1404,9 +1404,6 @@ class MainActivity : AppCompatActivity() {
         IconLoader.applySvg(findViewById(R.id.biAddIcon), "add", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSliderIcon), "slider", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow_up", R.color.onpri)
-        val appsHeader = findViewById<View>(R.id.appsHeaderBar)
-        appsHeader.elevation = 0f
-        appsHeader.translationZ = 0f
         IconLoader.applyPng(findViewById(R.id.appsProfileAvatar), "avatar")
         IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow_right", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)

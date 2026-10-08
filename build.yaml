@@ -1,0 +1,126 @@
+name: appao-android-debug
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: appao-android-debug-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PACKAGE_NAME: "com.appao"
+
+jobs:
+  build:
+    name: appao-android-debug
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper/dists
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Configure Android SDK
+        run: |
+          set -e
+          PROJECT_DIR="$GITHUB_WORKSPACE/appao"
+          if [ ! -d "$PROJECT_DIR/app" ]; then PROJECT_DIR="$GITHUB_WORKSPACE"; fi
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$PROJECT_DIR/local.properties"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Set up signing keystore
+        env:
+          LOOPLY_KEYSTORE_BASE64: ${{ secrets.LOOPLY_KEYSTORE_BASE64 }}
+        run: |
+          set -e
+          if [ -f "$PROJECT_DIR/looply-debug.keystore" ]; then
+            echo "Repository keystore present; debug builds use Gradle's debug signing automatically."
+          elif [ -n "${LOOPLY_KEYSTORE_BASE64:-}" ]; then
+            echo "Decoding repository keystore..."
+            printf '%s' "$LOOPLY_KEYSTORE_BASE64" | base64 --decode > "$PROJECT_DIR/looply-debug.keystore"
+            chmod 600 "$PROJECT_DIR/looply-debug.keystore"
+          else
+            echo "No custom repository keystore supplied; continuing because this workflow builds Debug."
+          fi
+
+      - name: Build app ao Debug APK
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          python3 - <<'PYVERIFY'
+          from pathlib import Path
+          import hashlib
+          bad = []
+          forbidden = ("getChildAte", "R.drawable/")
+          for src in Path("app/src/main/java").rglob("*.kt"):
+              text = src.read_text(encoding="utf-8")
+              for needle in forbidden:
+                  if needle in text:
+                      bad.append(f"{src}: {needle}")
+          if bad:
+              raise SystemExit("Invalid Kotlin source remains:\n" + "\n".join(bad))
+          main = Path("app/src/main/java/com/appao/MainActivity.kt")
+          print("Build source sanity check: PASS")
+          print("MainActivity SHA-256:", hashlib.sha256(main.read_bytes()).hexdigest())
+          PYVERIFY
+          python3 verify_project.py
+          chmod +x ./gradlew || true
+          if [ -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+            ./gradlew clean assembleDebug --stacktrace --no-daemon
+          elif command -v gradle >/dev/null 2>&1; then
+            gradle clean assembleDebug --stacktrace --no-daemon
+          else
+            echo "ERROR: gradle-wrapper.jar is missing and no Gradle executable is available."
+            exit 1
+          fi
+
+      - name: Verify APK size
+        run: |
+          set -e
+          APK_DIR="$PROJECT_DIR/app/build/outputs/apk/debug"
+          apk=$(find "$APK_DIR" -maxdepth 1 -type f -name '*.apk' | head -1)
+          if [ -z "$apk" ]; then
+            echo "ERROR: No APK was generated."
+            exit 1
+          fi
+
+          bytes=$(stat -c%s "$apk")
+          mib=$((bytes / 1024 / 1024))
+          echo "APK: $apk"
+          echo "Bytes: $bytes"
+          echo "Size: ${mib} MiB"
+          echo "Target: below 5 MiB"
+
+          if [ "$bytes" -lt 5242880 ]; then
+            echo "APK is below the 5 MiB target."
+          else
+            echo "WARNING: APK is above the 5 MiB target; R8/resource shrinking remains enabled."
+          fi
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: appao-debug-apk
+          path: appao/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

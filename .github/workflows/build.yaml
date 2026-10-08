@@ -1,9 +1,8 @@
 name: appao-android-debug
 
 on:
-  push:
-    branches:
-      - main
+  repository_dispatch:
+    types: [build-apk]
 
 concurrency:
   group: appao-android-debug-${{ github.ref }}
@@ -21,6 +20,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.branch }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4

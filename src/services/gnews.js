@@ -1,79 +1,115 @@
 const axios = require('axios');
 const cache = require('../utils/cache');
-const { CATEGORY_QUERIES } = require('../config');
+const { filterInternationalQuality } = require('../config/newsPolicy');
+const MIN_SOURCE_QUALITY = Number(process.env.MIN_SOURCE_QUALITY) || 80;
 
 const BASE_URL = 'https://gnews.io/api/v4';
-const TOPIC_MAP = {
-  internacional: 'world', economia: 'business', politica: 'nation', desporto: 'sports',
-  futebol: 'sports', tecnologia: 'technology', ciencia: 'science', saude: 'health',
-  entretenimento: 'entertainment'
-};
 
-function extractDomain(url) {
-  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
-}
-
-function toArticle(a, category, lang) {
-  return {
-    id: Buffer.from(a.url || '').toString('base64').slice(0, 22),
-    title: a.title || '',
-    description: a.description || '',
-    content: a.content || '',
-    url: a.url || '',
-    image: a.image || '',
-    source: a.source?.name || extractDomain(a.url),
-    sourceUrl: a.source?.url || '',
-    sourceCountry: a.source?.country || '',
-    language: a.language || lang || '',
-    publishedAt: a.publishedAt || null,
-    category,
-    provider: 'gnews'
-  };
-}
-
-async function get(endpoint, params, cacheKey) {
-  if (!process.env.GNEWS_API_KEY) return [];
+async function fetchNews({ category = 'world', lang = 'en', country = '', page = 1, max = 25 }) {
+  const cacheKey = `gnews_${category}_${lang}_${country}_${page}_${max}`;
   const cached = cache.get(cacheKey);
   if (cached) return cached;
+
   try {
-    const response = await axios.get(`${BASE_URL}/${endpoint}`, {
-      params: { ...params, apikey: process.env.GNEWS_API_KEY },
+    const params = {
+      apikey: process.env.GNEWS_API_KEY,
+      category,
+      lang,
+      max,
+      page
+    };
+    // Deliberately do not set country for the international feed.
+    if (country) params.country = country;
+
+    const response = await axios.get(`${BASE_URL}/top-headlines`, {
+      params,
       timeout: 12000,
-      headers: { 'User-Agent': 'NewsAPI/2.0' }
+      validateStatus: s => s >= 200 && s < 500
     });
-    const articles = response.data?.articles || [];
-    cache.set(cacheKey, articles, 90);
-    return articles;
+
+    if (response.status >= 400) {
+      throw new Error(`GNews HTTP ${response.status}: ${response.data?.errors?.join?.(', ') || 'request failed'}`);
+    }
+
+    const articles = (response.data.articles || [])
+      .filter(a => a.image && a.title && a.url)
+      .map(a => ({
+        id: a.url,
+        title: a.title || '',
+        description: a.description || '',
+        url: a.url || '',
+        image: a.image || '',
+        source: a.source?.name || extractDomain(a.url),
+        sourceUrl: a.source?.url || '',
+        language: a.language || lang,
+        publishedAt: a.publishedAt || null,
+        provider: 'gnews'
+      }));
+
+    const quality = filterInternationalQuality(articles, MIN_SOURCE_QUALITY);
+    cache.set(cacheKey, quality);
+    return quality;
   } catch (err) {
-    console.error(`[GNews ${endpoint}]`, err.message);
+    console.error('[GNews]', err.message);
     return [];
   }
 }
 
-async function fetchNews({ category = 'internacional', lang = 'en', country = '', max = 25 } = {}) {
-  const topic = TOPIC_MAP[category];
-  let raw = [];
-  if (topic) {
-    raw = await get('top-headlines', {
-      category: topic,
-      lang: lang || 'en',
-      max: Math.min(Number(max) || 25, 100),
-      ...(country ? { country: String(country).toLowerCase() } : {})
-    }, `gnews_v2_top_${category}_${lang}_${country}_${max}`);
-  } else {
-    return searchNews({ query: CATEGORY_QUERIES[category] || category, lang, max });
+async function searchNews({ query, lang = 'en', max = 25, page = 1 }) {
+  const cacheKey = `gnews_search_${query}_${lang}_${page}_${max}`;
+  const cached = cache.get(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const from = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+    const response = await axios.get(`${BASE_URL}/search`, {
+      params: {
+        apikey: process.env.GNEWS_API_KEY,
+        q: query,
+        lang,
+        max,
+        page,
+        from,
+        sortby: 'publishedAt'
+      },
+      timeout: 12000,
+      validateStatus: s => s >= 200 && s < 500
+    });
+
+    if (response.status >= 400) {
+      throw new Error(`GNews HTTP ${response.status}`);
+    }
+
+    const articles = (response.data.articles || [])
+      .filter(a => a.image && a.title && a.url)
+      .map(a => ({
+        id: a.url,
+        title: a.title || '',
+        description: a.description || '',
+        url: a.url || '',
+        image: a.image || '',
+        source: a.source?.name || extractDomain(a.url),
+        sourceUrl: a.source?.url || '',
+        language: a.language || lang,
+        publishedAt: a.publishedAt || null,
+        provider: 'gnews'
+      }));
+
+    const quality = filterInternationalQuality(articles, MIN_SOURCE_QUALITY);
+    cache.set(cacheKey, quality);
+    return quality;
+  } catch (err) {
+    console.error('[GNews Search]', err.message);
+    return [];
   }
-  return raw.filter(a => a?.title && a?.url).map(a => toArticle(a, category, lang));
 }
 
-async function searchNews({ query, lang = 'en', max = 25, from, to } = {}) {
-  const q = String(query || '').trim();
-  if (!q) return [];
-  const raw = await get('search', {
-    q: q.slice(0, 200), lang: lang || 'en', max: Math.min(Number(max) || 25, 100),
-    from, to, sortby: 'publishedAt'
-  }, `gnews_v2_search_${q}_${lang}_${from || ''}_${to || ''}`);
-  return raw.filter(a => a?.title && a?.url).map(a => toArticle(a, 'search', lang));
+function extractDomain(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+  } catch {
+    return '';
+  }
 }
 
 module.exports = { fetchNews, searchNews };

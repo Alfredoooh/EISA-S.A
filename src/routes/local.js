@@ -1,46 +1,36 @@
 const express = require('express');
 const router = express.Router();
-const { getCountryFromCoords } = require('../utils/geolocate');
-const gdelt = require('../services/gdelt');
 const currents = require('../services/currents');
 const gnews = require('../services/gnews');
-const { dedupeArticles, rankArticles, parseDate } = require('../utils/news');
+const rss = require('../services/rss');
+const { filterInternationalQuality } = require('../config/newsPolicy');
 
-// Endpoint mantido para conteúdo estritamente local. A home /news continua internacional.
+// Kept for client compatibility. This server is now international-only,
+// so this endpoint no longer returns country/local news.
 router.get('/', async (req, res) => {
-  const { lat, lon } = req.query;
-  const latitude = Number(lat); const longitude = Number(lon);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-    return res.status(400).json({ status: 'error', error: 'lat e lon devem ser coordenadas válidas' });
-  }
-
   try {
-    const { code, info } = await getCountryFromCoords(latitude, longitude);
-    const [gde, cur, gne] = await Promise.allSettled([
-      gdelt.fetchNews({ query: info.gdeltCountry || info.name, timespan: '24h', maxRecords: 80, internationalOnly: false }),
-      currents.fetchNews({ category: 'internacional', lang: info.lang, country: code, max: 30 }),
-      gnews.fetchNews({ category: 'internacional', lang: info.lang, country: String(code || '').toLowerCase(), max: 20 })
+    const [currentsResults, gnewsResults, rssResults] = await Promise.allSettled([
+      currents.fetchLatest({ lang: 'en', page: 1, pageSize: 50 }),
+      gnews.fetchNews({ category: 'world', lang: 'en', page: 1, max: 25 }),
+      rss.fetchByCategory('world')
     ]);
-    let articles = [
-      ...(gde.status === 'fulfilled' ? gde.value : []),
-      ...(cur.status === 'fulfilled' ? cur.value : []),
-      ...(gne.status === 'fulfilled' ? gne.value : [])
-    ];
-    articles = dedupeArticles(articles)
-      .filter(a => { const d = parseDate(a.publishedAt); return d && d.getTime() <= Date.now() + 10 * 60 * 1000 && Date.now() - d.getTime() <= 72 * 3600000; })
-      .map(a => ({ ...a, category: 'local' }));
-    articles = rankArticles(articles, { category: 'local' }).slice(0, 40);
-
+    let articles = [];
+    if (currentsResults.status === 'fulfilled') articles.push(...currentsResults.value);
+    if (gnewsResults.status === 'fulfilled') articles.push(...gnewsResults.value);
+    if (rssResults.status === 'fulfilled') articles.push(...rssResults.value);
+    articles = filterInternationalQuality(articles, Number(process.env.MIN_SOURCE_QUALITY) || 80)
+      .filter(a => a.publishedAt && ((Date.now() - new Date(a.publishedAt).getTime()) / 3600000) <= 48)
+      .slice(0, 40);
     res.json({
       status: 'ok',
-      internationalOnly: false,
-      location: { lat: latitude, lon: longitude, countryCode: code, countryName: info.name, language: info.lang },
+      mode: 'international_only',
+      legacyEndpoint: true,
+      message: 'A API deixou de devolver notícias locais/country-specific. Este endpoint devolve notícias internacionais para compatibilidade.',
       total: articles.length,
-      generatedAt: new Date().toISOString(),
       articles
     });
   } catch (err) {
-    res.status(500).json({ status: 'error', error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 

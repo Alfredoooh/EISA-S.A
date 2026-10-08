@@ -1,16 +1,19 @@
 # Changelog
 
-## 2.0.0
+## 3.0.0 - Internacional + Quality Gate
 
-- Feed principal exclusivamente internacional.
-- Exclusão explícita de Brasil e domínios `.br`/`.com.br`.
-- 34 categorias de notícias.
-- Agregação GDELT + GNews + Currents + RSS internacional + SearXNG.
-- Ranking por frescor, qualidade e relevância.
-- Filtro temporal de 1 a 72 horas, com fallback controlado.
-- Busca internacional dedicada.
-- SearXNG com descoberta dinâmica de instâncias públicas e fallback.
-- Scraper com Schema.org + Mozilla Readability + DOM semântico.
-- Proteção SSRF, limite de tamanho de HTML, timeouts e rate limit.
-- Health/readiness para Render.
-- Segredos removidos do repositório.
+- Mudança para modo editorial internacional-only.
+- BBC bloqueada globalmente.
+- Removidas as fontes RSS brasileiras, portuguesas e angolanas do feed principal.
+- Implementada whitelist de publishers internacionais de elevada qualidade.
+- Implementado score de qualidade e filtro mínimo.
+- GNews atualizado para a autenticação/parâmetros atuais (`apikey`).
+- Currents atualizado para V2 e taxonomia canónica.
+- Adicionado endpoint `/news/latest`.
+- Adicionado endpoint `/news/search`.
+- Adicionado `/ready` para health checks no Render.
+- Adicionado suporte aos IDs reais de categoria GNews/Currents.
+- Feed com prioridade por atualidade + qualidade e limite por publisher.
+- RSS reduzido a publishers internacionais aprovados.
+- Endpoint `/article` passou a bloquear fontes fora da whitelist e BBC.
+- Segredos removidos do `render.yaml` e do pacote de distribuição; os mesmos nomes de variáveis do `.env` continuam compatíveis.

@@ -1,36 +1,21 @@
 services:
   - type: web
-    name: international-news-api
+    name: news-api
     env: node
     buildCommand: npm install
     startCommand: npm start
-    healthCheckPath: /health
     envVars:
       - key: PORT
         value: 3000
-      - key: API_KEY
-        sync: false
       - key: CURRENTS_API_KEY
         sync: false
       - key: GNEWS_API_KEY
         sync: false
-      - key: REQUIRE_API_KEY
-        value: true
-      - key: DEFAULT_LANGUAGE
-        value: en
+      - key: API_KEY
+        sync: false
       - key: CACHE_TTL
-        value: 60
-      - key: ARTICLE_CACHE_TTL
-        value: 1800
-      - key: RATE_LIMIT_WINDOW_MS
-        value: 60000
-      - key: RATE_LIMIT_MAX
-        value: 90
-      - key: SCRAPER_TIMEOUT_MS
-        value: 18000
-      - key: SCRAPER_MAX_HTML_BYTES
-        value: 8388608
-      - key: GDELT_MIN_INTERVAL_MS
-        value: 5500
-      - key: SEARXNG_INSTANCES
-        value: https://search.jeremyh.xyz,https://searx.tsmdt.de,https://search.serpensin.com,https://search.anoni.net,https://searx.ononoki.org
+        value: 300
+      - key: MIN_SOURCE_QUALITY
+        value: 80
+      - key: FRESHNESS_HOURS
+        value: 48

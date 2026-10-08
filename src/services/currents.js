@@ -1,77 +1,129 @@
 const axios = require('axios');
 const cache = require('../utils/cache');
+const { filterInternationalQuality } = require('../config/newsPolicy');
+const MIN_SOURCE_QUALITY = Number(process.env.MIN_SOURCE_QUALITY) || 80;
 
-const BASE_URL = 'https://api.currentsapi.services/v1';
-const CATEGORY_MAP = {
-  internacional: 'general', economia: 'business', politica: 'politics', desporto: 'sports',
-  futebol: 'sports', tecnologia: 'technology', ciencia: 'science', saude: 'health',
-  entretenimento: 'entertainment'
-};
+const BASE_URL = 'https://api.currentsapi.services/v2';
 
-function extractDomain(url) {
-  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
+async function request(path, params = {}) {
+  return axios.get(`${BASE_URL}${path}`, {
+    params,
+    headers: {
+      Authorization: `Bearer ${process.env.CURRENTS_API_KEY}`,
+      Accept: 'application/json'
+    },
+    timeout: 12000,
+    validateStatus: s => s >= 200 && s < 500
+  });
 }
 
-function normalize(a, category, lang) {
+function mapArticle(a) {
   return {
-    id: Buffer.from(a.url || '').toString('base64').slice(0, 22),
+    id: a.url || a.id,
     title: a.title || '',
     description: a.description || '',
     url: a.url || '',
     image: a.image || '',
-    source: a.author || extractDomain(a.url),
-    sourceCountry: a.country || '',
-    country: a.country || '',
-    language: a.language || lang || '',
-    publishedAt: a.published || a.publishedAt || null,
-    category: a.category?.[0] || category,
+    source: extractDomain(a.url),
+    sourceUrl: a.url || '',
+    language: a.language || 'en',
+    category: Array.isArray(a.category) ? a.category[0] : a.category || '',
+    publishedAt: a.published || null,
     provider: 'currents'
   };
 }
 
-async function fetchNews({ category = 'internacional', lang = 'en', country = '', max = 30 } = {}) {
-  if (!process.env.CURRENTS_API_KEY) return [];
-  const cacheKey = `currents_v2_${category}_${lang}_${country}_${max}`;
+async function fetchNews({ category = 'general', lang = 'en', page = 1, pageSize = 40 }) {
+  const cacheKey = `currents_${category}_${lang}_${page}_${pageSize}`;
   const cached = cache.get(cacheKey);
   if (cached) return cached;
+
   try {
-    const params = {
-      apiKey: process.env.CURRENTS_API_KEY,
-      language: lang || 'en',
-      page_number: 1
-    };
-    const mapped = CATEGORY_MAP[category];
-    if (mapped && mapped !== 'general') params.category = mapped;
-    if (country) params.country = String(country).toUpperCase();
-    const response = await axios.get(`${BASE_URL}/search`, { params, timeout: 12000 });
-    const articles = (response.data?.news || []).filter(a => a?.title && a?.url).slice(0, max).map(a => normalize(a, category, lang));
-    cache.set(cacheKey, articles, 90);
-    return articles;
+    const response = await request('/latest-news', {
+      language: lang,
+      category,
+      type: 1,
+      page_number: page,
+      page_size: pageSize
+    });
+
+    if (response.status >= 400) throw new Error(`Currents HTTP ${response.status}`);
+    const articles = (response.data.news || [])
+      .map(mapArticle)
+      .filter(a => a.image && a.title && a.url);
+    const quality = filterInternationalQuality(articles, MIN_SOURCE_QUALITY);
+    cache.set(cacheKey, quality);
+    return quality;
   } catch (err) {
     console.error('[Currents]', err.message);
     return [];
   }
 }
 
-async function fetchLatest({ lang = 'en', max = 30 } = {}) {
-  if (!process.env.CURRENTS_API_KEY) return [];
-  const cacheKey = `currents_v2_latest_${lang}_${max}`;
+async function fetchLatest({ lang = 'en', page = 1, pageSize = 50 }) {
+  const cacheKey = `currents_latest_${lang}_${page}_${pageSize}`;
   const cached = cache.get(cacheKey);
   if (cached) return cached;
+
   try {
-    const response = await axios.get(`${BASE_URL}/latest-news`, {
-      params: { apiKey: process.env.CURRENTS_API_KEY, language: lang || 'en' },
-      timeout: 12000
+    const response = await request('/latest-news', {
+      language: lang,
+      type: 1,
+      page_number: page,
+      page_size: pageSize
     });
-    const articles = (response.data?.news || []).filter(a => a?.title && a?.url).slice(0, max).map(a => normalize(a, 'internacional', lang));
-    cache.set(cacheKey, articles, 90);
-    return articles;
+
+    if (response.status >= 400) throw new Error(`Currents HTTP ${response.status}`);
+    const articles = (response.data.news || [])
+      .map(mapArticle)
+      .filter(a => a.image && a.title && a.url);
+    const quality = filterInternationalQuality(articles, MIN_SOURCE_QUALITY);
+    cache.set(cacheKey, quality);
+    return quality;
   } catch (err) {
     console.error('[Currents Latest]', err.message);
     return [];
   }
 }
 
-const CURRENTS_SUPPORTED = new Set(Object.keys(CATEGORY_MAP));
+async function searchNews({ keywords, category, lang = 'en', page = 1, pageSize = 40 }) {
+  const cacheKey = `currents_search_${keywords}_${category || ''}_${lang}_${page}_${pageSize}`;
+  const cached = cache.get(cacheKey);
+  if (cached) return cached;
 
-module.exports = { fetchNews, fetchLatest, CURRENTS_SUPPORTED };
+  try {
+    const params = {
+      keywords,
+      language: lang,
+      page_number: page,
+      page_size: pageSize,
+      type: 1,
+      start_date: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
+      end_date: new Date().toISOString()
+    };
+    if (category) params.category = category;
+
+    const response = await request('/search', params);
+    if (response.status >= 400) throw new Error(`Currents search HTTP ${response.status}`);
+
+    const articles = (response.data.news || [])
+      .map(mapArticle)
+      .filter(a => a.image && a.title && a.url);
+    const quality = filterInternationalQuality(articles, MIN_SOURCE_QUALITY);
+    cache.set(cacheKey, quality);
+    return quality;
+  } catch (err) {
+    console.error('[Currents Search]', err.message);
+    return [];
+  }
+}
+
+function extractDomain(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+module.exports = { fetchNews, fetchLatest, searchNews };

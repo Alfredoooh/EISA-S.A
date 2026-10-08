@@ -52,24 +52,31 @@ workflows:
 
       - name: Build app ao Debug APK
         script: |
-          set -e
+          set -euo pipefail
           PROJECT_DIR="$CM_BUILD_DIR/appao"
           if [ ! -d "$PROJECT_DIR/app" ]; then PROJECT_DIR="$CM_BUILD_DIR"; fi
           cd "$PROJECT_DIR"
-          # Defensive source sanitation for the known malformed identifiers from previous uploads.
-          python3 - <<'PYFIX'
+          python3 - <<'PYVERIFY'
           from pathlib import Path
-          src = Path("app/src/main/java/com/appao/MainActivity.kt")
-          text = src.read_text(encoding="utf-8")
-          text = text.replace("getChildAte", "getChildAt")
-          text = text.replace("bg_popup_materiale", "bg_popup_material")
-          src.write_text(text, encoding="utf-8")
-          PYFIX
+          import hashlib
+          bad = []
+          forbidden = ("getChildAte", "R.drawable/")
+          for src in Path("app/src/main/java").rglob("*.kt"):
+              text = src.read_text(encoding="utf-8")
+              for needle in forbidden:
+                  if needle in text:
+                      bad.append(f"{src}: {needle}")
+          if bad:
+              raise SystemExit("Invalid Kotlin source remains:\n" + "\n".join(bad))
+          main = Path("app/src/main/java/com/appao/MainActivity.kt")
+          print("Build source sanity check: PASS")
+          print("MainActivity SHA-256:", hashlib.sha256(main.read_bytes()).hexdigest())
+          PYVERIFY
+          python3 verify_project.py
           chmod +x ./gradlew || true
           if [ -f "gradle/wrapper/gradle-wrapper.jar" ]; then
             ./gradlew clean assembleDebug --stacktrace --no-daemon
           elif command -v gradle >/dev/null 2>&1; then
-            echo "gradle-wrapper.jar is missing; using the Codemagic Gradle executable."
             gradle clean assembleDebug --stacktrace --no-daemon
           else
             echo "ERROR: gradle-wrapper.jar is missing and no Gradle executable is available."

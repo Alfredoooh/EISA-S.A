@@ -338,6 +338,28 @@ class ArticleActivity : AppCompatActivity() {
         }
     }
 
+    private fun refreshArticleTheme() {
+        val bg = ContextCompat.getColor(this, R.color.bg)
+        val elevated = ContextCompat.getColor(this, R.color.bgElevated)
+        root.setBackgroundColor(bg)
+        sheetCard.setBackgroundColor(bg)
+        articleBar.setBackgroundColor(elevated)
+        acComposer.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_card)
+        title.setTextColor(ContextCompat.getColor(this, R.color.text))
+        source.setTextColor(ContextCompat.getColor(this, R.color.text))
+        time.setTextColor(ContextCompat.getColor(this, R.color.dim))
+        summary.setTextColor(ContextCompat.getColor(this, R.color.dim))
+        body.setTextColor(ContextCompat.getColor(this, R.color.text))
+        IconLoader.applySvg(findViewById(R.id.aBackIcon), "back", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.aBrowserIcon), "launch", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.aShareIcon), "share", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.aSaveIcon), "bookmark", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.cIcon), "chat", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.acEmojiIcon), "emojis", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.acSendIcon), "send", R.color.onpri)
+        updateSheetChrome()
+    }
+
     private fun finishArticle() {
         if (closingArticle) return
         closingArticle = true
@@ -378,7 +400,12 @@ class ArticleActivity : AppCompatActivity() {
             val v = findViewById<View>(id)
             val drawable = android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.OVAL
-                setColor(if (solid) ContextCompat.getColor(this@ArticleActivity, R.color.card) else 0x38FFFFFF)
+                val dark = ThemeManager.resolvedDark(this@ArticleActivity)
+                setColor(when {
+                    !dark -> Color.WHITE
+                    solid -> ContextCompat.getColor(this@ArticleActivity, R.color.card2)
+                    else -> 0x38FFFFFF
+                })
             }
             v.background = drawable
         }
@@ -928,6 +955,7 @@ class ArticleActivity : AppCompatActivity() {
     ) {
         super.onConfigurationChanged(newConfig)
         SystemBarHelper.sync(this)
+        refreshArticleTheme()
     }
 
     override fun dispatchTouchEvent(

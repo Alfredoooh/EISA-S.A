@@ -21,7 +21,7 @@
             android:theme="@style/Theme.AppAo.Splash"
             android:exported="true"
             android:windowSoftInputMode="adjustResize"
-            android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize|uiMode">
+            android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -51,6 +51,8 @@
         <activity android:name=".SidePanelActivity" android:exported="false" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize"/>
         <activity android:name=".UsageActivity" android:exported="false" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize"/>
         <activity android:name=".DataSaverActivity" android:exported="false" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize"/>
+        <activity android:name=".SearchActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize"/>
+
         <activity android:name=".PublishActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize"/>
 
         <activity

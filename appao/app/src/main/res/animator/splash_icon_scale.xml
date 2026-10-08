@@ -2,14 +2,14 @@
 <set xmlns:android="http://schemas.android.com/apk/res/android">
     <objectAnimator
         android:duration="900"
-        android:interpolator="@android:interpolator/decelerate_cubic"
+        android:interpolator="@interpolator/splash_overshoot"
         android:propertyName="scaleX"
         android:valueType="floatType"
         android:valueFrom="0.78"
         android:valueTo="1.0" />
     <objectAnimator
         android:duration="900"
-        android:interpolator="@android:interpolator/decelerate_cubic"
+        android:interpolator="@interpolator/splash_overshoot"
         android:propertyName="scaleY"
         android:valueType="floatType"
         android:valueFrom="0.78"

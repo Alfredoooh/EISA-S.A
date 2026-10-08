@@ -45,9 +45,10 @@
             <!-- Feed shortcut: two tilted, overlapping news-image cards. -->
             <FrameLayout
                 android:id="@+id/homeFeedStack"
-                android:layout_width="30dp"
-                android:layout_height="22dp"
+                android:layout_width="40dp"
+                android:layout_height="30dp"
                 android:layout_gravity="end|center_vertical"
+                android:layout_marginEnd="14dp"
                 android:background="@android:color/transparent"
                 android:clickable="true"
                 android:focusable="true"
@@ -55,8 +56,8 @@
 
                 <ImageView
                     android:id="@+id/stackBack"
-                    android:layout_width="17dp"
-                    android:layout_height="20dp"
+                    android:layout_width="23dp"
+                    android:layout_height="27dp"
                     android:layout_gravity="center"
                     android:background="@drawable/bg_stack_card"
                     android:clipToOutline="true"
@@ -65,8 +66,8 @@
 
                 <ImageView
                     android:id="@+id/stackFront"
-                    android:layout_width="18dp"
-                    android:layout_height="21dp"
+                    android:layout_width="24dp"
+                    android:layout_height="28dp"
                     android:layout_gravity="center"
                     android:background="@drawable/bg_stack_card"
                     android:clipToOutline="true"
@@ -255,20 +256,42 @@
                         android:scaleType="fitCenter" />
                 </FrameLayout>
 
+                <ImageView
+                    android:id="@+id/feedToolbarLogo"
+                    android:layout_width="76dp"
+                    android:layout_height="30dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="app ao"
+                    android:scaleType="fitCenter" />
+
                 <TextView
                     android:id="@+id/feedToolbarTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:text="Notícias"
-                    android:textColor="@color/text"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
+                    android:layout_width="1dp"
+                    android:layout_height="1dp"
+                    android:visibility="gone"
+                    android:text="Notícias" />
+
+                <FrameLayout
+                    android:id="@+id/feedPublish"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:layout_gravity="end|center_vertical"
+                    android:layout_marginEnd="56dp"
+                    android:background="@drawable/bg_transparent_pressed"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <ImageView
+                        android:id="@+id/feedPublishIcon"
+                        android:layout_width="23dp"
+                        android:layout_height="23dp"
+                        android:layout_gravity="center"
+                        android:scaleType="fitCenter" />
+                </FrameLayout>
 
                 <FrameLayout
                     android:id="@+id/feedMore"
-                    android:layout_width="46dp"
-                    android:layout_height="46dp"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
                     android:layout_gravity="end|center_vertical"
                     android:layout_marginEnd="10dp"
                     android:background="@drawable/bg_transparent_pressed"

@@ -40,4 +40,5 @@
     <color name="authYellowPressed">#0B5EA8</color>
     <color name="authYellowText">#FFFFFF</color>
     <color name="stackBorder">#111111</color>
+    <color name="splash_logo_center">#1F2937</color>
 </resources>

@@ -2,7 +2,7 @@ package com.appao
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.SwitchCompat
+import com.google.android.material.materialswitch.MaterialSwitch
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -33,12 +33,18 @@ class DataSaverActivity : AppCompatActivity() {
     }
 
     private fun bindSwitch(id: Int, key: String) {
-        val switch = findViewById<SwitchCompat>(id)
+        val switch = findViewById<MaterialSwitch>(id)
         val prefs = getSharedPreferences("appao", MODE_PRIVATE)
         switch.isChecked = prefs.getBoolean(key, false)
         switch.setOnCheckedChangeListener { _, checked ->
             prefs.edit().putBoolean(key, checked).apply()
         }
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        SystemBarHelper.sync(this)
+        IconLoader.applySvg(findViewById(R.id.dataBackIcon), "back", R.color.iconTint)
     }
 
     override fun onResume() {

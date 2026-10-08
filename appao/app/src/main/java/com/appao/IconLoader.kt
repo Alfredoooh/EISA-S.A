@@ -297,6 +297,41 @@ object IconLoader {
         )
     }
 
+    fun loadPngDrawableAt(
+        context: Context,
+        relativePath: String,
+        sizePx: Int
+    ): Drawable? {
+        val normalized = relativePath
+            .removePrefix("/")
+            .let { if (it.endsWith(".png", ignoreCase = true)) it else "$it.png" }
+
+        if (!assetExists(context, normalized)) {
+            return FallbackIconDrawable(
+                normalized.substringAfterLast('/').substringBeforeLast('.'),
+                ContextCompat.getColor(context, R.color.iconTint)
+            ).apply {
+                setBounds(0, 0, sizePx, sizePx)
+            }
+        }
+
+        return try {
+            context.assets.open(normalized).use { stream ->
+                val bmp = android.graphics.BitmapFactory.decodeStream(stream) ?: return@use null
+                BitmapDrawable(context.resources, bmp).apply {
+                    setBounds(0, 0, sizePx, sizePx)
+                }
+            }
+        } catch (_: Throwable) {
+            FallbackIconDrawable(
+                normalized.substringAfterLast('/').substringBeforeLast('.'),
+                ContextCompat.getColor(context, R.color.iconTint)
+            ).apply {
+                setBounds(0, 0, sizePx, sizePx)
+            }
+        }
+    }
+
     fun loadPngDrawable(
         context: Context,
         name: String,

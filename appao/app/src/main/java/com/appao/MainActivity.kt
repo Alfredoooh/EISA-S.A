@@ -41,7 +41,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.net.URLEncoder
 import java.util.Locale
 import kotlin.math.abs
 
@@ -123,7 +122,6 @@ class MainActivity : AppCompatActivity() {
     private var restoredFeedOffset = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        setTheme(R.style.Theme_AppAo)
         super.onCreate(savedInstanceState)
 
         WindowCompat.setDecorFitsSystemWindows(window, true)
@@ -325,9 +323,12 @@ class MainActivity : AppCompatActivity() {
         feedHeader.elevation = 0f
         feedHeader.translationZ = 0f
         IconLoader.applySvg(findViewById(R.id.feedBackIcon), "back", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedToolbarLogo), "logo", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "publish", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more_vert", R.color.iconTint)
 
         findViewById<View>(R.id.feedBack).setOnClickListener { closeFeedPanel() }
+        findViewById<View>(R.id.feedPublish).setOnClickListener { openPublish() }
         findViewById<View>(R.id.feedMore).setOnClickListener { showFeedMorePopup(it) }
 
         refreshFeedTabs(scrollToSelection = false)
@@ -433,72 +434,66 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showFeedMorePopup(anchor: View) {
-        HtmlStylePopup.show(
+        NativePopupMenu.show(
             anchor,
             listOf(
-                HtmlStylePopup.Item("Editar categorias", "category", false, true) { showCategoryManager() },
-                HtmlStylePopup.Item("Atualizar notícias", "refresh", false, true) { loadNews(true) }
-            ),
-            placeAbove = false
-        )
+                NativePopupMenu.Item(1, "Editar categorias", svg = "category"),
+                NativePopupMenu.Item(2, "Atualizar notícias", svg = "refresh")
+            )
+        ) { item ->
+            when (item.id) {
+                1 -> showCategoryManager()
+                2 -> loadNews(true)
+            }
+        }
     }
 
     private fun showCategoryManager() {
-        val hidden = hiddenCategories()
-        val root = LinearLayout(this).apply {
+        val scroll = androidx.core.widget.NestedScrollView(this).apply {
+            isFillViewport = true
+            overScrollMode = View.OVER_SCROLL_ALWAYS
+        }
+        val list = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), dp(8), dp(12), dp(18))
-            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_popup_material)
+            setPadding(dp(8), dp(2), dp(8), dp(8))
         }
-
-        root.addView(TextView(this).apply {
-            text = "Categorias"
-            gravity = Gravity.CENTER
-            textSize = 18f
-            setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
-            setPadding(dp(18), dp(8), dp(18), dp(14))
-        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-
-        val scroll = BounceScrollView(this).apply {
-            overScrollMode = View.OVER_SCROLL_NEVER
-        }
-        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val dialogTitle = "Categorias"
 
         categories.forEach { category ->
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                minimumHeight = dp(52)
-                setPadding(dp(12), 0, dp(8), 0)
-            }
-            val label = TextView(this).apply {
+            val switch = com.google.android.material.materialswitch.MaterialSwitch(this).apply {
                 text = category
                 textSize = 15f
-                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
-                setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL))
-            }
-            val sw = androidx.appcompat.widget.SwitchCompat(this).apply {
-                isChecked = category !in hidden
+                setTextColor(ContextCompat.getColor(context, R.color.text))
+                isChecked = category !in hiddenCategories()
+                minHeight = dp(52)
+                setPadding(dp(6), 0, dp(4), 0)
                 showText = false
             }
-            sw.setOnCheckedChangeListener { _, checked ->
+            switch.setOnCheckedChangeListener { _, checked ->
                 val updated = hiddenCategories()
                 if (checked) updated.remove(category) else updated.add(category)
                 categoryPrefs.edit().putStringSet(hiddenCategoryPrefsKey, updated).apply()
-                if (!checked && currentCat == category) currentCat = "Para você"
+                if (!checked && currentCat == category) {
+                    currentCat = "Para você"
+                    findViewById<TextView>(R.id.feedToolbarTitle).text = "Notícias"
+                }
                 refreshFeedTabs(false)
-                if (currentCat == "Para você") findViewById<TextView>(R.id.feedToolbarTitle).text = "Notícias"
             }
-            row.addView(label, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
-            row.addView(sw, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-            row.setOnClickListener { sw.isChecked = !sw.isChecked }
-            list.addView(row)
+            list.addView(
+                switch,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    dp(52)
+                )
+            )
         }
-
         scroll.addView(list, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(420)))
-        NativeSheetDialog.show(this, root)
+        NativeM3Dialog.content(
+            this,
+            dialogTitle,
+            scroll,
+            negative = "Fechar"
+        )
     }
 
     private fun setupBottomInput() {
@@ -522,6 +517,7 @@ class MainActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 biInput.post { resizeComposerInput(true) }
+                updateComposerSendState()
             }
             override fun afterTextChanged(s: Editable?) = Unit
         })
@@ -535,7 +531,28 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.biAdd).setOnClickListener { showAppsPopup(it) }
 
         applyComposerSurface()
-        biInput.post { resizeComposerInput(false) }
+        biInput.post {
+            resizeComposerInput(false)
+            updateComposerSendState()
+        }
+    }
+
+    private fun updateComposerSendState() {
+        val dark = ThemeManager.resolvedDark(this)
+        val active = biInput.text?.isNotBlank() == true
+        val fill = when {
+            active && dark -> android.graphics.Color.WHITE
+            active -> android.graphics.Color.BLACK
+            else -> android.graphics.Color.rgb(192, 192, 192)
+        }
+        biSend.background = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.OVAL
+            setColor(fill)
+        }
+        findViewById<ImageView>(R.id.biSendIcon).setColorFilter(
+            if (active && dark) android.graphics.Color.BLACK else android.graphics.Color.WHITE,
+            android.graphics.PorterDuff.Mode.SRC_IN
+        )
     }
 
     private fun resizeComposerInput(animate: Boolean) {
@@ -596,11 +613,7 @@ class MainActivity : AppCompatActivity() {
         biInput.setHintTextColor(if (dark) android.graphics.Color.rgb(150, 155, 162) else android.graphics.Color.rgb(153, 153, 153))
         findViewById<View>(R.id.biAddIcon).alpha = 0.4f
         findViewById<View>(R.id.biSliderIcon).alpha = 0.4f
-        biSend.background = ContextCompat.getDrawable(this, R.drawable.bg_ai_send)
-        findViewById<ImageView>(R.id.biSendIcon).setColorFilter(
-            android.graphics.Color.WHITE,
-            android.graphics.PorterDuff.Mode.SRC_IN
-        )
+        updateComposerSendState()
     }
 
     private fun setupAppsPanel() {
@@ -1101,15 +1114,12 @@ class MainActivity : AppCompatActivity() {
     private fun sendToAi() {
         val query = biInput.text.toString().trim()
         if (query.isEmpty()) return
-        showNavProgress()
-        biInput.setText("")
         biInput.clearFocus()
-        biPill.postDelayed({
-            if (isFinishing || isDestroyed) return@postDelayed
-            startActivity(Intent(this, AppViewerActivity::class.java).apply {
-                putExtra("url", "file:///android_asset/apps/ai.html?q=" + URLEncoder.encode(query, "UTF-8"))
-            })
-        }, 80L)
+        startActivity(Intent(this, SearchActivity::class.java).apply {
+            putExtra("query", query)
+        })
+        overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+        biInput.setText("")
     }
 
     private fun showAppsPopup(anchor: View) {
@@ -1387,8 +1397,11 @@ class MainActivity : AppCompatActivity() {
         homePage.setBackgroundColor(bg)
         feedPanel.setBackgroundColor(bg)
         appsPanel.setBackgroundColor(bg)
+        appsContent.setBackgroundColor(bg)
+        conversationsContent.setBackgroundColor(bg)
         homeHeader.setBackgroundColor(bg)
         feedHeader.setBackgroundColor(bg)
+        biBar.setBackgroundColor(bg)
         feedHeader.elevation = 0f
         feedHeader.translationZ = 0f
         homeHeader.elevation = 0f
@@ -1400,6 +1413,8 @@ class MainActivity : AppCompatActivity() {
 
         IconLoader.applySvg(findViewById(R.id.homeMenuIcon), "menu", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.feedBackIcon), "back", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedToolbarLogo), "logo", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "publish", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more_vert", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biAddIcon), "add", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSliderIcon), "slider", R.color.iconTint)
@@ -1416,6 +1431,9 @@ class MainActivity : AppCompatActivity() {
         biInput.post { resizeComposerInput(false) }
         appsBottomTabs.background = ContextCompat.getDrawable(this, R.drawable.bg_auth_segment)
         appsTabIndicator.background = ContextCompat.getDrawable(this, R.drawable.bg_auth_indicator)
+        findViewById<View>(R.id.appsSettings).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
+        findViewById<View>(R.id.appsProfile).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
+        findViewById<ImageView>(R.id.appsProfileAvatar).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
         selectAppsTab(appsTabIsApps, false)
         if (::adapter.isInitialized) adapter.refreshTheme(recycler)
         // Theme changes update the current surface in place; no feed request or data rebuild is made.

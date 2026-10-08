@@ -106,6 +106,13 @@ class AuthActivity : AppCompatActivity() {
         overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
     }
 
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        SystemBarHelper.sync(this)
+        IconLoader.applySvg(findViewById(R.id.authCloseIcon), "close", R.color.iconTint)
+        updateTabs(false)
+    }
+
     override fun onBackPressed() {
         finish()
         overridePendingTransition(R.anim.publish_return_enter, R.anim.publish_return_exit)
@@ -209,25 +216,18 @@ class AuthActivity : AppCompatActivity() {
         val current =
             if (login) loginPhone else registerPhone
 
-        HtmlStylePopup.show(
+        NativePopupMenu.show(
             anchor,
             listOf(
-                HtmlStylePopup.Item(
-                    "Email",
-                    "mail",
-                    !current
-                ) {
-                    setPhoneMode(login, false)
-                },
-                HtmlStylePopup.Item(
-                    "Número",
-                    "phone",
-                    current
-                ) {
-                    setPhoneMode(login, true)
-                }
+                NativePopupMenu.Item(1, "Email", svg = "mail"),
+                NativePopupMenu.Item(2, "Número", svg = "phone")
             )
-        )
+        ) { item ->
+            when (item.id) {
+                1 -> setPhoneMode(login, false)
+                2 -> setPhoneMode(login, true)
+            }
+        }
     }
 
     private fun setPhoneMode(

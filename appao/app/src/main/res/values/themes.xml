@@ -56,7 +56,7 @@
         parent="Theme.AppAo">
 
         <item name="android:windowBackground">#000000</item>
-        <item name="android:statusBarColor">#000000</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">#000000</item>
 
         <item

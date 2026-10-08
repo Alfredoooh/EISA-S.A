@@ -44,6 +44,12 @@ class SettingsActivity : AppCompatActivity() {
         SystemBarHelper.sync(this)
     }
 
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        SystemBarHelper.sync(this)
+        refreshValues()
+    }
+
     override fun onResume() {
         super.onResume()
         SystemBarHelper.sync(this)
@@ -82,49 +88,68 @@ class SettingsActivity : AppCompatActivity() {
             IconLoader.applySvgThin(row.findViewById(R.id.rowIcon), rowDef.svg, R.color.iconTint)
         }
         findViewById<View>(R.id.rowTheme).findViewById<TextView>(R.id.rowValue).apply {
-            setVisibility(View.VISIBLE)
-            setText(ThemeManager.label(this@SettingsActivity))
+            visibility = View.VISIBLE
+            text = ThemeManager.label(this@SettingsActivity)
         }
         findViewById<View>(R.id.rowLang).findViewById<TextView>(R.id.rowValue).apply {
-            setVisibility(View.VISIBLE)
-            setText(languageLabel())
+            visibility = View.VISIBLE
+            text = languageLabel()
         }
         findViewById<View>(R.id.rowData).findViewById<TextView>(R.id.rowValue).apply {
-            setVisibility(View.VISIBLE)
-            setText(if (dataSavingEnabled()) "Ligada" else "Desligada")
+            visibility = View.VISIBLE
+            text = if (dataSavingEnabled()) "Ligada" else "Desligada"
         }
     }
 
     private fun showThemePicker(anchor: View) {
-        val options = listOf(
-            Triple("Escuro", "dark", "moon"),
-            Triple("Claro", "light", "sun"),
-            Triple("Sistema", "system", "monitor")
-        )
         val current = ThemeManager.current(this)
-        HtmlStylePopup.show(anchor, options.map { (label, value, icon) ->
-            HtmlStylePopup.Item(label = label, iconName = icon, checked = value == current, useSvg = true) {
-                ThemeManager.applyImmediately(this, value)
+        NativePopupMenu.show(
+            anchor,
+            listOf(
+                NativePopupMenu.Item(1, "Escuro", svg = "moon"),
+                NativePopupMenu.Item(2, "Claro", svg = "sun"),
+                NativePopupMenu.Item(3, "Sistema", svg = "monitor")
+            )
+        ) { item ->
+            val value = when (item.id) {
+                1 -> "dark"
+                2 -> "light"
+                else -> "system"
             }
-        })
+            if (value != current) {
+                ThemeManager.applyImmediately(this, value)
+            } else {
+                refreshValues()
+                SystemBarHelper.sync(this)
+            }
+        }
     }
 
     private fun showLangPicker(anchor: View) {
-        val options = listOf(
-            Triple("pt", "Português", "flags/pt"),
-            Triple("en", "English", "flags/en"),
-            Triple("es", "Español", "flags/es"),
-            Triple("fr", "Français", "flags/fr"),
-            Triple("de", "Deutsch", "flags/de")
-        )
         val current = getSharedPreferences("appao", MODE_PRIVATE).getString("lang", "pt") ?: "pt"
-        HtmlStylePopup.show(anchor, options.map { (code, label, flag) ->
-            HtmlStylePopup.Item(label = label, iconName = flag, checked = code == current, useSvg = false) {
+        NativePopupMenu.show(
+            anchor,
+            listOf(
+                NativePopupMenu.Item(1, "Português", png = "flags/pt"),
+                NativePopupMenu.Item(2, "English", png = "flags/en"),
+                NativePopupMenu.Item(3, "Español", png = "flags/es"),
+                NativePopupMenu.Item(4, "Français", png = "flags/fr"),
+                NativePopupMenu.Item(5, "Deutsch", png = "flags/de")
+            )
+        ) { item ->
+            val code = when (item.id) {
+                1 -> "pt"
+                2 -> "en"
+                3 -> "es"
+                4 -> "fr"
+                else -> "de"
+            }
+            if (code != current) {
                 getSharedPreferences("appao", MODE_PRIVATE).edit().putString("lang", code).apply()
                 refreshValues()
-                AppAoToast.show(this, label)
+                AppAoToast.show(this, languageLabel())
             }
-        })
+        }
     }
 
     private fun dataSavingEnabled(): Boolean =
@@ -155,7 +180,11 @@ class SettingsActivity : AppCompatActivity() {
     private fun languageLabel(): String = when (
         getSharedPreferences("appao", MODE_PRIVATE).getString("lang", "pt") ?: "pt"
     ) {
-        "en" -> "English"; "es" -> "Español"; "fr" -> "Français"; "de" -> "Deutsch"; else -> "Português"
+        "en" -> "English"
+        "es" -> "Español"
+        "fr" -> "Français"
+        "de" -> "Deutsch"
+        else -> "Português"
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density + .5f).toInt()

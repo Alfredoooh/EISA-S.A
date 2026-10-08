@@ -1,30 +1,25 @@
 package com.appao
 
 import android.view.View
-import android.widget.PopupWindow
+import androidx.appcompat.widget.PopupMenu
 
-/** Quick-add menu opened from the fixed AI composer. */
+/** Native anchored quick-add menu opened from the fixed AI composer. */
 object AppsPopup {
-    data class Option(val label: String, val svg: String, val actionKey: String)
+    data class Option(val id: Int, val label: String, val svg: String, val actionKey: String)
 
     private val OPTIONS = listOf(
-        Option("Carregar ficheiro", "file", "file"),
-        Option("Abrir câmera", "camera", "camera"),
-        Option("Carregar imagem", "image", "image"),
-        Option("Pensar mais", "think", "think")
+        Option(1, "Carregar ficheiro", "file", "file"),
+        Option(2, "Abrir câmera", "camera", "camera"),
+        Option(3, "Carregar imagem", "image", "image"),
+        Option(4, "Pensar mais", "think", "think")
     )
 
-    fun show(anchor: View, onPick: (String) -> Unit): PopupWindow {
-        return HtmlStylePopup.show(
+    fun show(anchor: View, onPick: (String) -> Unit): PopupMenu {
+        return NativePopupMenu.show(
             anchor,
-            OPTIONS.map { option ->
-                HtmlStylePopup.Item(
-                    label = option.label,
-                    iconName = option.svg,
-                    useSvg = true
-                ) { onPick(option.actionKey) }
-            },
-            placeAbove = true
-        )
+            OPTIONS.map { NativePopupMenu.Item(it.id, it.label, svg = it.svg) }
+        ) { item ->
+            OPTIONS.firstOrNull { it.id == item.id }?.let { onPick(it.actionKey) }
+        }
     }
 }

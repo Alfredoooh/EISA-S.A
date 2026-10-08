@@ -1,0 +1,12 @@
+AppAo icon integration
+
+Dark-theme source:
+app/src/main/assets/icons/png/appao_icon_dark.png
+
+Light-theme source:
+app/src/main/assets/icons/png/appao_icon_light.png
+
+The launcher foreground uses the light variant by default and the dark variant in drawable-night.
+The static splash fallback uses the light/dark variants by theme.
+The existing AnimatedVectorDrawable splash remains unchanged because the supplied artwork is raster PNG;
+converting it to a true AnimatedVectorDrawable requires vector paths and was intentionally not approximated here.

@@ -41,10 +41,12 @@ class ImageViewerActivity : AppCompatActivity() {
         window.reenterTransition = null
 
         setContentView(R.layout.activity_image_viewer)
-        SystemBarHelper.sync(
-            this,
-            darkOverride = true
-        )
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.BLACK
+        androidx.core.view.WindowInsetsControllerCompat(window, window.decorView).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
 
         root = findViewById(R.id.imageViewerRoot)
         backdrop = findViewById(R.id.imageBackdrop)
@@ -241,6 +243,12 @@ class ImageViewerActivity : AppCompatActivity() {
             .setDuration(duration)
             .setInterpolator(Curves.SMOOTH)
             .start()
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.BLACK
     }
 
     override fun onBackPressed() {

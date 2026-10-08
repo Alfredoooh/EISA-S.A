@@ -3,32 +3,29 @@ const router = express.Router();
 const { extractArticle } = require('../utils/scraper');
 const cache = require('../utils/cache');
 
-// GET /article?url=https://...
 router.get('/', async (req, res) => {
   const { url } = req.query;
+  if (!url) return res.status(400).json({ status: 'error', error: 'Parâmetro url é obrigatório' });
 
-  if (!url) {
-    return res.status(400).json({ error: 'Parâmetro url é obrigatório' });
-  }
-
+  let parsed;
   try {
-    new URL(url); // valida URL
+    parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('protocolo inválido');
   } catch {
-    return res.status(400).json({ error: 'URL inválida' });
+    return res.status(400).json({ status: 'error', error: 'URL HTTP/HTTPS inválida' });
   }
 
-  const cacheKey = `article_${Buffer.from(url).toString('base64').slice(0, 32)}`;
+  const cacheKey = `article_v3_${Buffer.from(parsed.toString()).toString('base64url').slice(0, 48)}`;
   const cached = cache.get(cacheKey);
-  if (cached) {
-    return res.json({ status: 'ok', cached: true, article: cached });
-  }
+  if (cached) return res.json({ status: 'ok', cached: true, article: cached });
 
   try {
-    const article = await extractArticle(url);
-    cache.set(cacheKey, article, 3600); // cache 1 hora
+    const article = await extractArticle(parsed.toString());
+    cache.set(cacheKey, article, Number(process.env.ARTICLE_CACHE_TTL || 1800));
     res.json({ status: 'ok', cached: false, article });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[Article]', err.message);
+    res.status(422).json({ status: 'error', error: err.message });
   }
 });
 

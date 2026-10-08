@@ -1,24 +1,24 @@
 {
-  "name": "news-api",
-  "version": "1.0.0",
-  "description": "API de notícias agregada",
+  "name": "international-news-api",
+  "version": "2.0.0",
+  "description": "API de notícias internacionais com agregação multi-fonte, frescor, deduplicação, SearXNG e extração limpa de artigos",
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "axios": "^1.6.0",
-    "cheerio": "^1.0.0-rc.12",
-    "rss-parser": "^3.13.0",
-    "node-cache": "^5.1.2",
+    "@mozilla/readability": "^0.6.0",
+    "axios": "^1.12.2",
+    "cheerio": "^1.1.2",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "xml2js": "^0.6.2",
-    "node-fetch": "^2.7.0"
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "jsdom": "^30.1.0",
+    "node-cache": "^5.1.2",
+    "rss-parser": "^3.13.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.19.0"
   }
 }

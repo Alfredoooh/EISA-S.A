@@ -78,12 +78,12 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun refreshValues() {
         root.setBackgroundColor(ContextCompat.getColor(this, R.color.bg))
-        val text = ContextCompat.getColor(this, R.color.text)
+        val textColor = ContextCompat.getColor(this, R.color.text)
         val dim = ContextCompat.getColor(this, R.color.dim)
-        findViewById<TextView>(R.id.setTitle).setTextColor(text)
+        findViewById<TextView>(R.id.setTitle).setTextColor(textColor)
         rows.forEach { rowDef ->
             val row = findViewById<View>(rowDef.id)
-            row.findViewById<TextView>(R.id.rowTitle).setTextColor(text)
+            row.findViewById<TextView>(R.id.rowTitle).setTextColor(textColor)
             row.findViewById<TextView>(R.id.rowValue).setTextColor(dim)
             IconLoader.applySvgThin(row.findViewById(R.id.rowIcon), rowDef.svg, R.color.iconTint)
         }

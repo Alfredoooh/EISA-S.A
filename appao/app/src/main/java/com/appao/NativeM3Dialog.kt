@@ -4,6 +4,7 @@ import android.app.Dialog
 import android.content.Context
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.content.ContextCompat
+import android.widget.EditText
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 /**
@@ -192,6 +193,51 @@ object NativeM3Dialog {
             style(dialog)
         }
 
+        dialog.show()
+        style(dialog)
+    }
+
+    fun prompt(
+        context: Context,
+        title: String,
+        message: String,
+        initial: String = "",
+        onResult: (String?) -> Unit
+    ) {
+        val themed = ContextThemeWrapper(context, R.style.Theme_AppAo_Material3Dialog)
+        val density = context.resources.displayMetrics.density
+        val horizontalPadding = (24 * density + 0.5f).toInt()
+        val verticalPadding = (8 * density + 0.5f).toInt()
+
+        val input = EditText(themed).apply {
+            setSingleLine(true)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            setText(initial)
+            setSelection(text.length)
+            hint = "Nome da pesquisa"
+            setPadding(horizontalPadding, verticalPadding, horizontalPadding, verticalPadding)
+        }
+
+        val builder = MaterialAlertDialogBuilder(themed)
+            .setTitle(title)
+            .setView(input)
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Guardar") { _, _ ->
+                onResult(input.text?.toString())
+            }
+        if (message.isNotBlank()) builder.setMessage(message)
+
+        val dialog = builder.create()
+        dialog.setOnShowListener {
+            style(dialog)
+            dialog.getButton(Dialog.BUTTON_POSITIVE)?.setTextColor(
+                ContextCompat.getColor(context, R.color.pri)
+            )
+            dialog.getButton(Dialog.BUTTON_NEGATIVE)?.setTextColor(
+                ContextCompat.getColor(context, R.color.dim)
+            )
+        }
         dialog.show()
         style(dialog)
     }

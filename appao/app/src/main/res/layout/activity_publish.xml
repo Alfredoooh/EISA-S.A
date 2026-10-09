@@ -16,7 +16,7 @@
             android:id="@+id/publishBack"
             android:layout_width="42dp"
             android:layout_height="42dp"
-            android:background="@drawable/bg_transparent_pressed"
+            android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">
             <ImageView
@@ -26,15 +26,7 @@
                 android:layout_gravity="center" />
         </FrameLayout>
 
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="Publicar"
-            android:textColor="@color/text"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+        <Space android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
 
         <TextView
             android:id="@+id/publishAction"
@@ -48,11 +40,6 @@
             android:clickable="true"
             android:focusable="true" />
     </LinearLayout>
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="@color/line" />
 
     <com.appao.BounceScrollView
         android:layout_width="match_parent"

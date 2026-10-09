@@ -31,7 +31,7 @@
                 android:layout_height="46dp"
                 android:layout_gravity="start|center_vertical"
                 android:layout_marginStart="12dp"
-                android:background="@drawable/bg_transparent_pressed"
+                android:background="@drawable/bg_circle_card"
                 android:clickable="true"
                 android:focusable="true">
                 <ImageView
@@ -245,7 +245,7 @@
                     android:layout_height="46dp"
                     android:layout_gravity="start|center_vertical"
                     android:layout_marginStart="2dp"
-                    android:background="@drawable/bg_transparent_pressed"
+                    android:background="@drawable/bg_circle_card"
                     android:clickable="true"
                     android:focusable="true">
                     <ImageView
@@ -271,39 +271,47 @@
                     android:visibility="gone"
                     android:text="Notícias" />
 
-                <FrameLayout
-                    android:id="@+id/feedPublish"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:layout_gravity="end|center_vertical"
-                    android:layout_marginEnd="56dp"
-                    android:background="@drawable/bg_transparent_pressed"
-                    android:clickable="true"
-                    android:focusable="true">
-                    <ImageView
-                        android:id="@+id/feedPublishIcon"
-                        android:layout_width="23dp"
-                        android:layout_height="23dp"
-                        android:layout_gravity="center"
-                        android:scaleType="fitCenter" />
-                </FrameLayout>
-
-                <FrameLayout
-                    android:id="@+id/feedMore"
-                    android:layout_width="42dp"
+                <LinearLayout
+                    android:id="@+id/feedHeaderActions"
+                    android:layout_width="92dp"
                     android:layout_height="42dp"
                     android:layout_gravity="end|center_vertical"
                     android:layout_marginEnd="10dp"
-                    android:background="@drawable/bg_transparent_pressed"
-                    android:clickable="true"
-                    android:focusable="true">
-                    <ImageView
-                        android:id="@+id/feedMoreIcon"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:layout_gravity="center"
-                        android:scaleType="fitCenter" />
-                </FrameLayout>
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:background="@drawable/bg_toolbar_actions"
+                    android:padding="2dp">
+
+                    <FrameLayout
+                        android:id="@+id/feedPublish"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:clickable="true"
+                        android:focusable="true">
+                        <ImageView
+                            android:id="@+id/feedPublishIcon"
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:scaleType="fitCenter" />
+                    </FrameLayout>
+
+                    <FrameLayout
+                        android:id="@+id/feedMore"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:clickable="true"
+                        android:focusable="true">
+                        <ImageView
+                            android:id="@+id/feedMoreIcon"
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:scaleType="fitCenter" />
+                    </FrameLayout>
+                </LinearLayout>
             </FrameLayout>
 
             <HorizontalScrollView
@@ -383,11 +391,11 @@
 
             <FrameLayout
                 android:id="@+id/appsBack"
-                android:layout_width="46dp"
-                android:layout_height="46dp"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
                 android:layout_gravity="end|center_vertical"
                 android:layout_marginEnd="12dp"
-                android:background="@drawable/bg_transparent_pressed"
+                android:background="@drawable/bg_circle_card"
                 android:clickable="true"
                 android:focusable="true">
                 <ImageView
@@ -446,66 +454,73 @@
                 android:textSize="15sp" />
         </FrameLayout>
 
-        <!-- Bottom floating switcher with a separate settings button. -->
-        <FrameLayout
-            android:id="@+id/appsBottomTabs"
-            android:layout_width="232dp"
-            android:layout_height="44dp"
-            android:layout_gravity="bottom|start"
-            android:layout_marginStart="10dp"
+        <!-- Aligned bottom navigation row: segment and settings button share one layout container. -->
+        <LinearLayout
+            android:id="@+id/appsBottomBar"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_gravity="bottom"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
             android:layout_marginBottom="16dp"
-            android:background="@drawable/bg_auth_segment"
-            android:padding="4dp"
-            android:clipChildren="false">
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:background="@drawable/bg_toolbar_actions"
+            android:padding="4dp">
 
-            <View
-                android:id="@+id/appsTabIndicator"
+            <FrameLayout
+                android:id="@+id/appsBottomTabs"
                 android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:background="@drawable/bg_auth_indicator" />
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/bg_auth_segment"
+                android:padding="4dp"
+                android:clipChildren="false">
+                <View
+                    android:id="@+id/appsTabIndicator"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:background="@drawable/bg_auth_indicator" />
+                <TextView
+                    android:id="@+id/appsTab"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="Apps"
+                    android:textColor="@color/onpri"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:clickable="true"
+                    android:focusable="true" />
+                <TextView
+                    android:id="@+id/conversationsTab"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="Conversas"
+                    android:textColor="@color/dim"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:clickable="true"
+                    android:focusable="true" />
+            </FrameLayout>
 
-            <TextView
-                android:id="@+id/appsTab"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:text="Apps"
-                android:textColor="@color/onpri"
-                android:textSize="14sp"
-                android:textStyle="bold"
+            <FrameLayout
+                android:id="@+id/appsSettings"
+                android:layout_width="46dp"
+                android:layout_height="46dp"
+                android:background="@drawable/bg_circle_card"
                 android:clickable="true"
-                android:focusable="true" />
-
-            <TextView
-                android:id="@+id/conversationsTab"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:text="Conversas"
-                android:textColor="@color/dim"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:clickable="true"
-                android:focusable="true" />
-        </FrameLayout>
-
-        <FrameLayout
-            android:id="@+id/appsSettings"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
-            android:layout_gravity="bottom|end"
-            android:layout_marginEnd="12dp"
-            android:layout_marginBottom="16dp"
-            android:background="@drawable/bg_circle_card"
-            android:clickable="true"
-            android:focusable="true">
-            <ImageView
-                android:id="@+id/appsSettingsIcon"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
-                android:layout_gravity="center"
-                android:scaleType="fitCenter" />
-        </FrameLayout>
+                android:focusable="true">
+                <ImageView
+                    android:id="@+id/appsSettingsIcon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:scaleType="fitCenter" />
+            </FrameLayout>
+        </LinearLayout>
     </FrameLayout>
 
     <com.appao.PullRefreshIndicatorView

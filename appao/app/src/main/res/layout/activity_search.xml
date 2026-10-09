@@ -49,7 +49,7 @@
             android:id="@+id/searchClose"
             android:layout_width="46dp"
             android:layout_height="46dp"
-            android:background="@drawable/bg_transparent_pressed"
+            android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">
             <ImageView
@@ -73,7 +73,7 @@
             android:id="@+id/searchMore"
             android:layout_width="46dp"
             android:layout_height="46dp"
-            android:background="@drawable/bg_transparent_pressed"
+            android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">
             <ImageView

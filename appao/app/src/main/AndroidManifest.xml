@@ -3,8 +3,6 @@
 
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
 
     <application
         android:name=".AppAoApp"
@@ -52,6 +50,8 @@
         <activity android:name=".UsageActivity" android:exported="false" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize"/>
         <activity android:name=".DataSaverActivity" android:exported="false" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize"/>
         <activity android:name=".SearchActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize"/>
+        <activity android:name=".CategoryManagerActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
+        <activity android:name=".CommentsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
 
         <activity android:name=".PublishActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize"/>
 

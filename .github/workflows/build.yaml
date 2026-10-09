@@ -29,11 +29,15 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Gradle 8.2.1
-        uses: gradle/actions/setup-gradle@v6
+      - name: Cache Gradle
+        uses: actions/cache@v4
         with:
-          gradle-version: '8.2.1'
-          cache-provider: basic
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper/dists
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
 
       - name: Configure Android SDK
         run: |
@@ -74,19 +78,22 @@ jobs:
                       bad.append(f"{src}: {needle}")
           if bad:
               raise SystemExit("Invalid Kotlin source remains:\n" + "\n".join(bad))
-          main = Path("app/src/main/java/com/appao/MainActivity.kt")
+          main_candidates = list(Path("app/src/main/java").rglob("MainActivity.kt"))
+          if not main_candidates:
+              raise SystemExit("MainActivity.kt was not found under app/src/main/java")
+          main = main_candidates[0]
           print("Build source sanity check: PASS")
           print("MainActivity SHA-256:", hashlib.sha256(main.read_bytes()).hexdigest())
           PYVERIFY
           python3 verify_project.py
           chmod +x ./gradlew || true
-          echo "Using the Gradle version pinned by Setup Gradle:"
-          gradle --version
           if [ -f "gradle/wrapper/gradle-wrapper.jar" ]; then
             ./gradlew clean assembleDebug --stacktrace --no-daemon
-          else
-            echo "Gradle Wrapper JAR is absent; building with pinned Gradle 8.2.1."
+          elif command -v gradle >/dev/null 2>&1; then
             gradle clean assembleDebug --stacktrace --no-daemon
+          else
+            echo "ERROR: gradle-wrapper.jar is missing and no Gradle executable is available."
+            exit 1
           fi
 
       - name: Verify APK size

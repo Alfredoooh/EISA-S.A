@@ -11,7 +11,7 @@
     <com.appao.RoundedClipFrameLayout
         android:id="@+id/aHeroContainer"
         android:layout_width="match_parent"
-        android:layout_height="320dp"
+        android:layout_height="260dp"
         android:layout_gravity="top"
         android:background="@android:color/transparent"
         android:clipChildren="false"
@@ -22,7 +22,7 @@
             android:id="@+id/aHero"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:scaleType="centerCrop" />
+            android:scaleType="fitCenter" />
         <View
             android:layout_width="match_parent"
             android:layout_height="80dp"
@@ -87,9 +87,12 @@
 
                         <ImageView
                             android:id="@+id/aFavicon"
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
-                            android:scaleType="centerCrop" />
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:background="@drawable/bg_circle_card"
+                            android:clipToOutline="true"
+                            android:padding="2dp"
+                            android:scaleType="fitCenter" />
 
                         <TextView
                             android:id="@+id/aSource"
@@ -150,6 +153,7 @@
 
                     <LinearLayout
                         android:id="@+id/aCommentsSection"
+                        android:visibility="gone"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="12dp"
@@ -224,9 +228,9 @@
 
         <FrameLayout
             android:id="@+id/aBack"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:background="@android:color/transparent"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">
             <ImageView
@@ -242,48 +246,19 @@
             android:layout_weight="1" />
 
         <FrameLayout
-            android:id="@+id/aBrowser"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_marginStart="10dp"
-            android:background="@android:color/transparent"
+            android:id="@+id/aMore"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">
             <ImageView
-                android:id="@+id/aBrowserIcon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:layout_gravity="center" />
-        </FrameLayout>
-
-        <FrameLayout
-            android:id="@+id/aSave"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_marginStart="10dp"
-            android:background="@android:color/transparent"
-            android:clickable="true"
-            android:focusable="true">
-            <ImageView
-                android:id="@+id/aSaveIcon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:layout_gravity="center" />
-        </FrameLayout>
-
-        <FrameLayout
-            android:id="@+id/aShare"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_marginStart="10dp"
-            android:background="@android:color/transparent"
-            android:clickable="true"
-            android:focusable="true">
-            <ImageView
-                android:id="@+id/aShareIcon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:layout_gravity="center" />
+                android:id="@+id/aMoreIcon"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
+                android:scaleType="fitCenter" />
         </FrameLayout>
     </LinearLayout>
 
@@ -316,6 +291,9 @@
 
             <EditText
                 android:id="@+id/acInput"
+                android:focusable="false"
+                android:focusableInTouchMode="false"
+                android:cursorVisible="false"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
@@ -344,6 +322,7 @@
 
         <FrameLayout
             android:id="@+id/acEmoji"
+            android:visibility="gone"
             android:layout_width="42dp"
             android:layout_height="42dp"
             android:layout_marginStart="8dp"

@@ -37,17 +37,43 @@ jobs:
 
       - name: Configure Android SDK
         run: |
-          set -e
+          set -euo pipefail
           PROJECT_DIR="$GITHUB_WORKSPACE/appao"
           if [ ! -d "$PROJECT_DIR/app" ]; then PROJECT_DIR="$GITHUB_WORKSPACE"; fi
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$PROJECT_DIR/local.properties"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
+      - name: Generate official Gradle Wrapper
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+
+          echo "Gradle installed by setup-gradle:"
+          gradle --version
+
+          echo "Generating the official Gradle Wrapper for Gradle 8.2.1..."
+          gradle wrapper --gradle-version 8.2.1 --distribution-type bin --no-daemon
+
+          if [ ! -s "gradle/wrapper/gradle-wrapper.jar" ]; then
+            echo "ERROR: Gradle did not generate gradle/wrapper/gradle-wrapper.jar."
+            exit 1
+          fi
+
+          if ! grep -Fq "gradle-8.2.1-bin.zip" "gradle/wrapper/gradle-wrapper.properties"; then
+            echo "ERROR: Gradle Wrapper is not configured for Gradle 8.2.1."
+            cat "gradle/wrapper/gradle-wrapper.properties"
+            exit 1
+          fi
+
+          chmod +x ./gradlew
+          echo "Gradle Wrapper generated and verified."
+          ./gradlew --version
+
       - name: Set up signing keystore
         env:
           LOOPLY_KEYSTORE_BASE64: ${{ secrets.LOOPLY_KEYSTORE_BASE64 }}
         run: |
-          set -e
+          set -euo pipefail
           if [ -f "$PROJECT_DIR/looply-debug.keystore" ]; then
             echo "Repository keystore present; debug builds use Gradle's debug signing automatically."
           elif [ -n "${LOOPLY_KEYSTORE_BASE64:-}" ]; then
@@ -62,9 +88,11 @@ jobs:
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
+
           python3 - <<'PYVERIFY'
           from pathlib import Path
           import hashlib
+
           bad = []
           forbidden = ("getChildAte", "R.drawable/")
           for src in Path("app/src/main/java").rglob("*.kt"):
@@ -74,6 +102,7 @@ jobs:
                       bad.append(f"{src}: {needle}")
           if bad:
               raise SystemExit("Invalid Kotlin source remains:\n" + "\n".join(bad))
+
           main_candidates = list(Path("app/src/main/java").rglob("MainActivity.kt"))
           if not main_candidates:
               raise SystemExit("MainActivity.kt was not found under app/src/main/java")
@@ -81,22 +110,19 @@ jobs:
           print("Build source sanity check: PASS")
           print("MainActivity SHA-256:", hashlib.sha256(main.read_bytes()).hexdigest())
           PYVERIFY
+
           python3 verify_project.py
-          chmod +x ./gradlew || true
-          if [ -f "gradle/wrapper/gradle-wrapper.jar" ]; then
-            echo "Using the project Gradle Wrapper:"
-            ./gradlew --version
-            ./gradlew clean assembleDebug --stacktrace --no-daemon
-          else
-            echo "Gradle Wrapper JAR is absent; using the Gradle 8.2.1 distribution pinned above."
-            gradle --version
-            gradle --version | grep -q "Gradle 8.2.1" || { echo "ERROR: Expected Gradle 8.2.1 but another version is active."; exit 1; }
-            gradle clean assembleDebug --stacktrace --no-daemon
+
+          if [ ! -s "gradle/wrapper/gradle-wrapper.jar" ]; then
+            echo "ERROR: Gradle Wrapper JAR is missing after the generation step."
+            exit 1
           fi
+
+          ./gradlew clean assembleDebug --stacktrace --no-daemon
 
       - name: Verify APK size
         run: |
-          set -e
+          set -euo pipefail
           APK_DIR="$PROJECT_DIR/app/build/outputs/apk/debug"
           apk=$(find "$APK_DIR" -maxdepth 1 -type f -name '*.apk' | head -1)
           if [ -z "$apk" ]; then
@@ -109,17 +135,18 @@ jobs:
           echo "APK: $apk"
           echo "Bytes: $bytes"
           echo "Size: ${mib} MiB"
-          echo "Target: below 5 MiB"
+          echo "Target: below 5 MiB (informational; Debug shrinking is disabled)"
 
           if [ "$bytes" -lt 5242880 ]; then
             echo "APK is below the 5 MiB target."
           else
-            echo "WARNING: APK is above the 5 MiB target; R8/resource shrinking remains enabled."
+            echo "WARNING: APK is above 5 MiB. This Debug build has code minification and resource shrinking disabled."
           fi
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: appao-debug-apk
-          path: appao/app/build/outputs/apk/debug/*.apk
+          path: |
+            **/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error

@@ -36,8 +36,8 @@ object HtmlStylePopup {
     private const val MENU_PADDING_DP = 8
     private const val MENU_RADIUS_DP = 26
     private const val ITEM_RADIUS_DP = 18
-    private const val ITEM_DELAY_MS = 35L
-    private const val ITEM_TRANSLATE_DP = 8
+    private const val ITEM_DELAY_MS = 20L
+    private const val ITEM_TRANSLATE_DP = 6
 
     fun show(
         anchor: View,
@@ -168,7 +168,7 @@ object HtmlStylePopup {
                         true
 
                     alpha =
-                        1f
+                        0f
 
                     translationY =
                         dp(ITEM_TRANSLATE_DP).toFloat()
@@ -375,15 +375,19 @@ object HtmlStylePopup {
                 .coerceIn(0f, width.toFloat())
 
         root.pivotY = if (showAbove) height.toFloat() else 0f
-        root.scaleX = 1f
-        root.scaleY = 1f
-        root.alpha = 1f
-        root.translationY = dp(14).toFloat()
+        root.scaleX = 0.96f
+        root.scaleY = 0.96f
+        root.alpha = 0f
+        root.translationY = (if (showAbove) -dp(8) else dp(8)).toFloat()
 
         root.animate()
             .translationY(0f)
-            .setDuration(240L)
-            .setInterpolator(Curves.IOS)
+            .scaleX(1f)
+            .scaleY(1f)
+            .alpha(1f)
+            .setDuration(290L)
+            .setInterpolator(Curves.EMPHASIZED)
+            .withLayer()
             .start()
 
         for (index in 0 until root.childCount) {
@@ -392,8 +396,9 @@ object HtmlStylePopup {
                 if (!row.isAttachedToWindow) return@postDelayed
                 row.animate()
                     .translationY(0f)
-                    .setDuration(250L)
-                    .setInterpolator(Curves.IOS)
+                    .alpha(1f)
+                    .setDuration(230L)
+                    .setInterpolator(Curves.SMOOTH)
                     .start()
             }, index * ITEM_DELAY_MS)
         }

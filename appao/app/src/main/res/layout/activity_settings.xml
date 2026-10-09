@@ -12,11 +12,11 @@
         android:paddingTop="6dp" android:paddingBottom="6dp">
 
         <FrameLayout android:id="@+id/setBack"
-            android:layout_width="52dp" android:layout_height="52dp"
+            android:layout_width="42dp" android:layout_height="42dp"
             android:background="@drawable/bg_circle_card"
             android:clickable="true" android:focusable="true">
             <ImageView android:id="@+id/setBackIcon"
-                android:layout_width="26dp" android:layout_height="26dp"
+                android:layout_width="21dp" android:layout_height="21dp"
                 android:layout_gravity="center"/>
         </FrameLayout>
 

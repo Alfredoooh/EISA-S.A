@@ -28,7 +28,6 @@ import android.view.animation.PathInterpolator
 class SearchActivity : AppCompatActivity() {
 
     private lateinit var root: View
-    private lateinit var resultTitle: TextView
     private lateinit var resultQuery: TextView
     private lateinit var composerBar: View
     private lateinit var composerPill: View
@@ -43,7 +42,6 @@ class SearchActivity : AppCompatActivity() {
         SystemBarHelper.sync(this)
 
         root = findViewById(R.id.searchRoot)
-        resultTitle = findViewById(R.id.searchTitle)
         resultQuery = findViewById(R.id.searchQuery)
         composerBar = findViewById(R.id.searchComposerBar)
         composerPill = findViewById(R.id.searchComposerPill)
@@ -59,7 +57,7 @@ class SearchActivity : AppCompatActivity() {
 
         IconLoader.applySvg(findViewById(R.id.searchCloseIcon), "close", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "more_vert", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchAddIcon), "add", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.searchAddIcon), "plus", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.searchSliderIcon), "slider", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.searchSendIcon), "arrow_up", R.color.onpri)
 
@@ -121,7 +119,7 @@ class SearchActivity : AppCompatActivity() {
             listOf(
                 NativePopupMenu.Item(1, "Eliminar pesquisa", svg = "delete"),
                 NativePopupMenu.Item(2, "Arquivar pesquisa", svg = "archive"),
-                NativePopupMenu.Item(3, "Iniciar nova pesquisa", svg = "add"),
+                NativePopupMenu.Item(3, "Iniciar nova pesquisa", svg = "plus"),
                 NativePopupMenu.Item(4, "Renomear pesquisa", svg = "edit")
             )
         ) { item ->
@@ -197,7 +195,7 @@ class SearchActivity : AppCompatActivity() {
         val fill = when {
             active && dark -> android.graphics.Color.WHITE
             active -> android.graphics.Color.BLACK
-            else -> android.graphics.Color.rgb(192, 192, 192)
+            else -> ContextCompat.getColor(this, R.color.card2)
         }
         send.background = android.graphics.drawable.GradientDrawable().apply {
             shape = android.graphics.drawable.GradientDrawable.OVAL
@@ -214,7 +212,6 @@ class SearchActivity : AppCompatActivity() {
         root.setBackgroundColor(bg)
         composerBar.setBackgroundColor(bg)
         composerPill.background = HtmlComposerBackgroundDrawable(this, ThemeManager.resolvedDark(this))
-        resultTitle.setTextColor(ContextCompat.getColor(this, R.color.text))
         resultQuery.setTextColor(ContextCompat.getColor(this, R.color.dim))
         updateSendState()
     }

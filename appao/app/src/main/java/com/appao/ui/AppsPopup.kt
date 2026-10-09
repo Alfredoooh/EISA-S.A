@@ -11,7 +11,7 @@ object AppsPopup {
         Option(1, "Carregar ficheiro", "file", "file"),
         Option(2, "Abrir câmera", "camera", "camera"),
         Option(3, "Carregar imagem", "image", "image"),
-        Option(4, "Pensar mais", "think", "think")
+        Option(4, "Pensar mais", "speedometer", "think")
     )
 
     fun show(anchor: View, onPick: (String) -> Unit): PopupWindow {

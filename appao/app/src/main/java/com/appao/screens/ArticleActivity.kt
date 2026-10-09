@@ -120,7 +120,7 @@ class ArticleActivity : AppCompatActivity() {
 
         configureHero(itemSource, itemLogo)
 
-        sheetCard.setCornerRadiusDp(22f)
+        sheetCard.setTopCornerRadiusDp(22f)
         sheetCard.minimumHeight = (resources.displayMetrics.heightPixels - dp(if (itemImage.isNotBlank()) 280 else 120)).coerceAtLeast(0)
         if (itemImage.isNotBlank()) {
             heroContainer.setCornerRadiusDp(18f)
@@ -224,12 +224,14 @@ class ArticleActivity : AppCompatActivity() {
                         val sourceHeight = resource.intrinsicHeight
                         if (sourceWidth > 0 && sourceHeight > 0) {
                             val screenWidth = resources.displayMetrics.widthPixels
-                            val maxHeroHeight = (resources.displayMetrics.heightPixels * 0.70f).toInt()
+                            // Preserve the source aspect ratio and avoid an oversized portrait hero.
+                            val maxHeroHeight = (resources.displayMetrics.heightPixels * 0.46f).toInt()
                             val ratioHeight = (screenWidth.toFloat() * sourceHeight / sourceWidth).toInt()
-                            val heroHeight = ratioHeight.coerceAtLeast(dp(160)).coerceAtMost(maxHeroHeight.coerceAtLeast(dp(220)))
+                            val heroHeight = ratioHeight.coerceAtLeast(dp(100)).coerceAtMost(maxHeroHeight.coerceAtLeast(dp(180)))
                             heroContainer.layoutParams = heroContainer.layoutParams.apply { height = heroHeight }
-                            heroSpacer.layoutParams = heroSpacer.layoutParams.apply { height = (heroHeight - dp(40)).coerceAtLeast(dp(120)) }
-                            sheetCard.minimumHeight = (resources.displayMetrics.heightPixels - heroSpacer.layoutParams.height).coerceAtLeast(dp(260))
+                            // The description card starts below the image and rises only when the user scrolls.
+                            heroSpacer.layoutParams = heroSpacer.layoutParams.apply { height = heroHeight }
+                            sheetCard.minimumHeight = (resources.displayMetrics.heightPixels - heroHeight).coerceAtLeast(dp(260))
                         }
                     }
                     override fun onLoadCleared(placeholder: Drawable?) {
@@ -303,7 +305,7 @@ class ArticleActivity : AppCompatActivity() {
         time.setTextColor(ContextCompat.getColor(this, R.color.dim))
         summary.setTextColor(ContextCompat.getColor(this, R.color.dim))
         body.setTextColor(ContextCompat.getColor(this, R.color.text))
-        IconLoader.applySvg(findViewById(R.id.aBackIcon), "back", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.aBackIcon), "arrow_left", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.aMoreIcon), "more_vert", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.acSendIcon), "send", R.color.onpri)
         updateSheetChrome()
@@ -333,8 +335,7 @@ class ArticleActivity : AppCompatActivity() {
         val cardTop = location[1].toFloat()
         val distance = cardTop - appbarHeight
         val flattenZone = dp(50).toFloat()
-        val progress = (distance / flattenZone).coerceIn(0f, 1f)
-        sheetCard.setCornerRadiusDp(22f * progress)
+        sheetCard.setTopCornerRadiusDp(22f)
 
         val solid = distance <= flattenZone
         updateArticleAppbar(solid)
@@ -361,7 +362,7 @@ class ArticleActivity : AppCompatActivity() {
     ) {
         if (itemImage.isNotBlank()) {
             heroContainer.visibility = View.VISIBLE
-            heroSpacer.layoutParams = heroSpacer.layoutParams.apply { height = dp(220) }
+            heroSpacer.layoutParams = heroSpacer.layoutParams.apply { height = dp(260) }
 
             if (transitionName.isNotBlank()) {
                 ViewCompat.setTransitionName(heroContainer, transitionName)
@@ -444,7 +445,7 @@ class ArticleActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Abrir no navegador", svg = "launch"),
+                NativePopupMenu.Item(1, "Abrir no navegador", svg = "arrow_up_right"),
                 NativePopupMenu.Item(2, if (isArticleSaved()) "Remover dos guardados" else "Guardar", svg = "bookmark"),
                 NativePopupMenu.Item(3, "Partilhar", svg = "share")
             )

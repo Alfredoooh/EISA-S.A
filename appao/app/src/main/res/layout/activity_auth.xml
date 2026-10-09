@@ -24,13 +24,13 @@
                 android:layout_width="42dp"
                 android:layout_height="42dp"
                 android:layout_gravity="start|center_vertical"
-                android:background="@drawable/bg_transparent_pressed"
+                android:background="@drawable/bg_circle_card"
                 android:clickable="true"
                 android:focusable="true">
                 <ImageView
                     android:id="@+id/authCloseIcon"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
+                    android:layout_width="21dp"
+                    android:layout_height="21dp"
                     android:layout_gravity="center" />
             </FrameLayout>
         </FrameLayout>

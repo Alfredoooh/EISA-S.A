@@ -7,7 +7,8 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.SwitchCompat
+import android.content.res.ColorStateList
+import com.google.android.material.materialswitch.MaterialSwitch
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
@@ -51,9 +52,15 @@ class CategoryManagerActivity : AppCompatActivity() {
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(16), dp(12), dp(12), dp(12))
-                background = ContextCompat.getDrawable(this@CategoryManagerActivity, R.drawable.bg_settings_single)
-                minimumHeight = dp(68)
+                setPadding(dp(14), dp(9), dp(10), dp(9))
+                val cardDrawable = when {
+                    categories.size == 1 -> R.drawable.bg_settings_single
+                    index == 0 -> R.drawable.bg_settings_top
+                    index == categories.lastIndex -> R.drawable.bg_settings_bottom
+                    else -> R.drawable.bg_settings_middle
+                }
+                background = ContextCompat.getDrawable(this@CategoryManagerActivity, cardDrawable)
+                minimumHeight = dp(58)
                 isClickable = true
                 isFocusable = true
             }
@@ -64,7 +71,7 @@ class CategoryManagerActivity : AppCompatActivity() {
             labels.addView(TextView(this).apply {
                 text = category.label
                 setTextColor(ContextCompat.getColor(this@CategoryManagerActivity, R.color.text))
-                textSize = 15.5f
+                textSize = 14.5f
                 setTypeface(typeface, android.graphics.Typeface.BOLD)
                 maxLines = 2
             })
@@ -72,13 +79,25 @@ class CategoryManagerActivity : AppCompatActivity() {
                 labels.addView(TextView(this).apply {
                     text = category.providers.joinToString(" · ") { it.uppercase() }
                     setTextColor(ContextCompat.getColor(this@CategoryManagerActivity, R.color.dim))
-                    textSize = 11.5f
-                    setPadding(0, dp(3), 0, 0)
+                    textSize = 10.5f
+                    setPadding(0, dp(2), 0, 0)
                 })
             }
             row.addView(labels, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
 
-            val toggle = SwitchCompat(this).apply {
+            val checkedState = intArrayOf(android.R.attr.state_checked)
+            val defaultState = intArrayOf()
+            val toggle = MaterialSwitch(this).apply {
+                thumbTintList = ColorStateList(arrayOf(checkedState, defaultState), intArrayOf(
+                    ContextCompat.getColor(this@CategoryManagerActivity, R.color.pri),
+                    ContextCompat.getColor(this@CategoryManagerActivity, R.color.dim)
+                ))
+                trackTintList = ColorStateList(arrayOf(checkedState, defaultState), intArrayOf(
+                    ContextCompat.getColor(this@CategoryManagerActivity, R.color.pri),
+                    ContextCompat.getColor(this@CategoryManagerActivity, R.color.card2)
+                ))
+                minimumWidth = dp(50)
+                minimumHeight = dp(32)
                 isChecked = category.id !in hiddenIds
                 contentDescription = "Mostrar ${category.label}"
                 setOnCheckedChangeListener { _, checked ->
@@ -90,7 +109,8 @@ class CategoryManagerActivity : AppCompatActivity() {
             row.addView(toggle, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             row.setOnClickListener { toggle.isChecked = !toggle.isChecked }
             categoryList.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                if (index > 0) topMargin = dp(6)
+                if (index > 0) topMargin = dp(2)
+                bottomMargin = dp(2)
             })
         }
     }

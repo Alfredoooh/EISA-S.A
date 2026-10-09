@@ -18,12 +18,12 @@ class SettingsActivity : AppCompatActivity() {
 
     private val rows = listOf(
         Row(R.id.rowTheme, "contrast", "Tema"),
-        Row(R.id.rowLang, "translate", "Idioma"),
-        Row(R.id.rowData, "data_saver", "Poupança de dados"),
+        Row(R.id.rowLang, "globe", "Idioma"),
+        Row(R.id.rowData, "progress_activity", "Poupança de dados"),
         Row(R.id.rowUsage, "bar_chart", "Atividade de uso"),
         Row(R.id.rowLoc, "location", "Localização"),
-        Row(R.id.rowAccount, "profile", "Definições de conta"),
-        Row(R.id.rowTerms, "paper", "Termos e políticas de uso")
+        Row(R.id.rowAccount, "user_circle", "Definições de conta"),
+        Row(R.id.rowTerms, "scroll", "Termos e políticas de uso")
     )
 
     private lateinit var root: View

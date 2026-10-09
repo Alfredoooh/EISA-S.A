@@ -235,8 +235,8 @@
             android:focusable="true">
             <ImageView
                 android:id="@+id/aBackIcon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="21dp"
+                android:layout_height="21dp"
                 android:layout_gravity="center" />
         </FrameLayout>
 
@@ -255,8 +255,8 @@
             android:focusable="true">
             <ImageView
                 android:id="@+id/aMoreIcon"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="21dp"
+                android:layout_height="21dp"
                 android:layout_gravity="center"
                 android:scaleType="fitCenter" />
         </FrameLayout>
@@ -270,23 +270,23 @@
         android:layout_gravity="bottom"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="@color/bgElevated"
+        android:background="@color/bg"
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
-        android:paddingTop="10dp"
-        android:paddingBottom="10dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
         android:elevation="0dp"
         android:translationZ="0dp">
 
         <LinearLayout
             android:id="@+id/acComposer"
             android:layout_width="0dp"
-            android:layout_height="46dp"
+            android:layout_height="42dp"
             android:layout_weight="1"
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:background="@drawable/bg_pill_card"
-            android:paddingStart="18dp"
+            android:paddingStart="14dp"
             android:paddingEnd="4dp">
 
             <EditText
@@ -331,8 +331,8 @@
             android:focusable="true">
             <ImageView
                 android:id="@+id/acEmojiIcon"
-                android:layout_width="28dp"
-                android:layout_height="28dp"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
                 android:layout_gravity="center" />
         </FrameLayout>
     </LinearLayout>

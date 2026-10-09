@@ -331,10 +331,13 @@ class MainActivity : AppCompatActivity() {
         feedHeader.elevation = 0f
         feedHeader.translationZ = 0f
         IconLoader.applySvg(findViewById(R.id.feedBackIcon), "arrow_left", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedToolbarLogo), "logo", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "publish", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more_vert", R.color.iconTint)
 
+        findViewById<TextView>(R.id.feedToolbarTitle).apply {
+            text = "Descobrir"
+            visibility = View.VISIBLE
+        }
         findViewById<View>(R.id.feedBack).setOnClickListener { closeFeedPanel() }
         findViewById<View>(R.id.feedPublish).setOnClickListener { openPublish() }
         findViewById<View>(R.id.feedMore).setOnClickListener { showFeedMorePopup(it) }
@@ -360,8 +363,8 @@ class MainActivity : AppCompatActivity() {
             val tab = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                minimumWidth = dp(80)
-                setPadding(dp(10), 0, dp(10), 0)
+                minimumWidth = dp(72)
+                setPadding(dp(9), 0, dp(9), 0)
                 isClickable = true
                 isFocusable = true
             }
@@ -372,7 +375,7 @@ class MainActivity : AppCompatActivity() {
             }
             val tv = TextView(this).apply {
                 text = label
-                textSize = 16f
+                textSize = 14.5f
                 setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
                 setTypeface(android.graphics.Typeface.DEFAULT, if (label == currentCat) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
                 maxLines = 1
@@ -384,7 +387,7 @@ class MainActivity : AppCompatActivity() {
                 setBackgroundColor(ContextCompat.getColor(this@MainActivity, if (label == currentCat) R.color.text else android.R.color.transparent))
                 alpha = if (label == currentCat) 1f else 0f
             }
-            tab.addView(indicator, LinearLayout.LayoutParams(dp(62), dp(2)))
+            tab.addView(indicator, LinearLayout.LayoutParams(dp(54), dp(2)))
 
             tab.setOnClickListener {
                 if (label != currentCat) {
@@ -405,7 +408,7 @@ class MainActivity : AppCompatActivity() {
             layoutParams = FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER)
             scaleType = ImageView.ScaleType.CENTER_INSIDE
         }
-        IconLoader.applySvg(plusIcon, "add", R.color.iconTint)
+        IconLoader.applySvg(plusIcon, "plus", R.color.iconTint)
         plus.addView(plusIcon)
         plus.setOnClickListener { showCategoryManager() }
         feedTabsHost.addView(plus)
@@ -425,7 +428,7 @@ class MainActivity : AppCompatActivity() {
         categories.firstOrNull { it.label == currentCat }?.id ?: "world"
 
     private fun updateFeedCategoryAndReload(force: Boolean) {
-        findViewById<TextView>(R.id.feedToolbarTitle).text = currentCat
+        findViewById<TextView>(R.id.feedToolbarTitle).text = "Descobrir"
         page = 1
         exhausted = false
         NewsRepository.resetDedup()
@@ -455,7 +458,7 @@ class MainActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Editar categorias", svg = "category"),
+                NativePopupMenu.Item(1, "Editar categorias", svg = "edit"),
                 NativePopupMenu.Item(2, "Atualizar notícias", svg = "refresh")
             )
         ) { item ->
@@ -472,7 +475,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupBottomInput() {
-        IconLoader.applySvg(findViewById(R.id.biAddIcon), "add", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.biAddIcon), "plus", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSliderIcon), "slider", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow_up", R.color.onpri)
 
@@ -518,7 +521,7 @@ class MainActivity : AppCompatActivity() {
         val fill = when {
             active && dark -> android.graphics.Color.WHITE
             active -> android.graphics.Color.BLACK
-            else -> android.graphics.Color.rgb(192, 192, 192)
+            else -> ContextCompat.getColor(this, R.color.card2)
         }
         biSend.background = android.graphics.drawable.GradientDrawable().apply {
             shape = android.graphics.drawable.GradientDrawable.OVAL
@@ -1391,10 +1394,9 @@ class MainActivity : AppCompatActivity() {
 
         IconLoader.applySvg(findViewById(R.id.homeMenuIcon), "menu", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.feedBackIcon), "arrow_left", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedToolbarLogo), "logo", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "publish", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more_vert", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biAddIcon), "add", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.biAddIcon), "plus", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSliderIcon), "slider", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow_up", R.color.onpri)
         IconLoader.applyPng(findViewById(R.id.appsProfileAvatar), "avatar")

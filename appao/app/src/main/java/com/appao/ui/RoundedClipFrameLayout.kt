@@ -18,6 +18,7 @@ class RoundedClipFrameLayout @JvmOverloads constructor(
     private val path = Path()
     private val bounds = RectF()
     private var radiusPx = 0f
+    private var topCornersOnly = false
     private var cornerAnimator: ValueAnimator? = null
 
     init {
@@ -26,12 +27,21 @@ class RoundedClipFrameLayout @JvmOverloads constructor(
 
     fun setCornerRadiusDp(value: Float) {
         cornerAnimator?.cancel()
+        topCornersOnly = false
+        radiusPx = value * resources.displayMetrics.density
+        invalidate()
+    }
+
+    fun setTopCornerRadiusDp(value: Float) {
+        cornerAnimator?.cancel()
+        topCornersOnly = true
         radiusPx = value * resources.displayMetrics.density
         invalidate()
     }
 
     fun animateCornerRadiusDp(from: Float, to: Float, duration: Long = 420L) {
         cornerAnimator?.cancel()
+        topCornersOnly = false
         val density = resources.displayMetrics.density
         cornerAnimator = ValueAnimator.ofFloat(from * density, to * density).apply {
             this.duration = duration
@@ -52,7 +62,12 @@ class RoundedClipFrameLayout @JvmOverloads constructor(
 
         bounds.set(0f, 0f, width.toFloat(), height.toFloat())
         path.reset()
-        path.addRoundRect(bounds, radiusPx, radiusPx, Path.Direction.CW)
+        if (topCornersOnly) {
+            val radii = floatArrayOf(radiusPx, radiusPx, radiusPx, radiusPx, 0f, 0f, 0f, 0f)
+            path.addRoundRect(bounds, radii, Path.Direction.CW)
+        } else {
+            path.addRoundRect(bounds, radiusPx, radiusPx, Path.Direction.CW)
+        }
         canvas.save()
         canvas.clipPath(path)
         super.dispatchDraw(canvas)

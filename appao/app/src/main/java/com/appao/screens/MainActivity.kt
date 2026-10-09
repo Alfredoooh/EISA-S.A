@@ -33,6 +33,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -909,7 +910,7 @@ class MainActivity : AppCompatActivity() {
     private fun setupInitialData() {
         adapter.showSkeleton(8)
         lifecycleScope.launch {
-            val categoryJob = kotlinx.coroutines.async(Dispatchers.IO) { NewsRepository.fetchCategories() }
+            val categoryJob = async(Dispatchers.IO) { NewsRepository.fetchCategories() }
             val cached = withContext(Dispatchers.IO) {
                 NewsRepository.readCategoryCache(this@MainActivity, "world")
                     .ifEmpty { NewsRepository.readCache(this@MainActivity) }

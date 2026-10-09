@@ -283,7 +283,7 @@ class MainActivity : AppCompatActivity() {
     private fun setupHome() {
         homeHeader.elevation = 0f
         homeHeader.translationZ = 0f
-        IconLoader.applySvg(findViewById(R.id.homeMenuIcon), "menu", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.homeMenuIcon), "nav_menu", R.color.iconTint)
 
         homeFeedStack.background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
         homeFeedStack.foreground = null
@@ -330,9 +330,9 @@ class MainActivity : AppCompatActivity() {
     private fun setupFeedHeader() {
         feedHeader.elevation = 0f
         feedHeader.translationZ = 0f
-        IconLoader.applySvg(findViewById(R.id.feedBackIcon), "arrow_left", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "publish", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more_vert", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedBackIcon), "nav_back", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "action_publish", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "action_overflow", R.color.iconTint)
 
         findViewById<TextView>(R.id.feedToolbarTitle).apply {
             text = "Descobrir"
@@ -408,7 +408,7 @@ class MainActivity : AppCompatActivity() {
             layoutParams = FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER)
             scaleType = ImageView.ScaleType.CENTER_INSIDE
         }
-        IconLoader.applySvg(plusIcon, "plus", R.color.iconTint)
+        IconLoader.applySvg(plusIcon, "action_add", R.color.iconTint)
         plus.addView(plusIcon)
         plus.setOnClickListener { showCategoryManager() }
         feedTabsHost.addView(plus)
@@ -458,8 +458,8 @@ class MainActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Editar categorias", svg = "edit"),
-                NativePopupMenu.Item(2, "Atualizar notícias", svg = "refresh")
+                NativePopupMenu.Item(1, "Editar categorias", svg = "action_edit"),
+                NativePopupMenu.Item(2, "Atualizar notícias", svg = "action_refresh")
             )
         ) { item ->
             when (item.id) {
@@ -475,9 +475,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupBottomInput() {
-        IconLoader.applySvg(findViewById(R.id.biAddIcon), "plus", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biSliderIcon), "slider", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow_up", R.color.onpri)
+        IconLoader.applySvg(findViewById(R.id.biAddIcon), "action_add", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.biSliderIcon), "action_filters", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.biSendIcon), "action_send_arrow", android.R.color.black)
 
         // Native reproduction of the supplied HTML textarea. The action row is
         // structurally separate, so it stays anchored while the textarea grows.
@@ -516,19 +516,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateComposerSendState() {
-        val dark = ThemeManager.resolvedDark(this)
         val active = biInput.text?.isNotBlank() == true
-        val fill = when {
-            active && dark -> android.graphics.Color.WHITE
-            active -> android.graphics.Color.BLACK
-            else -> ContextCompat.getColor(this, R.color.card2)
-        }
+        val fill = ContextCompat.getColor(
+            this,
+            if (active) R.color.pri else R.color.card2
+        )
         biSend.background = android.graphics.drawable.GradientDrawable().apply {
             shape = android.graphics.drawable.GradientDrawable.OVAL
             setColor(fill)
         }
         findViewById<ImageView>(R.id.biSendIcon).setColorFilter(
-            if (active && dark) android.graphics.Color.BLACK else android.graphics.Color.WHITE,
+            if (active) android.graphics.Color.BLACK else ContextCompat.getColor(this, R.color.dim),
             android.graphics.PorterDuff.Mode.SRC_IN
         )
     }
@@ -602,8 +600,8 @@ class MainActivity : AppCompatActivity() {
         appsHeader.elevation = 0f
         appsHeader.translationZ = 0f
         IconLoader.applyPng(findViewById(R.id.appsProfileAvatar), "avatar")
-        IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow_right", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsBackIcon), "nav_forward", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "nav_settings", R.color.iconTint)
 
         findViewById<View>(R.id.appsProfile).setOnClickListener {
             startActivity(Intent(this, AuthActivity::class.java))
@@ -1392,16 +1390,16 @@ class MainActivity : AppCompatActivity() {
         appsHeader.translationZ = 0f
         appsHeader.setBackgroundColor(bg)
 
-        IconLoader.applySvg(findViewById(R.id.homeMenuIcon), "menu", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedBackIcon), "arrow_left", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "publish", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more_vert", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biAddIcon), "plus", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biSliderIcon), "slider", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow_up", R.color.onpri)
+        IconLoader.applySvg(findViewById(R.id.homeMenuIcon), "nav_menu", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedBackIcon), "nav_back", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "action_publish", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "action_overflow", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.biAddIcon), "action_add", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.biSliderIcon), "action_filters", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.biSendIcon), "action_send_arrow", android.R.color.black)
         IconLoader.applyPng(findViewById(R.id.appsProfileAvatar), "avatar")
-        IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow_right", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsBackIcon), "nav_forward", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "nav_settings", R.color.iconTint)
 
         findViewById<TextView>(R.id.feedToolbarTitle).setTextColor(ContextCompat.getColor(this, R.color.text))
         refreshFeedTabs(false)

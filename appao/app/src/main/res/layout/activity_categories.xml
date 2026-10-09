@@ -10,13 +10,13 @@
         android:layout_height="58dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="14dp"
-        android:paddingEnd="18dp">
+        android:paddingStart="16dp"
+        android:paddingEnd="20dp">
 
         <FrameLayout
             android:id="@+id/categoryBack"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">
@@ -44,7 +44,7 @@
         android:paddingStart="20dp"
         android:paddingEnd="20dp"
         android:paddingTop="8dp"
-        android:paddingBottom="14dp"
+        android:paddingBottom="16dp"
         android:text="Escolhe as categorias que queres ver no feed. A lista vem diretamente do servidor de notícias."
         android:textColor="@color/dim"
         android:textSize="13sp"

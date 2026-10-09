@@ -32,7 +32,7 @@ class CategoryManagerActivity : AppCompatActivity() {
         categoryList = findViewById(R.id.categoryList)
         loadingLabel = findViewById(R.id.categoryLoading)
         hiddenIds += (prefs.getStringSet("feed_hidden_categories", emptySet()) ?: emptySet())
-        IconLoader.applySvg(findViewById(R.id.categoryBackIcon), "arrow_left", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.categoryBackIcon), "nav_back", R.color.iconTint)
         findViewById<View>(R.id.categoryBack).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
         findViewById<View>(R.id.categoryBack).setOnClickListener { closeWithResult() }
 

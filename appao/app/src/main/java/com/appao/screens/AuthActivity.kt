@@ -57,7 +57,7 @@ class AuthActivity : AppCompatActivity() {
 
         IconLoader.applySvg(
             findViewById(R.id.authCloseIcon),
-            "close",
+            "action_close",
             R.color.iconTint
         )
 
@@ -109,7 +109,7 @@ class AuthActivity : AppCompatActivity() {
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
         SystemBarHelper.sync(this)
-        IconLoader.applySvg(findViewById(R.id.authCloseIcon), "close", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.authCloseIcon), "action_close", R.color.iconTint)
         updateTabs(false)
     }
 
@@ -219,8 +219,8 @@ class AuthActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Email", svg = "mail"),
-                NativePopupMenu.Item(2, "Número", svg = "phone")
+                NativePopupMenu.Item(1, "Email", svg = "auth_email"),
+                NativePopupMenu.Item(2, "Número", svg = "auth_phone")
             )
         ) { item ->
             when (item.id) {

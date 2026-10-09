@@ -172,23 +172,23 @@ class ArticleActivity : AppCompatActivity() {
 
         IconLoader.applySvg(
             findViewById(R.id.aBackIcon),
-            "arrow_left",
+            "nav_back",
             R.color.iconTint
         )
         IconLoader.applySvg(
             findViewById(R.id.acSendIcon),
-            "send",
-            R.color.onpri
+            "action_send",
+            android.R.color.black
         )
-        IconLoader.applySvg(findViewById(R.id.aMoreIcon), "more_vert", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.aMoreIcon), "action_overflow", R.color.iconTint)
         IconLoader.applySvg(
             findViewById(R.id.cIcon),
-            "chat",
+            "action_chat",
             R.color.iconTint
         )
         IconLoader.applySvg(
             findViewById(R.id.acEmojiIcon),
-            "emojis",
+            "action_reactions",
             R.color.iconTint
         )
 
@@ -305,9 +305,9 @@ class ArticleActivity : AppCompatActivity() {
         time.setTextColor(ContextCompat.getColor(this, R.color.dim))
         summary.setTextColor(ContextCompat.getColor(this, R.color.dim))
         body.setTextColor(ContextCompat.getColor(this, R.color.text))
-        IconLoader.applySvg(findViewById(R.id.aBackIcon), "arrow_left", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.aMoreIcon), "more_vert", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.acSendIcon), "send", R.color.onpri)
+        IconLoader.applySvg(findViewById(R.id.aBackIcon), "nav_back", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.aMoreIcon), "action_overflow", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.acSendIcon), "action_send", android.R.color.black)
         updateSheetChrome()
     }
 
@@ -445,9 +445,9 @@ class ArticleActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Abrir no navegador", svg = "arrow_up_right"),
-                NativePopupMenu.Item(2, if (isArticleSaved()) "Remover dos guardados" else "Guardar", svg = "bookmark"),
-                NativePopupMenu.Item(3, "Partilhar", svg = "share")
+                NativePopupMenu.Item(1, "Abrir no navegador", svg = "action_external_link"),
+                NativePopupMenu.Item(2, if (isArticleSaved()) "Remover dos guardados" else "Guardar", svg = "action_bookmark"),
+                NativePopupMenu.Item(3, "Partilhar", svg = "action_share")
             )
         ) { item ->
             when (item.id) {
@@ -602,7 +602,7 @@ class ArticleActivity : AppCompatActivity() {
             Triple("Messenger", "messenger", "com.facebook.orca"),
             Triple("Telegram", "telegram", "org.telegram.messenger"),
             Triple("LinkedIn", "linkedin", "com.linkedin.android"),
-            Triple("Mais", "share", null)
+            Triple("Mais", "action_share", null)
         )
 
         val grid = android.widget.GridLayout(this).apply {

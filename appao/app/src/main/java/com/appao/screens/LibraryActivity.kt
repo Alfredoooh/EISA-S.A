@@ -28,7 +28,7 @@ class LibraryActivity : AppCompatActivity() {
 
         IconLoader.applySvg(
             findViewById(R.id.libBackIcon),
-            "arrow_left",
+            "nav_back",
             R.color.iconTint
         )
 

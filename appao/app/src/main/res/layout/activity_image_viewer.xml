@@ -3,14 +3,14 @@
     android:id="@+id/imageViewerRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000"
+    android:background="@android:color/black"
     android:clipChildren="false">
 
     <View
         android:id="@+id/imageBackdrop"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#000000" />
+        android:background="@android:color/black" />
 
     <FrameLayout
         android:id="@+id/fullImageContainer"

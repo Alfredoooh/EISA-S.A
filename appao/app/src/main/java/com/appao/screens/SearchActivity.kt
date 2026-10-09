@@ -55,11 +55,11 @@ class SearchActivity : AppCompatActivity() {
             insets
         }
 
-        IconLoader.applySvg(findViewById(R.id.searchCloseIcon), "close", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "more_vert", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchAddIcon), "plus", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchSliderIcon), "slider", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchSendIcon), "arrow_up", R.color.onpri)
+        IconLoader.applySvg(findViewById(R.id.searchCloseIcon), "action_close", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "action_overflow", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.searchAddIcon), "action_add", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.searchSliderIcon), "action_filters", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.searchSendIcon), "action_send_arrow", android.R.color.black)
 
         findViewById<View>(R.id.searchClose).setOnClickListener { finish() }
         findViewById<View>(R.id.searchMore).setOnClickListener { showMorePopup(it) }
@@ -117,10 +117,10 @@ class SearchActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Eliminar pesquisa", svg = "delete"),
-                NativePopupMenu.Item(2, "Arquivar pesquisa", svg = "archive"),
-                NativePopupMenu.Item(3, "Iniciar nova pesquisa", svg = "plus"),
-                NativePopupMenu.Item(4, "Renomear pesquisa", svg = "edit")
+                NativePopupMenu.Item(1, "Eliminar pesquisa", svg = "action_delete"),
+                NativePopupMenu.Item(2, "Arquivar pesquisa", svg = "action_archive"),
+                NativePopupMenu.Item(3, "Iniciar nova pesquisa", svg = "action_add"),
+                NativePopupMenu.Item(4, "Renomear pesquisa", svg = "action_edit")
             )
         ) { item ->
             when (item.id) {
@@ -191,18 +191,16 @@ class SearchActivity : AppCompatActivity() {
 
     private fun updateSendState() {
         val active = input.text?.isNotBlank() == true
-        val dark = ThemeManager.resolvedDark(this)
-        val fill = when {
-            active && dark -> android.graphics.Color.WHITE
-            active -> android.graphics.Color.BLACK
-            else -> ContextCompat.getColor(this, R.color.card2)
-        }
+        val fill = ContextCompat.getColor(
+            this,
+            if (active) R.color.pri else R.color.card2
+        )
         send.background = android.graphics.drawable.GradientDrawable().apply {
             shape = android.graphics.drawable.GradientDrawable.OVAL
             setColor(fill)
         }
         findViewById<ImageView>(R.id.searchSendIcon).setColorFilter(
-            if (active && dark) android.graphics.Color.BLACK else android.graphics.Color.WHITE,
+            if (active) android.graphics.Color.BLACK else ContextCompat.getColor(this, R.color.dim),
             android.graphics.PorterDuff.Mode.SRC_IN
         )
     }

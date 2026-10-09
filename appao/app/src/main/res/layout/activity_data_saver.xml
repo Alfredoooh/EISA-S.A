@@ -16,8 +16,8 @@
 
         <FrameLayout
             android:id="@+id/dataBack"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="@drawable/bg_transparent_pressed"
             android:clickable="true"
             android:focusable="true">
@@ -32,7 +32,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="8dp"
             android:text="Poupança de dados"
             android:textColor="@color/text"
             android:textSize="18sp"
@@ -64,7 +64,7 @@
                 android:textColor="@color/dim"
                 android:textSize="14sp"
                 android:lineSpacingMultiplier="1.45"
-                android:layout_marginBottom="14dp" />
+                android:layout_marginBottom="16dp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -72,7 +72,7 @@
                 android:minHeight="66dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingStart="14dp"
+                android:paddingStart="16dp"
                 android:paddingEnd="8dp"
                 android:background="@drawable/bg_news_row">
                 <LinearLayout
@@ -90,7 +90,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
+                        android:layout_marginTop="4dp"
                         android:text="Ativa todas as reduções abaixo."
                         android:textColor="@color/dim"
                         android:textSize="12.5sp" />
@@ -105,10 +105,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:minHeight="64dp"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="12dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingStart="14dp"
+                android:paddingStart="16dp"
                 android:paddingEnd="8dp"
                 android:background="@drawable/bg_news_row">
                 <LinearLayout
@@ -126,7 +126,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
+                        android:layout_marginTop="4dp"
                         android:text="Evita o carregamento e reprodução automática."
                         android:textColor="@color/dim"
                         android:textSize="12.5sp" />
@@ -141,10 +141,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:minHeight="64dp"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="12dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingStart="14dp"
+                android:paddingStart="16dp"
                 android:paddingEnd="8dp"
                 android:background="@drawable/bg_news_row">
                 <LinearLayout
@@ -162,7 +162,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
+                        android:layout_marginTop="4dp"
                         android:text="Carrega versões menores das imagens das notícias."
                         android:textColor="@color/dim"
                         android:textSize="12.5sp" />

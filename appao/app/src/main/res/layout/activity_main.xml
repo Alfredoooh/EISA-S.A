@@ -27,8 +27,8 @@
 
             <FrameLayout
                 android:id="@+id/homeMenu"
-                android:layout_width="42dp"
-                android:layout_height="42dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:layout_gravity="start|center_vertical"
                 android:layout_marginStart="12dp"
                 android:background="@drawable/bg_circle_card"
@@ -45,10 +45,10 @@
             <!-- Feed shortcut: two tilted, overlapping news-image cards. -->
             <FrameLayout
                 android:id="@+id/homeFeedStack"
-                android:layout_width="40dp"
-                android:layout_height="30dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:layout_gravity="end|center_vertical"
-                android:layout_marginEnd="14dp"
+                android:layout_marginEnd="16dp"
                 android:background="@android:color/transparent"
                 android:clickable="true"
                 android:focusable="true"
@@ -103,7 +103,7 @@
             android:paddingStart="12dp"
             android:paddingTop="12dp"
             android:paddingEnd="12dp"
-            android:paddingBottom="10dp"
+            android:paddingBottom="12dp"
             android:elevation="0dp">
 
             <EditText
@@ -131,23 +131,23 @@
             <LinearLayout
                 android:id="@+id/biActions"
                 android:layout_width="match_parent"
-                android:layout_height="34dp"
-                android:layout_marginTop="10dp"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
                 <LinearLayout
                     android:id="@+id/biLeftActions"
                     android:layout_width="0dp"
-                    android:layout_height="34dp"
+                    android:layout_height="48dp"
                     android:layout_weight="1"
                     android:orientation="horizontal"
                     android:gravity="center_vertical">
 
                     <FrameLayout
                         android:id="@+id/biAdd"
-                        android:layout_width="21dp"
-                        android:layout_height="21dp"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
                         android:background="@android:color/transparent"
                         android:clickable="true"
                         android:focusable="true">
@@ -157,14 +157,14 @@
                             android:layout_height="21dp"
                             android:layout_gravity="center"
                             android:scaleType="fitCenter"
-                            android:alpha="0.4" />
+                            android:alpha="0.6" />
                     </FrameLayout>
 
                     <FrameLayout
                         android:id="@+id/biSlider"
-                        android:layout_width="21dp"
-                        android:layout_height="21dp"
-                        android:layout_marginStart="14dp"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="8dp"
                         android:background="@android:color/transparent"
                         android:clickable="true"
                         android:focusable="true">
@@ -174,14 +174,14 @@
                             android:layout_height="21dp"
                             android:layout_gravity="center"
                             android:scaleType="fitCenter"
-                            android:alpha="0.4" />
+                            android:alpha="0.6" />
                     </FrameLayout>
                 </LinearLayout>
 
                 <FrameLayout
                     android:id="@+id/biSend"
-                    android:layout_width="34dp"
-                    android:layout_height="34dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:background="@drawable/bg_ai_send"
                     android:clickable="true"
                     android:focusable="true">
@@ -241,10 +241,10 @@
 
                 <FrameLayout
                     android:id="@+id/feedBack"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:layout_gravity="start|center_vertical"
-                    android:layout_marginStart="2dp"
+                    android:layout_marginStart="4dp"
                     android:background="@drawable/bg_circle_card"
                     android:clickable="true"
                     android:focusable="true">
@@ -272,14 +272,14 @@
 
                 <LinearLayout
                     android:id="@+id/feedHeaderActions"
-                    android:layout_width="84dp"
-                    android:layout_height="40dp"
+                    android:layout_width="96dp"
+                    android:layout_height="48dp"
                     android:layout_gravity="end|center_vertical"
-                    android:layout_marginEnd="10dp"
+                    android:layout_marginEnd="12dp"
                     android:orientation="horizontal"
                     android:gravity="center"
                     android:background="@drawable/bg_toolbar_actions"
-                    android:padding="2dp">
+                    android:padding="0dp">
 
                     <FrameLayout
                         android:id="@+id/feedPublish"
@@ -329,7 +329,7 @@
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
                     android:paddingStart="16dp"
-                    android:paddingEnd="10dp" />
+                    android:paddingEnd="12dp" />
             </HorizontalScrollView>
         </LinearLayout>
     </FrameLayout>
@@ -360,10 +360,10 @@
 
             <FrameLayout
                 android:id="@+id/appsProfile"
-                android:layout_width="38dp"
-                android:layout_height="38dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:layout_gravity="start|center_vertical"
-                android:layout_marginStart="14dp"
+                android:layout_marginStart="16dp"
                 android:background="@drawable/bg_circle_card"
                 android:clipChildren="false"
                 android:clickable="true"
@@ -390,8 +390,8 @@
 
             <FrameLayout
                 android:id="@+id/appsBack"
-                android:layout_width="42dp"
-                android:layout_height="42dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:layout_gravity="end|center_vertical"
                 android:layout_marginEnd="12dp"
                 android:background="@drawable/bg_circle_card"
@@ -411,7 +411,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_marginTop="56dp"
-            android:layout_marginBottom="78dp"
+            android:layout_marginBottom="80dp"
             android:background="@color/bg">
 
             <com.appao.BounceScrollView
@@ -426,10 +426,10 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:columnCount="2"
-                    android:paddingStart="14dp"
-                    android:paddingTop="10dp"
-                    android:paddingEnd="14dp"
-                    android:paddingBottom="18dp" />
+                    android:paddingStart="16dp"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="16dp"
+                    android:paddingBottom="20dp" />
             </com.appao.BounceScrollView>
         </FrameLayout>
 
@@ -438,7 +438,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_marginTop="56dp"
-            android:layout_marginBottom="78dp"
+            android:layout_marginBottom="80dp"
             android:background="@color/bg"
             android:visibility="gone">
             <TextView
@@ -457,10 +457,10 @@
         <LinearLayout
             android:id="@+id/appsBottomBar"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
+            android:layout_height="56dp"
             android:layout_gravity="bottom"
-            android:layout_marginStart="18dp"
-            android:layout_marginEnd="18dp"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
             android:layout_marginBottom="16dp"
             android:gravity="center_vertical"
             android:orientation="horizontal"
@@ -472,7 +472,7 @@
             <FrameLayout
                 android:id="@+id/appsBottomTabs"
                 android:layout_width="0dp"
-                android:layout_height="48dp"
+                android:layout_height="56dp"
                 android:layout_weight="1"
                 android:layout_marginEnd="0dp"
                 android:background="@drawable/bg_auth_segment"
@@ -509,8 +509,8 @@
 
             <FrameLayout
                 android:id="@+id/appsSettings"
-                android:layout_width="42dp"
-                android:layout_height="42dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:layout_marginStart="12dp"
                 android:background="@drawable/bg_circle_card"
                 android:clickable="true"

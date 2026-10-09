@@ -30,7 +30,7 @@ class UsageActivity : AppCompatActivity() {
             insets
         }
 
-        IconLoader.applySvg(findViewById(R.id.usageBackIcon), "arrow_left", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.usageBackIcon), "nav_back", R.color.iconTint)
         findViewById<View>(R.id.usageBack).setOnClickListener { finish() }
         render()
     }
@@ -59,7 +59,7 @@ class UsageActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.usageTotal).text =
             if (totalMinutes < 60) "$totalMinutes min" else "${totalMinutes / 60} h ${totalMinutes % 60} min"
 
-        IconLoader.applySvg(findViewById(R.id.usagePieIcon), "pie-chart", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.usagePieIcon), "icon_usage_chart", R.color.iconTint)
 
         val bar = findViewById<UsageChartView>(R.id.usageBars)
         bar.setBarData(week, labels)

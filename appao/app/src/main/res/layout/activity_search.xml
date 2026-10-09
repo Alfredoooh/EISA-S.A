@@ -31,15 +31,15 @@
         android:layout_gravity="top"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="10dp"
-        android:paddingEnd="10dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
         android:background="@color/bg"
         android:elevation="0dp">
 
         <FrameLayout
             android:id="@+id/searchClose"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">
@@ -57,8 +57,8 @@
 
         <FrameLayout
             android:id="@+id/searchMore"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">
@@ -91,7 +91,7 @@
             android:paddingStart="12dp"
             android:paddingTop="12dp"
             android:paddingEnd="12dp"
-            android:paddingBottom="10dp">
+            android:paddingBottom="12dp">
 
             <EditText
                 android:id="@+id/searchInput"
@@ -109,22 +109,22 @@
 
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="34dp"
-                android:layout_marginTop="10dp"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <LinearLayout
                     android:layout_width="0dp"
-                    android:layout_height="34dp"
+                    android:layout_height="48dp"
                     android:layout_weight="1"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
                     <FrameLayout
                         android:id="@+id/searchAdd"
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
                         android:clickable="true"
                         android:focusable="true">
                         <ImageView
@@ -132,14 +132,14 @@
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:layout_gravity="center"
-                            android:alpha="0.4" />
+                            android:alpha="1.0" />
                     </FrameLayout>
 
                     <FrameLayout
                         android:id="@+id/searchSlider"
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
-                        android:layout_marginStart="16dp"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="8dp"
                         android:clickable="true"
                         android:focusable="true">
                         <ImageView
@@ -147,14 +147,14 @@
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:layout_gravity="center"
-                            android:alpha="0.4" />
+                            android:alpha="1.0" />
                     </FrameLayout>
                 </LinearLayout>
 
                 <FrameLayout
                     android:id="@+id/searchSend"
-                    android:layout_width="34dp"
-                    android:layout_height="34dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:clickable="true"
                     android:focusable="true">
                     <ImageView

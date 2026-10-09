@@ -17,8 +17,8 @@
 
         <FrameLayout
             android:id="@+id/sideClose"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_gravity="end|center_vertical"
             android:background="@drawable/bg_transparent_pressed"
             android:clickable="true"

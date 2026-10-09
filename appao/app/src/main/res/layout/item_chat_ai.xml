@@ -3,10 +3,10 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:paddingStart="14dp"
+    android:paddingStart="16dp"
     android:paddingEnd="40dp"
-    android:paddingTop="6dp"
-    android:paddingBottom="6dp">
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
 
     <TextView
         android:layout_width="28dp"
@@ -14,7 +14,7 @@
         android:background="@drawable/bg_circle_gradient"
         android:gravity="center"
         android:text="AI"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/onpri"
         android:textSize="10sp"
         android:textStyle="bold"
         android:layout_gravity="bottom"/>
@@ -38,7 +38,7 @@
             android:layout_height="wrap_content"
             android:textSize="10.5sp"
             android:textColor="@color/dim"
-            android:layout_marginTop="3dp"
+            android:layout_marginTop="4dp"
             android:layout_marginStart="4dp"/>
     </LinearLayout>
 </LinearLayout>

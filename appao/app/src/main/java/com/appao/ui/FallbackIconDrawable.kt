@@ -33,7 +33,7 @@ class FallbackIconDrawable(
         val r = minOf(w, h) * 0.34f
 
         when (icon.lowercase()) {
-            "menu" -> {
+            "nav_menu" -> {
                 canvas.drawLine(cx - r, cy - 6f, cx + r, cy - 6f, paint)
                 canvas.drawLine(cx - r, cy, cx + r, cy, paint)
                 canvas.drawLine(cx - r, cy + 6f, cx + r, cy + 6f, paint)
@@ -42,12 +42,12 @@ class FallbackIconDrawable(
                 canvas.drawLine(cx - r, cy, cx + r, cy, paint)
                 canvas.drawLine(cx, cy - r, cx, cy + r, paint)
             }
-            "arrow-up", "send" -> {
+            "arrow-up", "action_send" -> {
                 canvas.drawLine(cx, cy + r, cx, cy - r, paint)
                 canvas.drawLine(cx, cy - r, cx - r * .55f, cy - r * .45f, paint)
                 canvas.drawLine(cx, cy - r, cx + r * .55f, cy - r * .45f, paint)
             }
-            "back", "close" -> {
+            "nav_back", "action_close" -> {
                 canvas.drawLine(cx + r * .7f, cy, cx - r * .7f, cy, paint)
                 canvas.drawLine(cx - r * .7f, cy, cx - r * .1f, cy - r * .6f, paint)
                 canvas.drawLine(cx - r * .7f, cy, cx - r * .1f, cy + r * .6f, paint)
@@ -56,7 +56,7 @@ class FallbackIconDrawable(
                 canvas.drawLine(cx - r * .55f, cy - r * .2f, cx, cy + r * .38f, paint)
                 canvas.drawLine(cx, cy + r * .38f, cx + r * .55f, cy - r * .2f, paint)
             }
-            "check" -> {
+            "state_selected" -> {
                 canvas.drawLine(cx - r * .75f, cy, cx - r * .15f, cy + r * .55f, paint)
                 canvas.drawLine(cx - r * .15f, cy + r * .55f, cx + r * .8f, cy - r * .6f, paint)
             }
@@ -65,7 +65,7 @@ class FallbackIconDrawable(
                 val oval = RectF(cx - r, cy, cx + r, cy + r * 1.2f)
                 canvas.drawArc(oval, 205f, 130f, false, paint)
             }
-            "bookmark", "stack" -> {
+            "action_bookmark", "stack" -> {
                 val path = Path().apply {
                     moveTo(cx - r * .65f, cy - r)
                     lineTo(cx + r * .65f, cy - r)
@@ -76,7 +76,7 @@ class FallbackIconDrawable(
                 }
                 canvas.drawPath(path, paint)
             }
-            "settings" -> {
+            "nav_settings" -> {
                 canvas.drawCircle(cx, cy, r * .55f, paint)
                 canvas.drawCircle(cx, cy, r * .14f, paint)
                 for (i in 0 until 8) {
@@ -94,7 +94,7 @@ class FallbackIconDrawable(
                 canvas.drawOval(ovalV, paint)
                 canvas.drawLine(cx - r, cy, cx + r, cy, paint)
             }
-            "sun", "sunny" -> {
+            "theme_light", "sunny" -> {
                 canvas.drawCircle(cx, cy, r * .48f, paint)
                 for (i in 0 until 8) {
                     val a = Math.toRadians(i * 45.0)
@@ -107,7 +107,7 @@ class FallbackIconDrawable(
                     )
                 }
             }
-            "moon" -> {
+            "theme_dark" -> {
                 val p = Path().apply {
                     moveTo(cx + r * .28f, cy - r)
                     cubicTo(cx - r * .65f, cy - r * .75f, cx - r * .7f, cy + r * .7f, cx + r * .2f, cy + r)
@@ -116,7 +116,7 @@ class FallbackIconDrawable(
                 }
                 canvas.drawPath(p, paint)
             }
-            "phone" -> {
+            "auth_phone" -> {
                 canvas.drawRoundRect(
                     RectF(cx - r * .55f, cy - r, cx + r * .55f, cy + r),
                     r * .18f,
@@ -125,7 +125,7 @@ class FallbackIconDrawable(
                 )
                 canvas.drawCircle(cx, cy + r * .68f, r * .08f, paint)
             }
-            "chat" -> {
+            "action_chat" -> {
                 val path = Path().apply {
                     moveTo(cx - r, cy - r * .75f)
                     lineTo(cx + r, cy - r * .75f)

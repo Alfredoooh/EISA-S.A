@@ -19,7 +19,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:layout_marginStart="10dp"
+        android:layout_marginStart="12dp"
         android:orientation="vertical">
 
         <View
@@ -39,14 +39,14 @@
             android:id="@+id/skLine3"
             android:layout_width="70dp"
             android:layout_height="14dp"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="8dp"
             android:background="@drawable/bg_skeleton_round" />
 
         <View
             android:id="@+id/skImage"
             android:layout_width="match_parent"
             android:layout_height="170dp"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="12dp"
             android:background="@drawable/bg_skeleton_round"
             android:visibility="gone" />
     </LinearLayout>

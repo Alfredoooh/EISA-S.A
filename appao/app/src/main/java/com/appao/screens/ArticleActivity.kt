@@ -124,18 +124,48 @@ class ArticleActivity : AppCompatActivity() {
         sheetCard.minimumHeight = (resources.displayMetrics.heightPixels - dp(if (itemImage.isNotBlank()) 280 else 120)).coerceAtLeast(0)
         if (itemImage.isNotBlank()) {
             heroContainer.setCornerRadiusDp(18f)
-            heroContainer.post {
-                if (!isFinishing && !isDestroyed) {
-                    heroContainer.animateCornerRadiusDp(18f, 0f, 480L)
+            // Previously this ran immediately via heroContainer.post, racing
+            // the 450ms shared-element enter transition (ChangeBounds +
+            // ChangeTransform + ChangeClipBounds) with its own separate
+            // 480ms corner-radius animation. The two competed visually,
+            // reading as a glitchy double-animation. Wait for the shared
+            // element transition to actually finish before starting the
+            // corner-radius flatten, so only one motion plays at a time.
+            val enterTransition = window.sharedElementEnterTransition
+            if (enterTransition != null) {
+                enterTransition.addListener(object : android.transition.Transition.TransitionListener {
+                    override fun onTransitionEnd(transition: android.transition.Transition) {
+                        transition.removeListener(this)
+                        if (!isFinishing && !isDestroyed) {
+                            heroContainer.animateCornerRadiusDp(18f, 0f, 260L)
+                        }
+                    }
+                    override fun onTransitionStart(transition: android.transition.Transition) {}
+                    override fun onTransitionCancel(transition: android.transition.Transition) {
+                        transition.removeListener(this)
+                        if (!isFinishing && !isDestroyed) {
+                            heroContainer.setCornerRadiusDp(0f)
+                        }
+                    }
+                    override fun onTransitionPause(transition: android.transition.Transition) {}
+                    override fun onTransitionResume(transition: android.transition.Transition) {}
+                })
+            } else {
+                heroContainer.post {
+                    if (!isFinishing && !isDestroyed) {
+                        heroContainer.animateCornerRadiusDp(18f, 0f, 260L)
+                    }
                 }
             }
         }
 
         val topbar = findViewById<View>(R.id.aTopBar)
+        val topbarContentHeight = dp(56)
         ViewCompat.setOnApplyWindowInsetsListener(topbar) { view, insets ->
-            view.updatePadding(top = dp(6))
+            val statusBarTop = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            view.updatePadding(top = statusBarTop)
             view.layoutParams = view.layoutParams.apply {
-                height = dp(56)
+                height = topbarContentHeight + statusBarTop
             }
             insets
         }

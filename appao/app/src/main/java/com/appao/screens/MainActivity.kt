@@ -275,6 +275,20 @@ class MainActivity : AppCompatActivity() {
             bottomBarHeight = v.height
         }
 
+        // Same pattern as biBar above: the drawer's bottom tabs row used a
+        // fixed 16dp margin, which does not account for the real system
+        // navigation bar inset and gets clipped on devices with a taller
+        // gesture bar. Apply the system inset as bottom margin instead.
+        val appsBottomBar = findViewById<View>(R.id.appsBottomBar)
+        val appsBottomBarBaseMargin = dp(16)
+        ViewCompat.setOnApplyWindowInsetsListener(appsBottomBar) { view, insets ->
+            val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
+            val params = view.layoutParams as ViewGroup.MarginLayoutParams
+            params.bottomMargin = appsBottomBarBaseMargin + systemBottom
+            view.layoutParams = params
+            insets
+        }
+
         feedHeaderHeight = dp(104)
         recycler.updatePadding(top = feedHeaderHeight, bottom = dp(28))
         ViewCompat.requestApplyInsets(rootHost)
@@ -341,6 +355,28 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.feedBack).setOnClickListener { closeFeedPanel() }
         findViewById<View>(R.id.feedPublish).setOnClickListener { openPublish() }
         findViewById<View>(R.id.feedMore).setOnClickListener { showFeedMorePopup(it) }
+
+        // feedToolbar previously had no status-bar inset handling, so
+        // feedBack ("voltar" on the Descobrir panel) sat flush under the
+        // clock/battery icons. Push the toolbar down by the real status
+        // bar inset and grow the header + recycler top padding to match,
+        // same pattern as aTopBar in ArticleActivity.
+        val feedToolbar = findViewById<View>(R.id.feedToolbar)
+        val feedToolbarContentHeight = dp(56)
+        val feedHeaderBaseHeight = dp(104)
+        ViewCompat.setOnApplyWindowInsetsListener(feedHeader) { view, insets ->
+            val statusBarTop = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            feedToolbar.updatePadding(top = statusBarTop)
+            feedToolbar.layoutParams = feedToolbar.layoutParams.apply {
+                height = feedToolbarContentHeight + statusBarTop
+            }
+            feedHeaderHeight = feedHeaderBaseHeight + statusBarTop
+            view.layoutParams = view.layoutParams.apply {
+                height = feedHeaderHeight
+            }
+            recycler.updatePadding(top = feedHeaderHeight)
+            insets
+        }
 
         refreshFeedTabs(scrollToSelection = false)
     }

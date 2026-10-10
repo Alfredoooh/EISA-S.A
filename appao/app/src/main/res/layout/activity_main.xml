@@ -399,8 +399,8 @@
                 android:focusable="true">
                 <ImageView
                     android:id="@+id/appsBackIcon"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
+                    android:layout_width="21dp"
+                    android:layout_height="21dp"
                     android:layout_gravity="center"
                     android:scaleType="fitCenter" />
             </FrameLayout>
@@ -457,7 +457,7 @@
         <LinearLayout
             android:id="@+id/appsBottomBar"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="48dp"
             android:layout_gravity="bottom"
             android:layout_marginStart="20dp"
             android:layout_marginEnd="20dp"
@@ -472,7 +472,7 @@
             <FrameLayout
                 android:id="@+id/appsBottomTabs"
                 android:layout_width="0dp"
-                android:layout_height="56dp"
+                android:layout_height="48dp"
                 android:layout_weight="1"
                 android:layout_marginEnd="0dp"
                 android:background="@drawable/bg_auth_segment"
@@ -490,7 +490,7 @@
                     android:gravity="center"
                     android:text="Apps"
                     android:textColor="@color/onpri"
-                    android:textSize="14sp"
+                    android:textSize="13sp"
                     android:textStyle="bold"
                     android:clickable="true"
                     android:focusable="true" />
@@ -501,7 +501,7 @@
                     android:gravity="center"
                     android:text="Conversas"
                     android:textColor="@color/dim"
-                    android:textSize="14sp"
+                    android:textSize="13sp"
                     android:textStyle="bold"
                     android:clickable="true"
                     android:focusable="true" />

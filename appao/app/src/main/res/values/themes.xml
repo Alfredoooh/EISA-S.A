@@ -3,7 +3,7 @@
 
     <style
         name="Theme.AppAo"
-        parent="Theme.AppCompat.DayNight.NoActionBar">
+        parent="Theme.Material3.DayNight.NoActionBar">
 
         <item name="android:windowBackground">@color/bg</item>
 
@@ -27,6 +27,17 @@
         <item name="colorSecondary">@color/accent</item>
 
         <item name="colorAccent">@color/accent</item>
+
+        <!-- M3 base surface/outline colors: MaterialSwitch and other M3
+             components read these directly from the activity theme, not
+             only from the dialog/sheet overlay styles below. Without
+             these, M3 widgets fall back to the default purple palette. -->
+        <item name="colorSurface">@color/bg</item>
+        <item name="colorOnSurface">@color/text</item>
+        <item name="colorSurfaceVariant">@color/card</item>
+        <item name="colorOnSurfaceVariant">@color/dim</item>
+        <item name="colorOutline">@color/border</item>
+        <item name="colorOutlineVariant">@color/line</item>
 
         <item
             name="colorControlHighlight">
@@ -181,7 +192,7 @@
 
     <style
         name="AppAo.PopupMenu"
-        parent="Widget.AppCompat.PopupMenu">
+        parent="Widget.Material3.PopupMenu">
 
         <item name="android:popupBackground">
             @drawable/bg_popup_material

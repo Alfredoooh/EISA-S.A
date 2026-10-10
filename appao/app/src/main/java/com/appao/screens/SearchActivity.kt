@@ -59,7 +59,7 @@ class SearchActivity : AppCompatActivity() {
         IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "action_overflow", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.searchAddIcon), "action_add", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.searchSliderIcon), "action_filters", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchSendIcon), "action_send_arrow", android.R.color.black)
+        IconLoader.applySvg(findViewById(R.id.searchSendIcon), "action_send_arrow", R.color.onpri)
 
         findViewById<View>(R.id.searchClose).setOnClickListener { finish() }
         findViewById<View>(R.id.searchMore).setOnClickListener { showMorePopup(it) }
@@ -191,16 +191,16 @@ class SearchActivity : AppCompatActivity() {
 
     private fun updateSendState() {
         val active = input.text?.isNotBlank() == true
-        val fill = ContextCompat.getColor(
-            this,
-            if (active) R.color.pri else R.color.card2
-        )
-        send.background = android.graphics.drawable.GradientDrawable().apply {
-            shape = android.graphics.drawable.GradientDrawable.OVAL
-            setColor(fill)
+        send.background = if (active) {
+            ContextCompat.getDrawable(this, R.drawable.bg_ai_send)
+        } else {
+            android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+                setColor(ContextCompat.getColor(this, R.color.card2))
+            }
         }
         findViewById<ImageView>(R.id.searchSendIcon).setColorFilter(
-            if (active) android.graphics.Color.BLACK else ContextCompat.getColor(this, R.color.dim),
+            if (active) ContextCompat.getColor(this, R.color.onpri) else ContextCompat.getColor(this, R.color.dim),
             android.graphics.PorterDuff.Mode.SRC_IN
         )
     }

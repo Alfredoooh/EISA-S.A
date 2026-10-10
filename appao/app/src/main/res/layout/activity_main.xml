@@ -36,8 +36,8 @@
                 android:focusable="true">
                 <ImageView
                     android:id="@+id/homeMenuIcon"
-                    android:layout_width="21dp"
-                    android:layout_height="21dp"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
                     android:layout_gravity="center"
                     android:scaleType="fitCenter" />
             </FrameLayout>
@@ -153,8 +153,8 @@
                         android:focusable="true">
                         <ImageView
                             android:id="@+id/biAddIcon"
-                            android:layout_width="21dp"
-                            android:layout_height="21dp"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
                             android:layout_gravity="center"
                             android:scaleType="fitCenter"
                             android:alpha="0.6" />
@@ -170,8 +170,8 @@
                         android:focusable="true">
                         <ImageView
                             android:id="@+id/biSliderIcon"
-                            android:layout_width="21dp"
-                            android:layout_height="21dp"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
                             android:layout_gravity="center"
                             android:scaleType="fitCenter"
                             android:alpha="0.6" />
@@ -244,14 +244,13 @@
                     android:layout_width="48dp"
                     android:layout_height="48dp"
                     android:layout_gravity="start|center_vertical"
-                    android:layout_marginStart="4dp"
                     android:background="@drawable/bg_circle_card"
                     android:clickable="true"
                     android:focusable="true">
                     <ImageView
                         android:id="@+id/feedBackIcon"
-                        android:layout_width="21dp"
-                        android:layout_height="21dp"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
                         android:layout_gravity="center"
                         android:scaleType="fitCenter" />
                 </FrameLayout>
@@ -290,8 +289,8 @@
                         android:focusable="true">
                         <ImageView
                             android:id="@+id/feedPublishIcon"
-                            android:layout_width="21dp"
-                            android:layout_height="21dp"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
                             android:layout_gravity="center"
                             android:scaleType="fitCenter" />
                     </FrameLayout>
@@ -305,8 +304,8 @@
                         android:focusable="true">
                         <ImageView
                             android:id="@+id/feedMoreIcon"
-                            android:layout_width="21dp"
-                            android:layout_height="21dp"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
                             android:layout_gravity="center"
                             android:scaleType="fitCenter" />
                     </FrameLayout>
@@ -399,8 +398,8 @@
                 android:focusable="true">
                 <ImageView
                     android:id="@+id/appsBackIcon"
-                    android:layout_width="21dp"
-                    android:layout_height="21dp"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
                     android:layout_gravity="center"
                     android:scaleType="fitCenter" />
             </FrameLayout>

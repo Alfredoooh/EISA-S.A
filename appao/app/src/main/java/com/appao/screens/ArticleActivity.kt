@@ -337,7 +337,7 @@ class ArticleActivity : AppCompatActivity() {
         body.setTextColor(ContextCompat.getColor(this, R.color.text))
         IconLoader.applySvg(findViewById(R.id.aBackIcon), "nav_back", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.aMoreIcon), "action_overflow", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.acSendIcon), "action_send", android.R.color.black)
+        IconLoader.applySvg(findViewById(R.id.acSendIcon), "action_send", R.color.onpri)
         updateSheetChrome()
     }
 

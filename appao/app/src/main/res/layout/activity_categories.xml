@@ -22,8 +22,8 @@
             android:focusable="true">
             <ImageView
                 android:id="@+id/categoryBackIcon"
-                android:layout_width="21dp"
-                android:layout_height="21dp"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
                 android:layout_gravity="center" />
         </FrameLayout>
 

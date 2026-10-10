@@ -235,8 +235,8 @@
             android:focusable="true">
             <ImageView
                 android:id="@+id/aBackIcon"
-                android:layout_width="21dp"
-                android:layout_height="21dp"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
                 android:layout_gravity="center" />
         </FrameLayout>
 
@@ -255,8 +255,8 @@
             android:focusable="true">
             <ImageView
                 android:id="@+id/aMoreIcon"
-                android:layout_width="21dp"
-                android:layout_height="21dp"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
                 android:layout_gravity="center"
                 android:scaleType="fitCenter" />
         </FrameLayout>

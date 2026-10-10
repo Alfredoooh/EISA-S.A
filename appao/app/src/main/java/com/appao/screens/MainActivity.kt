@@ -513,7 +513,7 @@ class MainActivity : AppCompatActivity() {
     private fun setupBottomInput() {
         IconLoader.applySvg(findViewById(R.id.biAddIcon), "action_add", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSliderIcon), "action_filters", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biSendIcon), "action_send_arrow", android.R.color.black)
+        IconLoader.applySvg(findViewById(R.id.biSendIcon), "action_send_arrow", R.color.onpri)
 
         // Native reproduction of the supplied HTML textarea. The action row is
         // structurally separate, so it stays anchored while the textarea grows.
@@ -553,16 +553,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateComposerSendState() {
         val active = biInput.text?.isNotBlank() == true
-        val fill = ContextCompat.getColor(
-            this,
-            if (active) R.color.pri else R.color.card2
-        )
-        biSend.background = android.graphics.drawable.GradientDrawable().apply {
-            shape = android.graphics.drawable.GradientDrawable.OVAL
-            setColor(fill)
+        biSend.background = if (active) {
+            ContextCompat.getDrawable(this, R.drawable.bg_ai_send)
+        } else {
+            android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+                setColor(ContextCompat.getColor(this, R.color.card2))
+            }
         }
         findViewById<ImageView>(R.id.biSendIcon).setColorFilter(
-            if (active) android.graphics.Color.BLACK else ContextCompat.getColor(this, R.color.dim),
+            if (active) ContextCompat.getColor(this, R.color.onpri) else ContextCompat.getColor(this, R.color.dim),
             android.graphics.PorterDuff.Mode.SRC_IN
         )
     }
@@ -1432,7 +1432,7 @@ class MainActivity : AppCompatActivity() {
         IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "action_overflow", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biAddIcon), "action_add", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSliderIcon), "action_filters", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biSendIcon), "action_send_arrow", android.R.color.black)
+        IconLoader.applySvg(findViewById(R.id.biSendIcon), "action_send_arrow", R.color.onpri)
         IconLoader.applyPng(findViewById(R.id.appsProfileAvatar), "avatar")
         IconLoader.applySvg(findViewById(R.id.appsBackIcon), "nav_forward", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "nav_settings", R.color.iconTint)

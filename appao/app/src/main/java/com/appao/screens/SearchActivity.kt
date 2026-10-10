@@ -196,7 +196,7 @@ class SearchActivity : AppCompatActivity() {
         } else {
             android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.OVAL
-                setColor(ContextCompat.getColor(this, R.color.card2))
+                setColor(ContextCompat.getColor(this@SearchActivity, R.color.card2))
             }
         }
         findViewById<ImageView>(R.id.searchSendIcon).setColorFilter(

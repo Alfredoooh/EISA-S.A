@@ -129,10 +129,10 @@
                         android:focusable="true">
                         <ImageView
                             android:id="@+id/searchAddIcon"
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
                             android:layout_gravity="center"
-                            android:alpha="1.0" />
+                            android:alpha="0.6" />
                     </FrameLayout>
 
                     <FrameLayout
@@ -144,10 +144,10 @@
                         android:focusable="true">
                         <ImageView
                             android:id="@+id/searchSliderIcon"
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
                             android:layout_gravity="center"
-                            android:alpha="1.0" />
+                            android:alpha="0.6" />
                     </FrameLayout>
                 </LinearLayout>
 

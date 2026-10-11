@@ -15,15 +15,15 @@
         android:paddingEnd="20dp">
         <FrameLayout
             android:id="@+id/commentsBack"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="@dimen/icon_button_size"
+            android:layout_height="@dimen/icon_button_size"
             android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">
             <ImageView
                 android:id="@+id/commentsBackIcon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="@dimen/icon_button_icon_size"
+                android:layout_height="@dimen/icon_button_icon_size"
                 android:layout_gravity="center" />
         </FrameLayout>
         <LinearLayout
@@ -87,16 +87,16 @@
             android:textSize="14sp" />
         <FrameLayout
             android:id="@+id/commentSend"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="@dimen/icon_button_size"
+            android:layout_height="@dimen/icon_button_size"
             android:layout_marginStart="8dp"
             android:background="@drawable/bg_circle_pri"
             android:clickable="true"
             android:focusable="true">
             <ImageView
                 android:id="@+id/commentSendIcon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="@dimen/icon_button_icon_size"
+                android:layout_height="@dimen/icon_button_icon_size"
                 android:layout_gravity="center" />
         </FrameLayout>
     </LinearLayout>

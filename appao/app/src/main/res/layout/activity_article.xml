@@ -227,15 +227,15 @@
 
         <FrameLayout
             android:id="@+id/aBack"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="@dimen/icon_button_size"
+            android:layout_height="@dimen/icon_button_size"
             android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">
             <ImageView
                 android:id="@+id/aBackIcon"
-                android:layout_width="17dp"
-                android:layout_height="17dp"
+                android:layout_width="@dimen/icon_button_icon_size"
+                android:layout_height="@dimen/icon_button_icon_size"
                 android:layout_gravity="center" />
         </FrameLayout>
 
@@ -246,16 +246,16 @@
 
         <FrameLayout
             android:id="@+id/aMore"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="@dimen/icon_button_size"
+            android:layout_height="@dimen/icon_button_size"
             android:layout_marginStart="8dp"
             android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">
             <ImageView
                 android:id="@+id/aMoreIcon"
-                android:layout_width="17dp"
-                android:layout_height="17dp"
+                android:layout_width="@dimen/icon_button_icon_size"
+                android:layout_height="@dimen/icon_button_icon_size"
                 android:layout_gravity="center"
                 android:scaleType="fitCenter" />
         </FrameLayout>
@@ -307,14 +307,14 @@
 
             <FrameLayout
                 android:id="@+id/acSend"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
+                android:layout_width="@dimen/icon_button_size"
+                android:layout_height="@dimen/icon_button_size"
                 android:background="@drawable/bg_circle_pri"
                 android:visibility="gone">
                 <ImageView
                     android:id="@+id/acSendIcon"
-                    android:layout_width="17dp"
-                    android:layout_height="17dp"
+                    android:layout_width="@dimen/icon_button_icon_size"
+                    android:layout_height="@dimen/icon_button_icon_size"
                     android:layout_gravity="center" />
             </FrameLayout>
         </LinearLayout>
@@ -322,16 +322,16 @@
         <FrameLayout
             android:id="@+id/acEmoji"
             android:visibility="gone"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="@dimen/icon_button_size"
+            android:layout_height="@dimen/icon_button_size"
             android:layout_marginStart="8dp"
-            android:background="@drawable/bg_transparent_pressed"
+            android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">
             <ImageView
                 android:id="@+id/acEmojiIcon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="@dimen/icon_button_icon_size"
+                android:layout_height="@dimen/icon_button_icon_size"
                 android:layout_gravity="center" />
         </FrameLayout>
     </LinearLayout>

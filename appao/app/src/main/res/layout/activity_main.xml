@@ -27,8 +27,8 @@
 
             <FrameLayout
                 android:id="@+id/homeMenu"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
+                android:layout_width="@dimen/icon_button_size"
+                android:layout_height="@dimen/icon_button_size"
                 android:layout_gravity="start|center_vertical"
                 android:layout_marginStart="12dp"
                 android:background="@drawable/bg_circle_card"
@@ -36,8 +36,8 @@
                 android:focusable="true">
                 <ImageView
                     android:id="@+id/homeMenuIcon"
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
+                    android:layout_width="@dimen/icon_button_icon_size"
+                    android:layout_height="@dimen/icon_button_icon_size"
                     android:layout_gravity="center"
                     android:scaleType="fitCenter" />
             </FrameLayout>
@@ -45,11 +45,11 @@
             <!-- Feed shortcut: two tilted, overlapping news-image cards. -->
             <FrameLayout
                 android:id="@+id/homeFeedStack"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
+                android:layout_width="@dimen/icon_button_size"
+                android:layout_height="@dimen/icon_button_size"
                 android:layout_gravity="end|center_vertical"
                 android:layout_marginEnd="16dp"
-                android:background="@android:color/transparent"
+                android:background="@drawable/bg_circle_card"
                 android:clickable="true"
                 android:focusable="true"
                 android:clipChildren="false">
@@ -146,15 +146,15 @@
 
                     <FrameLayout
                         android:id="@+id/biAdd"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:background="@android:color/transparent"
+                        android:layout_width="@dimen/icon_button_size"
+                        android:layout_height="@dimen/icon_button_size"
+                        android:background="@drawable/bg_circle_card"
                         android:clickable="true"
                         android:focusable="true">
                         <ImageView
                             android:id="@+id/biAddIcon"
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
+                            android:layout_width="@dimen/icon_button_icon_size"
+                            android:layout_height="@dimen/icon_button_icon_size"
                             android:layout_gravity="center"
                             android:scaleType="fitCenter"
                             android:alpha="0.6" />
@@ -162,16 +162,16 @@
 
                     <FrameLayout
                         android:id="@+id/biSlider"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
+                        android:layout_width="@dimen/icon_button_size"
+                        android:layout_height="@dimen/icon_button_size"
                         android:layout_marginStart="8dp"
-                        android:background="@android:color/transparent"
+                        android:background="@drawable/bg_circle_card"
                         android:clickable="true"
                         android:focusable="true">
                         <ImageView
                             android:id="@+id/biSliderIcon"
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
+                            android:layout_width="@dimen/icon_button_icon_size"
+                            android:layout_height="@dimen/icon_button_icon_size"
                             android:layout_gravity="center"
                             android:scaleType="fitCenter"
                             android:alpha="0.6" />
@@ -180,15 +180,15 @@
 
                 <FrameLayout
                     android:id="@+id/biSend"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
+                    android:layout_width="@dimen/icon_button_size"
+                    android:layout_height="@dimen/icon_button_size"
                     android:background="@drawable/bg_ai_send"
                     android:clickable="true"
                     android:focusable="true">
                     <ImageView
                         android:id="@+id/biSendIcon"
-                        android:layout_width="17dp"
-                        android:layout_height="17dp"
+                        android:layout_width="@dimen/icon_button_icon_size"
+                        android:layout_height="@dimen/icon_button_icon_size"
                         android:layout_gravity="center"
                         android:scaleType="fitCenter"
                         android:alpha="1.0" />
@@ -241,8 +241,8 @@
 
                 <FrameLayout
                     android:id="@+id/feedBack"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
+                    android:layout_width="@dimen/icon_button_size"
+                    android:layout_height="@dimen/icon_button_size"
                     android:layout_gravity="start|center_vertical"
                     android:layout_marginStart="20dp"
                     android:background="@drawable/bg_circle_card"
@@ -250,8 +250,8 @@
                     android:focusable="true">
                     <ImageView
                         android:id="@+id/feedBackIcon"
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
+                        android:layout_width="@dimen/icon_button_icon_size"
+                        android:layout_height="@dimen/icon_button_icon_size"
                         android:layout_gravity="center"
                         android:scaleType="fitCenter" />
                 </FrameLayout>
@@ -273,40 +273,41 @@
                 <LinearLayout
                     android:id="@+id/feedHeaderActions"
                     android:layout_width="88dp"
-                    android:layout_height="44dp"
+                    android:layout_height="@dimen/icon_button_size"
                     android:layout_gravity="end|center_vertical"
                     android:layout_marginEnd="20dp"
                     android:orientation="horizontal"
                     android:gravity="center"
-                    android:background="@drawable/bg_toolbar_actions"
+                    android:background="@android:color/transparent"
                     android:padding="0dp">
 
                     <FrameLayout
                         android:id="@+id/feedPublish"
-                        android:layout_width="0dp"
-                        android:layout_height="match_parent"
-                        android:layout_weight="1"
+                        android:layout_width="@dimen/icon_button_size"
+                        android:layout_height="@dimen/icon_button_size"
+                        android:background="@drawable/bg_circle_card"
                         android:clickable="true"
                         android:focusable="true">
                         <ImageView
                             android:id="@+id/feedPublishIcon"
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
+                            android:layout_width="@dimen/icon_button_icon_size"
+                            android:layout_height="@dimen/icon_button_icon_size"
                             android:layout_gravity="center"
                             android:scaleType="fitCenter" />
                     </FrameLayout>
 
                     <FrameLayout
                         android:id="@+id/feedMore"
-                        android:layout_width="0dp"
-                        android:layout_height="match_parent"
-                        android:layout_weight="1"
+                        android:layout_width="@dimen/icon_button_size"
+                        android:layout_height="@dimen/icon_button_size"
+                        android:layout_marginStart="4dp"
+                        android:background="@drawable/bg_circle_card"
                         android:clickable="true"
                         android:focusable="true">
                         <ImageView
                             android:id="@+id/feedMoreIcon"
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
+                            android:layout_width="@dimen/icon_button_icon_size"
+                            android:layout_height="@dimen/icon_button_icon_size"
                             android:layout_gravity="center"
                             android:scaleType="fitCenter" />
                     </FrameLayout>
@@ -360,8 +361,8 @@
 
             <FrameLayout
                 android:id="@+id/appsProfile"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
+                android:layout_width="@dimen/icon_button_size"
+                android:layout_height="@dimen/icon_button_size"
                 android:layout_gravity="start|center_vertical"
                 android:layout_marginStart="16dp"
                 android:background="@drawable/bg_circle_card"
@@ -370,8 +371,8 @@
                 android:focusable="true">
                 <ImageView
                     android:id="@+id/appsProfileAvatar"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
                     android:layout_gravity="center"
                     android:background="@drawable/bg_circle_card"
                     android:clipToOutline="true"
@@ -390,8 +391,8 @@
 
             <FrameLayout
                 android:id="@+id/appsBack"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
+                android:layout_width="@dimen/icon_button_size"
+                android:layout_height="@dimen/icon_button_size"
                 android:layout_gravity="end|center_vertical"
                 android:layout_marginEnd="12dp"
                 android:background="@drawable/bg_circle_card"
@@ -399,8 +400,8 @@
                 android:focusable="true">
                 <ImageView
                     android:id="@+id/appsBackIcon"
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
+                    android:layout_width="@dimen/icon_button_icon_size"
+                    android:layout_height="@dimen/icon_button_icon_size"
                     android:layout_gravity="center"
                     android:scaleType="fitCenter" />
             </FrameLayout>
@@ -509,16 +510,16 @@
 
             <FrameLayout
                 android:id="@+id/appsSettings"
-                android:layout_width="42dp"
-                android:layout_height="42dp"
+                android:layout_width="@dimen/icon_button_size"
+                android:layout_height="@dimen/icon_button_size"
                 android:layout_marginStart="12dp"
                 android:background="@drawable/bg_circle_card"
                 android:clickable="true"
                 android:focusable="true">
                 <ImageView
                     android:id="@+id/appsSettingsIcon"
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
+                    android:layout_width="@dimen/icon_button_icon_size"
+                    android:layout_height="@dimen/icon_button_icon_size"
                     android:layout_gravity="center"
                     android:scaleType="fitCenter" />
             </FrameLayout>

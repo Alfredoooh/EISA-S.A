@@ -299,7 +299,7 @@ class MainActivity : AppCompatActivity() {
         homeHeader.translationZ = 0f
         IconLoader.applySvg(findViewById(R.id.homeMenuIcon), "nav_menu", R.color.iconTint)
 
-        homeFeedStack.background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
+        homeFeedStack.background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
         homeFeedStack.foreground = null
         homeFeedStack.stateListAnimator = null
         homeFeedStack.isFocusable = false
@@ -435,13 +435,20 @@ class MainActivity : AppCompatActivity() {
             feedTabsHost.addView(tab, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
         }
 
+        // Match the exact circular action-button dimensions used by appsSettings.
+        val iconButtonSize = resources.getDimensionPixelSize(R.dimen.icon_button_size)
+        val iconButtonIconSize = resources.getDimensionPixelSize(R.dimen.icon_button_icon_size)
         val plus = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(52), ViewGroup.LayoutParams.MATCH_PARENT)
+            layoutParams = LinearLayout.LayoutParams(iconButtonSize, iconButtonSize).apply {
+                marginStart = dp(8)
+            }
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_circle_card)
+            clipToOutline = true
             isClickable = true
             isFocusable = true
         }
         val plusIcon = ImageView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER)
+            layoutParams = FrameLayout.LayoutParams(iconButtonIconSize, iconButtonIconSize, Gravity.CENTER)
             scaleType = ImageView.ScaleType.CENTER_INSIDE
         }
         IconLoader.applySvg(plusIcon, "action_add", R.color.iconTint)

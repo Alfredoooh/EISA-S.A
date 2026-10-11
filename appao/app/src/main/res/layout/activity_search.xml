@@ -38,15 +38,15 @@
 
         <FrameLayout
             android:id="@+id/searchClose"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="@dimen/icon_button_size"
+            android:layout_height="@dimen/icon_button_size"
             android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">
             <ImageView
                 android:id="@+id/searchCloseIcon"
-                android:layout_width="16dp"
-                android:layout_height="16dp"
+                android:layout_width="@dimen/icon_button_icon_size"
+                android:layout_height="@dimen/icon_button_icon_size"
                 android:layout_gravity="center" />
         </FrameLayout>
 
@@ -57,15 +57,15 @@
 
         <FrameLayout
             android:id="@+id/searchMore"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="@dimen/icon_button_size"
+            android:layout_height="@dimen/icon_button_size"
             android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">
             <ImageView
                 android:id="@+id/searchMoreIcon"
-                android:layout_width="16dp"
-                android:layout_height="16dp"
+                android:layout_width="@dimen/icon_button_icon_size"
+                android:layout_height="@dimen/icon_button_icon_size"
                 android:layout_gravity="center" />
         </FrameLayout>
     </LinearLayout>
@@ -123,29 +123,29 @@
 
                     <FrameLayout
                         android:id="@+id/searchAdd"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
+                        android:layout_width="@dimen/icon_button_size"
+                        android:layout_height="@dimen/icon_button_size"
                         android:clickable="true"
-                        android:focusable="true">
+                        android:focusable="true" android:background="@drawable/bg_circle_card">
                         <ImageView
                             android:id="@+id/searchAddIcon"
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
+                            android:layout_width="@dimen/icon_button_icon_size"
+                            android:layout_height="@dimen/icon_button_icon_size"
                             android:layout_gravity="center"
                             android:alpha="0.6" />
                     </FrameLayout>
 
                     <FrameLayout
                         android:id="@+id/searchSlider"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
+                        android:layout_width="@dimen/icon_button_size"
+                        android:layout_height="@dimen/icon_button_size"
                         android:layout_marginStart="8dp"
                         android:clickable="true"
-                        android:focusable="true">
+                        android:focusable="true" android:background="@drawable/bg_circle_card">
                         <ImageView
                             android:id="@+id/searchSliderIcon"
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
+                            android:layout_width="@dimen/icon_button_icon_size"
+                            android:layout_height="@dimen/icon_button_icon_size"
                             android:layout_gravity="center"
                             android:alpha="0.6" />
                     </FrameLayout>
@@ -153,15 +153,15 @@
 
                 <FrameLayout
                     android:id="@+id/searchSend"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
+                    android:layout_width="@dimen/icon_button_size"
+                    android:layout_height="@dimen/icon_button_size"
                     android:background="@drawable/bg_ai_send"
                     android:clickable="true"
                     android:focusable="true">
                     <ImageView
                         android:id="@+id/searchSendIcon"
-                        android:layout_width="17dp"
-                        android:layout_height="17dp"
+                        android:layout_width="@dimen/icon_button_icon_size"
+                        android:layout_height="@dimen/icon_button_icon_size"
                         android:layout_gravity="center" />
                 </FrameLayout>
             </LinearLayout>

@@ -59,7 +59,7 @@ class SearchActivity : AppCompatActivity() {
         IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "action_overflow", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.searchAddIcon), "action_add", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.searchSliderIcon), "action_filters", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchSendIcon), "action_send_arrow", R.color.onpri)
+        IconLoader.applySvg(findViewById(R.id.searchSendIcon), "action_send_arrow", R.color.iconTint)
 
         findViewById<View>(R.id.searchClose).setOnClickListener { finish() }
         findViewById<View>(R.id.searchMore).setOnClickListener { showMorePopup(it) }
@@ -192,7 +192,7 @@ class SearchActivity : AppCompatActivity() {
     private fun updateSendState() {
         val active = input.text?.isNotBlank() == true
         send.background = if (active) {
-            ContextCompat.getDrawable(this, R.drawable.bg_ai_send)
+            AccentColorManager.primaryShape(this, android.graphics.drawable.GradientDrawable.OVAL)
         } else {
             android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.OVAL
@@ -200,7 +200,7 @@ class SearchActivity : AppCompatActivity() {
             }
         }
         findViewById<ImageView>(R.id.searchSendIcon).setColorFilter(
-            if (active) ContextCompat.getColor(this, R.color.onpri) else ContextCompat.getColor(this, R.color.dim),
+            if (active) AccentColorManager.onPrimaryColor(this) else ContextCompat.getColor(this, R.color.dim),
             android.graphics.PorterDuff.Mode.SRC_IN
         )
     }
@@ -209,7 +209,7 @@ class SearchActivity : AppCompatActivity() {
         val bg = ContextCompat.getColor(this, R.color.bg)
         root.setBackgroundColor(bg)
         composerBar.setBackgroundColor(bg)
-        composerPill.background = HtmlComposerBackgroundDrawable(this, ThemeManager.resolvedDark(this))
+        composerPill.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_card)
         resultQuery.setTextColor(ContextCompat.getColor(this, R.color.dim))
         updateSendState()
     }

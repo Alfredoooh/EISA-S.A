@@ -123,7 +123,7 @@ object NativeM3Dialog {
             dialog.getButton(
                 Dialog.BUTTON_POSITIVE
             )?.setTextColor(
-                ContextCompat.getColor(
+                AccentColorManager.resolvedOr(
                     context,
                     R.color.pri
                 )
@@ -232,7 +232,7 @@ object NativeM3Dialog {
         dialog.setOnShowListener {
             style(dialog)
             dialog.getButton(Dialog.BUTTON_POSITIVE)?.setTextColor(
-                ContextCompat.getColor(context, R.color.pri)
+                AccentColorManager.resolvedOr(context, R.color.pri)
             )
             dialog.getButton(Dialog.BUTTON_NEGATIVE)?.setTextColor(
                 ContextCompat.getColor(context, R.color.dim)

@@ -37,12 +37,13 @@ class PullRefreshIndicatorView @JvmOverloads constructor(
 
     init {
         trackPaint.color = ContextCompat.getColor(context, R.color.line)
-        accentPaint.color = ContextCompat.getColor(context, R.color.accent)
+        accentPaint.color = AccentColorManager.resolvedOr(context, R.color.pri)
         setLayerType(View.LAYER_TYPE_SOFTWARE, null)
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        accentPaint.color = AccentColorManager.resolvedOr(context, R.color.pri)
 
         val inset = trackPaint.strokeWidth * 0.5f
         oval.set(

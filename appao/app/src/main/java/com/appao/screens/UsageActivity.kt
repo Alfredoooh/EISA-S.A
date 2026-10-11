@@ -23,13 +23,6 @@ class UsageActivity : AppCompatActivity() {
         setContentView(R.layout.activity_usage)
         SystemBarHelper.sync(this)
 
-        val root = findViewById<View>(R.id.usageRoot)
-        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.updatePadding(top = bars.top, bottom = bars.bottom)
-            insets
-        }
-
         IconLoader.applySvg(findViewById(R.id.usageBackIcon), "nav_back", R.color.iconTint)
         findViewById<View>(R.id.usageBack).setOnClickListener { finish() }
         render()

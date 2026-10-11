@@ -20,14 +20,14 @@
     <color name="fluent8Light">#038387</color><color name="fluent8Dark">#3FD9DE</color>
     <color name="fluent9Light">#515C6B</color><color name="fluent9Dark">#9BA7B4</color>
 
-    <color name="accent">#FF6F61</color>
-    <color name="pri">#FF6F61</color>
+    <color name="accent">#000000</color>
+    <color name="pri">#000000</color>
     <color name="onpri">#FFFFFF</color>
     <color name="scrim">#00000000</color>
     <color name="heroScrim">#26000000</color>
-    <color name="progressStart">#FF6F61</color>
-    <color name="progressEnd">#FF9389</color>
-    <color name="bubbleBlue">#FF6F61</color>
+    <color name="progressStart">#000000</color>
+    <color name="progressEnd">#4D4D4D</color>
+    <color name="bubbleBlue">#000000</color>
     <color name="bubbleCyan">#00767A</color>
     <color name="dotGreen">#0B6A0B</color>
     <color name="pillBg">#FAFAFA</color>
@@ -37,8 +37,8 @@
     <color name="popupBg">#FFFFFF</color>
     <color name="popupBorder">#00000000</color>
     <color name="dialogSurface">#FFFFFF</color>
-    <color name="authYellow">#FF6F61</color>
-    <color name="authYellowPressed">#E85D50</color>
+    <color name="authYellow">#000000</color>
+    <color name="authYellowPressed">#1A1A1A</color>
     <color name="authYellowText">#FFFFFF</color>
     <color name="stackBorder">#111111</color>
     <color name="splash_logo_center">#1F2937</color>

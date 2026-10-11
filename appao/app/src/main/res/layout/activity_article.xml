@@ -7,34 +7,14 @@
     android:clipChildren="false"
     android:clipToPadding="false">
 
-    <!-- Fixed hero, visually behind the transparent app bar. -->
-    <com.appao.RoundedClipFrameLayout
-        android:id="@+id/aHeroContainer"
-        android:layout_width="match_parent"
-        android:layout_height="260dp"
-        android:layout_gravity="top"
-        android:background="@android:color/transparent"
-        android:clipChildren="false"
-        android:clipToPadding="false"
-        android:clipToOutline="false"
-        android:visibility="gone">
-        <ImageView
-            android:id="@+id/aHero"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="fitCenter" />
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="80dp"
-            android:layout_gravity="bottom"
-            android:background="@drawable/bg_article_hero_gradient" />
-    </com.appao.RoundedClipFrameLayout>
+
 
     <!-- The sheet itself is the real scroll surface. -->
     <com.appao.BounceScrollView
         android:id="@+id/aScroll"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_marginTop="56dp"
         android:fillViewport="false"
         android:overScrollMode="always"
         android:scrollbars="none"
@@ -46,10 +26,29 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <Space
-                android:id="@+id/aHeroSpacer"
+            <!-- Hero is the first content item and scrolls with the article below the solid AppBar. -->
+            <com.appao.RoundedClipFrameLayout
+                android:id="@+id/aHeroContainer"
                 android:layout_width="match_parent"
-                android:layout_height="280dp" />
+                android:layout_height="260dp"
+                android:layout_gravity="top"
+                android:background="@android:color/transparent"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:clipToOutline="false"
+                android:visibility="gone">
+                <ImageView
+                    android:id="@+id/aHero"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="fitCenter" />
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="80dp"
+                    android:layout_gravity="bottom"
+                    android:background="@drawable/bg_article_hero_gradient" />
+            </com.appao.RoundedClipFrameLayout>
+
 
             <com.appao.RoundedClipFrameLayout
                 android:id="@+id/aSheetCard"
@@ -121,7 +120,7 @@
                         android:textColor="@color/text"
                         android:textSize="21sp"
                         android:textStyle="bold"
-                        android:lineSpacingMultiplier="1.3" />
+                        android:lineSpacingMultiplier="1.12" />
 
                     <TextView
                         android:id="@+id/aSummary"
@@ -137,7 +136,7 @@
                         android:paddingBottom="16dp"
                         android:textColor="@color/dim"
                         android:textSize="15sp"
-                        android:lineSpacingMultiplier="1.6"
+                        android:lineSpacingMultiplier="1.28"
                         android:visibility="gone" />
 
                     <TextView
@@ -149,7 +148,7 @@
                         android:paddingTop="20dp"
                         android:textColor="@color/text"
                         android:textSize="16sp"
-                        android:lineSpacingMultiplier="1.75" />
+                        android:lineSpacingMultiplier="1.35" />
 
                     <LinearLayout
                         android:id="@+id/aCommentsSection"
@@ -212,7 +211,7 @@
         </LinearLayout>
     </com.appao.BounceScrollView>
 
-    <!-- One transparent/solid app bar, matching the HTML behavior. -->
+    <!-- Solid AppBar remains fixed while the hero and article content scroll beneath it. -->
     <LinearLayout
         android:id="@+id/aTopBar"
         android:layout_width="match_parent"
@@ -222,21 +221,21 @@
         android:orientation="horizontal"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
-        android:background="@android:color/transparent"
+        android:background="@color/bg"
         android:elevation="0dp"
         android:translationZ="0dp">
 
         <FrameLayout
             android:id="@+id/aBack"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">
             <ImageView
                 android:id="@+id/aBackIcon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="17dp"
+                android:layout_height="17dp"
                 android:layout_gravity="center" />
         </FrameLayout>
 
@@ -247,16 +246,16 @@
 
         <FrameLayout
             android:id="@+id/aMore"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:layout_marginStart="8dp"
             android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">
             <ImageView
                 android:id="@+id/aMoreIcon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="17dp"
+                android:layout_height="17dp"
                 android:layout_gravity="center"
                 android:scaleType="fitCenter" />
         </FrameLayout>

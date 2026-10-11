@@ -37,6 +37,7 @@
             android:orientation="vertical" android:paddingStart="16dp" android:paddingEnd="16dp" android:paddingBottom="32dp">
             <TextView style="@style/SettingsLabel" android:text="PREFERÊNCIAS"/>
             <include layout="@layout/row_setting" android:id="@+id/rowTheme"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowAccent"/>
             <include layout="@layout/row_setting" android:id="@+id/rowLang"/>
             <include layout="@layout/row_setting" android:id="@+id/rowData"/>
             <TextView style="@style/SettingsLabel" android:text="ATIVIDADE E LOCALIZAÇÃO"/>

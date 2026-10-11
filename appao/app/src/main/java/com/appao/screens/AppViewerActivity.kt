@@ -35,6 +35,7 @@ class AppViewerActivity : AppCompatActivity() {
 
         web = findViewById(R.id.webView)
         progress = findViewById(R.id.appProgress)
+        applyProgressAccent()
         ViewCompat.setOnApplyWindowInsetsListener(web) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(0, bars.top, 0, bars.bottom)
@@ -177,9 +178,20 @@ class AppViewerActivity : AppCompatActivity() {
         }
     }
 
+    private fun applyProgressAccent() {
+        if (::progress.isInitialized) {
+            progress.background = AccentColorManager.primaryShape(
+                this,
+                android.graphics.drawable.GradientDrawable.RECTANGLE,
+                2f
+            )
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         SystemBarHelper.sync(this)
+        applyProgressAccent()
         web.post { injectThemeObserver(web) }
     }
 

@@ -59,7 +59,7 @@ class UsageChartView @JvmOverloads constructor(
         if (w <= 0f || h <= 0f) return
 
         val text = ContextCompat.getColor(context, R.color.dim)
-        val primary = ContextCompat.getColor(context, R.color.pri)
+        val primary = AccentColorManager.resolvedOr(context, R.color.pri)
         val line = ContextCompat.getColor(context, R.color.line)
 
         paint.style = Paint.Style.STROKE
@@ -101,23 +101,19 @@ class UsageChartView @JvmOverloads constructor(
         val cx = w * 0.34f
         val cy = h * 0.48f
 
-        val palette = listOf(
-            R.color.pri,
-            R.color.accent,
-            R.color.bubbleBlue,
-            R.color.bubbleCyan,
-            R.color.authYellow,
-            R.color.progressStart,
-            R.color.progressEnd,
-            R.color.dim
-        )
+        // Pie slices need colors that stay visually distinct from one
+        // another, so this always draws from the ten fixed accent swatches
+        // (AccentColorManager.options) rather than the pri/accent/bubbleBlue
+        // resource tokens, which all now resolve to the same black-or-white
+        // value as the app's default primary color.
+        val palette = AccentColorManager.options.map { it.color }
 
         var start = -90f
         paint.style = Paint.Style.FILL
         values.forEachIndexed { index, value ->
             if (value <= 0L) return@forEachIndexed
             val sweep = 360f * value.toFloat() / total * animationFraction
-            paint.color = ContextCompat.getColor(context, palette[index % palette.size])
+            paint.color = palette[index % palette.size]
             canvas.drawArc(
                 cx - radius,
                 cy - radius,
@@ -143,7 +139,7 @@ class UsageChartView @JvmOverloads constructor(
             if (values.getOrElse(index) { 0L } <= 0L) return@forEachIndexed
 
             paint.textAlign = Paint.Align.LEFT
-            paint.color = ContextCompat.getColor(context, palette[index % palette.size])
+            paint.color = palette[index % palette.size]
             canvas.drawCircle(dotX, y - dp(4), dp(4).toFloat(), paint)
 
             val pct = (values[index] * 100f / total).toFloat()

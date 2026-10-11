@@ -420,7 +420,7 @@ class MainActivity : AppCompatActivity() {
 
             tab.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(34)))
             val indicator = View(this).apply {
-                setBackgroundColor(ContextCompat.getColor(this@MainActivity, if (label == currentCat) R.color.text else android.R.color.transparent))
+                setBackgroundColor(if (label == currentCat) AccentColorManager.resolvedOr(this@MainActivity, R.color.pri) else android.graphics.Color.TRANSPARENT)
                 alpha = if (label == currentCat) 1f else 0f
             }
             tab.addView(indicator, LinearLayout.LayoutParams(dp(54), dp(2)))
@@ -513,7 +513,7 @@ class MainActivity : AppCompatActivity() {
     private fun setupBottomInput() {
         IconLoader.applySvg(findViewById(R.id.biAddIcon), "action_add", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSliderIcon), "action_filters", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biSendIcon), "action_send_arrow", R.color.onpri)
+        IconLoader.applySvg(findViewById(R.id.biSendIcon), "action_send_arrow", R.color.iconTint)
 
         // Native reproduction of the supplied HTML textarea. The action row is
         // structurally separate, so it stays anchored while the textarea grows.
@@ -554,7 +554,7 @@ class MainActivity : AppCompatActivity() {
     private fun updateComposerSendState() {
         val active = biInput.text?.isNotBlank() == true
         biSend.background = if (active) {
-            ContextCompat.getDrawable(this, R.drawable.bg_ai_send)
+            AccentColorManager.primaryShape(this, android.graphics.drawable.GradientDrawable.OVAL)
         } else {
             android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.OVAL
@@ -562,7 +562,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         findViewById<ImageView>(R.id.biSendIcon).setColorFilter(
-            if (active) ContextCompat.getColor(this, R.color.onpri) else ContextCompat.getColor(this, R.color.dim),
+            if (active) AccentColorManager.onPrimaryColor(this) else ContextCompat.getColor(this, R.color.dim),
             android.graphics.PorterDuff.Mode.SRC_IN
         )
     }
@@ -618,11 +618,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyComposerSurface() {
-        val dark = ThemeManager.resolvedDark(this)
         biBar.setBackgroundColor(ContextCompat.getColor(this, R.color.bg))
-        biPill.background = HtmlComposerBackgroundDrawable(this, dark)
-        biInput.setTextColor(if (dark) android.graphics.Color.rgb(245, 245, 245) else android.graphics.Color.rgb(51, 51, 51))
-        biInput.setHintTextColor(if (dark) android.graphics.Color.rgb(150, 155, 162) else android.graphics.Color.rgb(153, 153, 153))
+        biPill.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_card)
+        biInput.setTextColor(ContextCompat.getColor(this, R.color.text))
+        biInput.setHintTextColor(ContextCompat.getColor(this, R.color.dim))
         findViewById<View>(R.id.biAddIcon).alpha = 0.4f
         findViewById<View>(R.id.biSliderIcon).alpha = 0.4f
         updateComposerSendState()
@@ -663,33 +662,37 @@ class MainActivity : AppCompatActivity() {
 
         val appsTab = findViewById<TextView>(R.id.appsTab)
         val conversationsTab = findViewById<TextView>(R.id.conversationsTab)
-        val active = ContextCompat.getColor(this, R.color.onpri)
+        val active = AccentColorManager.onPrimaryColor(this)
         val inactive = ContextCompat.getColor(this, R.color.dim)
         appsTab.setTextColor(if (apps) active else inactive)
         conversationsTab.setTextColor(if (apps) inactive else active)
+        appsTabIndicator.background = AccentColorManager.primaryShape(
+            this,
+            android.graphics.drawable.GradientDrawable.RECTANGLE,
+            999f
+        )
 
         val available = (appsBottomTabs.width - appsBottomTabs.paddingLeft - appsBottomTabs.paddingRight).coerceAtLeast(2)
         val tabWidth = available / 2
         val tabHeight = (appsBottomTabs.height - appsBottomTabs.paddingTop - appsBottomTabs.paddingBottom).coerceAtLeast(2)
-        val baseX = appsBottomTabs.paddingLeft
 
         appsTabIndicator.layoutParams = (appsTabIndicator.layoutParams as FrameLayout.LayoutParams).apply {
             width = tabWidth
             height = tabHeight
-            leftMargin = baseX
-            topMargin = appsBottomTabs.paddingTop
+            leftMargin = 0
+            topMargin = 0
         }
         appsTab.layoutParams = (appsTab.layoutParams as FrameLayout.LayoutParams).apply {
             width = tabWidth
             height = tabHeight
-            leftMargin = baseX
-            topMargin = appsBottomTabs.paddingTop
+            leftMargin = 0
+            topMargin = 0
         }
         conversationsTab.layoutParams = (conversationsTab.layoutParams as FrameLayout.LayoutParams).apply {
             width = tabWidth
             height = tabHeight
-            leftMargin = baseX + tabWidth
-            topMargin = appsBottomTabs.paddingTop
+            leftMargin = tabWidth
+            topMargin = 0
         }
 
         appsTabIndicator.visibility = View.VISIBLE
@@ -1408,6 +1411,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshNativeTheme() {
         val bg = ContextCompat.getColor(this, R.color.bg)
+        progress.background = AccentColorManager.primaryShape(
+            this,
+            android.graphics.drawable.GradientDrawable.RECTANGLE,
+            4f
+        )
         rootHost.setBackgroundColor(bg)
         homePage.setBackgroundColor(bg)
         feedPanel.setBackgroundColor(bg)
@@ -1432,7 +1440,7 @@ class MainActivity : AppCompatActivity() {
         IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "action_overflow", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biAddIcon), "action_add", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSliderIcon), "action_filters", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biSendIcon), "action_send_arrow", R.color.onpri)
+        IconLoader.applySvg(findViewById(R.id.biSendIcon), "action_send_arrow", R.color.iconTint)
         IconLoader.applyPng(findViewById(R.id.appsProfileAvatar), "avatar")
         IconLoader.applySvg(findViewById(R.id.appsBackIcon), "nav_forward", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "nav_settings", R.color.iconTint)
@@ -1444,7 +1452,11 @@ class MainActivity : AppCompatActivity() {
         applyComposerSurface()
         biInput.post { resizeComposerInput(false) }
         appsBottomTabs.background = ContextCompat.getDrawable(this, R.drawable.bg_auth_segment)
-        appsTabIndicator.background = ContextCompat.getDrawable(this, R.drawable.bg_auth_indicator)
+        appsTabIndicator.background = AccentColorManager.primaryShape(
+            this,
+            android.graphics.drawable.GradientDrawable.RECTANGLE,
+            999f
+        )
         findViewById<View>(R.id.appsSettings).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
         findViewById<View>(R.id.appsProfile).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
         findViewById<ImageView>(R.id.appsProfileAvatar).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)

@@ -40,7 +40,7 @@ class CommentsActivity : AppCompatActivity() {
         articleLink = intent.getStringExtra("article_link").orEmpty()
         findViewById<TextView>(R.id.commentsArticleTitle).text = intent.getStringExtra("article_title").orEmpty()
         IconLoader.applySvg(findViewById(R.id.commentsBackIcon), "nav_back", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.commentSendIcon), "action_send_arrow", R.color.onpri)
+        IconLoader.applySvg(findViewById(R.id.commentSendIcon), "action_send_arrow", R.color.iconTint)
 
         parseComments(intent.getStringExtra("comments_json").orEmpty()).forEach { comments.add(it) }
         adapter = CommentAdapter(comments) { index, reaction ->
@@ -57,6 +57,14 @@ class CommentsActivity : AppCompatActivity() {
         list.setHasFixedSize(false)
 
         findViewById<View>(R.id.commentsBack).setOnClickListener { returnComments() }
+        findViewById<View>(R.id.commentSend).background = AccentColorManager.primaryShape(
+            this,
+            android.graphics.drawable.GradientDrawable.OVAL
+        )
+        findViewById<ImageView>(R.id.commentSendIcon).setColorFilter(
+            AccentColorManager.onPrimaryColor(this),
+            android.graphics.PorterDuff.Mode.SRC_IN
+        )
         findViewById<View>(R.id.commentSend).setOnClickListener { submitComment() }
         input.setOnEditorActionListener { _, _, _ -> submitComment(); true }
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.commentsRoot)) { view, insets ->

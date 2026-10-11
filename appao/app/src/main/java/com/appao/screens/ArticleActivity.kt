@@ -47,7 +47,6 @@ class ArticleActivity : AppCompatActivity() {
     private lateinit var heroContainer: RoundedClipFrameLayout
     private lateinit var hero: ImageView
     private lateinit var sheetCard: RoundedClipFrameLayout
-    private lateinit var heroSpacer: View
     private lateinit var title: TextView
     private lateinit var summary: TextView
     private lateinit var body: TextView
@@ -103,7 +102,6 @@ class ArticleActivity : AppCompatActivity() {
         heroContainer = findViewById(R.id.aHeroContainer)
         hero = findViewById(R.id.aHero)
         sheetCard = findViewById(R.id.aSheetCard)
-        heroSpacer = findViewById(R.id.aHeroSpacer)
         title = findViewById(R.id.aTitle)
         summary = findViewById(R.id.aSummary)
         body = findViewById(R.id.aBody)
@@ -186,7 +184,7 @@ class ArticleActivity : AppCompatActivity() {
 
             val scrollParams =
                 scroll.layoutParams as FrameLayout.LayoutParams
-            scrollParams.topMargin = 0
+            scrollParams.topMargin = dp(56) + bars.top
             scrollParams.bottomMargin = articleBar.measuredHeight + dp(8)
             scroll.layoutParams = scrollParams
 
@@ -259,8 +257,8 @@ class ArticleActivity : AppCompatActivity() {
                             val ratioHeight = (screenWidth.toFloat() * sourceHeight / sourceWidth).toInt()
                             val heroHeight = ratioHeight.coerceAtLeast(dp(100)).coerceAtMost(maxHeroHeight.coerceAtLeast(dp(180)))
                             heroContainer.layoutParams = heroContainer.layoutParams.apply { height = heroHeight }
-                            // The description card starts below the image and rises only when the user scrolls.
-                            heroSpacer.layoutParams = heroSpacer.layoutParams.apply { height = heroHeight }
+                            // The hero is the first child of the article's scroll surface, so the image
+                            // travels naturally with the article instead of staying pinned behind the toolbar.
                             sheetCard.minimumHeight = (resources.displayMetrics.heightPixels - heroHeight).coerceAtLeast(dp(260))
                         }
                     }
@@ -337,7 +335,13 @@ class ArticleActivity : AppCompatActivity() {
         body.setTextColor(ContextCompat.getColor(this, R.color.text))
         IconLoader.applySvg(findViewById(R.id.aBackIcon), "nav_back", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.aMoreIcon), "action_overflow", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.acSendIcon), "action_send", R.color.onpri)
+        acSend.background = AccentColorManager.primaryShape(this, android.graphics.drawable.GradientDrawable.OVAL)
+        IconLoader.applySvg(findViewById(R.id.acSendIcon), "action_send", R.color.iconTint)
+        findViewById<ImageView>(R.id.acSendIcon).setColorFilter(
+            AccentColorManager.onPrimaryColor(this),
+            android.graphics.PorterDuff.Mode.SRC_IN
+        )
+        updateArticleAppbar(true)
         updateSheetChrome()
     }
 
@@ -373,8 +377,7 @@ class ArticleActivity : AppCompatActivity() {
 
     private fun updateArticleAppbar(solid: Boolean) {
         val topbar = findViewById<View>(R.id.aTopBar)
-        val bg = if (solid) ContextCompat.getColor(this, R.color.bg) else Color.TRANSPARENT
-        topbar.background = android.graphics.drawable.ColorDrawable(bg)
+        topbar.background = android.graphics.drawable.ColorDrawable(ContextCompat.getColor(this, R.color.bg))
         listOf(R.id.aBack, R.id.aMore).forEach { id ->
             findViewById<View>(id).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
         }
@@ -392,14 +395,13 @@ class ArticleActivity : AppCompatActivity() {
     ) {
         if (itemImage.isNotBlank()) {
             heroContainer.visibility = View.VISIBLE
-            heroSpacer.layoutParams = heroSpacer.layoutParams.apply { height = dp(260) }
+            heroContainer.layoutParams = heroContainer.layoutParams.apply { height = dp(260) }
 
             if (transitionName.isNotBlank()) {
                 ViewCompat.setTransitionName(heroContainer, transitionName)
             }
         } else {
             heroContainer.visibility = View.GONE
-            heroSpacer.layoutParams = heroSpacer.layoutParams.apply { height = dp(120) }
         }
     }
 
@@ -1019,6 +1021,7 @@ class ArticleActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         SystemBarHelper.sync(this)
+        if (::root.isInitialized) refreshArticleTheme()
     }
 
     override fun onConfigurationChanged(

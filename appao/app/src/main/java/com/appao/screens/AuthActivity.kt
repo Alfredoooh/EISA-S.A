@@ -173,14 +173,12 @@ class AuthActivity : AppCompatActivity() {
         val parent = indicator.parent as? View ?: return
         val width = parent.width
         if (width > 0) {
+            val contentWidth = (width - parent.paddingLeft - parent.paddingRight).coerceAtLeast(2)
+            val tabWidth = contentWidth / 2
             val indicatorParams = indicator.layoutParams
-            indicatorParams.width = (width - dp(10)) / 2
+            indicatorParams.width = tabWidth
             indicator.layoutParams = indicatorParams
-            val targetX = if (register) {
-                ((width - dp(10)) / 2).toFloat()
-            } else {
-                0f
-            }
+            val targetX = if (register) tabWidth.toFloat() else 0f
             indicator.animate().cancel()
             if (animated) {
                 indicator.animate()
@@ -195,18 +193,26 @@ class AuthActivity : AppCompatActivity() {
             indicator.post { updateTabs(animated) }
         }
 
-        loginTab.setTextColor(
-            androidx.core.content.ContextCompat.getColor(
-                this,
-                if (!register) R.color.onpri else R.color.dim
-            )
+        indicator.background = AccentColorManager.primaryShape(
+            this,
+            android.graphics.drawable.GradientDrawable.RECTANGLE,
+            999f
         )
-        registerTab.setTextColor(
-            androidx.core.content.ContextCompat.getColor(
-                this,
-                if (register) R.color.onpri else R.color.dim
-            )
+        val onPrimary = AccentColorManager.onPrimaryColor(this)
+        findViewById<View>(R.id.loginSubmit).background = AccentColorManager.primaryShape(
+            this,
+            android.graphics.drawable.GradientDrawable.RECTANGLE,
+            999f
         )
+        findViewById<View>(R.id.registerSubmit).background = AccentColorManager.primaryShape(
+            this,
+            android.graphics.drawable.GradientDrawable.RECTANGLE,
+            999f
+        )
+        findViewById<TextView>(R.id.loginSubmit).setTextColor(onPrimary)
+        findViewById<TextView>(R.id.registerSubmit).setTextColor(onPrimary)
+        loginTab.setTextColor(if (!register) onPrimary else ContextCompat.getColor(this, R.color.dim))
+        registerTab.setTextColor(if (register) onPrimary else ContextCompat.getColor(this, R.color.dim))
     }
 
     private fun showIdTypePicker(

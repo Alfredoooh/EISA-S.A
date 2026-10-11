@@ -244,6 +244,7 @@
                     android:layout_width="48dp"
                     android:layout_height="48dp"
                     android:layout_gravity="start|center_vertical"
+                    android:layout_marginStart="20dp"
                     android:background="@drawable/bg_circle_card"
                     android:clickable="true"
                     android:focusable="true">
@@ -260,7 +261,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="start|center_vertical"
-                    android:layout_marginStart="56dp"
+                    android:layout_marginStart="80dp"
                     android:maxWidth="150dp"
                     android:ellipsize="end"
                     android:singleLine="true"
@@ -271,10 +272,10 @@
 
                 <LinearLayout
                     android:id="@+id/feedHeaderActions"
-                    android:layout_width="96dp"
-                    android:layout_height="48dp"
+                    android:layout_width="88dp"
+                    android:layout_height="44dp"
                     android:layout_gravity="end|center_vertical"
-                    android:layout_marginEnd="12dp"
+                    android:layout_marginEnd="20dp"
                     android:orientation="horizontal"
                     android:gravity="center"
                     android:background="@drawable/bg_toolbar_actions"
@@ -289,8 +290,8 @@
                         android:focusable="true">
                         <ImageView
                             android:id="@+id/feedPublishIcon"
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
                             android:layout_gravity="center"
                             android:scaleType="fitCenter" />
                     </FrameLayout>
@@ -304,8 +305,8 @@
                         android:focusable="true">
                         <ImageView
                             android:id="@+id/feedMoreIcon"
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
                             android:layout_gravity="center"
                             android:scaleType="fitCenter" />
                     </FrameLayout>
@@ -456,7 +457,7 @@
         <LinearLayout
             android:id="@+id/appsBottomBar"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
+            android:layout_height="44dp"
             android:layout_gravity="bottom"
             android:layout_marginStart="20dp"
             android:layout_marginEnd="20dp"
@@ -471,11 +472,11 @@
             <FrameLayout
                 android:id="@+id/appsBottomTabs"
                 android:layout_width="0dp"
-                android:layout_height="48dp"
+                android:layout_height="40dp"
                 android:layout_weight="1"
                 android:layout_marginEnd="0dp"
                 android:background="@drawable/bg_auth_segment"
-                android:padding="4dp"
+                android:padding="3dp"
                 android:clipChildren="false">
                 <View
                     android:id="@+id/appsTabIndicator"
@@ -508,16 +509,16 @@
 
             <FrameLayout
                 android:id="@+id/appsSettings"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
                 android:layout_marginStart="12dp"
                 android:background="@drawable/bg_circle_card"
                 android:clickable="true"
                 android:focusable="true">
                 <ImageView
                     android:id="@+id/appsSettingsIcon"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
                     android:layout_gravity="center"
                     android:scaleType="fitCenter" />
             </FrameLayout>

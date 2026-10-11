@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import android.content.res.ColorStateList
 import com.google.android.material.materialswitch.MaterialSwitch
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
@@ -88,12 +89,13 @@ class CategoryManagerActivity : AppCompatActivity() {
             val checkedState = intArrayOf(android.R.attr.state_checked)
             val defaultState = intArrayOf()
             val toggle = MaterialSwitch(this).apply {
+                val accentColor = AccentColorManager.resolvedOr(this@CategoryManagerActivity, R.color.pri)
                 thumbTintList = ColorStateList(arrayOf(checkedState, defaultState), intArrayOf(
-                    ContextCompat.getColor(this@CategoryManagerActivity, R.color.pri),
+                    AccentColorManager.onPrimaryColor(this@CategoryManagerActivity),
                     ContextCompat.getColor(this@CategoryManagerActivity, R.color.dim)
                 ))
                 trackTintList = ColorStateList(arrayOf(checkedState, defaultState), intArrayOf(
-                    ContextCompat.getColor(this@CategoryManagerActivity, R.color.pri),
+                    ColorUtils.setAlphaComponent(accentColor, 150),
                     ContextCompat.getColor(this@CategoryManagerActivity, R.color.card2)
                 ))
                 minimumWidth = dp(50)

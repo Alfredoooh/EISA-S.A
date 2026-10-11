@@ -38,15 +38,15 @@
 
         <FrameLayout
             android:id="@+id/searchClose"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">
             <ImageView
                 android:id="@+id/searchCloseIcon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
                 android:layout_gravity="center" />
         </FrameLayout>
 
@@ -57,15 +57,15 @@
 
         <FrameLayout
             android:id="@+id/searchMore"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:background="@drawable/bg_circle_card"
             android:clickable="true"
             android:focusable="true">
             <ImageView
                 android:id="@+id/searchMoreIcon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
                 android:layout_gravity="center" />
         </FrameLayout>
     </LinearLayout>

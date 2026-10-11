@@ -15,6 +15,12 @@ class PublishActivity : AppCompatActivity() {
         SystemBarHelper.sync(this)
 
         IconLoader.applySvg(findViewById(R.id.publishBackIcon), "nav_back", R.color.iconTint)
+        findViewById<EditText>(R.id.publishText).apply {
+            background = ContextCompat.getDrawable(this@PublishActivity, R.drawable.bg_pill_card)
+            backgroundTintList = null
+            setTextColor(ContextCompat.getColor(this@PublishActivity, R.color.text))
+            setHintTextColor(ContextCompat.getColor(this@PublishActivity, R.color.dim))
+        }
 
         findViewById<View>(R.id.publishBack).setOnClickListener {
             finish()

@@ -1,79 +1,93 @@
 const axios = require('axios');
 const cache = require('../utils/cache');
-const { filterInternationalQuality } = require('../config/newsPolicy');
-const MIN_SOURCE_QUALITY = Number(process.env.MIN_SOURCE_QUALITY) || 80;
+const { EXCLUDED_COUNTRIES, EXCLUDED_DOMAINS } = require('../config');
 
 const GDELT_BASE = 'https://api.gdeltproject.org/api/v2/doc/doc';
-const RATE_LIMIT_MS = 5500;
+const RATE_LIMIT_MS = Number(process.env.GDELT_MIN_INTERVAL_MS || 5500);
 let lastRequest = 0;
 
 async function waitRateLimit() {
-  const now = Date.now();
-  const elapsed = now - lastRequest;
-  if (elapsed < RATE_LIMIT_MS && lastRequest > 0) {
+  const elapsed = Date.now() - lastRequest;
+  if (lastRequest > 0 && elapsed < RATE_LIMIT_MS) {
     await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_MS - elapsed));
   }
   lastRequest = Date.now();
 }
 
-async function fetchNews({ query = 'news', lang = '', timespan = '24h', maxRecords = 75 }) {
-  const cacheKey = `gdelt_${query}_${lang}_${timespan}_${maxRecords}`;
+function domainExcluded(value) {
+  let domain = String(value || '').toLowerCase().replace(/^https?:\/\//, '').split('/')[0].replace(/^www\./, '');
+  if (!domain) return false;
+  for (const blocked of EXCLUDED_DOMAINS) {
+    if (domain === blocked || domain.endsWith('.' + blocked)) return true;
+  }
+  return domain.endsWith('.br') || domain.endsWith('.com.br');
+}
+
+function sourceIsExcluded(article) {
+  const country = String(article.sourcecountry || '').trim().toUpperCase();
+  const domain = String(article.domain || article.url || '').toLowerCase();
+  return EXCLUDED_COUNTRIES.has(country) || domainExcluded(domain);
+}
+function formatGdeltDate(value) {
+  if (!value) return null;
+  if (/^\d{14}$/.test(value)) {
+    return `${value.slice(0,4)}-${value.slice(4,6)}-${value.slice(6,8)}T${value.slice(8,10)}:${value.slice(10,12)}:${value.slice(12,14)}Z`;
+  }
+  if (/^\d{8}T\d{6}Z?$/.test(value)) {
+    return `${value.slice(0,4)}-${value.slice(4,6)}-${value.slice(6,8)}T${value.slice(9,11)}:${value.slice(11,13)}:${value.slice(13,15)}Z`;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+async function fetchNews({ query = 'world news', timespan = '24h', maxRecords = 100, internationalOnly = true } = {}) {
+  const safeQuery = String(query || 'world news').slice(0, 240).trim();
+  const cacheKey = `gdelt_v2_${safeQuery}_${timespan}_${internationalOnly}_${maxRecords}`;
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
   await waitRateLimit();
-
-  let q = query;
-  if (lang) q += ` sourcelang:${lang}`;
-
   try {
     const response = await axios.get(GDELT_BASE, {
       params: {
-        query: q,
+        query: safeQuery,
         mode: 'artlist',
-        maxrecords: maxRecords,
+        maxrecords: Math.min(Number(maxRecords) || 100, 250),
         timespan,
         sort: 'DateDesc',
         format: 'json'
       },
-      timeout: 15000,
-      validateStatus: s => s >= 200 && s < 500
+      timeout: 18000,
+      headers: { 'User-Agent': 'InternationalNewsAPI/2.1 (+https://render.com)' }
     });
-
-    if (response.status >= 400) throw new Error(`GDELT HTTP ${response.status}`);
-    const text = response.data;
-    if (typeof text === 'string' && text.includes('Please limit requests')) {
-      throw new Error('GDELT rate limit atingido');
+    const data = response.data;
+    if (typeof data === 'string' && data.toLowerCase().includes('please limit requests')) {
+      throw new Error('GDELT rate limit reached');
     }
-
-    const articles = (text.articles || []).map(a => ({
-      id: a.url,
-      title: a.title || '',
-      url: a.url || '',
-      image: a.socialimage || '',
-      source: a.domain || '',
-      sourceUrl: a.url || '',
-      country: a.sourcecountry || '',
-      language: a.language || '',
-      publishedAt: formatGdeltDate(a.seendate),
-      tone: a.tone ? parseFloat(a.tone) : 0,
-      provider: 'gdelt'
-    }));
-
-    const quality = filterInternationalQuality(articles, MIN_SOURCE_QUALITY);
-    cache.set(cacheKey, quality);
-    return quality;
-  } catch (err) {
-    console.error('[GDELT]', err.message);
+    const articles = (data.articles || [])
+      .filter(a => a.url && a.title && (!internationalOnly || !sourceIsExcluded(a)))
+      .map(a => ({
+        id: Buffer.from(a.url).toString('base64').slice(0, 22),
+        title: String(a.title || '').trim(),
+        description: '',
+        url: a.url,
+        image: a.socialimage || '',
+        source: String(a.domain || '').replace(/^www\./, ''),
+        sourceUrl: a.url,
+        sourceCountry: a.sourcecountry || '',
+        country: a.sourcecountry || '',
+        language: a.language || '',
+        publishedAt: formatGdeltDate(a.seendate),
+        tone: Number.isFinite(Number(a.tone)) ? Number(a.tone) : 0,
+        category: 'world',
+        provider: 'gdelt'
+      }));
+    cache.set(cacheKey, articles, 90);
+    return articles;
+  } catch (error) {
+    console.error('[GDELT]', error.message);
     return [];
   }
 }
 
-function formatGdeltDate(dateStr) {
-  if (!dateStr) return null;
-  const y = dateStr.slice(0, 4), m = dateStr.slice(4, 6), d = dateStr.slice(6, 8);
-  const h = dateStr.slice(9, 11), min = dateStr.slice(11, 13);
-  return `${y}-${m}-${d}T${h}:${min}:00Z`;
-}
-
-module.exports = { fetchNews };
+module.exports = { fetchNews, formatGdeltDate };

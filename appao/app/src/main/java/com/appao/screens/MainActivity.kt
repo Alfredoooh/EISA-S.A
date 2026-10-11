@@ -299,7 +299,7 @@ class MainActivity : AppCompatActivity() {
         homeHeader.translationZ = 0f
         IconLoader.applySvg(findViewById(R.id.homeMenuIcon), "nav_menu", R.color.iconTint)
 
-        homeFeedStack.background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
+        homeFeedStack.background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
         homeFeedStack.foreground = null
         homeFeedStack.stateListAnimator = null
         homeFeedStack.isFocusable = false
@@ -626,7 +626,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyComposerSurface() {
         biBar.setBackgroundColor(ContextCompat.getColor(this, R.color.bg))
-        biPill.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_card)
+        biPill.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_card_bordered)
         biInput.setTextColor(ContextCompat.getColor(this, R.color.text))
         biInput.setHintTextColor(ContextCompat.getColor(this, R.color.dim))
         findViewById<View>(R.id.biAddIcon).alpha = 0.4f
@@ -659,6 +659,8 @@ class MainActivity : AppCompatActivity() {
         conversationsTab.setOnClickListener { selectAppsTab(false, true) }
 
         populateAppsGrid()
+        // appsPanel starts GONE; its children measure as 0x0 until the first open.
+        // Never calculate tab widths during that hidden state.
         appsBottomTabs.post { selectAppsTab(appsTabIsApps, false) }
     }
 
@@ -679,9 +681,14 @@ class MainActivity : AppCompatActivity() {
             999f
         )
 
-        val available = (appsBottomTabs.width - appsBottomTabs.paddingLeft - appsBottomTabs.paddingRight).coerceAtLeast(2)
+        val available = appsBottomTabs.width - appsBottomTabs.paddingLeft - appsBottomTabs.paddingRight
+        val tabHeight = appsBottomTabs.height - appsBottomTabs.paddingTop - appsBottomTabs.paddingBottom
+        // When the panel is GONE, width/height are zero. Mutating the children to 2dp
+        // at that point permanently collapses the tabs until another screen/theme pass.
+        if (appsBottomTabs.width <= 0 || appsBottomTabs.height <= 0 || available <= dp(40) || tabHeight <= dp(16)) {
+            return
+        }
         val tabWidth = available / 2
-        val tabHeight = (appsBottomTabs.height - appsBottomTabs.paddingTop - appsBottomTabs.paddingBottom).coerceAtLeast(2)
 
         appsTabIndicator.layoutParams = (appsTabIndicator.layoutParams as FrameLayout.LayoutParams).apply {
             width = tabWidth
@@ -714,6 +721,16 @@ class MainActivity : AppCompatActivity() {
                 .start()
         } else {
             appsTabIndicator.translationX = target
+        }
+    }
+
+    private fun refreshAppsTabsAfterLayout() {
+        val bottomBar = findViewById<View>(R.id.appsBottomBar)
+        bottomBar.bringToFront()
+        appsBottomTabs.post {
+            if (appsPanel.visibility == View.VISIBLE && appsBottomTabs.width > dp(80) && appsBottomTabs.height > dp(20)) {
+                selectAppsTab(appsTabIsApps, false)
+            }
         }
     }
 
@@ -872,6 +889,7 @@ class MainActivity : AppCompatActivity() {
         feedOpen = false
         feedPanel.visibility = View.GONE
         appsPanel.visibility = View.VISIBLE
+        refreshAppsTabsAfterLayout()
         setAppsProgress(1f)
     }
 
@@ -921,6 +939,7 @@ class MainActivity : AppCompatActivity() {
         feedOpen = false
         feedPanel.visibility = View.GONE
         appsPanel.visibility = View.VISIBLE
+        refreshAppsTabsAfterLayout()
         val width = rootHost.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
         val current = gestureProgress ?: ((appsPanel.translationX + width) / width).coerceIn(0f, 1f)
         animateAppsTo(1f, current)

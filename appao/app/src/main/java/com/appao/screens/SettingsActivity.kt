@@ -1,18 +1,12 @@
 package com.appao
 
 import android.content.Intent
-import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.provider.Settings as AndroidSettings
-import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup
-import android.widget.GridLayout
-import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.google.android.material.bottomsheet.BottomSheetDialog
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -141,10 +135,12 @@ class SettingsActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Escuro", svg = "theme_dark"),
-                NativePopupMenu.Item(2, "Claro", svg = "theme_light"),
-                NativePopupMenu.Item(3, "Sistema", svg = "theme_system")
-            )
+                NativePopupMenu.Item(1, "Escuro", svg = "theme_dark", checked = current == "dark"),
+                NativePopupMenu.Item(2, "Claro", svg = "theme_light", checked = current == "light"),
+                NativePopupMenu.Item(3, "Sistema", svg = "theme_system", checked = current == "system")
+            ),
+            alignLeft = true,
+            placeAbove = true
         ) { item ->
             val value = when (item.id) {
                 1 -> "dark"
@@ -162,128 +158,46 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun showAccentPicker(anchor: View) {
         val current = AccentColorManager.current(this)
-        var sheet: BottomSheetDialog? = null
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(20), dp(20), dp(28))
-        }
-
-        val handle = View(this).apply {
-            background = GradientDrawable().apply {
-                cornerRadius = dp(2).toFloat()
-                setColor(ContextCompat.getColor(this@SettingsActivity, R.color.line))
+        val menuItems = buildList {
+            add(
+                NativePopupMenu.Item(
+                    id = 0,
+                    title = "Padrão",
+                    iconColor = AccentColorManager.resolvedOr(this@SettingsActivity, R.color.pri),
+                    checked = current == AccentColorManager.NONE
+                )
+            )
+            AccentColorManager.options.forEach { option ->
+                add(
+                    NativePopupMenu.Item(
+                        id = option.id + 1,
+                        title = option.label,
+                        iconColor = option.color,
+                        checked = current == option.id
+                    )
+                )
             }
         }
-        root.addView(handle, LinearLayout.LayoutParams(dp(38), dp(4)).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-            bottomMargin = dp(16)
-        })
 
-        val title = TextView(this).apply {
-            text = "Cor de destaque"
-            textSize = 19f
-            setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.text))
-        }
-        root.addView(title, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ))
-
-        val subtitle = TextView(this).apply {
-            text = "Escolhe uma cor sólida para os elementos principais da app."
-            textSize = 13f
-            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.dim))
-            setPadding(0, dp(6), 0, dp(16))
-        }
-        root.addView(subtitle)
-
-        val defaultRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-            background = GradientDrawable().apply {
-                cornerRadius = dp(14).toFloat()
-                setColor(ContextCompat.getColor(this@SettingsActivity, R.color.card2))
-            }
-            isClickable = true
-            isFocusable = true
-        }
-        val defaultSwatch = View(this).apply {
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(AccentColorManager.resolvedOr(this@SettingsActivity, R.color.pri))
-                setStroke(dp(if (current == AccentColorManager.NONE) 2 else 1), ContextCompat.getColor(this@SettingsActivity, if (current == AccentColorManager.NONE) R.color.bg else R.color.line))
-            }
-        }
-        defaultRow.addView(defaultSwatch, LinearLayout.LayoutParams(dp(32), dp(32)))
-        val defaultLabel = TextView(this).apply {
-            text = "Padrão — preto no tema claro, branco no escuro"
-            textSize = 13.5f
-            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.text))
-            setPadding(dp(12), 0, 0, 0)
-        }
-        defaultRow.addView(defaultLabel, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        defaultRow.setOnClickListener {
-            AccentColorManager.save(this, AccentColorManager.NONE)
-            refreshValues()
-            sheet?.dismiss()
-            AppAoToast.show(this, "Cor padrão aplicada")
-        }
-        root.addView(defaultRow, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply { bottomMargin = dp(16) })
-
-        val grid = GridLayout(this).apply {
-            columnCount = 5
-            rowCount = 2
-            useDefaultMargins = false
-            alignmentMode = GridLayout.ALIGN_BOUNDS
-        }
-        AccentColorManager.options.forEachIndexed { index, option ->
-            val selected = option.id == current
-            val cell = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
-                isClickable = true
-                isFocusable = true
-                setPadding(dp(2), dp(4), dp(2), dp(4))
-            }
-            val swatch = View(this).apply {
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(option.color)
-                    val border = if (selected) ContextCompat.getColor(this@SettingsActivity, R.color.text) else ContextCompat.getColor(this@SettingsActivity, R.color.line)
-                    setStroke(dp(if (selected) 3 else 1), border)
+        NativePopupMenu.show(
+            anchor,
+            menuItems,
+            alignLeft = true,
+            placeAbove = true
+        ) { item ->
+            if (item.id == 0) {
+                AccentColorManager.save(this, AccentColorManager.NONE)
+                refreshValues()
+                AppAoToast.show(this, "Cor padrão aplicada")
+            } else {
+                val option = AccentColorManager.options.firstOrNull { it.id == item.id - 1 }
+                if (option != null) {
+                    AccentColorManager.save(this, option.id)
+                    refreshValues()
+                    AppAoToast.show(this, option.label)
                 }
             }
-            cell.addView(swatch, LinearLayout.LayoutParams(dp(34), dp(34)))
-            val label = TextView(this).apply {
-                text = option.label
-                textSize = 10.5f
-                gravity = Gravity.CENTER
-                maxLines = 1
-                setTextColor(ContextCompat.getColor(this@SettingsActivity, if (selected) R.color.text else R.color.dim))
-                setPadding(0, dp(5), 0, 0)
-            }
-            cell.addView(label, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-            cell.setOnClickListener {
-                AccentColorManager.save(this, option.id)
-                refreshValues()
-                sheet?.dismiss()
-                AppAoToast.show(this, option.label)
-            }
-            grid.addView(cell, GridLayout.LayoutParams().apply {
-                width = 0
-                height = dp(68)
-                columnSpec = GridLayout.spec(index % 5, 1f)
-                rowSpec = GridLayout.spec(index / 5)
-                setMargins(dp(1), dp(1), dp(1), dp(1))
-            })
         }
-        root.addView(grid, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ))
-        sheet = NativeSheetDialog.show(this, root)
     }
 
     private fun showLangPicker(anchor: View) {
@@ -291,12 +205,14 @@ class SettingsActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Português", png = "flags/pt"),
-                NativePopupMenu.Item(2, "English", png = "flags/en"),
-                NativePopupMenu.Item(3, "Español", png = "flags/es"),
-                NativePopupMenu.Item(4, "Français", png = "flags/fr"),
-                NativePopupMenu.Item(5, "Deutsch", png = "flags/de")
-            )
+                NativePopupMenu.Item(1, "Português", png = "flags/pt", checked = current == "pt"),
+                NativePopupMenu.Item(2, "English", png = "flags/en", checked = current == "en"),
+                NativePopupMenu.Item(3, "Español", png = "flags/es", checked = current == "es"),
+                NativePopupMenu.Item(4, "Français", png = "flags/fr", checked = current == "fr"),
+                NativePopupMenu.Item(5, "Deutsch", png = "flags/de", checked = current == "de")
+            ),
+            alignLeft = true,
+            placeAbove = true
         ) { item ->
             val code = when (item.id) {
                 1 -> "pt"

@@ -28,6 +28,7 @@ object HtmlStylePopup {
         val iconName: String? = null,
         val checked: Boolean = false,
         val useSvg: Boolean = false,
+        val iconColor: Int? = null,
         val onClick: () -> Unit
     )
 
@@ -42,7 +43,8 @@ object HtmlStylePopup {
     fun show(
         anchor: View,
         items: List<Item>,
-        placeAbove: Boolean = false
+        placeAbove: Boolean = true,
+        alignLeft: Boolean = false
     ): PopupWindow {
 
         val context =
@@ -61,6 +63,21 @@ object HtmlStylePopup {
                     density +
                     0.5f
                 ).toInt()
+
+        val rootView = anchor.rootView as? ViewGroup
+        val decorRoot = rootView?.findViewById<ViewGroup>(android.R.id.content) ?: rootView
+        var popupRef: PopupWindow? = null
+        val dimOverlay = decorRoot?.let { decor ->
+            View(context).apply {
+                setBackgroundColor(Color.argb(34, 0, 0, 0))
+                alpha = 0f
+                isClickable = true
+                isFocusable = false
+                setOnClickListener { popupRef?.dismiss() }
+            }
+        }
+
+        val compactColorMenu = items.size >= 6 && items.all { it.iconColor != null }
 
         val root =
             LinearLayout(context).apply {
@@ -95,6 +112,7 @@ object HtmlStylePopup {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 true
             ).apply {
+                popupRef = this
 
                 setBackgroundDrawable(
                     ColorDrawable(
@@ -118,7 +136,9 @@ object HtmlStylePopup {
                     0
 
                 setOnDismissListener {
-
+                    if (dimOverlay != null && decorRoot != null && dimOverlay.parent === decorRoot) {
+                        runCatching { decorRoot.removeView(dimOverlay) }
+                    }
                     root.animate().cancel()
 
                     for (
@@ -146,13 +166,13 @@ object HtmlStylePopup {
                         Gravity.CENTER_VERTICAL
 
                     minimumHeight =
-                        dp(48)
+                        dp(if (compactColorMenu) 36 else 48)
 
                     setPadding(
-                        dp(14),
-                        dp(13),
-                        dp(14),
-                        dp(13)
+                        dp(if (compactColorMenu) 12 else 14),
+                        dp(if (compactColorMenu) 5 else 13),
+                        dp(if (compactColorMenu) 12 else 14),
+                        dp(if (compactColorMenu) 5 else 13)
                     )
 
                     background =
@@ -179,18 +199,22 @@ object HtmlStylePopup {
 
                     layoutParams =
                         LinearLayout.LayoutParams(
-                            dp(24),
-                            dp(24)
+                            dp(if (compactColorMenu) 20 else 24),
+                            dp(if (compactColorMenu) 20 else 24)
                         )
 
                     scaleType =
                         ImageView.ScaleType.CENTER_INSIDE
 
-                    if (
-                        !item.iconName
-                            .isNullOrBlank()
-                    ) {
-
+                    if (item.iconColor != null) {
+                        background = GradientDrawable().apply {
+                            shape = GradientDrawable.OVAL
+                            setColor(item.iconColor)
+                            if (item.checked) {
+                                setStroke(dp(2), AccentColorManager.onPrimaryColor(context))
+                            }
+                        }
+                    } else if (!item.iconName.isNullOrBlank()) {
                         if (item.useSvg) {
                             IconLoader.applySvg(this, item.iconName!!, R.color.iconTint)
                         } else {
@@ -210,7 +234,7 @@ object HtmlStylePopup {
                         item.label
 
                     textSize =
-                        15f
+                        if (compactColorMenu) 13.5f else 15f
 
                     setTextColor(
                         ContextCompat.getColor(
@@ -340,22 +364,39 @@ object HtmlStylePopup {
             anchorTop +
                 anchor.height
 
-        val margin = dp(12)
+        val margin = dp(8)
         val edge = dp(8)
         val maxLeft = (frame.right - width - edge).coerceAtLeast(frame.left + edge)
-        val left = (if (frame.right - anchorRight >= width + margin) {
+        val preferredLeft = if (alignLeft) {
+            anchorLeft
+        } else if (frame.right - anchorRight >= width + margin) {
             anchorRight - width
         } else {
             anchorLeft - max(0, width - anchor.width)
-        }).coerceIn(frame.left + edge, maxLeft)
+        }
+        val left = preferredLeft.coerceIn(frame.left + edge, maxLeft)
 
         val availableBelow = frame.bottom - anchorBottom - margin
         val availableAbove = anchorTop - frame.top - margin
         val showAbove = placeAbove || (height > availableBelow && availableAbove > availableBelow)
-        val naturalTop = if (showAbove) anchorTop - height - margin else anchorBottom
+        val naturalTop = if (showAbove) anchorTop - height - margin else anchorBottom + margin
         val minTop = frame.top + edge
         val maxTop = (frame.bottom - height - edge).coerceAtLeast(minTop)
         val top = naturalTop.coerceIn(minTop, maxTop)
+
+        if (dimOverlay != null && decorRoot != null) {
+            runCatching {
+                decorRoot.addView(
+                    dimOverlay,
+                    ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                )
+            }.onSuccess {
+                dimOverlay.animate().alpha(1f).setDuration(120L).start()
+            }
+        }
 
         popup.showAtLocation(
             anchor,

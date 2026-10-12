@@ -102,7 +102,7 @@ class MainActivity : AppCompatActivity() {
     private var feedAnimator: ValueAnimator? = null
     private var appsAnimator: ValueAnimator? = null
 
-    private var appsTabIsApps = true
+    private var appsTabIsApps = false
     private var appsReady = false
 
     private var feedHeaderHeight = 0
@@ -320,7 +320,13 @@ class MainActivity : AppCompatActivity() {
         adapter = NewsAdapter(
             initial = items.toList(),
             onClick = { item, source -> openArticle(item, source) },
-            showTopCards = false
+            showTopCards = false,
+            onArticleMenu = { item, anchor -> showArticleCardMenu(item, anchor) },
+            isSaved = { item -> isArticleSaved(item) },
+            onToggleSaved = { item ->
+                toggleArticleSaved(item)
+                if (::adapter.isInitialized) adapter.notifyDataSetChanged()
+            }
         )
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
@@ -339,14 +345,15 @@ class MainActivity : AppCompatActivity() {
         pullIndicator.alpha = 0f
         pullIndicator.scaleX = 0f
         pullIndicator.scaleY = 0f
+        recycler.translationY = 0f
     }
 
     private fun setupFeedHeader() {
         feedHeader.elevation = 0f
         feedHeader.translationZ = 0f
         IconLoader.applySvg(findViewById(R.id.feedBackIcon), "nav_back", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "action_publish", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "action_overflow", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "edit", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more_horiz", R.color.iconTint)
 
         findViewById<TextView>(R.id.feedToolbarTitle).apply {
             text = "Descobrir"
@@ -419,11 +426,33 @@ class MainActivity : AppCompatActivity() {
             row.addView(tv)
 
             tab.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(34)))
-            val indicator = View(this).apply {
-                setBackgroundColor(if (label == currentCat) AccentColorManager.resolvedOr(this@MainActivity, R.color.pri) else android.graphics.Color.TRANSPARENT)
-                alpha = if (label == currentCat) 1f else 0f
+            val indicatorTrack = FrameLayout(this).apply {
+                clipChildren = false
+                clipToPadding = false
             }
-            tab.addView(indicator, LinearLayout.LayoutParams(dp(54), dp(2)))
+            val indicator = View(this).apply {
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                    cornerRadius = dp(99).toFloat()
+                    setColor(AccentColorManager.resolvedOr(this@MainActivity, R.color.pri))
+                }
+                alpha = if (label == currentCat) 1f else 0f
+                scaleX = if (label == currentCat) 1f else 0.72f
+            }
+            indicatorTrack.addView(indicator, FrameLayout.LayoutParams(dp(1), dp(3), Gravity.CENTER))
+            tab.addView(indicatorTrack, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(5)))
+            tv.post {
+                val width = tv.width.coerceAtLeast(dp(8))
+                indicator.layoutParams = (indicator.layoutParams as FrameLayout.LayoutParams).apply { this.width = width; height = dp(3) }
+                if (label == currentCat) {
+                    indicator.animate().cancel()
+                    indicator.scaleX = 0.72f
+                    indicator.alpha = 0f
+                    indicator.animate().scaleX(1f).alpha(1f).setDuration(260L).setInterpolator(Curves.SMOOTH).start()
+                } else {
+                    indicator.alpha = 0f
+                }
+            }
 
             tab.setOnClickListener {
                 if (label != currentCat) {
@@ -435,23 +464,19 @@ class MainActivity : AppCompatActivity() {
             feedTabsHost.addView(tab, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
         }
 
-        // Match the exact circular action-button dimensions used by appsSettings.
-        val iconButtonSize = resources.getDimensionPixelSize(R.dimen.icon_button_size)
-        val iconButtonIconSize = resources.getDimensionPixelSize(R.dimen.icon_button_icon_size)
+        // The category control is an uncontained pencil, not a plus/circle button.
         val plus = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(iconButtonSize, iconButtonSize).apply {
-                marginStart = dp(8)
-            }
-            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_circle_card)
-            clipToOutline = true
+            layoutParams = LinearLayout.LayoutParams(dp(34), dp(34)).apply { marginStart = dp(6) }
+            background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
             isClickable = true
             isFocusable = true
+            contentDescription = "Editar categorias"
         }
         val plusIcon = ImageView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(iconButtonIconSize, iconButtonIconSize, Gravity.CENTER)
+            layoutParams = FrameLayout.LayoutParams(dp(19), dp(19), Gravity.CENTER)
             scaleType = ImageView.ScaleType.CENTER_INSIDE
         }
-        IconLoader.applySvg(plusIcon, "action_add", R.color.iconTint)
+        IconLoader.applySvg(plusIcon, "edit", R.color.iconTint)
         plus.addView(plusIcon)
         plus.setOnClickListener { showCategoryManager() }
         feedTabsHost.addView(plus)
@@ -501,13 +526,15 @@ class MainActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Editar categorias", svg = "action_edit"),
-                NativePopupMenu.Item(2, "Atualizar notícias", svg = "action_refresh")
+                NativePopupMenu.Item(1, "Recarregar", svg = "refresh"),
+                NativePopupMenu.Item(2, "Editar categorias", svg = "edit"),
+                NativePopupMenu.Item(3, "Guardados", svg = "bookmark")
             )
         ) { item ->
             when (item.id) {
-                1 -> showCategoryManager()
-                2 -> loadNews(true)
+                1 -> loadNews(true)
+                2 -> showCategoryManager()
+                3 -> startActivity(Intent(this, LibraryActivity::class.java).putExtra("source", "saved"))
             }
         }
     }
@@ -519,8 +546,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupBottomInput() {
         IconLoader.applySvg(findViewById(R.id.biAddIcon), "action_add", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biSliderIcon), "action_filters", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biSendIcon), "action_send_arrow", R.color.iconTint)
+        // The composer action is a location affordance; its glyph is not the settings/filter icon.
+        IconLoader.applySvg(findViewById(R.id.biSliderIcon), "location_on", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow_upward", R.color.iconTint)
 
         // Native reproduction of the supplied HTML textarea. The action row is
         // structurally separate, so it stays anchored while the textarea grows.
@@ -642,8 +670,14 @@ class MainActivity : AppCompatActivity() {
         appsHeader.elevation = 0f
         appsHeader.translationZ = 0f
         IconLoader.applyPng(findViewById(R.id.appsProfileAvatar), "avatar")
+        IconLoader.applyPng(findViewById(R.id.appsProfileAvatarBottom), "avatar")
+        IconLoader.applySvg(findViewById(R.id.appsSearchIcon), "search", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsNewChatIcon), "new_chat", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsBackIcon), "nav_forward", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "nav_settings", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
+        findViewById<View>(R.id.appsProfileBottom).setOnClickListener {
+            startActivity(Intent(this, AuthActivity::class.java))
+        }
 
         findViewById<View>(R.id.appsProfile).setOnClickListener {
             startActivity(Intent(this, AuthActivity::class.java))
@@ -655,8 +689,21 @@ class MainActivity : AppCompatActivity() {
 
         val appsTab = findViewById<TextView>(R.id.appsTab)
         val conversationsTab = findViewById<TextView>(R.id.conversationsTab)
-        appsTab.setOnClickListener { selectAppsTab(true, true) }
-        conversationsTab.setOnClickListener { selectAppsTab(false, true) }
+        appsTab.text = "Conversas"
+        conversationsTab.text = "Projetos"
+        appsTab.setOnClickListener { selectAppsTab(false, true) }
+        conversationsTab.setOnClickListener { selectAppsTab(true, true) }
+
+        findViewById<View>(R.id.appsSearch).setOnClickListener {
+            startActivity(Intent(this, SearchActivity::class.java).putExtra("menu_search", true))
+            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+        }
+        findViewById<View>(R.id.appsNewChat).setOnClickListener {
+            biInput.setText("")
+            biInput.clearFocus()
+            closeAppsPanel()
+            AppAoToast.show(this, "Nova conversa pronta")
+        }
 
         populateAppsGrid()
         // appsPanel starts GONE; its children measure as 0x0 until the first open.
@@ -673,8 +720,8 @@ class MainActivity : AppCompatActivity() {
         val conversationsTab = findViewById<TextView>(R.id.conversationsTab)
         val active = AccentColorManager.onPrimaryColor(this)
         val inactive = ContextCompat.getColor(this, R.color.dim)
-        appsTab.setTextColor(if (apps) active else inactive)
-        conversationsTab.setTextColor(if (apps) inactive else active)
+        appsTab.setTextColor(if (!apps) active else inactive)
+        conversationsTab.setTextColor(if (apps) active else inactive)
         appsTabIndicator.background = AccentColorManager.primaryShape(
             this,
             android.graphics.drawable.GradientDrawable.RECTANGLE,
@@ -712,7 +759,7 @@ class MainActivity : AppCompatActivity() {
         appsTabIndicator.visibility = View.VISIBLE
         appsTabIndicator.alpha = 1f
         appsTabIndicator.animate().cancel()
-        val target = if (apps) 0f else tabWidth.toFloat()
+        val target = if (apps) tabWidth.toFloat() else 0f
         if (animated) {
             appsTabIndicator.animate()
                 .translationX(target)
@@ -1017,7 +1064,8 @@ class MainActivity : AppCompatActivity() {
         feedBarAnimator?.cancel()
         feedBarProgress = 0f
         feedHeader.translationY = 0f
-        recycler.updatePadding(top = dp(104))
+        recycler.updatePadding(top = feedHeaderHeight.takeIf { it > 0 } ?: dp(104))
+        recycler.translationY = 0f
     }
 
     private suspend fun fetchFeedCategory(category: String, pageNumber: Int): List<NewsItem> {
@@ -1177,20 +1225,21 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
                 "image" -> {
-                    startActivity(
-                        Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                            addCategory(Intent.CATEGORY_OPENABLE)
-                            type = "image/*"
-                        }
+                    startActivityForResult(
+                        Intent(this, SearchActivity::class.java).putExtra("gallery_mode", true),
+                        902
                     )
+                    overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
                 }
                 "camera" -> {
-                    val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-                    if (intent.resolveActivity(packageManager) != null) {
-                        startActivity(intent)
-                    }
+                    startActivityForResult(
+                        Intent(this, SearchActivity::class.java).putExtra("camera_mode", true),
+                        903
+                    )
+                    overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
                 }
                 "think" -> {
+                    getSharedPreferences("appao", MODE_PRIVATE).edit().putBoolean("think_mode", true).apply()
                     showNavProgress()
                     startActivity(Intent(this, AppViewerActivity::class.java).apply {
                         putExtra("url", "file:///android_asset/apps/ai.html?mode=think")
@@ -1288,7 +1337,10 @@ class MainActivity : AppCompatActivity() {
         val threshold = dp(72).toFloat()
         val appearT = (y / dp(55).toFloat()).coerceAtMost(1f)
         val zoom = 1f - (1f - appearT) * (1f - appearT) * (1f - appearT)
-        val topY = y * 0.5f - dp(14).toFloat()
+        // Instagram-style refresh: the toolbar and category bar stay pinned.
+        // Only the news content is elastically pushed down, revealing a gap for the loader.
+        val headerHeight = (feedHeaderHeight.takeIf { it > 0 } ?: dp(104)).toFloat()
+        val topY = headerHeight + (y * 0.34f) - dp(14).toFloat()
 
         pullIndicator.alpha = zoom
         pullIndicator.scaleX = zoom
@@ -1300,9 +1352,9 @@ class MainActivity : AppCompatActivity() {
             pullIndicator.rotationDegrees = pullRotation
         }
 
-        feedPanel.translationY = y.coerceAtLeast(0f)
+        recycler.translationY = y.coerceAtLeast(0f)
         feedPanel.translationX = if (feedOpen) 0f else (rootHost.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels).toFloat()
-        feedHeader.translationY = -(feedHeaderHeight.takeIf { it > 0 } ?: dp(56)).toFloat() * feedBarProgress
+        // AppBar remains in place while pulling; normal scrolling still hides it via updateFeedBarsFromScroll().
     }
 
     private fun beginPullRefresh() {
@@ -1338,9 +1390,88 @@ class MainActivity : AppCompatActivity() {
         loadNews(true)
     }
 
+    @Deprecated("Uses legacy result callbacks to remain compatible with the existing Activity structure")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if ((requestCode == 902 || requestCode == 903) && resultCode == RESULT_OK) {
+            val uri = data?.getStringExtra("image_uri") ?: data?.data?.toString()
+            if (!uri.isNullOrBlank()) {
+                getSharedPreferences("appao", MODE_PRIVATE).edit()
+                    .putString("pending_media_uri", uri)
+                    .apply()
+                AppAoToast.show(this, if (requestCode == 903) "Imagem da câmara selecionada" else "Imagem selecionada")
+            }
+        }
+    }
+
     private fun openPublish() {
         startActivity(Intent(this, PublishActivity::class.java))
         overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+    }
+
+    private fun isArticleSaved(item: NewsItem): Boolean {
+        if (item.link.isBlank()) return false
+        val raw = getSharedPreferences("appao", MODE_PRIVATE).getString("library_json", "[]") ?: "[]"
+        return runCatching {
+            val saved = JSONArray(raw)
+            (0 until saved.length()).any { i ->
+                normalizeUrl(saved.optJSONObject(i)?.optString("link").orEmpty()) == normalizeUrl(item.link)
+            }
+        }.getOrDefault(false)
+    }
+
+    private fun toggleArticleSaved(item: NewsItem) {
+        val prefs = getSharedPreferences("appao", MODE_PRIVATE)
+        val original = runCatching { JSONArray(prefs.getString("library_json", "[]") ?: "[]") }.getOrElse { JSONArray() }
+        val target = normalizeUrl(item.link)
+        val wasSaved = isArticleSaved(item)
+        val updated = JSONArray()
+        for (i in 0 until original.length()) {
+            val obj = original.optJSONObject(i) ?: continue
+            if (wasSaved && normalizeUrl(obj.optString("link")) == target) continue
+            updated.put(obj)
+        }
+        if (!wasSaved) updated.put(JSONObject().apply {
+            put("id", item.id)
+            put("title", item.title)
+            put("summary", item.summary)
+            put("link", item.link)
+            put("source", item.source)
+            put("date", item.date)
+            put("image", item.image)
+            put("logo", item.logo)
+        })
+        prefs.edit().putString("library_json", updated.toString()).apply()
+        AppAoToast.show(this, if (wasSaved) "Removido dos guardados" else "Notícia guardada")
+    }
+
+    private fun showArticleCardMenu(item: NewsItem, anchor: View) {
+        NativePopupMenu.show(
+            anchor,
+            listOf(
+                NativePopupMenu.Item(1, "Partilhar", svg = "share"),
+                NativePopupMenu.Item(2, if (isArticleSaved(item)) "Remover dos guardados" else "Guardar", svg = "bookmark"),
+                NativePopupMenu.Item(3, "Abrir no navegador", svg = "external_link")
+            ),
+            alignLeft = false,
+            placeAbove = false
+        ) { choice ->
+            when (choice.id) {
+                1 -> runCatching {
+                    startActivity(Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, "${item.title}\n${item.link}")
+                    }.let { Intent.createChooser(it, "Partilhar notícia") })
+                }.onFailure { AppAoToast.show(this, "Não foi possível partilhar") }
+                2 -> {
+                    toggleArticleSaved(item)
+                    adapter.notifyDataSetChanged()
+                }
+                3 -> runCatching {
+                    startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(item.link)))
+                }.onFailure { AppAoToast.show(this, "Não foi possível abrir o navegador") }
+            }
+        }
     }
 
     private fun openArticle(item: NewsItem, source: View) {
@@ -1462,15 +1593,17 @@ class MainActivity : AppCompatActivity() {
 
         IconLoader.applySvg(findViewById(R.id.homeMenuIcon), "nav_menu", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.feedBackIcon), "nav_back", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "action_publish", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "action_overflow", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "edit", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more_horiz", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biAddIcon), "action_add", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biSliderIcon), "action_filters", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biSendIcon), "action_send_arrow", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.biSliderIcon), "location_on", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow_upward", R.color.iconTint)
         IconLoader.applyPng(findViewById(R.id.appsProfileAvatar), "avatar")
+        IconLoader.applyPng(findViewById(R.id.appsProfileAvatarBottom), "avatar")
+        IconLoader.applySvg(findViewById(R.id.appsSearchIcon), "search", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsNewChatIcon), "new_chat", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsBackIcon), "nav_forward", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "nav_settings", R.color.iconTint)
-
+        IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
         findViewById<TextView>(R.id.feedToolbarTitle).setTextColor(ContextCompat.getColor(this, R.color.text))
         refreshFeedTabs(false)
         findViewById<TextView>(R.id.appsTitle).setTextColor(ContextCompat.getColor(this, R.color.text))
@@ -1486,6 +1619,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.appsSettings).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
         findViewById<View>(R.id.appsProfile).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
         findViewById<ImageView>(R.id.appsProfileAvatar).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
+        findViewById<View>(R.id.appsProfileBottom).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
+        findViewById<ImageView>(R.id.appsProfileAvatarBottom).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
         selectAppsTab(appsTabIsApps, false)
         if (::adapter.isInitialized) adapter.refreshTheme(recycler)
         // Theme changes update the current surface in place; no feed request or data rebuild is made.

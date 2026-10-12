@@ -2,7 +2,28 @@ package com.appao
 
 import android.animation.ValueAnimator
 import android.content.Intent
+import android.database.Cursor
+import android.Manifest
+import android.content.ContentValues
+import android.content.pm.PackageManager
+import android.graphics.ImageFormat
+import android.graphics.SurfaceTexture
+import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraDevice
+import android.hardware.camera2.CameraManager
+import android.hardware.camera2.CaptureRequest
+import android.media.ImageReader
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.os.Handler
+import android.os.Looper
+import android.provider.MediaStore
+import android.util.Size
+import android.view.Surface
+import android.view.TextureView
 import android.text.Editable
 import android.text.Layout
 import android.text.StaticLayout
@@ -23,6 +44,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import android.view.animation.PathInterpolator
+import java.io.File
 
 /** Internal native search surface. It uses the exact same composer geometry as the main page. */
 class SearchActivity : AppCompatActivity() {
@@ -34,6 +56,16 @@ class SearchActivity : AppCompatActivity() {
     private lateinit var input: EditText
     private lateinit var send: FrameLayout
     private var heightAnimator: ValueAnimator? = null
+    private var galleryMode = false
+    private var cameraMode = false
+    private lateinit var cameraPreview: TextureView
+    private var cameraDevice: CameraDevice? = null
+    private var cameraSession: CameraCaptureSession? = null
+    private var previewRequest: CaptureRequest.Builder? = null
+    private var photoReader: ImageReader? = null
+    private var cameraSensorOrientation = 0
+    private var cameraPermissionPending = false
+    private var galleryPermissionPending = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,14 +87,23 @@ class SearchActivity : AppCompatActivity() {
             insets
         }
 
-        IconLoader.applySvg(findViewById(R.id.searchCloseIcon), "action_close", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "action_overflow", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.searchCloseIcon), "close", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "more_horiz", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.searchAddIcon), "action_add", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchSliderIcon), "action_filters", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchSendIcon), "action_send_arrow", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.searchSliderIcon), "location_on", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.searchSendIcon), "arrow_upward", R.color.iconTint)
 
+        galleryMode = intent.getBooleanExtra("gallery_mode", false)
+        cameraMode = intent.getBooleanExtra("camera_mode", false)
+        cameraPreview = findViewById(R.id.searchCameraPreview)
         findViewById<View>(R.id.searchClose).setOnClickListener { finish() }
-        findViewById<View>(R.id.searchMore).setOnClickListener { showMorePopup(it) }
+        findViewById<View>(R.id.searchMore).setOnClickListener {
+            when {
+                galleryMode -> openNativeImagePicker()
+                cameraMode -> launchCamera()
+                else -> showMorePopup(it)
+            }
+        }
         findViewById<View>(R.id.searchAdd).setOnClickListener {
             AppsPopup.show(it) { action ->
                 when (action) {
@@ -104,13 +145,328 @@ class SearchActivity : AppCompatActivity() {
         input.setSelection(input.text.length)
         resultQuery.text = initial
 
+        if (intent.getBooleanExtra("menu_search", false)) {
+            findViewById<View>(R.id.searchMore).visibility = View.GONE
+            composerBar.layoutParams = (composerBar.layoutParams as FrameLayout.LayoutParams).apply {
+                gravity = Gravity.TOP
+                topMargin = dp(56)
+                bottomMargin = 0
+            }
+            findViewById<View>(R.id.searchContent).setPadding(
+                dp(20), dp(150), dp(20), dp(20)
+            )
+            input.hint = "Pesquisar conversas e projetos"
+            input.post {
+                input.requestFocus()
+                (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
+                    .showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+            }
+        }
+
+        if (galleryMode) {
+            resultQuery.visibility = View.GONE
+            composerBar.visibility = View.GONE
+            findViewById<View>(R.id.searchContent).visibility = View.GONE
+            findViewById<View>(R.id.searchTopBar).visibility = View.VISIBLE
+            findViewById<View>(R.id.searchCameraPanel).visibility = View.GONE
+            findViewById<android.widget.GridView>(R.id.searchGalleryGrid).visibility = View.VISIBLE
+            findViewById<View>(R.id.searchMediaEmpty).visibility = View.VISIBLE
+            findViewById<View>(R.id.searchMore).contentDescription = "Abrir galeria do dispositivo"
+            IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "image", R.color.iconTint)
+            ensureGalleryPermissionAndLoad()
+        } else if (cameraMode) {
+            resultQuery.visibility = View.GONE
+            composerBar.visibility = View.GONE
+            findViewById<View>(R.id.searchContent).visibility = View.GONE
+            findViewById<View>(R.id.searchCameraPanel).visibility = View.VISIBLE
+            findViewById<View>(R.id.searchGalleryGrid).visibility = View.GONE
+            findViewById<View>(R.id.searchMediaEmpty).visibility = View.GONE
+            findViewById<View>(R.id.searchMore).visibility = View.GONE
+            IconLoader.applySvg(findViewById(R.id.searchCameraIcon), "camera", R.color.iconTint)
+            findViewById<View>(R.id.searchCameraButton).setOnClickListener { captureOrStartCamera() }
+            cameraPreview.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
+                    openCameraPreview()
+                }
+                override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) = Unit
+                override fun onSurfaceTextureUpdated(surface: SurfaceTexture) = Unit
+                override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
+            }
+            if (cameraPreview.isAvailable) openCameraPreview()
+        }
+
         applyTheme()
-        input.post {
+        if (!galleryMode && !cameraMode) input.post {
             resizeInput(false)
             updateSendState()
         }
 
         overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+    }
+
+    private fun ensureGalleryPermissionAndLoad() {
+        val requiredPermissions = when {
+            Build.VERSION.SDK_INT >= 34 -> arrayOf(
+                Manifest.permission.READ_MEDIA_IMAGES,
+                "android.permission.READ_MEDIA_VISUAL_USER_SELECTED"
+            )
+            Build.VERSION.SDK_INT >= 33 -> arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
+            else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+        val hasAccess = requiredPermissions.any {
+            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+        }
+        if (hasAccess) {
+            loadDeviceImages()
+            return
+        }
+        galleryPermissionPending = true
+        runCatching { requestPermissions(requiredPermissions, 907) }
+            .onFailure {
+                galleryPermissionPending = false
+                showGalleryPermissionFallback()
+            }
+    }
+
+    private fun showGalleryPermissionFallback() {
+        findViewById<TextView>(R.id.searchMediaEmpty).apply {
+            text = "Permite o acesso às imagens ou usa o botão de galeria para escolher uma imagem."
+            visibility = View.VISIBLE
+        }
+        findViewById<android.widget.GridView>(R.id.searchGalleryGrid).visibility = View.GONE
+    }
+
+    private fun loadDeviceImages() {
+        val grid = findViewById<android.widget.GridView>(R.id.searchGalleryGrid)
+        val empty = findViewById<View>(R.id.searchMediaEmpty)
+        val images = ArrayList<Uri>()
+        var cursor: Cursor? = null
+        try {
+            cursor = contentResolver.query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                arrayOf(MediaStore.Images.Media._ID),
+                null,
+                null,
+                "${MediaStore.Images.Media.DATE_ADDED} DESC"
+            )
+            cursor?.let { c ->
+                val idColumn = c.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
+                while (c.moveToNext() && images.size < 240) {
+                    val id = c.getLong(idColumn)
+                    images += Uri.withAppendedPath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id.toString())
+                }
+            }
+        } catch (_: SecurityException) {
+            // On Android versions that require scoped media permission, the native picker remains available.
+        } catch (_: Throwable) {
+        } finally {
+            cursor?.close()
+        }
+
+        empty.text = if (images.isEmpty()) "Ainda não há imagens para mostrar. Usa o botão de galeria para abrir o seletor do dispositivo." else ""
+        empty.visibility = if (images.isEmpty()) View.VISIBLE else View.GONE
+        grid.adapter = object : android.widget.BaseAdapter() {
+            override fun getCount(): Int = images.size
+            override fun getItem(position: Int): Any = images[position]
+            override fun getItemId(position: Int): Long = position.toLong()
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val image = (convertView as? ImageView) ?: ImageView(this@SearchActivity).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    background = ContextCompat.getDrawable(this@SearchActivity, R.drawable.bg_circle_card)
+                    clipToOutline = true
+                    layoutParams = android.widget.AbsListView.LayoutParams(-1, dp(132))
+                    contentDescription = "Selecionar imagem"
+                }
+                Glide.with(image).load(images[position]).centerCrop().into(image)
+                image.setOnClickListener {
+                    setResult(RESULT_OK, Intent().setData(images[position]).putExtra("image_uri", images[position].toString()))
+                    finish()
+                }
+                return image
+            }
+        }
+    }
+
+    private fun openNativeImagePicker() {
+        runCatching {
+            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "image/*"
+            }, 904)
+        }.onFailure { AppAoToast.show(this, "Não foi possível abrir a galeria") }
+    }
+
+    private fun captureOrStartCamera() {
+        if (cameraDevice == null || cameraSession == null || photoReader == null) {
+            openCameraPreview()
+            return
+        }
+        try {
+            val device = cameraDevice ?: return
+            val session = cameraSession ?: return
+            val reader = photoReader ?: return
+            val request = device.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
+                addTarget(reader.surface)
+                set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
+                val rotation = windowManager.defaultDisplay.rotation
+                val displayDegrees = when (rotation) {
+                    Surface.ROTATION_90 -> 90
+                    Surface.ROTATION_180 -> 180
+                    Surface.ROTATION_270 -> 270
+                    else -> 0
+                }
+                set(CaptureRequest.JPEG_ORIENTATION, (cameraSensorOrientation + displayDegrees + 270) % 360)
+            }.build()
+            session.capture(request, object : CameraCaptureSession.CaptureCallback() {}, Handler(Looper.getMainLooper()))
+        } catch (_: SecurityException) {
+            AppAoToast.show(this, "Permite o acesso à câmara para tirar uma fotografia")
+        } catch (_: Throwable) {
+            AppAoToast.show(this, "Não foi possível tirar a fotografia")
+        }
+    }
+
+    private fun openCameraPreview() {
+        if (!cameraMode || isFinishing || isDestroyed || !cameraPreview.isAvailable) return
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            if (!cameraPermissionPending) {
+                cameraPermissionPending = true
+                requestPermissions(arrayOf(Manifest.permission.CAMERA), 906)
+            }
+            return
+        }
+        try {
+            val manager = getSystemService(CAMERA_SERVICE) as CameraManager
+            val id = manager.cameraIdList.firstOrNull { cameraId ->
+                manager.getCameraCharacteristics(cameraId).get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_BACK
+            } ?: manager.cameraIdList.firstOrNull() ?: run {
+                AppAoToast.show(this, "Não foi encontrada uma câmara")
+                return
+            }
+            val chars = manager.getCameraCharacteristics(id)
+            cameraSensorOrientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
+            val map = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+            val previewSize = (map?.getOutputSizes(SurfaceTexture::class.java)?.toList().orEmpty())
+                .filter { it.width > 0 && it.height > 0 }
+                .minByOrNull { kotlin.math.abs((it.width.toFloat() / it.height) - 1.33f) * 1000 + it.width * it.height / 1000000f }
+                ?: Size(640, 480)
+            val photoSize = (map?.getOutputSizes(ImageFormat.JPEG)?.toList().orEmpty())
+                .filter { it.width > 0 && it.height > 0 }
+                .minByOrNull { kotlin.math.abs((it.width * it.height).toLong() - 1280L * 960L) }
+                ?: Size(1280, 960)
+            val previewTexture = cameraPreview.surfaceTexture ?: return
+            previewTexture.setDefaultBufferSize(previewSize.width, previewSize.height)
+            val surface = Surface(previewTexture)
+            photoReader?.close()
+            photoReader = ImageReader.newInstance(photoSize.width, photoSize.height, ImageFormat.JPEG, 2).apply {
+                setOnImageAvailableListener({ reader ->
+                    val image = reader.acquireNextImage() ?: return@setOnImageAvailableListener
+                    val buffer = image.planes.firstOrNull()?.buffer
+                    val bytes = if (buffer != null) ByteArray(buffer.remaining()).also { buffer.get(it) } else null
+                    image.close()
+                    if (bytes != null) saveCapturedPhoto(bytes)
+                }, Handler(Looper.getMainLooper()))
+            }
+            manager.openCamera(id, object : CameraDevice.StateCallback() {
+                override fun onOpened(camera: CameraDevice) {
+                    cameraDevice = camera
+                    createPreviewSession(surface)
+                }
+                override fun onDisconnected(camera: CameraDevice) {
+                    camera.close()
+                    if (cameraDevice === camera) cameraDevice = null
+                }
+                override fun onError(camera: CameraDevice, error: Int) {
+                    camera.close()
+                    if (cameraDevice === camera) cameraDevice = null
+                    AppAoToast.show(this@SearchActivity, "A câmara não pôde ser iniciada")
+                }
+            }, Handler(Looper.getMainLooper()))
+        } catch (_: SecurityException) {
+            AppAoToast.show(this, "Permite o acesso à câmara para continuar")
+        } catch (_: Throwable) {
+            AppAoToast.show(this, "Não foi possível iniciar a câmara")
+        }
+    }
+
+    private fun createPreviewSession(previewSurface: Surface) {
+        val device = cameraDevice ?: return
+        val reader = photoReader ?: return
+        try {
+            previewRequest = device.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
+                addTarget(previewSurface)
+                set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
+            }
+            device.createCaptureSession(listOf(previewSurface, reader.surface), object : CameraCaptureSession.StateCallback() {
+                override fun onConfigured(session: CameraCaptureSession) {
+                    cameraSession = session
+                    try {
+                        previewRequest?.build()?.let { session.setRepeatingRequest(it, null, Handler(Looper.getMainLooper())) }
+                        findViewById<View>(R.id.searchCameraIcon).visibility = View.GONE
+                        findViewById<TextView>(R.id.searchCameraButton).text = "Tirar fotografia"
+                    } catch (_: Throwable) { }
+                }
+                override fun onConfigureFailed(session: CameraCaptureSession) {
+                    AppAoToast.show(this@SearchActivity, "Não foi possível preparar a câmara")
+                }
+            }, Handler(Looper.getMainLooper()))
+        } catch (_: Throwable) {
+            AppAoToast.show(this, "Não foi possível preparar a câmara")
+        }
+    }
+
+    private fun saveCapturedPhoto(bytes: ByteArray) {
+        runCatching {
+            val uri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val values = ContentValues().apply {
+                    put(MediaStore.Images.Media.DISPLAY_NAME, "AppAo_${System.currentTimeMillis()}.jpg")
+                    put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                    put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/AppAo")
+                    put(MediaStore.Images.Media.IS_PENDING, 1)
+                }
+                val contentUri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                    ?: error("Não foi possível guardar a fotografia")
+                contentResolver.openOutputStream(contentUri)?.use { it.write(bytes) } ?: error("Não foi possível escrever a fotografia")
+                values.clear()
+                values.put(MediaStore.Images.Media.IS_PENDING, 0)
+                contentResolver.update(contentUri, values, null, null)
+                contentUri
+            } else {
+                val file = File(cacheDir, "AppAo_${System.currentTimeMillis()}.jpg")
+                file.writeBytes(bytes)
+                Uri.fromFile(file)
+            }
+            runOnUiThread {
+                setResult(RESULT_OK, Intent().setData(uri).putExtra("image_uri", uri.toString()))
+                finish()
+            }
+        }.onFailure {
+            runOnUiThread { AppAoToast.show(this, "Não foi possível guardar a fotografia") }
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 906) {
+            cameraPermissionPending = false
+            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) openCameraPreview()
+            else AppAoToast.show(this, "O acesso à câmara foi recusado")
+        } else if (requestCode == 907) {
+            galleryPermissionPending = false
+            val granted = grantResults.any { it == PackageManager.PERMISSION_GRANTED }
+            if (granted) loadDeviceImages() else showGalleryPermissionFallback()
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode != RESULT_OK || data == null) return
+        when (requestCode) {
+            904 -> {
+                val uri = data.data ?: return
+                setResult(RESULT_OK, Intent().setData(uri).putExtra("image_uri", uri.toString()))
+                finish()
+            }
+        }
     }
 
     private fun showMorePopup(anchor: View) {
@@ -227,6 +583,12 @@ class SearchActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         heightAnimator?.cancel()
+        try { cameraSession?.close() } catch (_: Throwable) {}
+        try { cameraDevice?.close() } catch (_: Throwable) {}
+        try { photoReader?.close() } catch (_: Throwable) {}
+        cameraSession = null
+        cameraDevice = null
+        photoReader = null
         super.onDestroy()
     }
 

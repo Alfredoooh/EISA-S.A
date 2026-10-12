@@ -42,11 +42,6 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:scaleType="fitCenter" />
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="80dp"
-                    android:layout_gravity="bottom"
-                    android:background="@drawable/bg_article_hero_gradient" />
             </com.appao.RoundedClipFrameLayout>
 
 

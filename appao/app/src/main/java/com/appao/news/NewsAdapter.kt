@@ -37,7 +37,10 @@ import kotlin.math.max
 class NewsAdapter(
     initial: List<NewsItem>,
     private val onClick: (NewsItem, View) -> Unit,
-    private val showTopCards: Boolean = false
+    private val showTopCards: Boolean = false,
+    private val onArticleMenu: ((NewsItem, View) -> Unit)? = null,
+    private val isSaved: ((NewsItem) -> Boolean)? = null,
+    private val onToggleSaved: ((NewsItem) -> Unit)? = null
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
@@ -192,6 +195,7 @@ class NewsAdapter(
 
     private fun bindImage(holder: ImageVH, item: NewsItem) {
         holder.itemView.transitionName = null
+        holder.itemView.tag = item.id
         holder.imageCard.transitionName = transitionName(item)
 
         holder.source.text = item.source
@@ -216,8 +220,10 @@ class NewsAdapter(
             // as soon as Glide knows the image dimensions. This keeps each card's
             // height proportional to the actual image instead of forcing 190dp.
             holder.imageCard.layoutParams = holder.imageCard.layoutParams.apply {
-                height = dp(holder.itemView.context, 190)
+                height = dp(holder.itemView.context, 1)
             }
+            holder.imageCard.findViewWithTag<View>("article_actions")?.let { holder.imageCard.removeView(it) }
+            addArticleActions(holder.imageCard, item, compact = true)
             Glide.with(holder.image)
                 .load(item.image)
                 .listener(object : RequestListener<Drawable> {
@@ -238,15 +244,13 @@ class NewsAdapter(
                         val w = resource.intrinsicWidth
                         val h = resource.intrinsicHeight
                         if (w > 0 && h > 0) {
+                            val boundItemId = item.id
                             holder.imageCard.post {
+                                if (holder.itemView.tag != boundItemId) return@post
                                 val cardWidth = holder.imageCard.width
                                 if (cardWidth > 0) {
                                     val targetHeight = (cardWidth.toFloat() * h.toFloat() / w.toFloat())
-                                        .toInt()
-                                        .coerceIn(
-                                            dp(holder.itemView.context, 120),
-                                            dp(holder.itemView.context, 520)
-                                        )
+                                        .toInt().coerceAtLeast(dp(holder.itemView.context, 1))
                                     holder.imageCard.layoutParams = holder.imageCard.layoutParams.apply {
                                         height = targetHeight
                                     }
@@ -257,7 +261,7 @@ class NewsAdapter(
                         return false
                     }
                 })
-                .centerCrop()
+                .fitCenter()
                 .dontAnimate()
                 .into(holder.image)
         } else {
@@ -391,7 +395,11 @@ class NewsAdapter(
             setPadding(
                 dp(context, if (square || compact) 10 else 16),
                 dp(context, if (square || compact) 10 else 16),
-                dp(context, if (square || compact) 10 else 16),
+                dp(context, if (onArticleMenu != null || onToggleSaved != null) {
+                    if (square || compact) 82 else 86
+                } else {
+                    if (square || compact) 10 else 16
+                }),
                 dp(context, if (square || compact) 10 else 16)
             )
         }
@@ -573,7 +581,65 @@ class NewsAdapter(
             favicon.setImageDrawable(null)
         }
 
+        addArticleActions(card, item, compact = compact || square)
         return card
+    }
+
+    private fun addArticleActions(container: FrameLayout, item: NewsItem, compact: Boolean) {
+        if (onArticleMenu == null && onToggleSaved == null) return
+        val context = container.context
+        container.findViewWithTag<View>("article_actions")?.let { container.removeView(it) }
+        val actions = LinearLayout(context).apply {
+            tag = "article_actions"
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            clipChildren = false
+            clipToPadding = false
+            background = rounded(
+                ContextCompat.getColor(context, R.color.card2),
+                dp(context, 999).toFloat()
+            ).apply { alpha = 232 }
+            elevation = dp(context, 2).toFloat()
+        }
+        val actionSize = dp(context, if (compact) 28 else 30)
+        val glyphSize = dp(context, if (compact) 15 else 16)
+        fun addAction(iconName: String, description: String, heartActive: Boolean = false, callback: (View) -> Unit) {
+            val button = FrameLayout(context).apply {
+                contentDescription = description
+                isClickable = true
+                isFocusable = true
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.OVAL
+                    setColor(Color.TRANSPARENT)
+                }
+            }
+            val image = ImageView(context).apply {
+                layoutParams = FrameLayout.LayoutParams(glyphSize, glyphSize, Gravity.CENTER)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                if (heartActive) {
+                    IconLoader.applySvg(this, iconName, 0)
+                } else {
+                    IconLoader.applySvg(this, iconName, R.color.iconTint)
+                }
+            }
+            button.addView(image)
+            button.setOnClickListener { callback(button) }
+            actions.addView(button, LinearLayout.LayoutParams(actionSize, actionSize))
+        }
+        addAction("more_horiz", "Opções da notícia") { anchor -> onArticleMenu?.invoke(item, anchor) }
+        val saved = isSaved?.invoke(item) == true
+        addAction(if (saved) "heart_filled_color" else "heart", if (saved) "Remover dos guardados" else "Guardar notícia", saved) {
+            onToggleSaved?.invoke(item)
+        }
+        val lp = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.TOP or Gravity.END
+        ).apply {
+            topMargin = dp(context, 7)
+            marginEnd = dp(context, 7)
+        }
+        container.addView(actions, lp)
     }
 
     private fun bindSkeleton(
@@ -821,12 +887,11 @@ class NewsAdapter(
                 continue
             }
 
-            val group = ArrayList<NewsItem>(MAX_TEXT_GROUP)
+            val group = ArrayList<NewsItem>()
 
             while (
                 index < articles.size &&
-                articles[index].image.isBlank() &&
-                group.size < MAX_TEXT_GROUP
+                articles[index].image.isBlank()
             ) {
                 group += articles[index]
                 index++

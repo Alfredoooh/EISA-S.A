@@ -33,7 +33,7 @@ object AppAoToast {
         snackbar.view.apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dp(18).toFloat()
+                cornerRadius = dp(24).toFloat()
                 setColor(surfaceColor)
             }
             backgroundTintList = ColorStateList.valueOf(surfaceColor)
@@ -59,7 +59,7 @@ object AppAoToast {
 
         snackbar.view.findViewById<Button>(com.google.android.material.R.id.snackbar_action)?.post {
             val action = snackbar.view.findViewById<Button>(com.google.android.material.R.id.snackbar_action)
-            val icon = IconLoader.drawable(context, "action_close", dp(20), ContextCompat.getColor(context, R.color.iconTint))
+            val icon = IconLoader.drawable(context, "close", dp(20), ContextCompat.getColor(context, R.color.iconTint))
             action.text = ""
             action.contentDescription = "Fechar"
             action.minimumWidth = 0

@@ -26,7 +26,9 @@ object AccentColorManager {
 
     private const val PREFS = "appao"
     private const val KEY = "accent_color_index"
+    private const val KEY_CUSTOM = "accent_color_custom_hex"
     const val NONE = -1
+    const val CUSTOM = -2
 
     data class AccentOption(val id: Int, val label: String, val color: Int)
 
@@ -46,17 +48,27 @@ object AccentColorManager {
     private fun normalize(value: Int): Int =
         if (value in options.indices) value else NONE
 
-    fun current(ctx: Context): Int =
-        normalize(
-            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .getInt(KEY, NONE)
-        )
+    fun current(ctx: Context): Int {
+        val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (!prefs.getString(KEY_CUSTOM, null).isNullOrBlank()) return CUSTOM
+        return normalize(prefs.getInt(KEY, NONE))
+    }
 
     fun save(ctx: Context, value: Int) {
         val safe = normalize(value)
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
+            .remove(KEY_CUSTOM)
             .putInt(KEY, safe)
+            .apply()
+    }
+
+    fun saveCustom(ctx: Context, color: Int) {
+        val hex = String.format(java.util.Locale.US, "#%06X", 0xFFFFFF and color)
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_CUSTOM, hex)
+            .putInt(KEY, NONE)
             .apply()
     }
 
@@ -68,12 +80,22 @@ object AccentColorManager {
     fun resolvedColor(ctx: Context): Int? {
         val index = current(ctx)
         if (index == NONE) return null
-        return options[index].color
+        if (index == CUSTOM) {
+            val hex = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString(KEY_CUSTOM, null) ?: return null
+            return runCatching { Color.parseColor(hex) }.getOrNull()
+        }
+        return options.getOrNull(index)?.color
     }
 
     fun label(ctx: Context): String {
         val index = current(ctx)
-        return if (index == NONE) "Padrão" else options[index].label
+        return when {
+            index == NONE -> "Padrão"
+            index == CUSTOM -> ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString(KEY_CUSTOM, "Cor personalizada") ?: "Cor personalizada"
+            else -> options.getOrNull(index)?.label ?: "Padrão"
+        }
     }
 
     /**

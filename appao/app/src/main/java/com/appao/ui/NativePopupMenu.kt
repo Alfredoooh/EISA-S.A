@@ -11,7 +11,8 @@ object NativePopupMenu {
         val svg: String? = null,
         val png: String? = null,
         val iconColor: Int? = null,
-        val checked: Boolean = false
+        val checked: Boolean = false,
+        val highlightColor: Int? = null
     )
 
     fun show(
@@ -28,6 +29,7 @@ object NativePopupMenu {
                 checked = item.checked,
                 useSvg = item.svg != null,
                 iconColor = item.iconColor,
+                highlightColor = item.highlightColor,
                 onClick = { onClick(item) }
             )
         }

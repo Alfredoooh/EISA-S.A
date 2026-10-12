@@ -65,7 +65,11 @@ class SettingsActivity : AppCompatActivity() {
         applyRowGroup(listOf(R.id.rowAccount, R.id.rowTerms))
         rows.forEach { rowDef ->
             val row = findViewById<View>(rowDef.id)
-            IconLoader.applySvgThin(row.findViewById(R.id.rowIcon), rowDef.svg, R.color.iconTint)
+            if (rowDef.id == R.id.rowAccent) {
+                styleAccentSwatch(row.findViewById(R.id.rowIcon))
+            } else {
+                IconLoader.applySvgThin(row.findViewById(R.id.rowIcon), rowDef.svg, R.color.iconTint)
+            }
             row.findViewById<TextView>(R.id.rowTitle).text = rowDef.title
             row.setOnClickListener {
                 when (rowDef.id) {
@@ -110,7 +114,8 @@ class SettingsActivity : AppCompatActivity() {
             val row = findViewById<View>(rowDef.id)
             row.findViewById<TextView>(R.id.rowTitle).setTextColor(textColor)
             row.findViewById<TextView>(R.id.rowValue).setTextColor(dim)
-            IconLoader.applySvgThin(row.findViewById(R.id.rowIcon), rowDef.svg, R.color.iconTint)
+            if (rowDef.id == R.id.rowAccent) styleAccentSwatch(row.findViewById(R.id.rowIcon))
+            else IconLoader.applySvgThin(row.findViewById(R.id.rowIcon), rowDef.svg, R.color.iconTint)
         }
         findViewById<View>(R.id.rowTheme).findViewById<TextView>(R.id.rowValue).apply {
             visibility = View.VISIBLE
@@ -130,6 +135,17 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    private fun styleAccentSwatch(icon: android.widget.ImageView) {
+        val swatch = AccentColorManager.resolvedColor(this)
+            ?: ContextCompat.getColor(this, R.color.pri)
+        icon.setImageDrawable(null)
+        icon.clearColorFilter()
+        icon.background = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.OVAL
+            setColor(swatch)
+        }
+    }
+
     private fun showThemePicker(anchor: View) {
         val current = ThemeManager.current(this)
         NativePopupMenu.show(
@@ -139,8 +155,8 @@ class SettingsActivity : AppCompatActivity() {
                 NativePopupMenu.Item(2, "Claro", svg = "theme_light", checked = current == "light"),
                 NativePopupMenu.Item(3, "Sistema", svg = "theme_system", checked = current == "system")
             ),
-            alignLeft = true,
-            placeAbove = true
+            alignLeft = false,
+            placeAbove = false
         ) { item ->
             val value = when (item.id) {
                 1 -> "dark"
@@ -177,27 +193,115 @@ class SettingsActivity : AppCompatActivity() {
                     )
                 )
             }
+            if (current == AccentColorManager.CUSTOM) {
+                add(NativePopupMenu.Item(
+                    id = 998,
+                    title = "Cor personalizada",
+                    iconColor = AccentColorManager.resolvedColor(this@SettingsActivity),
+                    checked = true
+                ))
+            }
+            add(NativePopupMenu.Item(id = 999, title = "Criar cor", svg = "palette"))
         }
 
         NativePopupMenu.show(
             anchor,
             menuItems,
-            alignLeft = true,
-            placeAbove = true
+            alignLeft = false,
+            placeAbove = false
         ) { item ->
-            if (item.id == 0) {
-                AccentColorManager.save(this, AccentColorManager.NONE)
-                refreshValues()
-                AppAoToast.show(this, "Cor padrão aplicada")
-            } else {
-                val option = AccentColorManager.options.firstOrNull { it.id == item.id - 1 }
-                if (option != null) {
-                    AccentColorManager.save(this, option.id)
+            when {
+                item.id == 0 -> {
+                    AccentColorManager.save(this, AccentColorManager.NONE)
                     refreshValues()
-                    AppAoToast.show(this, option.label)
+                    AppAoToast.show(this, "Cor padrão aplicada")
+                }
+                item.id == 999 || item.id == 998 -> showCustomAccentDialog()
+                else -> {
+                    val option = AccentColorManager.options.firstOrNull { it.id == item.id - 1 }
+                    if (option != null) {
+                        AccentColorManager.save(this, option.id)
+                        refreshValues()
+                        AppAoToast.show(this, option.label)
+                    }
                 }
             }
         }
+    }
+
+    private fun showCustomAccentDialog() {
+        val density = resources.displayMetrics.density
+        fun dp(v: Int) = (v * density + .5f).toInt()
+        val initial = AccentColorManager.resolvedColor(this) ?: android.graphics.Color.rgb(15, 108, 189)
+        var red = android.graphics.Color.red(initial)
+        var green = android.graphics.Color.green(initial)
+        var blue = android.graphics.Color.blue(initial)
+
+        val content = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(dp(4), dp(8), dp(4), dp(4))
+        }
+        val preview = android.view.View(this).apply {
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = dp(18).toFloat()
+                setColor(android.graphics.Color.rgb(red, green, blue))
+            }
+        }
+        content.addView(preview, android.widget.LinearLayout.LayoutParams(-1, dp(52)).apply {
+            bottomMargin = dp(12)
+        })
+        val hexLabel = android.widget.TextView(this).apply {
+            textSize = 14f
+            gravity = android.view.Gravity.CENTER
+            setTextColor(androidx.core.content.ContextCompat.getColor(this@SettingsActivity, R.color.text))
+            typeface = android.graphics.Typeface.create("monospace", android.graphics.Typeface.BOLD)
+        }
+        content.addView(hexLabel, android.widget.LinearLayout.LayoutParams(-1, dp(28)))
+        fun syncPreview() {
+            val color = android.graphics.Color.rgb(red, green, blue)
+            preview.background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = dp(18).toFloat()
+                setColor(color)
+            }
+            hexLabel.text = String.format(java.util.Locale.US, "#%02X%02X%02X", red, green, blue)
+        }
+        fun addChannel(labelText: String, get: () -> Int, set: (Int) -> Unit) {
+            content.addView(android.widget.TextView(this).apply {
+                text = labelText
+                textSize = 13f
+                setTextColor(androidx.core.content.ContextCompat.getColor(this@SettingsActivity, R.color.dim))
+                setPadding(dp(2), dp(6), dp(2), 0)
+            })
+            val seek = android.widget.SeekBar(this).apply { max = 255; progress = get() }
+            seek.progressTintList = android.content.res.ColorStateList.valueOf(AccentColorManager.resolvedOr(this@SettingsActivity, R.color.pri))
+            seek.thumbTintList = android.content.res.ColorStateList.valueOf(AccentColorManager.resolvedOr(this@SettingsActivity, R.color.pri))
+            seek.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: android.widget.SeekBar?, value: Int, fromUser: Boolean) {
+                    set(value); syncPreview()
+                }
+                override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) = Unit
+                override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) = Unit
+            })
+            content.addView(seek, android.widget.LinearLayout.LayoutParams(-1, dp(38)))
+        }
+        addChannel("Vermelho", { red }, { red = it })
+        addChannel("Verde", { green }, { green = it })
+        addChannel("Azul", { blue }, { blue = it })
+        syncPreview()
+        NativeM3Dialog.content(
+            this,
+            "Criar cor de destaque",
+            content,
+            onPositive = {
+                AccentColorManager.saveCustom(this, android.graphics.Color.rgb(red, green, blue))
+                refreshValues()
+                AppAoToast.show(this, "Cor personalizada aplicada")
+            },
+            positive = "Aplicar",
+            negative = "Cancelar"
+        )
     }
 
     private fun showLangPicker(anchor: View) {
@@ -211,8 +315,8 @@ class SettingsActivity : AppCompatActivity() {
                 NativePopupMenu.Item(4, "Français", png = "flags/fr", checked = current == "fr"),
                 NativePopupMenu.Item(5, "Deutsch", png = "flags/de", checked = current == "de")
             ),
-            alignLeft = true,
-            placeAbove = true
+            alignLeft = false,
+            placeAbove = false
         ) { item ->
             val code = when (item.id) {
                 1 -> "pt"

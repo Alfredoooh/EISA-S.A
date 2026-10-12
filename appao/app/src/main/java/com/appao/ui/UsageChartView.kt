@@ -8,6 +8,7 @@ import android.util.AttributeSet
 import android.view.View
 import android.animation.ValueAnimator
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
 import kotlin.math.min
 
 class UsageChartView @JvmOverloads constructor(
@@ -56,26 +57,30 @@ class UsageChartView @JvmOverloads constructor(
     private fun drawBars(canvas: Canvas) {
         val w = width.toFloat()
         val h = height.toFloat()
-        if (w <= 0f || h <= 0f) return
+        if (w <= 0f || h <= 0f || values.isEmpty()) return
 
         val text = ContextCompat.getColor(context, R.color.dim)
         val primary = AccentColorManager.resolvedOr(context, R.color.pri)
         val line = ContextCompat.getColor(context, R.color.line)
+        val bg = ContextCompat.getColor(context, R.color.bg)
 
+        val top = dp(16).toFloat()
+        val bottom = h - dp(30)
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = dp(1).toFloat()
+        paint.color = ColorUtils.setAlphaComponent(line, 115)
+        for (fraction in floatArrayOf(0.25f, 0.50f, 0.75f)) {
+            val y = bottom - (bottom - top) * fraction
+            canvas.drawLine(dp(4).toFloat(), y, w - dp(4), y, paint)
+        }
         paint.color = line
-        val top = dp(14).toFloat()
-        val bottom = h - dp(28)
         canvas.drawLine(dp(4).toFloat(), bottom, w - dp(4), bottom, paint)
 
         val maxValue = values.maxOrNull()?.coerceAtLeast(1L) ?: 1L
         val gap = dp(10).toFloat()
         val slot = (w - gap * (values.size + 1)) / values.size.coerceAtLeast(1)
-        val barWidth = min(dp(36).toFloat(), slot.coerceAtLeast(dp(12).toFloat()))
-
+        val barWidth = min(dp(32).toFloat(), slot.coerceAtLeast(dp(10).toFloat()))
         paint.style = Paint.Style.FILL
-        paint.color = primary
         paint.textSize = sp(11f)
         paint.textAlign = Paint.Align.CENTER
 
@@ -84,11 +89,12 @@ class UsageChartView @JvmOverloads constructor(
             val ratio = (value.toFloat() / maxValue.toFloat()) * animationFraction
             val barTop = bottom - (bottom - top) * ratio
             val rect = RectF(x - barWidth / 2f, barTop, x + barWidth / 2f, bottom)
-            canvas.drawRoundRect(rect, dp(8).toFloat(), dp(8).toFloat(), paint)
+            paint.color = if (value > 0L && value == maxValue) primary
+                else ColorUtils.blendARGB(bg, primary, 0.48f)
+            if (value > 0L) canvas.drawRoundRect(rect, dp(8).toFloat(), dp(8).toFloat(), paint)
             if (index < labels.size) {
-                paint.color = text
+                paint.color = if (value > 0L && value == maxValue) primary else text
                 canvas.drawText(labels[index], x, h - dp(8).toFloat(), paint)
-                paint.color = primary
             }
         }
     }
@@ -129,6 +135,14 @@ class UsageChartView @JvmOverloads constructor(
 
         paint.color = ContextCompat.getColor(context, R.color.bg)
         canvas.drawCircle(cx, cy, radius * 0.75f, paint)
+        paint.style = Paint.Style.FILL
+        paint.textAlign = Paint.Align.CENTER
+        paint.color = ContextCompat.getColor(context, R.color.text)
+        paint.textSize = sp(20f)
+        canvas.drawText(values.sum().toString(), cx, cy + dp(2).toFloat(), paint)
+        paint.textSize = sp(9.5f)
+        paint.color = ContextCompat.getColor(context, R.color.dim)
+        canvas.drawText("visitas", cx, cy + dp(15).toFloat(), paint)
 
         paint.textSize = sp(11.5f)
         val dotX = w * 0.66f

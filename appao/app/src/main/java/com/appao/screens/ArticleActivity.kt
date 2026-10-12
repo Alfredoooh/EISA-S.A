@@ -89,7 +89,13 @@ class ArticleActivity : AppCompatActivity() {
         itemTitle = intent.getStringExtra("title").orEmpty()
         val storedComments = getSharedPreferences("appao", MODE_PRIVATE).getString(commentsPrefsKey(), "[]").orEmpty()
         comments.addAll(decodeComments(storedComments))
-        UsageTracker.recordNewsSource(this, intent.getStringExtra("source").orEmpty())
+        UsageTracker.recordNewsVisit(
+            this,
+            intent.getStringExtra("source").orEmpty(),
+            intent.getStringExtra("link").orEmpty(),
+            intent.getStringExtra("title").orEmpty(),
+            intent.getStringExtra("logo").orEmpty()
+        )
 
         val itemSummary = intent.getStringExtra("summary").orEmpty()
         val itemSource = intent.getStringExtra("source").orEmpty()
@@ -205,8 +211,8 @@ class ArticleActivity : AppCompatActivity() {
         )
         IconLoader.applySvg(
             findViewById(R.id.acSendIcon),
-            "action_send",
-            android.R.color.black
+            "arrow_upward",
+            R.color.iconTint
         )
         IconLoader.applySvg(findViewById(R.id.aMoreIcon), "action_overflow", R.color.iconTint)
         IconLoader.applySvg(
@@ -336,7 +342,7 @@ class ArticleActivity : AppCompatActivity() {
         IconLoader.applySvg(findViewById(R.id.aBackIcon), "nav_back", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.aMoreIcon), "action_overflow", R.color.iconTint)
         acSend.background = AccentColorManager.primaryShape(this, android.graphics.drawable.GradientDrawable.OVAL)
-        IconLoader.applySvg(findViewById(R.id.acSendIcon), "action_send", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.acSendIcon), "arrow_upward", R.color.iconTint)
         findViewById<ImageView>(R.id.acSendIcon).setColorFilter(
             AccentColorManager.onPrimaryColor(this),
             android.graphics.PorterDuff.Mode.SRC_IN

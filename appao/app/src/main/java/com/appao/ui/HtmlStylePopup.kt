@@ -1,6 +1,8 @@
 package com.appao
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
@@ -29,6 +31,7 @@ object HtmlStylePopup {
         val checked: Boolean = false,
         val useSvg: Boolean = false,
         val iconColor: Int? = null,
+        val highlightColor: Int? = null,
         val onClick: () -> Unit
     )
 
@@ -66,10 +69,17 @@ object HtmlStylePopup {
 
         val rootView = anchor.rootView as? ViewGroup
         val decorRoot = rootView?.findViewById<ViewGroup>(android.R.id.content) ?: rootView
+        fun owningActivity(ctx: Context): Activity? = when (ctx) {
+            is Activity -> ctx
+            is ContextWrapper -> owningActivity(ctx.baseContext)
+            else -> null
+        }
+        val activity = owningActivity(context)
+        val originalStatusBarColor = activity?.window?.statusBarColor
         var popupRef: PopupWindow? = null
         val dimOverlay = decorRoot?.let { decor ->
             View(context).apply {
-                setBackgroundColor(Color.argb(34, 0, 0, 0))
+                setBackgroundColor(Color.argb(22, 0, 0, 0))
                 alpha = 0f
                 isClickable = true
                 isFocusable = false
@@ -138,6 +148,9 @@ object HtmlStylePopup {
                 setOnDismissListener {
                     if (dimOverlay != null && decorRoot != null && dimOverlay.parent === decorRoot) {
                         runCatching { decorRoot.removeView(dimOverlay) }
+                    }
+                    if (activity != null && originalStatusBarColor != null) {
+                        runCatching { activity.window.statusBarColor = originalStatusBarColor }
                     }
                     root.animate().cancel()
 
@@ -220,6 +233,7 @@ object HtmlStylePopup {
                         } else {
                             IconLoader.applyPng(this, item.iconName!!, 0)
                         }
+                        item.highlightColor?.let { setColorFilter(it, android.graphics.PorterDuff.Mode.SRC_IN) }
                     }
                 }
 
@@ -237,7 +251,7 @@ object HtmlStylePopup {
                         if (compactColorMenu) 13.5f else 15f
 
                     setTextColor(
-                        ContextCompat.getColor(
+                        item.highlightColor ?: ContextCompat.getColor(
                             context,
                             R.color.text
                         )
@@ -367,22 +381,31 @@ object HtmlStylePopup {
         val margin = dp(8)
         val edge = dp(8)
         val maxLeft = (frame.right - width - edge).coerceAtLeast(frame.left + edge)
-        val preferredLeft = if (alignLeft) {
-            anchorLeft
-        } else if (frame.right - anchorRight >= width + margin) {
-            anchorRight - width
-        } else {
-            anchorLeft - max(0, width - anchor.width)
-        }
+        // Menus intentionally overlap the activated control rather than opening
+        // above/below it. Align the right edge with the anchor by default, which
+        // keeps option menus close to the trailing side of Settings cards.
+        val preferredLeft = if (alignLeft) anchorLeft else anchorRight - width
         val left = preferredLeft.coerceIn(frame.left + edge, maxLeft)
 
-        val availableBelow = frame.bottom - anchorBottom - margin
-        val availableAbove = anchorTop - frame.top - margin
-        val showAbove = placeAbove || (height > availableBelow && availableAbove > availableBelow)
-        val naturalTop = if (showAbove) anchorTop - height - margin else anchorBottom + margin
         val minTop = frame.top + edge
         val maxTop = (frame.bottom - height - edge).coerceAtLeast(minTop)
-        val top = naturalTop.coerceIn(minTop, maxTop)
+        val centeredTop = anchorTop + (anchor.height - height) / 2
+        val top = centeredTop.coerceIn(minTop, maxTop)
+        val overlapsAnchorFromTop = top < anchorTop
+
+        if (activity != null && originalStatusBarColor != null) {
+            runCatching {
+                // SystemBarHelper keeps the status bar transparent. Darken the
+                // underlying theme surface (not transparent black) for the same
+                // subtle scrim as the popup body, then restore the exact prior value.
+                val surface = ContextCompat.getColor(activity, R.color.bg)
+                activity.window.statusBarColor = androidx.core.graphics.ColorUtils.blendARGB(
+                    surface,
+                    Color.BLACK,
+                    0.08f
+                )
+            }
+        }
 
         if (dimOverlay != null && decorRoot != null) {
             runCatching {
@@ -415,11 +438,11 @@ object HtmlStylePopup {
                 .toFloat()
                 .coerceIn(0f, width.toFloat())
 
-        root.pivotY = if (showAbove) height.toFloat() else 0f
+        root.pivotY = height / 2f
         root.scaleX = 0.96f
         root.scaleY = 0.96f
         root.alpha = 0f
-        root.translationY = (if (showAbove) -dp(8) else dp(8)).toFloat()
+        root.translationY = (if (overlapsAnchorFromTop) -dp(4) else dp(4)).toFloat()
 
         root.animate()
             .translationY(0f)

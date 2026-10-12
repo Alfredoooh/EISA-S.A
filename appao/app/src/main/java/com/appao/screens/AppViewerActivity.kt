@@ -1,6 +1,10 @@
 package com.appao
 
 import android.annotation.SuppressLint
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Intent
+import android.net.Uri
 import android.graphics.Color
 import android.os.Bundle
 import android.view.View
@@ -29,25 +33,17 @@ class AppViewerActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         setContentView(R.layout.activity_app_viewer)
         SystemBarHelper.sync(this)
 
         web = findViewById(R.id.webView)
         progress = findViewById(R.id.appProgress)
         applyProgressAccent()
-        ViewCompat.setOnApplyWindowInsetsListener(web) { v, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(0, bars.top, 0, bars.bottom)
-            insets
-        }
-        ViewCompat.setOnApplyWindowInsetsListener(progress) { v, insets ->
-            val top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
-            val lp = v.layoutParams as android.widget.FrameLayout.LayoutParams
-            lp.topMargin = top
-            v.layoutParams = lp
-            insets
-        }
+        IconLoader.applySvg(findViewById(R.id.appViewerCloseIcon), "close", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appViewerMoreIcon), "more_horiz", R.color.iconTint)
+        findViewById<View>(R.id.appViewerClose).setOnClickListener { finish() }
+        findViewById<View>(R.id.appViewerMore).setOnClickListener { showPageMenu(it) }
 
         val url = intent.getStringExtra("url")?.trim().orEmpty()
         if (url.isBlank()) { finish(); return }
@@ -135,6 +131,39 @@ class AppViewerActivity : AppCompatActivity() {
             progress.alpha = 1f
         }
         web.loadUrl(url)
+    }
+
+    private fun showPageMenu(anchor: View) {
+        NativePopupMenu.show(
+            anchor,
+            listOf(
+                NativePopupMenu.Item(1, "Abrir no navegador", svg = "external_link"),
+                NativePopupMenu.Item(2, "Copiar ligação", svg = "copy"),
+                NativePopupMenu.Item(3, "Compartilhar ligação", svg = "share"),
+                NativePopupMenu.Item(4, "Recarregar", svg = "refresh")
+            ),
+            alignLeft = false,
+            placeAbove = false
+        ) { item ->
+            val currentUrl = web.url?.takeIf { it.isNotBlank() } ?: intent.getStringExtra("url").orEmpty()
+            when (item.id) {
+                1 -> runCatching {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(currentUrl)))
+                }.onFailure { Toast.makeText(this, "Não foi possível abrir o navegador", Toast.LENGTH_SHORT).show() }
+                2 -> {
+                    val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("Ligação", currentUrl))
+                    AppAoToast.show(this, "Ligação copiada")
+                }
+                3 -> runCatching {
+                    startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, currentUrl)
+                    }, "Compartilhar ligação"))
+                }.onFailure { Toast.makeText(this, "Não foi possível compartilhar", Toast.LENGTH_SHORT).show() }
+                4 -> web.reload()
+            }
+        }
     }
 
     @Suppress("SetJavaScriptEnabled")

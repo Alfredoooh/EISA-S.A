@@ -24,6 +24,72 @@
             android:textSize="16sp" />
     </LinearLayout>
 
+    <GridView
+        android:id="@+id/searchGalleryGrid"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="64dp"
+        android:numColumns="3"
+        android:horizontalSpacing="4dp"
+        android:verticalSpacing="4dp"
+        android:padding="6dp"
+        android:clipToPadding="false"
+        android:stretchMode="columnWidth"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/searchMediaEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginStart="28dp"
+        android:layout_marginEnd="28dp"
+        android:gravity="center"
+        android:text="As imagens do dispositivo aparecerão aqui. Usa o botão da galeria para escolher uma imagem."
+        android:textColor="@color/dim"
+        android:textSize="14sp"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/searchCameraPanel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="56dp"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:visibility="gone">
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginBottom="20dp"
+            android:background="@drawable/bg_card_pressed">
+            <TextureView
+                android:id="@+id/searchCameraPreview"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+            <ImageView
+                android:id="@+id/searchCameraIcon"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_gravity="center"
+                android:scaleType="fitCenter" />
+        </FrameLayout>
+        <TextView
+            android:id="@+id/searchCameraButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:gravity="center"
+            android:text="Tirar fotografia"
+            android:textColor="@color/onpri"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_circle_pri"
+            android:clickable="true"
+            android:focusable="true" />
+    </LinearLayout>
+
     <LinearLayout
         android:id="@+id/searchTopBar"
         android:layout_width="match_parent"

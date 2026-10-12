@@ -158,6 +158,14 @@
                             android:layout_gravity="center"
                             android:scaleType="fitCenter"
                             android:alpha="0.6" />
+                        <View
+                            android:id="@+id/biAddNotificationDot"
+                            android:layout_width="6dp"
+                            android:layout_height="6dp"
+                            android:layout_gravity="top|end"
+                            android:layout_marginTop="1dp"
+                            android:layout_marginEnd="1dp"
+                            android:background="@drawable/bg_notification_dot" />
                     </FrameLayout>
 
                     <FrameLayout
@@ -366,13 +374,13 @@
                 android:layout_gravity="start|center_vertical"
                 android:layout_marginStart="16dp"
                 android:background="@drawable/bg_circle_card"
-                android:clipChildren="false"
+                android:visibility="gone"
                 android:clickable="true"
                 android:focusable="true">
                 <ImageView
                     android:id="@+id/appsProfileAvatar"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
                     android:layout_gravity="center"
                     android:background="@drawable/bg_circle_card"
                     android:clipToOutline="true"
@@ -384,27 +392,67 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
-                android:text="Apps e Conversas"
+                android:text="Menu"
                 android:textColor="@color/text"
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
-            <FrameLayout
-                android:id="@+id/appsBack"
-                android:layout_width="@dimen/icon_button_size"
-                android:layout_height="@dimen/icon_button_size"
+            <LinearLayout
+                android:id="@+id/appsHeaderActions"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_gravity="end|center_vertical"
                 android:layout_marginEnd="12dp"
-                android:background="@drawable/bg_circle_card"
-                android:clickable="true"
-                android:focusable="true">
-                <ImageView
-                    android:id="@+id/appsBackIcon"
-                    android:layout_width="@dimen/icon_button_icon_size"
-                    android:layout_height="@dimen/icon_button_icon_size"
-                    android:layout_gravity="center"
-                    android:scaleType="fitCenter" />
-            </FrameLayout>
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <FrameLayout
+                    android:id="@+id/appsSearch"
+                    android:layout_width="32dp"
+                    android:layout_height="38dp"
+                    android:layout_marginEnd="4dp"
+                    android:background="@android:color/transparent"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <ImageView
+                        android:id="@+id/appsSearchIcon"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_gravity="center"
+                        android:scaleType="fitCenter" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:id="@+id/appsNewChat"
+                    android:layout_width="32dp"
+                    android:layout_height="38dp"
+                    android:layout_marginEnd="4dp"
+                    android:background="@android:color/transparent"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <ImageView
+                        android:id="@+id/appsNewChatIcon"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_gravity="center"
+                        android:scaleType="fitCenter" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:id="@+id/appsBack"
+                    android:layout_width="@dimen/icon_button_size"
+                    android:layout_height="@dimen/icon_button_size"
+                    android:background="@drawable/bg_circle_card"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <ImageView
+                        android:id="@+id/appsBackIcon"
+                        android:layout_width="@dimen/icon_button_icon_size"
+                        android:layout_height="@dimen/icon_button_icon_size"
+                        android:layout_gravity="center"
+                        android:scaleType="fitCenter" />
+                </FrameLayout>
+            </LinearLayout>
         </FrameLayout>
 
         <FrameLayout
@@ -454,14 +502,14 @@
                 android:textSize="15sp" />
         </FrameLayout>
 
-        <!-- Aligned bottom navigation row: segment and settings button share one layout container. -->
+        <!-- Centered, compact section switcher; settings left and profile right. -->
         <LinearLayout
             android:id="@+id/appsBottomBar"
             android:layout_width="match_parent"
             android:layout_height="44dp"
             android:layout_gravity="bottom"
-            android:layout_marginStart="20dp"
-            android:layout_marginEnd="20dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
             android:layout_marginBottom="16dp"
             android:gravity="center_vertical"
             android:orientation="horizontal"
@@ -471,11 +519,29 @@
             android:elevation="8dp">
 
             <FrameLayout
-                android:id="@+id/appsBottomTabs"
+                android:id="@+id/appsSettings"
+                android:layout_width="@dimen/icon_button_size"
+                android:layout_height="@dimen/icon_button_size"
+                android:background="@drawable/bg_circle_card"
+                android:clickable="true"
+                android:focusable="true">
+                <ImageView
+                    android:id="@+id/appsSettingsIcon"
+                    android:layout_width="@dimen/icon_button_icon_size"
+                    android:layout_height="@dimen/icon_button_icon_size"
+                    android:layout_gravity="center"
+                    android:scaleType="fitCenter" />
+            </FrameLayout>
+
+            <Space
                 android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <FrameLayout
+                android:id="@+id/appsBottomTabs"
+                android:layout_width="204dp"
+                android:layout_height="38dp"
                 android:background="@drawable/bg_auth_segment"
                 android:padding="3dp"
                 android:clipChildren="false">
@@ -489,9 +555,9 @@
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
                     android:gravity="center"
-                    android:text="Apps"
+                    android:text="Projetos"
                     android:textColor="@color/onpri"
-                    android:textSize="13sp"
+                    android:textSize="12.5sp"
                     android:textStyle="bold"
                     android:clickable="true"
                     android:focusable="true" />
@@ -502,26 +568,33 @@
                     android:gravity="center"
                     android:text="Conversas"
                     android:textColor="@color/dim"
-                    android:textSize="13sp"
+                    android:textSize="12.5sp"
                     android:textStyle="bold"
                     android:clickable="true"
                     android:focusable="true" />
             </FrameLayout>
 
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
             <FrameLayout
-                android:id="@+id/appsSettings"
+                android:id="@+id/appsProfileBottom"
                 android:layout_width="@dimen/icon_button_size"
                 android:layout_height="@dimen/icon_button_size"
-                android:layout_marginStart="12dp"
                 android:background="@drawable/bg_circle_card"
+                android:clipChildren="false"
                 android:clickable="true"
                 android:focusable="true">
                 <ImageView
-                    android:id="@+id/appsSettingsIcon"
-                    android:layout_width="@dimen/icon_button_icon_size"
-                    android:layout_height="@dimen/icon_button_icon_size"
+                    android:id="@+id/appsProfileAvatarBottom"
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
                     android:layout_gravity="center"
-                    android:scaleType="fitCenter" />
+                    android:background="@drawable/bg_circle_card"
+                    android:clipToOutline="true"
+                    android:scaleType="centerCrop" />
             </FrameLayout>
         </LinearLayout>
     </FrameLayout>

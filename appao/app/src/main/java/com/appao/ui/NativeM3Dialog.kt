@@ -254,6 +254,11 @@ object NativeM3Dialog {
 
             window.setBackgroundDrawableResource(android.R.color.transparent)
             window.setWindowAnimations(R.style.AppAo_ModalWindowAnimations)
+            val density = dialog.context.resources.displayMetrics.density
+            val screenWidth = dialog.context.resources.displayMetrics.widthPixels
+            val horizontalInset = (20 * density + 0.5f).toInt()
+            val floatingWidth = (screenWidth - horizontalInset * 2).coerceAtLeast((screenWidth * 0.78f).toInt())
+            window.setLayout(floatingWidth, android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
             window.setDimAmount(
                 if (
                     ThemeManager.resolvedDark(

@@ -80,7 +80,7 @@ class NewsAdapter(
         val source: TextView = v.findViewById(R.id.source)
         val time: TextView = v.findViewById(R.id.time)
         val title: TextView = v.findViewById(R.id.title)
-        val imageCard: View = v.findViewById(R.id.imageCard)
+        val imageCard: FrameLayout = v.findViewById(R.id.imageCard)
         val image: ImageView = v.findViewById(R.id.image)
     }
 
@@ -626,9 +626,9 @@ class NewsAdapter(
             button.setOnClickListener { callback(button) }
             actions.addView(button, LinearLayout.LayoutParams(actionSize, actionSize))
         }
-        addAction("more_horiz", "Opções da notícia") { anchor -> onArticleMenu?.invoke(item, anchor) }
+        addAction("more-horizontal", "Opções da notícia") { anchor -> onArticleMenu?.invoke(item, anchor) }
         val saved = isSaved?.invoke(item) == true
-        addAction(if (saved) "heart_filled_color" else "heart", if (saved) "Remover dos guardados" else "Guardar notícia", saved) {
+        addAction(if (saved) "heart-filled-color" else "heart", if (saved) "Remover dos guardados" else "Guardar notícia", saved) {
             onToggleSaved?.invoke(item)
         }
         val lp = FrameLayout.LayoutParams(

@@ -17,14 +17,14 @@ class SettingsActivity : AppCompatActivity() {
     private data class Row(val id: Int, val svg: String, val title: String)
 
     private val rows = listOf(
-        Row(R.id.rowTheme, "settings_theme", "Tema"),
-        Row(R.id.rowAccent, "settings_theme", "Cor de destaque"),
-        Row(R.id.rowLang, "settings_language", "Idioma"),
-        Row(R.id.rowData, "settings_data_saver", "Poupança de dados"),
-        Row(R.id.rowUsage, "settings_usage", "Atividade de uso"),
-        Row(R.id.rowLoc, "settings_location", "Localização"),
-        Row(R.id.rowAccount, "settings_account", "Definições de conta"),
-        Row(R.id.rowTerms, "settings_terms", "Termos e políticas de uso")
+        Row(R.id.rowTheme, "contrast", "Tema"),
+        Row(R.id.rowAccent, "palette", "Cor de destaque"),
+        Row(R.id.rowLang, "globe", "Idioma"),
+        Row(R.id.rowData, "chart-pie", "Poupança de dados"),
+        Row(R.id.rowUsage, "activity", "Atividade de uso"),
+        Row(R.id.rowLoc, "map-pin", "Localização"),
+        Row(R.id.rowAccount, "circle-user", "Definições de conta"),
+        Row(R.id.rowTerms, "scroll", "Termos e políticas de uso")
     )
 
     private lateinit var root: View
@@ -58,7 +58,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun renderRows() {
-        IconLoader.applySvg(findViewById(R.id.setBackIcon), "nav_back", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.setBackIcon), "arrow-left", R.color.iconTint)
         findViewById<View>(R.id.setBack).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
         applyRowGroup(listOf(R.id.rowTheme, R.id.rowAccent, R.id.rowLang, R.id.rowData))
         applyRowGroup(listOf(R.id.rowUsage, R.id.rowLoc))
@@ -151,9 +151,9 @@ class SettingsActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Escuro", svg = "theme_dark", checked = current == "dark"),
-                NativePopupMenu.Item(2, "Claro", svg = "theme_light", checked = current == "light"),
-                NativePopupMenu.Item(3, "Sistema", svg = "theme_system", checked = current == "system")
+                NativePopupMenu.Item(1, "Escuro", svg = "moon", checked = current == "dark"),
+                NativePopupMenu.Item(2, "Claro", svg = "sun", checked = current == "light"),
+                NativePopupMenu.Item(3, "Sistema", svg = "monitor", checked = current == "system")
             ),
             alignLeft = false,
             placeAbove = false

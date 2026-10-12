@@ -33,30 +33,34 @@ class FallbackIconDrawable(
         val r = minOf(w, h) * 0.34f
 
         when (icon.lowercase()) {
-            "nav_menu" -> {
+            "menu" -> {
                 canvas.drawLine(cx - r, cy - 6f, cx + r, cy - 6f, paint)
                 canvas.drawLine(cx - r, cy, cx + r, cy, paint)
                 canvas.drawLine(cx - r, cy + 6f, cx + r, cy + 6f, paint)
             }
-            "add" -> {
+            "plus" -> {
                 canvas.drawLine(cx - r, cy, cx + r, cy, paint)
                 canvas.drawLine(cx, cy - r, cx, cy + r, paint)
             }
-            "arrow-up", "action_send" -> {
+            "arrow-up" -> {
                 canvas.drawLine(cx, cy + r, cx, cy - r, paint)
                 canvas.drawLine(cx, cy - r, cx - r * .55f, cy - r * .45f, paint)
                 canvas.drawLine(cx, cy - r, cx + r * .55f, cy - r * .45f, paint)
             }
-            "nav_back", "action_close" -> {
+            "arrow-left" -> {
                 canvas.drawLine(cx + r * .7f, cy, cx - r * .7f, cy, paint)
                 canvas.drawLine(cx - r * .7f, cy, cx - r * .1f, cy - r * .6f, paint)
                 canvas.drawLine(cx - r * .7f, cy, cx - r * .1f, cy + r * .6f, paint)
+            }
+            "x" -> {
+                canvas.drawLine(cx - r * .6f, cy - r * .6f, cx + r * .6f, cy + r * .6f, paint)
+                canvas.drawLine(cx + r * .6f, cy - r * .6f, cx - r * .6f, cy + r * .6f, paint)
             }
             "chevron-down" -> {
                 canvas.drawLine(cx - r * .55f, cy - r * .2f, cx, cy + r * .38f, paint)
                 canvas.drawLine(cx, cy + r * .38f, cx + r * .55f, cy - r * .2f, paint)
             }
-            "state_selected" -> {
+            "check" -> {
                 canvas.drawLine(cx - r * .75f, cy, cx - r * .15f, cy + r * .55f, paint)
                 canvas.drawLine(cx - r * .15f, cy + r * .55f, cx + r * .8f, cy - r * .6f, paint)
             }
@@ -65,7 +69,7 @@ class FallbackIconDrawable(
                 val oval = RectF(cx - r, cy, cx + r, cy + r * 1.2f)
                 canvas.drawArc(oval, 205f, 130f, false, paint)
             }
-            "action_bookmark", "stack" -> {
+            "bookmark", "stack" -> {
                 val path = Path().apply {
                     moveTo(cx - r * .65f, cy - r)
                     lineTo(cx + r * .65f, cy - r)
@@ -76,7 +80,7 @@ class FallbackIconDrawable(
                 }
                 canvas.drawPath(path, paint)
             }
-            "nav_settings" -> {
+            "settings" -> {
                 canvas.drawCircle(cx, cy, r * .55f, paint)
                 canvas.drawCircle(cx, cy, r * .14f, paint)
                 for (i in 0 until 8) {
@@ -94,7 +98,7 @@ class FallbackIconDrawable(
                 canvas.drawOval(ovalV, paint)
                 canvas.drawLine(cx - r, cy, cx + r, cy, paint)
             }
-            "theme_light", "sunny" -> {
+            "sun", "sunny" -> {
                 canvas.drawCircle(cx, cy, r * .48f, paint)
                 for (i in 0 until 8) {
                     val a = Math.toRadians(i * 45.0)
@@ -107,7 +111,7 @@ class FallbackIconDrawable(
                     )
                 }
             }
-            "theme_dark" -> {
+            "moon" -> {
                 val p = Path().apply {
                     moveTo(cx + r * .28f, cy - r)
                     cubicTo(cx - r * .65f, cy - r * .75f, cx - r * .7f, cy + r * .7f, cx + r * .2f, cy + r)
@@ -116,7 +120,7 @@ class FallbackIconDrawable(
                 }
                 canvas.drawPath(p, paint)
             }
-            "auth_phone" -> {
+            "phone" -> {
                 canvas.drawRoundRect(
                     RectF(cx - r * .55f, cy - r, cx + r * .55f, cy + r),
                     r * .18f,
@@ -125,7 +129,7 @@ class FallbackIconDrawable(
                 )
                 canvas.drawCircle(cx, cy + r * .68f, r * .08f, paint)
             }
-            "action_chat" -> {
+            "message-circle" -> {
                 val path = Path().apply {
                     moveTo(cx - r, cy - r * .75f)
                     lineTo(cx + r, cy - r * .75f)

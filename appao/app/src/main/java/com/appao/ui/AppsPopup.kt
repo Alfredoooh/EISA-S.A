@@ -9,10 +9,10 @@ object AppsPopup {
     data class Option(val id: Int, val label: String, val svg: String, val actionKey: String)
 
     private val OPTIONS = listOf(
-        Option(1, "Carregar ficheiro", "attach_file", "file"),
-        Option(2, "Abrir câmera", "attach_camera", "camera"),
-        Option(3, "Carregar imagem", "attach_image", "image"),
-        Option(4, "Pensar mais", "action_deep_think", "think")
+        Option(1, "Carregar ficheiro", "paperclip", "file"),
+        Option(2, "Abrir câmera", "camera", "camera"),
+        Option(3, "Carregar imagem", "image-plus", "image"),
+        Option(4, "Pensar mais", "brain", "think")
     )
 
     fun show(anchor: View, onPick: (String) -> Unit): PopupWindow {

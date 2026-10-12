@@ -38,6 +38,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import com.bumptech.glide.Glide
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -87,11 +88,11 @@ class SearchActivity : AppCompatActivity() {
             insets
         }
 
-        IconLoader.applySvg(findViewById(R.id.searchCloseIcon), "close", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "more_horiz", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchAddIcon), "action_add", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchSliderIcon), "location_on", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchSendIcon), "arrow_upward", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.searchCloseIcon), "x", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "more-horizontal", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.searchAddIcon), "plus", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.searchSliderIcon), "map-pin", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.searchSendIcon), "arrow-up", R.color.iconTint)
 
         galleryMode = intent.getBooleanExtra("gallery_mode", false)
         cameraMode = intent.getBooleanExtra("camera_mode", false)
@@ -100,7 +101,7 @@ class SearchActivity : AppCompatActivity() {
         findViewById<View>(R.id.searchMore).setOnClickListener {
             when {
                 galleryMode -> openNativeImagePicker()
-                cameraMode -> launchCamera()
+                cameraMode -> captureOrStartCamera()
                 else -> showMorePopup(it)
             }
         }
@@ -238,7 +239,7 @@ class SearchActivity : AppCompatActivity() {
 
     private fun loadDeviceImages() {
         val grid = findViewById<android.widget.GridView>(R.id.searchGalleryGrid)
-        val empty = findViewById<View>(R.id.searchMediaEmpty)
+        val empty = findViewById<TextView>(R.id.searchMediaEmpty)
         val images = ArrayList<Uri>()
         var cursor: Cursor? = null
         try {
@@ -473,10 +474,10 @@ class SearchActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Eliminar pesquisa", svg = "action_delete"),
-                NativePopupMenu.Item(2, "Arquivar pesquisa", svg = "action_archive"),
-                NativePopupMenu.Item(3, "Iniciar nova pesquisa", svg = "action_add"),
-                NativePopupMenu.Item(4, "Renomear pesquisa", svg = "action_edit")
+                NativePopupMenu.Item(1, "Eliminar pesquisa", svg = "trash-2"),
+                NativePopupMenu.Item(2, "Arquivar pesquisa", svg = "archive"),
+                NativePopupMenu.Item(3, "Iniciar nova pesquisa", svg = "plus"),
+                NativePopupMenu.Item(4, "Renomear pesquisa", svg = "pencil")
             )
         ) { item ->
             when (item.id) {

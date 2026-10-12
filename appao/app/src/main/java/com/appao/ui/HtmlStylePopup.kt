@@ -300,7 +300,7 @@ object HtmlStylePopup {
                         scaleType =
                             ImageView.ScaleType.CENTER
 
-                        IconLoader.applySvg(this, "state_selected", R.color.iconTint)
+                        IconLoader.applySvg(this, "check", R.color.iconTint)
                     }
 
                 row.addView(

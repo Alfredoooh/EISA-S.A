@@ -206,23 +206,23 @@ class ArticleActivity : AppCompatActivity() {
 
         IconLoader.applySvg(
             findViewById(R.id.aBackIcon),
-            "nav_back",
+            "arrow-left",
             R.color.iconTint
         )
         IconLoader.applySvg(
             findViewById(R.id.acSendIcon),
-            "arrow_upward",
+            "arrow-up",
             R.color.iconTint
         )
-        IconLoader.applySvg(findViewById(R.id.aMoreIcon), "action_overflow", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.aMoreIcon), "more-horizontal", R.color.iconTint)
         IconLoader.applySvg(
             findViewById(R.id.cIcon),
-            "action_chat",
+            "message-circle",
             R.color.iconTint
         )
         IconLoader.applySvg(
             findViewById(R.id.acEmojiIcon),
-            "action_reactions",
+            "smile",
             R.color.iconTint
         )
 
@@ -339,10 +339,10 @@ class ArticleActivity : AppCompatActivity() {
         time.setTextColor(ContextCompat.getColor(this, R.color.dim))
         summary.setTextColor(ContextCompat.getColor(this, R.color.dim))
         body.setTextColor(ContextCompat.getColor(this, R.color.text))
-        IconLoader.applySvg(findViewById(R.id.aBackIcon), "nav_back", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.aMoreIcon), "action_overflow", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.aBackIcon), "arrow-left", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.aMoreIcon), "more-horizontal", R.color.iconTint)
         acSend.background = AccentColorManager.primaryShape(this, android.graphics.drawable.GradientDrawable.OVAL)
-        IconLoader.applySvg(findViewById(R.id.acSendIcon), "arrow_upward", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.acSendIcon), "arrow-up", R.color.iconTint)
         findViewById<ImageView>(R.id.acSendIcon).setColorFilter(
             AccentColorManager.onPrimaryColor(this),
             android.graphics.PorterDuff.Mode.SRC_IN
@@ -483,9 +483,9 @@ class ArticleActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Abrir no navegador", svg = "action_external_link"),
-                NativePopupMenu.Item(2, if (isArticleSaved()) "Remover dos guardados" else "Guardar", svg = "action_bookmark"),
-                NativePopupMenu.Item(3, "Partilhar", svg = "action_share")
+                NativePopupMenu.Item(1, "Abrir no navegador", svg = "external-link"),
+                NativePopupMenu.Item(2, if (isArticleSaved()) "Remover dos guardados" else "Guardar", svg = "bookmark"),
+                NativePopupMenu.Item(3, "Partilhar", svg = "share")
             )
         ) { item ->
             when (item.id) {
@@ -640,7 +640,7 @@ class ArticleActivity : AppCompatActivity() {
             Triple("Messenger", "messenger", "com.facebook.orca"),
             Triple("Telegram", "telegram", "org.telegram.messenger"),
             Triple("LinkedIn", "linkedin", "com.linkedin.android"),
-            Triple("Mais", "action_share", null)
+            Triple("Mais", "share", null)
         )
 
         val grid = android.widget.GridLayout(this).apply {

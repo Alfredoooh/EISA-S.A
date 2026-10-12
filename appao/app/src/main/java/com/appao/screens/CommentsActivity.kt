@@ -39,8 +39,8 @@ class CommentsActivity : AppCompatActivity() {
         list = findViewById(R.id.commentsList)
         articleLink = intent.getStringExtra("article_link").orEmpty()
         findViewById<TextView>(R.id.commentsArticleTitle).text = intent.getStringExtra("article_title").orEmpty()
-        IconLoader.applySvg(findViewById(R.id.commentsBackIcon), "nav_back", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.commentSendIcon), "arrow_upward", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.commentsBackIcon), "arrow-left", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.commentSendIcon), "arrow-up", R.color.iconTint)
 
         parseComments(intent.getStringExtra("comments_json").orEmpty()).forEach { comments.add(it) }
         adapter = CommentAdapter(comments) { index, reaction ->

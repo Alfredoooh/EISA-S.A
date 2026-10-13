@@ -3,12 +3,15 @@ package com.appao
 import android.app.Activity
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.DrawableCompat
 import com.google.android.material.snackbar.Snackbar
 
 /** Floating rounded snackbar styled to match the app's surface and close.svg affordance. */
@@ -59,7 +62,13 @@ object AppAoToast {
 
         snackbar.view.findViewById<Button>(com.google.android.material.R.id.snackbar_action)?.post {
             val action = snackbar.view.findViewById<Button>(com.google.android.material.R.id.snackbar_action)
-            val icon = IconLoader.drawable(context, "close", dp(20), ContextCompat.getColor(context, R.color.iconTint))
+            val iconBitmap = IconLoader.svgBitmap(context, "close", dp(20))
+            val baseIcon: Drawable = iconBitmap?.let { BitmapDrawable(context.resources, it) }
+                ?: ContextCompat.getDrawable(context, android.R.drawable.ic_menu_close_clear_cancel)!!
+            val icon = DrawableCompat.wrap(baseIcon).mutate().apply {
+                DrawableCompat.setTint(this, ContextCompat.getColor(context, R.color.iconTint))
+                setBounds(0, 0, dp(20), dp(20))
+            }
             action.text = ""
             action.contentDescription = "Fechar"
             action.minimumWidth = 0

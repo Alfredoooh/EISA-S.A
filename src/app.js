@@ -11,14 +11,11 @@ const startedAt = Date.now();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
-const corsOptions = {
+app.use(cors({
   origin:         process.env.CORS_ORIGIN || '*',
   methods:        ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'x-api-key'],
-};
-
-app.use(cors(corsOptions));
-app.options('/(.*)', cors(corsOptions));
+}));
 app.use(express.json({ limit: '256kb' }));
 
 const rateMap = new Map();

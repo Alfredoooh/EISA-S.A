@@ -1,31 +1,31 @@
-// src/app.js
 require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const newsRoutes = require('./routes/news');
+const express       = require('express');
+const cors          = require('cors');
+const newsRoutes    = require('./routes/news');
 const articleRoutes = require('./routes/article');
 
-const app = express();
-const PORT = Number(process.env.PORT || 3000);
+const app       = express();
+const PORT      = Number(process.env.PORT || 3000);
 const startedAt = Date.now();
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
-  methods: ['GET', 'POST', 'OPTIONS'],
+  origin:         process.env.CORS_ORIGIN || '*',
+  methods:        ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'x-api-key'],
 }));
+app.options('*', cors());
 app.use(express.json({ limit: '256kb' }));
 
-// Rate limiter
 const rateMap = new Map();
 app.use((req, res, next) => {
   const windowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 60000);
-  const max = Number(process.env.RATE_LIMIT_MAX || 120);
-  const key = req.ip || 'unknown';
-  const now = Date.now();
-  const entry = rateMap.get(key);
+  const max      = Number(process.env.RATE_LIMIT_MAX || 120);
+  const key      = req.ip || 'unknown';
+  const now      = Date.now();
+  const entry    = rateMap.get(key);
   if (!entry || now - entry.start >= windowMs) {
     rateMap.set(key, { start: now, count: 1 });
     return next();
@@ -36,15 +36,15 @@ app.use((req, res, next) => {
 });
 
 app.get('/health', (_req, res) => res.json({
-  status: 'ok',
-  version: '3.0.0',
-  language: 'en',
+  status:        'ok',
+  version:       '3.0.0',
+  language:      'en',
   uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
-  timestamp: new Date().toISOString(),
+  timestamp:     new Date().toISOString(),
   providers: {
     guardian: Boolean(process.env.GUARDIAN_API_KEY),
-    nytimes: Boolean(process.env.NYT_API_KEY),
-    gnews: Boolean(process.env.GNEWS_API_KEY),
+    nytimes:  Boolean(process.env.NYT_API_KEY),
+    gnews:    Boolean(process.env.GNEWS_API_KEY),
     newsdata: Boolean(process.env.NEWSDATA_API_KEY),
   },
 }));
@@ -52,18 +52,18 @@ app.get('/health', (_req, res) => res.json({
 app.get('/ready', (_req, res) => res.json({ ready: true, timestamp: new Date().toISOString() }));
 
 app.get('/', (_req, res) => res.json({
-  name: 'News Aggregator API',
-  version: '3.0.0',
+  name:     'News Aggregator API',
+  version:  '3.0.0',
   language: 'en',
-  sources: ['The Guardian', 'The New York Times', 'GNews', 'NewsData.io'],
+  sources:  ['The Guardian', 'The New York Times', 'GNews', 'NewsData.io'],
   endpoints: {
-    latest: 'GET /news/latest?maxAgeHours=12&page=1&pageSize=20',
-    feed: 'GET /news?category=world&page=1&pageSize=20&maxAgeHours=24',
-    search: 'GET /news/search?q=artificial+intelligence',
-    article: 'GET /article?url=https://...',
+    latest:     'GET /news/latest?maxAgeHours=12&page=1&pageSize=20',
+    feed:       'GET /news?category=world&page=1&pageSize=20&maxAgeHours=24',
+    search:     'GET /news/search?q=artificial+intelligence',
+    article:    'GET /article?url=https://...',
     categories: 'GET /news/categories',
-    sources: 'GET /news/sources',
-    health: 'GET /health',
+    sources:    'GET /news/sources',
+    health:     'GET /health',
   },
 }));
 
@@ -79,7 +79,7 @@ function apiKeyMiddleware(req, res, next) {
   next();
 }
 
-app.use('/news', apiKeyMiddleware, newsRoutes);
+app.use('/news',    apiKeyMiddleware, newsRoutes);
 app.use('/article', apiKeyMiddleware, articleRoutes);
 
 app.use((_req, res) => res.status(404).json({ status: 'error', error: 'Endpoint not found' }));

@@ -29,7 +29,7 @@ class SidePanelActivity : AppCompatActivity() {
 
         IconLoader.applySvg(
             findViewById(R.id.sideCloseIcon),
-            "arrow_right2",
+            "arrow_right",
             R.color.iconTint
         )
 

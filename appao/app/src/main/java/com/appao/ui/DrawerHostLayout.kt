@@ -6,7 +6,6 @@ import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.FrameLayout
-import android.widget.HorizontalScrollView
 import kotlin.math.abs
 
 /** Edge gesture host for the feed and Apps/Conversations pages plus pull refresh. */
@@ -35,6 +34,12 @@ class DrawerHostLayout @JvmOverloads constructor(
 
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
 
+    // Horizontal page swipes are app-level navigation gestures. Child lists and
+    // horizontal tab strips must not permanently disallow interception.
+    override fun requestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {
+        super.requestDisallowInterceptTouchEvent(false)
+    }
+
     private enum class GestureMode {
         NONE,
         RIGHT_OPEN,
@@ -52,7 +57,6 @@ class DrawerHostLayout @JvmOverloads constructor(
     private var intercepted = false
     private var mode = GestureMode.NONE
     private var velocityX = 0f
-    private var horizontalChildGesture = false
 
     override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
@@ -65,12 +69,11 @@ class DrawerHostLayout @JvmOverloads constructor(
                 tracking = true
                 intercepted = false
                 mode = GestureMode.NONE
-                horizontalChildGesture = hasHorizontalScrollTarget(this, downX, downY)
                 return false
             }
 
             MotionEvent.ACTION_MOVE -> {
-                if (!tracking || horizontalChildGesture) return false
+                if (!tracking) return false
 
                 val dx = event.x - downX
                 val dy = event.y - downY
@@ -148,7 +151,6 @@ class DrawerHostLayout @JvmOverloads constructor(
                 if (intercepted) return false
                 tracking = false
                 mode = GestureMode.NONE
-                horizontalChildGesture = false
                 return false
             }
         }
@@ -203,7 +205,6 @@ class DrawerHostLayout @JvmOverloads constructor(
                 }
                 tracking = false
                 intercepted = false
-                horizontalChildGesture = false
                 mode = GestureMode.NONE
                 return true
             }
@@ -222,25 +223,6 @@ class DrawerHostLayout @JvmOverloads constructor(
     }
 
     private fun calculateProgress(x: Float): Float = (abs(x - downX) / width.coerceAtLeast(1).toFloat()).coerceIn(0f, 1f)
-
-    private fun hasHorizontalScrollTarget(view: ViewGroup, x: Float, y: Float): Boolean {
-        for (index in view.childCount - 1 downTo 0) {
-            val child = view.getChildAt(index)
-            if (child.visibility != VISIBLE || child.alpha <= 0f) continue
-
-            val left = child.left.toFloat()
-            val top = child.top.toFloat()
-            val right = child.right.toFloat()
-            val bottom = child.bottom.toFloat()
-            if (x < left || x > right || y < top || y > bottom) continue
-
-            val localX = x - left + child.scrollX
-            val localY = y - top + child.scrollY
-            if (child is HorizontalScrollView) return true
-            if (child is ViewGroup && hasHorizontalScrollTarget(child, localX, localY)) return true
-        }
-        return false
-    }
 
     private fun updateVelocity(currentX: Float) {
         val now = System.currentTimeMillis()

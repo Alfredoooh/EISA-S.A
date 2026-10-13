@@ -266,7 +266,7 @@ class MainActivity : AppCompatActivity() {
             val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
             val safeBottom = if (systemBottom > imeBottom) systemBottom else imeBottom
             val frame = view as ViewGroup
-            frame.setPadding(dp(14), dp(10), dp(14), dp(10) + safeBottom)
+            frame.setPadding(dp(14), dp(10), dp(14), dp(14) + safeBottom)
             bottomBarHeight = view.measuredHeight
             insets
         }
@@ -290,7 +290,15 @@ class MainActivity : AppCompatActivity() {
         }
 
         feedHeaderHeight = dp(104)
-        recycler.updatePadding(top = feedHeaderHeight, bottom = dp(28))
+        recycler.updatePadding(top = feedHeaderHeight, bottom = dp(84))
+        val feedBottom = findViewById<View>(R.id.feedBottomBar)
+        ViewCompat.setOnApplyWindowInsetsListener(feedBottom) { view, insets ->
+            val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
+            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, systemBottom)
+            view.layoutParams = view.layoutParams.apply { height = dp(64) + systemBottom }
+            recycler.updatePadding(bottom = dp(84) + systemBottom)
+            insets
+        }
         ViewCompat.requestApplyInsets(rootHost)
     }
 
@@ -362,6 +370,18 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.feedBack).setOnClickListener { closeFeedPanel() }
         findViewById<View>(R.id.feedPublish).setOnClickListener { openPublish() }
         findViewById<View>(R.id.feedMore).setOnClickListener { showFeedMorePopup(it) }
+        IconLoader.applySvg(findViewById(R.id.feedNavDiscoverIcon), "search", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedNavAppsIcon), "apps", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedNavBrowserIcon), "arrow_top_right", R.color.iconTint)
+        findViewById<View>(R.id.feedNavDiscover).setOnClickListener {
+            recycler.smoothScrollToPosition(0)
+            openFeedPanelImmediate()
+        }
+        findViewById<View>(R.id.feedNavApps).setOnClickListener { openAppsPanel() }
+        findViewById<View>(R.id.feedNavBrowser).setOnClickListener {
+            startActivity(Intent(this, AppViewerActivity::class.java).putExtra("url", "https://www.google.com"))
+            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+        }
 
         // feedToolbar previously had no status-bar inset handling, so
         // feedBack ("voltar" on the Descobrir panel) sat flush under the
@@ -587,6 +607,7 @@ class MainActivity : AppCompatActivity() {
             true
         }
         // Keep the existing More popup and its native sheet implementation.
+        findViewById<View>(R.id.biActions).translationY = dp(2).toFloat()
         findViewById<View>(R.id.biAdd).setOnClickListener { showAppsPopup(it) }
 
         applyComposerSurface()
@@ -679,11 +700,11 @@ class MainActivity : AppCompatActivity() {
         val appsHeader = findViewById<View>(R.id.appsHeaderBar)
         appsHeader.elevation = 0f
         appsHeader.translationZ = 0f
-        IconLoader.applySvg(findViewById(R.id.appsProfileAvatar), "profile", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsProfileAvatarBottom), "profile", R.color.iconTint)
+        findViewById<ImageView>(R.id.appsProfileAvatar).setImageResource(R.mipmap.ic_launcher_round)
+        findViewById<ImageView>(R.id.appsProfileAvatarBottom).setImageResource(R.mipmap.ic_launcher_round)
         IconLoader.applySvg(findViewById(R.id.appsSearchIcon), "search", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsNewChatIcon), "new_chat", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow_right2", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow_right", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
         findViewById<View>(R.id.appsProfileBottom).setOnClickListener {
             startActivity(Intent(this, AuthActivity::class.java))
@@ -1401,12 +1422,15 @@ class MainActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if ((requestCode == 902 || requestCode == 903) && resultCode == RESULT_OK) {
-            val uri = data?.getStringExtra("image_uri") ?: data?.data?.toString()
-            if (!uri.isNullOrBlank()) {
+            val selected = data?.getStringArrayListExtra("image_uris").orEmpty()
+            val single = data?.getStringExtra("image_uri") ?: data?.data?.toString()
+            val all = selected.ifEmpty { listOfNotNull(single) }
+            if (all.isNotEmpty()) {
                 getSharedPreferences("appao", MODE_PRIVATE).edit()
-                    .putString("pending_media_uri", uri)
+                    .putString("pending_media_uri", all.first())
+                    .putString("pending_media_uris_json", JSONArray(all).toString())
                     .apply()
-                AppAoToast.show(this, if (requestCode == 903) "Imagem da câmara selecionada" else "Imagem selecionada")
+                AppAoToast.show(this, if (requestCode == 903) "Imagem da câmara selecionada" else if (all.size > 1) "${all.size} imagens selecionadas" else "Imagem selecionada")
             }
         }
     }
@@ -1602,14 +1626,17 @@ class MainActivity : AppCompatActivity() {
         IconLoader.applySvg(findViewById(R.id.feedBackIcon), "arrow_left", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "write", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more_vert", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedNavDiscoverIcon), "search", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedNavAppsIcon), "apps", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedNavBrowserIcon), "arrow_top_right", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biAddIcon), "plus", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSliderIcon), "filters", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow_up", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsProfileAvatar), "profile", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsProfileAvatarBottom), "profile", R.color.iconTint)
+        findViewById<ImageView>(R.id.appsProfileAvatar).setImageResource(R.mipmap.ic_launcher_round)
+        findViewById<ImageView>(R.id.appsProfileAvatarBottom).setImageResource(R.mipmap.ic_launcher_round)
         IconLoader.applySvg(findViewById(R.id.appsSearchIcon), "search", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsNewChatIcon), "new_chat", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow_right2", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow_right", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
         findViewById<TextView>(R.id.feedToolbarTitle).setTextColor(ContextCompat.getColor(this, R.color.text))
         refreshFeedTabs(false)
@@ -1628,6 +1655,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<ImageView>(R.id.appsProfileAvatar).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
         findViewById<View>(R.id.appsProfileBottom).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
         findViewById<ImageView>(R.id.appsProfileAvatarBottom).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
+        findViewById<ImageView>(R.id.appsProfileAvatar).setImageResource(R.mipmap.ic_launcher_round)
+        findViewById<ImageView>(R.id.appsProfileAvatarBottom).setImageResource(R.mipmap.ic_launcher_round)
         selectAppsTab(appsTabIsApps, false)
         if (::adapter.isInitialized) adapter.refreshTheme(recycler)
         // Theme changes update the current surface in place; no feed request or data rebuild is made.

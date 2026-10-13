@@ -36,7 +36,7 @@ object HtmlStylePopup {
     private const val MIN_WIDTH_DP = 230
     private const val MAX_WIDTH_DP = 320
     private const val MENU_PADDING_DP = 8
-    private const val MENU_RADIUS_DP = 26
+    private const val MENU_RADIUS_DP = 22
     private const val ITEM_RADIUS_DP = 18
     private const val ITEM_DELAY_MS = 20L
     private const val ITEM_TRANSLATE_DP = 6
@@ -326,7 +326,10 @@ object HtmlStylePopup {
         // Menus intentionally overlap the activated control rather than opening
         // above/below it. Align the right edge with the anchor by default, which
         // keeps option menus close to the trailing side of Settings cards.
-        val preferredLeft = if (alignLeft) anchorLeft else anchorRight - width
+        val anchorCenterX = anchorLeft + anchor.width / 2
+        val frameCenterX = frame.left + frame.width() / 2
+        val preferLeftEdge = alignLeft || anchorCenterX < frameCenterX
+        val preferredLeft = if (preferLeftEdge) anchorLeft else anchorRight - width
         val left = preferredLeft.coerceIn(frame.left + edge, maxLeft)
 
         val minTop = frame.top + edge

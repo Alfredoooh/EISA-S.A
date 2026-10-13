@@ -7,6 +7,7 @@ import android.Manifest
 import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.graphics.ImageFormat
+import android.graphics.drawable.GradientDrawable
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
@@ -34,6 +35,7 @@ import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.GridView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -68,6 +70,12 @@ class SearchActivity : AppCompatActivity() {
     private var cameraSensorOrientation = 0
     private var cameraPermissionPending = false
     private var galleryPermissionPending = false
+    private data class GalleryImage(val uri: Uri, val folder: String, val dateAdded: Long)
+    private var deviceImages: List<GalleryImage> = emptyList()
+    private val selectedGalleryUris = linkedSetOf<String>()
+    private var activeGalleryTab = 0 // 0 Recentes, 1 Todos, 2 Pastas
+    private var openGalleryFolder: String? = null
+    private var capturedPhotoBytes: ByteArray? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -102,7 +110,17 @@ class SearchActivity : AppCompatActivity() {
         galleryMode = intent.getBooleanExtra("gallery_mode", false)
         cameraMode = intent.getBooleanExtra("camera_mode", false)
         cameraPreview = findViewById(R.id.searchCameraPreview)
-        findViewById<View>(R.id.searchClose).setOnClickListener { finish() }
+        findViewById<View>(R.id.searchGalleryRecentTab).setOnClickListener { setGalleryTab(0) }
+        findViewById<View>(R.id.searchGalleryAllTab).setOnClickListener { setGalleryTab(1) }
+        findViewById<View>(R.id.searchGalleryFoldersTab).setOnClickListener { setGalleryTab(2) }
+        IconLoader.applySvg(findViewById(R.id.searchCameraButtonIcon), "camera", R.color.iconTint)
+        findViewById<View>(R.id.searchClose).setOnClickListener {
+            if (galleryMode && activeGalleryTab == 2 && openGalleryFolder != null) {
+                openGalleryFolder = null
+                findViewById<TextView>(R.id.searchModeTitle).text = "Galeria"
+                renderGalleryContent()
+            } else finish()
+        }
         findViewById<View>(R.id.menuSearchBack).setOnClickListener {
             finish()
             overridePendingTransition(R.anim.publish_return_enter, R.anim.publish_return_exit)
@@ -115,8 +133,8 @@ class SearchActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.searchMore).setOnClickListener {
             when {
-                galleryMode -> ensureGalleryPermissionAndLoad()
-                cameraMode -> captureOrStartCamera()
+                galleryMode -> completeGallerySelection()
+                cameraMode -> capturedPhotoBytes?.let { bytes -> saveCapturedPhoto(bytes) }
                 else -> showMorePopup(it)
             }
         }
@@ -210,9 +228,11 @@ class SearchActivity : AppCompatActivity() {
             findViewById<View>(R.id.searchContent).visibility = View.GONE
             findViewById<View>(R.id.searchTopBar).visibility = View.VISIBLE
             findViewById<View>(R.id.searchCameraPanel).visibility = View.GONE
-            findViewById<android.widget.GridView>(R.id.searchGalleryGrid).visibility = View.VISIBLE
+            findViewById<GridView>(R.id.searchGalleryGrid).visibility = View.VISIBLE
+            findViewById<View>(R.id.searchGalleryBottomBar).visibility = View.VISIBLE
             findViewById<View>(R.id.searchMediaEmpty).visibility = View.VISIBLE
             findViewById<View>(R.id.searchMore).visibility = View.GONE
+            updateGalleryTabAppearance()
             ensureGalleryPermissionAndLoad()
         } else if (cameraMode) {
             findViewById<TextView>(R.id.searchModeTitle).apply {
@@ -224,9 +244,18 @@ class SearchActivity : AppCompatActivity() {
             findViewById<View>(R.id.searchContent).visibility = View.GONE
             findViewById<View>(R.id.searchCameraPanel).visibility = View.VISIBLE
             findViewById<View>(R.id.searchGalleryGrid).visibility = View.GONE
+            findViewById<View>(R.id.searchGalleryBottomBar).visibility = View.GONE
             findViewById<View>(R.id.searchMediaEmpty).visibility = View.GONE
             findViewById<View>(R.id.searchMore).visibility = View.GONE
             IconLoader.applySvg(findViewById(R.id.searchCameraIcon), "camera", R.color.iconTint)
+            IconLoader.applySvg(findViewById(R.id.searchCameraButtonIcon), "camera", R.color.iconTint)
+            val cameraPanel = findViewById<View>(R.id.searchCameraPanel)
+            cameraPanel.setPadding(0, 0, 0, 0)
+            val cameraFrame = findViewById<View>(R.id.searchCameraFrame)
+            cameraFrame.layoutParams = cameraFrame.layoutParams.apply {
+                width = ViewGroup.LayoutParams.MATCH_PARENT
+                height = (resources.displayMetrics.widthPixels * 0.75f).toInt()
+            }
             findViewById<View>(R.id.searchCameraButton).setOnClickListener { captureOrStartCamera() }
             cameraPreview.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                 override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
@@ -277,62 +306,241 @@ class SearchActivity : AppCompatActivity() {
             text = "Permite o acesso às imagens para mostrar a galeria do dispositivo nesta tela."
             visibility = View.VISIBLE
         }
-        findViewById<android.widget.GridView>(R.id.searchGalleryGrid).visibility = View.GONE
+        findViewById<GridView>(R.id.searchGalleryGrid).visibility = View.GONE
+        findViewById<View>(R.id.searchMore).visibility = View.GONE
     }
 
     private fun loadDeviceImages() {
-        val grid = findViewById<android.widget.GridView>(R.id.searchGalleryGrid)
+        val grid = findViewById<GridView>(R.id.searchGalleryGrid)
         val empty = findViewById<TextView>(R.id.searchMediaEmpty)
-        val images = ArrayList<Uri>()
+        val images = ArrayList<GalleryImage>()
         var cursor: Cursor? = null
         try {
+            val projection = mutableListOf(
+                MediaStore.Images.Media._ID,
+                MediaStore.Images.Media.DATE_ADDED,
+                MediaStore.Images.Media.BUCKET_DISPLAY_NAME
+            )
+            val folderColumn = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                projection += MediaStore.Images.Media.RELATIVE_PATH
+                MediaStore.Images.Media.RELATIVE_PATH
+            } else {
+                projection += MediaStore.Images.Media.DATA
+                MediaStore.Images.Media.DATA
+            }
             cursor = contentResolver.query(
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                arrayOf(MediaStore.Images.Media._ID),
+                projection.toTypedArray(),
                 null,
                 null,
                 "${MediaStore.Images.Media.DATE_ADDED} DESC"
             )
             cursor?.let { c ->
                 val idColumn = c.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
+                val dateColumn = c.getColumnIndex(MediaStore.Images.Media.DATE_ADDED)
+                val bucketColumn = c.getColumnIndex(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
+                val folderIndex = c.getColumnIndex(folderColumn)
                 while (c.moveToNext()) {
                     val id = c.getLong(idColumn)
-                    images += Uri.withAppendedPath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id.toString())
+                    val uri = Uri.withAppendedPath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id.toString())
+                    val bucket = if (bucketColumn >= 0) c.getString(bucketColumn).orEmpty() else ""
+                    val rawFolder = if (folderIndex >= 0) c.getString(folderIndex).orEmpty() else ""
+                    val folder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        rawFolder.trim('/').ifBlank { bucket.ifBlank { "Imagens" } }
+                    } else {
+                        rawFolder.substringBeforeLast('/', rawFolder).ifBlank { bucket.ifBlank { "Imagens" } }
+                    }
+                    val date = if (dateColumn >= 0) c.getLong(dateColumn) else 0L
+                    images += GalleryImage(uri, folder, date)
                 }
             }
         } catch (_: SecurityException) {
-            // Scoped-media permission may restrict this grid to the media the user authorized.
+            // Scoped-media access can limit this grid to media the user authorized.
         } catch (_: Throwable) {
         } finally {
             cursor?.close()
         }
 
-        empty.text = if (images.isEmpty()) "Ainda não há imagens para mostrar neste dispositivo." else ""
-        empty.visibility = if (images.isEmpty()) View.VISIBLE else View.GONE
-        grid.adapter = object : android.widget.BaseAdapter() {
-            override fun getCount(): Int = images.size
-            override fun getItem(position: Int): Any = images[position]
-            override fun getItemId(position: Int): Long = position.toLong()
-            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                val image = (convertView as? ImageView) ?: ImageView(this@SearchActivity).apply {
-                    scaleType = ImageView.ScaleType.CENTER_CROP
-                    background = ContextCompat.getDrawable(this@SearchActivity, R.drawable.bg_circle_card)
-                    clipToOutline = true
-                    layoutParams = android.widget.AbsListView.LayoutParams(-1, dp(132))
-                    contentDescription = "Selecionar imagem"
-                }
-                Glide.with(image).load(images[position]).centerCrop().into(image)
-                image.setOnClickListener {
-                    setResult(RESULT_OK, Intent().setData(images[position]).putExtra("image_uri", images[position].toString()))
-                    finish()
-                    overridePendingTransition(R.anim.publish_return_enter, R.anim.publish_return_exit)
-                }
-                return image
+        deviceImages = images.distinctBy { it.uri.toString() }
+        grid.visibility = View.VISIBLE
+        renderGalleryContent()
+    }
+
+    private fun setGalleryTab(tab: Int) {
+        activeGalleryTab = tab.coerceIn(0, 2)
+        openGalleryFolder = null
+        findViewById<TextView>(R.id.searchModeTitle).text = "Galeria"
+        updateGalleryTabAppearance()
+        renderGalleryContent()
+    }
+
+    private fun updateGalleryTabAppearance() {
+        val tabIds = listOf(R.id.searchGalleryRecentTab, R.id.searchGalleryAllTab, R.id.searchGalleryFoldersTab)
+        tabIds.forEachIndexed { index, id ->
+            findViewById<TextView>(id).apply {
+                val selected = index == activeGalleryTab
+                background = if (selected) ContextCompat.getDrawable(this@SearchActivity, R.drawable.bg_auth_indicator)
+                    else android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
+                setTextColor(ContextCompat.getColor(this@SearchActivity, if (selected) R.color.onpri else R.color.dim))
+                alpha = if (selected) 1f else 0.92f
             }
         }
     }
 
+    private fun renderGalleryContent() {
+        if (!galleryMode) return
+        val grid = findViewById<GridView>(R.id.searchGalleryGrid)
+        val empty = findViewById<TextView>(R.id.searchMediaEmpty)
+        val title = findViewById<TextView>(R.id.searchModeTitle)
+        val showFolders = activeGalleryTab == 2 && openGalleryFolder == null
+        val visibleImages = when (activeGalleryTab) {
+            0 -> deviceImages.take(160)
+            1 -> deviceImages
+            else -> deviceImages.filter { it.folder == openGalleryFolder }
+        }
+        val folders = deviceImages.map { it.folder }.filter { it.isNotBlank() }.distinct()
+        val isEmpty = if (showFolders) folders.isEmpty() else visibleImages.isEmpty()
+        empty.text = when {
+            !isEmpty -> ""
+            showFolders -> "Não foram encontradas pastas de imagens."
+            else -> "Ainda não há imagens para mostrar nesta seleção."
+        }
+        empty.visibility = if (isEmpty) View.VISIBLE else View.GONE
+        grid.visibility = if (isEmpty) View.GONE else View.VISIBLE
+
+        if (showFolders) {
+            grid.adapter = object : android.widget.BaseAdapter() {
+                override fun getCount(): Int = folders.size
+                override fun getItem(position: Int): Any = folders[position]
+                override fun getItemId(position: Int): Long = position.toLong()
+                override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                    val cell = (convertView as? LinearLayout) ?: LinearLayout(this@SearchActivity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        gravity = Gravity.CENTER
+                        setPadding(dp(6), dp(8), dp(6), dp(8))
+                        background = ContextCompat.getDrawable(this@SearchActivity, R.drawable.bg_pill_card)
+                        val icon = ImageView(this@SearchActivity).apply {
+                            layoutParams = LinearLayout.LayoutParams(dp(30), dp(30))
+                            scaleType = ImageView.ScaleType.FIT_CENTER
+                        }
+                        IconLoader.applySvg(icon, "folder", R.color.iconTint)
+                        addView(icon)
+                        addView(TextView(this@SearchActivity).apply {
+                            tag = "folder_label"
+                            gravity = Gravity.CENTER
+                            maxLines = 2
+                            ellipsize = android.text.TextUtils.TruncateAt.END
+                            textSize = 12f
+                            setTextColor(ContextCompat.getColor(this@SearchActivity, R.color.text))
+                            layoutParams = LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(7) }
+                        })
+                    }
+                    val label = cell.getChildAt(1) as TextView
+                    label.text = folders[position].substringAfterLast('/').ifBlank { folders[position] }
+                    cell.layoutParams = android.widget.AbsListView.LayoutParams(-1, galleryCellSize(parent))
+                    cell.setOnClickListener {
+                        openGalleryFolder = folders[position]
+                        title.text = folders[position].substringAfterLast('/').ifBlank { folders[position] }
+                        renderGalleryContent()
+                    }
+                    return cell
+                }
+            }
+        } else {
+            grid.adapter = object : android.widget.BaseAdapter() {
+                override fun getCount(): Int = visibleImages.size
+                override fun getItem(position: Int): Any = visibleImages[position]
+                override fun getItemId(position: Int): Long = position.toLong()
+                override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                    val cell = (convertView as? FrameLayout) ?: FrameLayout(this@SearchActivity).apply {
+                        val image = ImageView(this@SearchActivity).apply {
+                            scaleType = ImageView.ScaleType.CENTER_CROP
+                            background = GradientDrawable().apply {
+                                shape = GradientDrawable.RECTANGLE
+                                cornerRadius = dp(2).toFloat()
+                                setColor(android.graphics.Color.TRANSPARENT)
+                            }
+                            clipToOutline = true
+                            contentDescription = "Imagem da galeria"
+                        }
+                        addView(image, FrameLayout.LayoutParams(-1, -1))
+                        val check = TextView(this@SearchActivity).apply {
+                            text = "✓"
+                            textSize = 14f
+                            gravity = Gravity.CENTER
+                            setTextColor(android.graphics.Color.WHITE)
+                            background = GradientDrawable().apply {
+                                shape = GradientDrawable.OVAL
+                                setColor(AccentColorManager.resolvedColor(this@SearchActivity) ?: ContextCompat.getColor(this@SearchActivity, R.color.pri))
+                            }
+                            visibility = View.GONE
+                        }
+                        addView(check, FrameLayout.LayoutParams(dp(24), dp(24), Gravity.TOP or Gravity.END).apply {
+                            topMargin = dp(6); marginEnd = dp(6)
+                        })
+                    }
+                    val data = visibleImages[position]
+                    val image = cell.getChildAt(0) as ImageView
+                    val check = cell.getChildAt(1) as TextView
+                    val selected = selectedGalleryUris.contains(data.uri.toString())
+                    Glide.with(image).load(data.uri).centerCrop().into(image)
+                    image.alpha = if (selected) 0.78f else 1f
+                    check.visibility = if (selected) View.VISIBLE else View.GONE
+                    check.background = GradientDrawable().apply {
+                        shape = GradientDrawable.OVAL
+                        setColor(AccentColorManager.resolvedColor(this@SearchActivity) ?: ContextCompat.getColor(this@SearchActivity, R.color.pri))
+                    }
+                    cell.layoutParams = android.widget.AbsListView.LayoutParams(-1, galleryCellSize(parent))
+                    cell.setOnClickListener {
+                        val key = data.uri.toString()
+                        if (!selectedGalleryUris.add(key)) selectedGalleryUris.remove(key)
+                        updateGalleryConfirmAction()
+                        grid.invalidateViews()
+                    }
+                    return cell
+                }
+            }
+        }
+        grid.invalidateViews()
+        updateGalleryConfirmAction()
+    }
+
+    private fun galleryCellSize(parent: ViewGroup): Int {
+        val width = (parent.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels) - dp(12)
+        return ((width - dp(6)) / 3).coerceAtLeast(dp(84))
+    }
+
+    private fun updateGalleryConfirmAction() {
+        if (!galleryMode) return
+        val action = findViewById<View>(R.id.searchMore)
+        val count = selectedGalleryUris.size
+        action.visibility = if (count > 0) View.VISIBLE else View.GONE
+        if (count > 0) IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "check_mark", R.color.iconTint)
+        else IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "more_vert", R.color.iconTint)
+        findViewById<TextView>(R.id.searchModeTitle).text = if (openGalleryFolder != null) {
+            openGalleryFolder!!.substringAfterLast('/').ifBlank { "Pasta" }
+        } else if (count > 0) "Galeria ($count)" else "Galeria"
+    }
+
+    private fun completeGallerySelection() {
+        if (selectedGalleryUris.isEmpty()) {
+            AppAoToast.show(this, "Seleciona pelo menos uma imagem")
+            return
+        }
+        val uris = ArrayList(selectedGalleryUris)
+        val result = Intent().apply {
+            putStringArrayListExtra("image_uris", uris)
+            putExtra("image_uri", uris.first())
+            data = Uri.parse(uris.first())
+        }
+        setResult(RESULT_OK, result)
+        finish()
+        overridePendingTransition(R.anim.publish_return_enter, R.anim.publish_return_exit)
+    }
+
     private fun captureOrStartCamera() {
+        capturedPhotoBytes = null
+        findViewById<View>(R.id.searchMore).visibility = View.GONE
         if (cameraDevice == null || cameraSession == null || photoReader == null) {
             openCameraPreview()
             return
@@ -399,7 +607,11 @@ class SearchActivity : AppCompatActivity() {
                     val buffer = image.planes.firstOrNull()?.buffer
                     val bytes = if (buffer != null) ByteArray(buffer.remaining()).also { buffer.get(it) } else null
                     image.close()
-                    if (bytes != null) saveCapturedPhoto(bytes)
+                    if (bytes != null) runOnUiThread {
+                        capturedPhotoBytes = bytes
+                        IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "check_mark", R.color.iconTint)
+                        findViewById<View>(R.id.searchMore).visibility = View.VISIBLE
+                    }
                 }, Handler(Looper.getMainLooper()))
             }
             manager.openCamera(id, object : CameraDevice.StateCallback() {
@@ -438,7 +650,6 @@ class SearchActivity : AppCompatActivity() {
                     try {
                         previewRequest?.build()?.let { session.setRepeatingRequest(it, null, Handler(Looper.getMainLooper())) }
                         findViewById<View>(R.id.searchCameraIcon).visibility = View.GONE
-                        findViewById<TextView>(R.id.searchCameraButton).text = "Tirar fotografia"
                     } catch (_: Throwable) { }
                 }
                 override fun onConfigureFailed(session: CameraCaptureSession) {
@@ -499,9 +710,15 @@ class SearchActivity : AppCompatActivity() {
         if (resultCode != RESULT_OK || data == null) return
         when (requestCode) {
             902, 903 -> {
-                val uri = data.getStringExtra("image_uri") ?: data.data?.toString() ?: return
-                getSharedPreferences("appao", MODE_PRIVATE).edit().putString("pending_media_uri", uri).apply()
-                AppAoToast.show(this, if (requestCode == 903) "Imagem da câmara selecionada" else "Imagem selecionada")
+                val selected = data.getStringArrayListExtra("image_uris").orEmpty()
+                val single = data.getStringExtra("image_uri") ?: data.data?.toString()
+                val all = selected.ifEmpty { listOfNotNull(single) }
+                if (all.isEmpty()) return
+                getSharedPreferences("appao", MODE_PRIVATE).edit()
+                    .putString("pending_media_uri", all.first())
+                    .putString("pending_media_uris_json", org.json.JSONArray(all).toString())
+                    .apply()
+                AppAoToast.show(this, if (requestCode == 903) "Imagem da câmara selecionada" else if (all.size > 1) "${all.size} imagens selecionadas" else "Imagem selecionada")
             }
         }
     }
@@ -655,6 +872,12 @@ class SearchActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
+        if (galleryMode && activeGalleryTab == 2 && openGalleryFolder != null) {
+            openGalleryFolder = null
+            findViewById<TextView>(R.id.searchModeTitle).text = "Galeria"
+            renderGalleryContent()
+            return
+        }
         finish()
         overridePendingTransition(R.anim.publish_return_enter, R.anim.publish_return_exit)
     }

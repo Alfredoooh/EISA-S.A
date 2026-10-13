@@ -86,13 +86,33 @@ object IconLoader {
         context: Context,
         name: String
     ): java.io.InputStream {
-        return try {
-            context.assets.open("icons/svg/$name.svg")
-        } catch (_: Throwable) {
-            context.assets.open(
-                "icons/svg/${name.replace("-", "_")}.svg"
-            )
+        val sourceName = when (name) {
+            "x", "close-circle" -> "close"
+            "arrow-left" -> "arrow_left"
+            "arrow-right" -> "arrow_right2"
+            "arrow-up" -> "arrow_up"
+            "arrow-down" -> "arrow_down"
+            "more-vertical", "more-horizontal" -> "more_vert"
+            "heart-filled-color" -> "heart_filled_color"
+            "message-square-plus" -> "new_chat"
+            "pencil", "square-pen" -> "write"
+            "filter", "list-filter", "sliders-horizontal" -> "filters"
+            "chart-pie" -> "chart_pie"
+            "lock" -> "locked"
+            "lock-open" -> "no_locked"
+            "globe" -> "language"
+            else -> name.replace("-", "_")
         }
+        val candidates = listOf(sourceName, name, name.replace("-", "_")).distinct()
+        var lastError: Throwable? = null
+        for (candidate in candidates) {
+            try {
+                return context.assets.open("icons/svg/$candidate.svg")
+            } catch (t: Throwable) {
+                lastError = t
+            }
+        }
+        throw lastError ?: java.io.FileNotFoundException("Icon '$name' not found")
     }
 
     private fun assetExists(

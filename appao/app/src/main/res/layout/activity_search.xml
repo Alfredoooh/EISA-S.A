@@ -137,6 +137,77 @@
     </LinearLayout>
 
     <FrameLayout
+        android:id="@+id/menuSearchBar"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_gravity="top"
+        android:layout_marginTop="4dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:visibility="gone"
+        android:background="@color/bg">
+
+        <LinearLayout
+            android:id="@+id/menuSearchPill"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_gravity="center_vertical"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:background="@drawable/bg_pill_card"
+            android:paddingStart="4dp"
+            android:paddingEnd="8dp">
+
+            <FrameLayout
+                android:id="@+id/menuSearchBack"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@android:color/transparent"
+                android:clickable="true"
+                android:focusable="true">
+                <ImageView
+                    android:id="@+id/menuSearchBackIcon"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_gravity="center"
+                    android:scaleType="fitCenter" />
+            </FrameLayout>
+
+            <EditText
+                android:id="@+id/menuSearchInput"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:hint="Pesquisar conversas"
+                android:singleLine="true"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:textColor="@color/text"
+                android:textColorHint="@color/dim"
+                android:textSize="15sp" />
+
+            <FrameLayout
+                android:id="@+id/menuSearchClear"
+                android:layout_width="34dp"
+                android:layout_height="40dp"
+                android:visibility="gone"
+                android:background="@android:color/transparent"
+                android:clickable="true"
+                android:focusable="true">
+                <ImageView
+                    android:id="@+id/menuSearchClearIcon"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_gravity="center"
+                    android:scaleType="fitCenter" />
+            </FrameLayout>
+        </LinearLayout>
+    </FrameLayout>
+
+    <FrameLayout
         android:id="@+id/searchComposerBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

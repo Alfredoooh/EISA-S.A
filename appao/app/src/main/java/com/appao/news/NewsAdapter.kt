@@ -24,6 +24,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.GlideException
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.request.target.Target
 import com.bumptech.glide.request.RequestListener
 import java.lang.ref.WeakReference
 import java.text.SimpleDateFormat
@@ -80,6 +82,7 @@ class NewsAdapter(
         val source: TextView = v.findViewById(R.id.source)
         val time: TextView = v.findViewById(R.id.time)
         val title: TextView = v.findViewById(R.id.title)
+        val actions: LinearLayout = v.findViewById(R.id.articleActions)
         val imageCard: FrameLayout = v.findViewById(R.id.imageCard)
         val image: ImageView = v.findViewById(R.id.image)
     }
@@ -201,6 +204,8 @@ class NewsAdapter(
         holder.source.text = item.source
         holder.time.text = ago(item.date)
         holder.title.text = NewsRepository.cleanForDisplay(item.title)
+        holder.actions.removeAllViews()
+        addArticleActions(holder.actions, item, compact = true)
 
         Glide.with(holder.favicon).clear(holder.favicon)
         if (item.logo.isNotBlank()) {
@@ -222,10 +227,12 @@ class NewsAdapter(
             holder.imageCard.layoutParams = holder.imageCard.layoutParams.apply {
                 height = dp(holder.itemView.context, 1)
             }
-            holder.imageCard.findViewWithTag<View>("article_actions")?.let { holder.imageCard.removeView(it) }
-            addArticleActions(holder.imageCard, item, compact = true)
             Glide.with(holder.image)
                 .load(item.image)
+                // The container starts at 1dp until its natural aspect ratio is known.
+                // Decode the original source so Glide cannot cache a 1dp-tall preview.
+                .override(Target.SIZE_ORIGINAL, Target.SIZE_ORIGINAL)
+                .diskCacheStrategy(DiskCacheStrategy.DATA)
                 .listener(object : RequestListener<Drawable> {
                     override fun onLoadFailed(
                         e: GlideException?,
@@ -395,11 +402,7 @@ class NewsAdapter(
             setPadding(
                 dp(context, if (square || compact) 10 else 16),
                 dp(context, if (square || compact) 10 else 16),
-                dp(context, if (onArticleMenu != null || onToggleSaved != null) {
-                    if (square || compact) 82 else 86
-                } else {
-                    if (square || compact) 10 else 16
-                }),
+                dp(context, if (square || compact) 10 else 16),
                 dp(context, if (square || compact) 10 else 16)
             )
         }
@@ -480,6 +483,23 @@ class NewsAdapter(
         )
 
         body.addView(metaRow)
+
+        val actionsRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            clipChildren = false
+            clipToPadding = false
+        }
+        addArticleActions(actionsRow, item, compact = compact || square)
+        if (actionsRow.childCount > 0) {
+            body.addView(
+                actionsRow,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = dp(context, 7) }
+            )
+        }
 
         val title = TextView(context).apply {
             text = item.title
@@ -581,65 +601,49 @@ class NewsAdapter(
             favicon.setImageDrawable(null)
         }
 
-        addArticleActions(card, item, compact = compact || square)
         return card
     }
 
-    private fun addArticleActions(container: FrameLayout, item: NewsItem, compact: Boolean) {
-        if (onArticleMenu == null && onToggleSaved == null) return
-        val context = container.context
-        container.findViewWithTag<View>("article_actions")?.let { container.removeView(it) }
-        val actions = LinearLayout(context).apply {
-            tag = "article_actions"
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            clipChildren = false
-            clipToPadding = false
-            background = rounded(
-                ContextCompat.getColor(context, R.color.card2),
-                dp(context, 999).toFloat()
-            ).apply { alpha = 232 }
-            elevation = dp(context, 2).toFloat()
+    /** Transparent, left-aligned article actions shown before each article description. */
+    private fun addArticleActions(container: LinearLayout, item: NewsItem, compact: Boolean) {
+        container.removeAllViews()
+        container.background = android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
+        container.elevation = 0f
+        container.clipChildren = false
+        container.clipToPadding = false
+        if (onArticleMenu == null && onToggleSaved == null) {
+            container.visibility = View.GONE
+            return
         }
-        val actionSize = dp(context, if (compact) 28 else 30)
-        val glyphSize = dp(context, if (compact) 15 else 16)
+        container.visibility = View.VISIBLE
+        val context = container.context
+        val actionSize = dp(context, if (compact) 30 else 32)
+        val glyphSize = dp(context, if (compact) 17 else 18)
         fun addAction(iconName: String, description: String, heartActive: Boolean = false, callback: (View) -> Unit) {
             val button = FrameLayout(context).apply {
                 contentDescription = description
                 isClickable = true
                 isFocusable = true
-                background = android.graphics.drawable.GradientDrawable().apply {
-                    shape = android.graphics.drawable.GradientDrawable.OVAL
-                    setColor(Color.TRANSPARENT)
-                }
+                background = android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
             }
             val image = ImageView(context).apply {
                 layoutParams = FrameLayout.LayoutParams(glyphSize, glyphSize, Gravity.CENTER)
                 scaleType = ImageView.ScaleType.FIT_CENTER
-                if (heartActive) {
-                    IconLoader.applySvg(this, iconName, 0)
-                } else {
-                    IconLoader.applySvg(this, iconName, R.color.iconTint)
-                }
+                IconLoader.applySvg(this, iconName, if (heartActive) 0 else R.color.iconTint)
             }
             button.addView(image)
             button.setOnClickListener { callback(button) }
-            actions.addView(button, LinearLayout.LayoutParams(actionSize, actionSize))
+            container.addView(
+                button,
+                LinearLayout.LayoutParams(actionSize, actionSize).apply { marginEnd = dp(context, 7) }
+            )
         }
-        addAction("more-horizontal", "Opções da notícia") { anchor -> onArticleMenu?.invoke(item, anchor) }
+        // Order is intentionally heart first, then the vertical options menu.
         val saved = isSaved?.invoke(item) == true
-        addAction(if (saved) "heart-filled-color" else "heart", if (saved) "Remover dos guardados" else "Guardar notícia", saved) {
+        addAction(if (saved) "heart_filled_color" else "heart", if (saved) "Remover dos guardados" else "Guardar notícia", saved) {
             onToggleSaved?.invoke(item)
         }
-        val lp = FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            Gravity.TOP or Gravity.END
-        ).apply {
-            topMargin = dp(context, 7)
-            marginEnd = dp(context, 7)
-        }
-        container.addView(actions, lp)
+        addAction("more_vert", "Opções da notícia") { anchor -> onArticleMenu?.invoke(item, anchor) }
     }
 
     private fun bindSkeleton(

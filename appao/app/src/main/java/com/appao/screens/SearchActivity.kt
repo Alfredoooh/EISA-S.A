@@ -59,6 +59,7 @@ class SearchActivity : AppCompatActivity() {
     private var heightAnimator: ValueAnimator? = null
     private var galleryMode = false
     private var cameraMode = false
+    private var menuSearchMode = false
     private lateinit var cameraPreview: TextureView
     private var cameraDevice: CameraDevice? = null
     private var cameraSession: CameraCaptureSession? = null
@@ -78,7 +79,8 @@ class SearchActivity : AppCompatActivity() {
         resultQuery = findViewById(R.id.searchQuery)
         composerBar = findViewById(R.id.searchComposerBar)
         composerPill = findViewById(R.id.searchComposerPill)
-        input = findViewById(R.id.searchInput)
+        menuSearchMode = intent.getBooleanExtra("menu_search", false)
+        input = if (menuSearchMode) findViewById(R.id.menuSearchInput) else findViewById(R.id.searchInput)
         send = findViewById(R.id.searchSend)
 
         ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
@@ -91,13 +93,26 @@ class SearchActivity : AppCompatActivity() {
         IconLoader.applySvg(findViewById(R.id.searchCloseIcon), "x", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "more-horizontal", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.searchAddIcon), "plus", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchSliderIcon), "map-pin", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchSendIcon), "arrow-up", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.searchSliderIcon), "filters", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.searchSendIcon), "arrow_up", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.menuSearchBackIcon), "arrow_left", R.color.iconTint)
+        // This asset is intentionally user-supplied later; IconLoader shows its fallback until installed.
+        IconLoader.applySvg(findViewById(R.id.menuSearchClearIcon), "close_circle_mini", 0)
 
         galleryMode = intent.getBooleanExtra("gallery_mode", false)
         cameraMode = intent.getBooleanExtra("camera_mode", false)
         cameraPreview = findViewById(R.id.searchCameraPreview)
         findViewById<View>(R.id.searchClose).setOnClickListener { finish() }
+        findViewById<View>(R.id.menuSearchBack).setOnClickListener {
+            finish()
+            overridePendingTransition(R.anim.publish_return_enter, R.anim.publish_return_exit)
+        }
+        findViewById<View>(R.id.menuSearchClear).setOnClickListener {
+            input.setText("")
+            input.requestFocus()
+            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
+                .showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+        }
         findViewById<View>(R.id.searchMore).setOnClickListener {
             when {
                 galleryMode -> openNativeImagePicker()
@@ -124,19 +139,30 @@ class SearchActivity : AppCompatActivity() {
         findViewById<View>(R.id.searchSend).setOnClickListener { performSearch() }
         input.setOnEditorActionListener { _, _, _ -> performSearch(); true }
 
-        input.setSingleLine(false)
-        input.setHorizontallyScrolling(false)
-        input.setLineSpacing(0f, 1.6f)
-        input.gravity = Gravity.TOP or Gravity.START
+        input.setSingleLine(menuSearchMode)
+        input.setHorizontallyScrolling(menuSearchMode)
+        input.setLineSpacing(0f, if (menuSearchMode) 1f else 1.6f)
+        input.gravity = if (menuSearchMode) Gravity.CENTER_VERTICAL or Gravity.START else Gravity.TOP or Gravity.START
         input.includeFontPadding = true
-        input.setPadding(0, 0, 0, 0)
-        input.maxLines = Int.MAX_VALUE
+        if (menuSearchMode) {
+            input.setPadding(0, 0, 0, 0)
+            input.maxLines = 1
+        } else {
+            input.setPadding(0, 0, 0, 0)
+            input.maxLines = Int.MAX_VALUE
+        }
 
         input.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                input.post { resizeInput(true) }
-                updateSendState()
+                if (menuSearchMode) {
+                    findViewById<View>(R.id.menuSearchClear).visibility =
+                        if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
+                    updateConversationSearchResults(s?.toString().orEmpty())
+                } else {
+                    input.post { resizeInput(true) }
+                    updateSendState()
+                }
             }
             override fun afterTextChanged(s: Editable?) = Unit
         })
@@ -146,17 +172,17 @@ class SearchActivity : AppCompatActivity() {
         input.setSelection(input.text.length)
         resultQuery.text = initial
 
-        if (intent.getBooleanExtra("menu_search", false)) {
+        if (menuSearchMode) {
+            findViewById<View>(R.id.searchTopBar).visibility = View.GONE
+            findViewById<View>(R.id.menuSearchBar).visibility = View.VISIBLE
             findViewById<View>(R.id.searchMore).visibility = View.GONE
-            composerBar.layoutParams = (composerBar.layoutParams as FrameLayout.LayoutParams).apply {
-                gravity = Gravity.TOP
-                topMargin = dp(56)
-                bottomMargin = 0
-            }
+            composerBar.visibility = View.GONE
             findViewById<View>(R.id.searchContent).setPadding(
-                dp(20), dp(150), dp(20), dp(20)
+                dp(20), dp(76), dp(20), dp(20)
             )
-            input.hint = "Pesquisar conversas e projetos"
+            input.hint = "Pesquisar conversas"
+            findViewById<View>(R.id.menuSearchClear).visibility = if (input.text.isNullOrEmpty()) View.GONE else View.VISIBLE
+            updateConversationSearchResults(input.text.toString())
             input.post {
                 input.requestFocus()
                 (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
@@ -197,7 +223,7 @@ class SearchActivity : AppCompatActivity() {
         }
 
         applyTheme()
-        if (!galleryMode && !cameraMode) input.post {
+        if (!galleryMode && !cameraMode && !menuSearchMode) input.post {
             resizeInput(false)
             updateSendState()
         }
@@ -507,10 +533,49 @@ class SearchActivity : AppCompatActivity() {
 
     private fun performSearch() {
         val query = input.text.toString().trim()
+        if (menuSearchMode) {
+            updateConversationSearchResults(query)
+            input.clearFocus()
+            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
+                .hideSoftInputFromWindow(input.windowToken, 0)
+            return
+        }
         if (query.isBlank()) return
         resultQuery.text = query
         input.clearFocus()
         AppAoToast.show(this, "Pesquisa atualizada")
+    }
+
+    /** Searches any locally stored conversation metadata without treating unrelated preferences as chats. */
+    private fun updateConversationSearchResults(query: String) {
+        if (!menuSearchMode) return
+        val labels = collectStoredConversationLabels()
+        val matches = if (query.isBlank()) labels else labels.filter { it.contains(query, ignoreCase = true) }
+        resultQuery.text = when {
+            query.isBlank() && labels.isEmpty() -> "As tuas conversas aparecerão aqui."
+            matches.isEmpty() -> "Nenhuma conversa encontrada."
+            else -> matches.distinct().take(12).joinToString("\n\n")
+        }
+    }
+
+    private fun collectStoredConversationLabels(): List<String> {
+        val prefs = getSharedPreferences("appao", MODE_PRIVATE)
+        val relevantKeys = prefs.all.filterKeys { key ->
+            val lower = key.lowercase(java.util.Locale.ROOT)
+            (lower.contains("conversation") || lower.contains("conversa") || lower.contains("chat")) &&
+                !lower.contains("article") && !lower.contains("comment")
+        }
+        val labels = mutableListOf<String>()
+        val field = Regex("\"(?:title|name|label|subject|preview|lastMessage|last_message)\"\\s*:\\s*\"([^\"]*)\"", RegexOption.IGNORE_CASE)
+        relevantKeys.values.forEach { value ->
+            val raw = value as? String ?: return@forEach
+            field.findAll(raw).forEach { match ->
+                val label = match.groupValues.getOrNull(1).orEmpty()
+                    .replace("\\\"", "\"").trim()
+                if (label.length >= 2 && label.length < 300) labels += label
+            }
+        }
+        return labels.distinct()
     }
 
     private fun resizeInput(animate: Boolean) {
@@ -567,8 +632,10 @@ class SearchActivity : AppCompatActivity() {
         root.setBackgroundColor(bg)
         composerBar.setBackgroundColor(bg)
         composerPill.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_card)
+        findViewById<View>(R.id.menuSearchBar)?.setBackgroundColor(bg)
+        findViewById<View>(R.id.menuSearchPill)?.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_card)
         resultQuery.setTextColor(ContextCompat.getColor(this, R.color.dim))
-        updateSendState()
+        if (!menuSearchMode) updateSendState()
     }
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {

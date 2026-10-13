@@ -440,16 +440,26 @@ class MainActivity : AppCompatActivity() {
                 scaleX = if (label == currentCat) 1f else 0.72f
             }
             indicatorTrack.addView(indicator, FrameLayout.LayoutParams(dp(1), dp(3), Gravity.CENTER))
-            tab.addView(indicatorTrack, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(5)))
+            tab.addView(indicatorTrack, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(5)))
             tv.post {
-                val width = tv.width.coerceAtLeast(dp(8))
-                indicator.layoutParams = (indicator.layoutParams as FrameLayout.LayoutParams).apply { this.width = width; height = dp(3) }
+                // Measure the actual label, not the tab container. This prevents
+                // zero/undersized underlines when tabs are rebuilt during a swipe.
+                val labelWidth = tv.paint.measureText(tv.text.toString()).toInt().coerceAtLeast(dp(24))
+                indicatorTrack.layoutParams = (indicatorTrack.layoutParams as LinearLayout.LayoutParams).apply {
+                    width = labelWidth
+                    height = dp(5)
+                }
+                indicator.layoutParams = (indicator.layoutParams as FrameLayout.LayoutParams).apply {
+                    width = labelWidth
+                    height = dp(3)
+                }
                 if (label == currentCat) {
                     indicator.animate().cancel()
-                    indicator.scaleX = 0.72f
+                    indicator.scaleX = 0.78f
                     indicator.alpha = 0f
-                    indicator.animate().scaleX(1f).alpha(1f).setDuration(260L).setInterpolator(Curves.SMOOTH).start()
+                    indicator.animate().scaleX(1f).alpha(1f).setDuration(340L).setInterpolator(Curves.SMOOTH).start()
                 } else {
+                    indicator.animate().cancel()
                     indicator.alpha = 0f
                 }
             }
@@ -476,7 +486,7 @@ class MainActivity : AppCompatActivity() {
             layoutParams = FrameLayout.LayoutParams(dp(19), dp(19), Gravity.CENTER)
             scaleType = ImageView.ScaleType.CENTER_INSIDE
         }
-        IconLoader.applySvg(plusIcon, "pencil", R.color.iconTint)
+        IconLoader.applySvg(plusIcon, "write", R.color.iconTint)
         plus.addView(plusIcon)
         plus.setOnClickListener { showCategoryManager() }
         feedTabsHost.addView(plus)
@@ -546,8 +556,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupBottomInput() {
         IconLoader.applySvg(findViewById(R.id.biAddIcon), "plus", R.color.iconTint)
-        // The composer action is a location affordance; its glyph is not the settings/filter icon.
-        IconLoader.applySvg(findViewById(R.id.biSliderIcon), "map-pin", R.color.iconTint)
+        // The composer secondary action uses the supplied filters icon.
+        IconLoader.applySvg(findViewById(R.id.biSliderIcon), "filters", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow-up", R.color.iconTint)
 
         // Native reproduction of the supplied HTML textarea. The action row is
@@ -672,7 +682,7 @@ class MainActivity : AppCompatActivity() {
         IconLoader.applyPng(findViewById(R.id.appsProfileAvatar), "avatar")
         IconLoader.applyPng(findViewById(R.id.appsProfileAvatarBottom), "avatar")
         IconLoader.applySvg(findViewById(R.id.appsSearchIcon), "search", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsNewChatIcon), "message-square-plus", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsNewChatIcon), "new_chat", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow-right", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
         findViewById<View>(R.id.appsProfileBottom).setOnClickListener {
@@ -1596,12 +1606,12 @@ class MainActivity : AppCompatActivity() {
         IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "pencil", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more-horizontal", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biAddIcon), "plus", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biSliderIcon), "map-pin", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.biSliderIcon), "filters", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow-up", R.color.iconTint)
         IconLoader.applyPng(findViewById(R.id.appsProfileAvatar), "avatar")
         IconLoader.applyPng(findViewById(R.id.appsProfileAvatarBottom), "avatar")
         IconLoader.applySvg(findViewById(R.id.appsSearchIcon), "search", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsNewChatIcon), "message-square-plus", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsNewChatIcon), "new_chat", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow-right", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
         findViewById<TextView>(R.id.feedToolbarTitle).setTextColor(ContextCompat.getColor(this, R.color.text))

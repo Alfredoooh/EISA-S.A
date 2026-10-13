@@ -329,10 +329,9 @@ class ArticleActivity : AppCompatActivity() {
 
     private fun refreshArticleTheme() {
         val bg = ContextCompat.getColor(this, R.color.bg)
-        val elevated = ContextCompat.getColor(this, R.color.bgElevated)
         root.setBackgroundColor(bg)
         sheetCard.setBackgroundColor(bg)
-        articleBar.setBackgroundColor(elevated)
+        articleBar.setBackgroundColor(bg)
         acComposer.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_card)
         title.setTextColor(ContextCompat.getColor(this, R.color.text))
         source.setTextColor(ContextCompat.getColor(this, R.color.text))

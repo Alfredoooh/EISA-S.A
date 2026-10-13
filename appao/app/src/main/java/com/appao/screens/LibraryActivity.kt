@@ -28,7 +28,7 @@ class LibraryActivity : AppCompatActivity() {
 
         IconLoader.applySvg(
             findViewById(R.id.libBackIcon),
-            "arrow-left",
+            "arrow_left",
             R.color.iconTint
         )
 
@@ -85,10 +85,7 @@ class LibraryActivity : AppCompatActivity() {
         val empty = findViewById<View>(R.id.libEmpty)
         val emptyImage = findViewById<ImageView>(R.id.libEmptyImg)
 
-        IconLoader.applyPngAt(
-            emptyImage,
-            "illustrations/png/emptystate_library.png"
-        )
+        IconLoader.applySvg(emptyImage, "archive", R.color.iconTint)
 
         if (items.isEmpty()) {
             empty.visibility = View.VISIBLE

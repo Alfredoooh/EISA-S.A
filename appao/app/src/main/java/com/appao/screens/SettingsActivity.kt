@@ -18,13 +18,13 @@ class SettingsActivity : AppCompatActivity() {
 
     private val rows = listOf(
         Row(R.id.rowTheme, "contrast", "Tema"),
-        Row(R.id.rowAccent, "palette", "Cor de destaque"),
-        Row(R.id.rowLang, "globe", "Idioma"),
-        Row(R.id.rowData, "chart-pie", "Poupança de dados"),
-        Row(R.id.rowUsage, "activity", "Atividade de uso"),
-        Row(R.id.rowLoc, "map-pin", "Localização"),
-        Row(R.id.rowAccount, "circle-user", "Definições de conta"),
-        Row(R.id.rowTerms, "scroll", "Termos e políticas de uso")
+        Row(R.id.rowAccent, "", "Cor de destaque"),
+        Row(R.id.rowLang, "language", "Idioma"),
+        Row(R.id.rowData, "chart_pie", "Poupança de dados"),
+        Row(R.id.rowUsage, "chart_bars", "Atividade de uso"),
+        Row(R.id.rowLoc, "location", "Localização"),
+        Row(R.id.rowAccount, "profile", "Definições de conta"),
+        Row(R.id.rowTerms, "terms", "Termos e políticas de uso")
     )
 
     private lateinit var root: View
@@ -58,7 +58,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun renderRows() {
-        IconLoader.applySvg(findViewById(R.id.setBackIcon), "arrow-left", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.setBackIcon), "arrow_left", R.color.iconTint)
         findViewById<View>(R.id.setBack).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
         applyRowGroup(listOf(R.id.rowTheme, R.id.rowAccent, R.id.rowLang, R.id.rowData))
         applyRowGroup(listOf(R.id.rowUsage, R.id.rowLoc))
@@ -151,9 +151,9 @@ class SettingsActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Escuro", svg = "moon", checked = current == "dark"),
-                NativePopupMenu.Item(2, "Claro", svg = "sun", checked = current == "light"),
-                NativePopupMenu.Item(3, "Sistema", svg = "monitor", checked = current == "system")
+                NativePopupMenu.Item(1, "Escuro", checked = current == "dark"),
+                NativePopupMenu.Item(2, "Claro", checked = current == "light"),
+                NativePopupMenu.Item(3, "Sistema", checked = current == "system")
             ),
             alignLeft = false,
             placeAbove = false
@@ -201,7 +201,7 @@ class SettingsActivity : AppCompatActivity() {
                     checked = true
                 ))
             }
-            add(NativePopupMenu.Item(id = 999, title = "Criar cor", svg = "palette"))
+            add(NativePopupMenu.Item(id = 999, title = "Criar cor"))
         }
 
         NativePopupMenu.show(
@@ -309,11 +309,11 @@ class SettingsActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Português", png = "flags/pt", checked = current == "pt"),
-                NativePopupMenu.Item(2, "English", png = "flags/en", checked = current == "en"),
-                NativePopupMenu.Item(3, "Español", png = "flags/es", checked = current == "es"),
-                NativePopupMenu.Item(4, "Français", png = "flags/fr", checked = current == "fr"),
-                NativePopupMenu.Item(5, "Deutsch", png = "flags/de", checked = current == "de")
+                NativePopupMenu.Item(1, "Português", checked = current == "pt"),
+                NativePopupMenu.Item(2, "English", checked = current == "en"),
+                NativePopupMenu.Item(3, "Español", checked = current == "es"),
+                NativePopupMenu.Item(4, "Français", checked = current == "fr"),
+                NativePopupMenu.Item(5, "Deutsch", checked = current == "de")
             ),
             alignLeft = false,
             placeAbove = false

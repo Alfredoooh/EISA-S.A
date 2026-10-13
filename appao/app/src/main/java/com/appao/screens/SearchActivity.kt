@@ -90,8 +90,8 @@ class SearchActivity : AppCompatActivity() {
             insets
         }
 
-        IconLoader.applySvg(findViewById(R.id.searchCloseIcon), "x", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "more-horizontal", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.searchCloseIcon), "close", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "more_vert", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.searchAddIcon), "plus", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.searchSliderIcon), "filters", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.searchSendIcon), "arrow_up", R.color.iconTint)
@@ -115,7 +115,7 @@ class SearchActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.searchMore).setOnClickListener {
             when {
-                galleryMode -> openNativeImagePicker()
+                galleryMode -> ensureGalleryPermissionAndLoad()
                 cameraMode -> captureOrStartCamera()
                 else -> showMorePopup(it)
             }
@@ -123,16 +123,26 @@ class SearchActivity : AppCompatActivity() {
         findViewById<View>(R.id.searchAdd).setOnClickListener {
             AppsPopup.show(it) { action ->
                 when (action) {
-                    "file" -> startActivity(Intent(android.content.Intent.ACTION_OPEN_DOCUMENT).apply {
-                        addCategory(android.content.Intent.CATEGORY_OPENABLE)
+                    "file" -> startActivity(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
                         type = "*/*"
                     })
-                    "image" -> startActivity(Intent(android.content.Intent.ACTION_OPEN_DOCUMENT).apply {
-                        addCategory(android.content.Intent.CATEGORY_OPENABLE)
-                        type = "image/*"
-                    })
-                    "camera" -> startActivityForResult(android.content.Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE), 901)
-                    "think" -> AppAoToast.show(this, "Pensar mais")
+                    "image" -> {
+                        startActivityForResult(
+                            Intent(this, SearchActivity::class.java).putExtra("gallery_mode", true), 902
+                        )
+                        overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+                    }
+                    "camera" -> {
+                        startActivityForResult(
+                            Intent(this, SearchActivity::class.java).putExtra("camera_mode", true), 903
+                        )
+                        overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+                    }
+                    "think" -> {
+                        val active = AppsPopup.toggleThink(this)
+                        AppAoToast.show(this, if (active) "Pensar mais ativado" else "Pensar mais desativado")
+                    }
                 }
             }
         }
@@ -191,6 +201,10 @@ class SearchActivity : AppCompatActivity() {
         }
 
         if (galleryMode) {
+            findViewById<TextView>(R.id.searchModeTitle).apply {
+                text = "Galeria"
+                visibility = View.VISIBLE
+            }
             resultQuery.visibility = View.GONE
             composerBar.visibility = View.GONE
             findViewById<View>(R.id.searchContent).visibility = View.GONE
@@ -198,10 +212,13 @@ class SearchActivity : AppCompatActivity() {
             findViewById<View>(R.id.searchCameraPanel).visibility = View.GONE
             findViewById<android.widget.GridView>(R.id.searchGalleryGrid).visibility = View.VISIBLE
             findViewById<View>(R.id.searchMediaEmpty).visibility = View.VISIBLE
-            findViewById<View>(R.id.searchMore).contentDescription = "Abrir galeria do dispositivo"
-            IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "image", R.color.iconTint)
+            findViewById<View>(R.id.searchMore).visibility = View.GONE
             ensureGalleryPermissionAndLoad()
         } else if (cameraMode) {
+            findViewById<TextView>(R.id.searchModeTitle).apply {
+                text = "Câmara"
+                visibility = View.VISIBLE
+            }
             resultQuery.visibility = View.GONE
             composerBar.visibility = View.GONE
             findViewById<View>(R.id.searchContent).visibility = View.GONE
@@ -257,7 +274,7 @@ class SearchActivity : AppCompatActivity() {
 
     private fun showGalleryPermissionFallback() {
         findViewById<TextView>(R.id.searchMediaEmpty).apply {
-            text = "Permite o acesso às imagens ou usa o botão de galeria para escolher uma imagem."
+            text = "Permite o acesso às imagens para mostrar a galeria do dispositivo nesta tela."
             visibility = View.VISIBLE
         }
         findViewById<android.widget.GridView>(R.id.searchGalleryGrid).visibility = View.GONE
@@ -278,19 +295,19 @@ class SearchActivity : AppCompatActivity() {
             )
             cursor?.let { c ->
                 val idColumn = c.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
-                while (c.moveToNext() && images.size < 240) {
+                while (c.moveToNext()) {
                     val id = c.getLong(idColumn)
                     images += Uri.withAppendedPath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id.toString())
                 }
             }
         } catch (_: SecurityException) {
-            // On Android versions that require scoped media permission, the native picker remains available.
+            // Scoped-media permission may restrict this grid to the media the user authorized.
         } catch (_: Throwable) {
         } finally {
             cursor?.close()
         }
 
-        empty.text = if (images.isEmpty()) "Ainda não há imagens para mostrar. Usa o botão de galeria para abrir o seletor do dispositivo." else ""
+        empty.text = if (images.isEmpty()) "Ainda não há imagens para mostrar neste dispositivo." else ""
         empty.visibility = if (images.isEmpty()) View.VISIBLE else View.GONE
         grid.adapter = object : android.widget.BaseAdapter() {
             override fun getCount(): Int = images.size
@@ -308,19 +325,11 @@ class SearchActivity : AppCompatActivity() {
                 image.setOnClickListener {
                     setResult(RESULT_OK, Intent().setData(images[position]).putExtra("image_uri", images[position].toString()))
                     finish()
+                    overridePendingTransition(R.anim.publish_return_enter, R.anim.publish_return_exit)
                 }
                 return image
             }
         }
-    }
-
-    private fun openNativeImagePicker() {
-        runCatching {
-            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                addCategory(Intent.CATEGORY_OPENABLE)
-                type = "image/*"
-            }, 904)
-        }.onFailure { AppAoToast.show(this, "Não foi possível abrir a galeria") }
     }
 
     private fun captureOrStartCamera() {
@@ -465,6 +474,7 @@ class SearchActivity : AppCompatActivity() {
             runOnUiThread {
                 setResult(RESULT_OK, Intent().setData(uri).putExtra("image_uri", uri.toString()))
                 finish()
+                overridePendingTransition(R.anim.publish_return_enter, R.anim.publish_return_exit)
             }
         }.onFailure {
             runOnUiThread { AppAoToast.show(this, "Não foi possível guardar a fotografia") }
@@ -488,10 +498,10 @@ class SearchActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode != RESULT_OK || data == null) return
         when (requestCode) {
-            904 -> {
-                val uri = data.data ?: return
-                setResult(RESULT_OK, Intent().setData(uri).putExtra("image_uri", uri.toString()))
-                finish()
+            902, 903 -> {
+                val uri = data.getStringExtra("image_uri") ?: data.data?.toString() ?: return
+                getSharedPreferences("appao", MODE_PRIVATE).edit().putString("pending_media_uri", uri).apply()
+                AppAoToast.show(this, if (requestCode == 903) "Imagem da câmara selecionada" else "Imagem selecionada")
             }
         }
     }
@@ -500,10 +510,10 @@ class SearchActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Eliminar pesquisa", svg = "trash-2"),
+                NativePopupMenu.Item(1, "Eliminar pesquisa", svg = "trash_bin"),
                 NativePopupMenu.Item(2, "Arquivar pesquisa", svg = "archive"),
                 NativePopupMenu.Item(3, "Iniciar nova pesquisa", svg = "plus"),
-                NativePopupMenu.Item(4, "Renomear pesquisa", svg = "pencil")
+                NativePopupMenu.Item(4, "Renomear pesquisa", svg = "write")
             )
         ) { item ->
             when (item.id) {

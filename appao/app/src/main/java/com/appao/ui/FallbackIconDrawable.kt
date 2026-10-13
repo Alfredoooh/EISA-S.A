@@ -42,12 +42,12 @@ class FallbackIconDrawable(
                 canvas.drawLine(cx - r, cy, cx + r, cy, paint)
                 canvas.drawLine(cx, cy - r, cx, cy + r, paint)
             }
-            "arrow-up" -> {
+            "arrow_up" -> {
                 canvas.drawLine(cx, cy + r, cx, cy - r, paint)
                 canvas.drawLine(cx, cy - r, cx - r * .55f, cy - r * .45f, paint)
                 canvas.drawLine(cx, cy - r, cx + r * .55f, cy - r * .45f, paint)
             }
-            "arrow-left" -> {
+            "arrow_left" -> {
                 canvas.drawLine(cx + r * .7f, cy, cx - r * .7f, cy, paint)
                 canvas.drawLine(cx - r * .7f, cy, cx - r * .1f, cy - r * .6f, paint)
                 canvas.drawLine(cx - r * .7f, cy, cx - r * .1f, cy + r * .6f, paint)
@@ -56,7 +56,7 @@ class FallbackIconDrawable(
                 canvas.drawLine(cx - r * .6f, cy - r * .6f, cx + r * .6f, cy + r * .6f, paint)
                 canvas.drawLine(cx + r * .6f, cy - r * .6f, cx - r * .6f, cy + r * .6f, paint)
             }
-            "chevron-down" -> {
+            "chevron_down" -> {
                 canvas.drawLine(cx - r * .55f, cy - r * .2f, cx, cy + r * .38f, paint)
                 canvas.drawLine(cx, cy + r * .38f, cx + r * .55f, cy - r * .2f, paint)
             }
@@ -98,27 +98,51 @@ class FallbackIconDrawable(
                 canvas.drawOval(ovalV, paint)
                 canvas.drawLine(cx - r, cy, cx + r, cy, paint)
             }
-            "sun", "sunny" -> {
-                canvas.drawCircle(cx, cy, r * .48f, paint)
-                for (i in 0 until 8) {
-                    val a = Math.toRadians(i * 45.0)
-                    canvas.drawLine(
-                        cx + kotlin.math.cos(a).toFloat() * r * .85f,
-                        cy + kotlin.math.sin(a).toFloat() * r * .85f,
-                        cx + kotlin.math.cos(a).toFloat() * r,
-                        cy + kotlin.math.sin(a).toFloat() * r,
-                        paint
-                    )
+            "sun", "sunny" -> drawSun(canvas, cx, cy, r)
+            "moon", "night" -> drawMoon(canvas, cx, cy, r)
+            "cloudly", "cloud", "mist" -> {
+                drawCloud(canvas, cx, cy, r)
+                if (icon.equals("mist", true)) {
+                    for (offset in listOf(-0.25f, 0.05f, 0.35f)) {
+                        canvas.drawLine(cx - r * 0.7f, cy + r * offset, cx + r * 0.7f, cy + r * offset, paint)
+                    }
                 }
             }
-            "moon" -> {
-                val p = Path().apply {
-                    moveTo(cx + r * .28f, cy - r)
-                    cubicTo(cx - r * .65f, cy - r * .75f, cx - r * .7f, cy + r * .7f, cx + r * .2f, cy + r)
-                    cubicTo(cx - r * .1f, cy + r * .2f, cx - r * .05f, cy - r * .2f, cx + r * .28f, cy - r)
+            "partly_cloudly", "partly_cloudly_night" -> {
+                if (icon.endsWith("night", true)) drawMoon(canvas, cx - r * 0.25f, cy - r * 0.25f, r * 0.62f)
+                else drawSun(canvas, cx - r * 0.25f, cy - r * 0.25f, r * 0.62f)
+                drawCloud(canvas, cx + r * 0.12f, cy + r * 0.2f, r * 0.78f)
+            }
+            "rain", "rain_night" -> {
+                if (icon.endsWith("night", true)) drawMoon(canvas, cx - r * 0.3f, cy - r * 0.35f, r * 0.55f)
+                drawCloud(canvas, cx, cy - r * 0.12f, r * 0.78f)
+                for (offset in listOf(-0.45f, 0f, 0.45f)) {
+                    canvas.drawLine(cx + r * offset, cy + r * 0.55f, cx + r * (offset - 0.12f), cy + r * 0.92f, paint)
+                }
+            }
+            "snow", "snow_night" -> {
+                if (icon.endsWith("night", true)) drawMoon(canvas, cx - r * 0.3f, cy - r * 0.35f, r * 0.55f)
+                drawCloud(canvas, cx, cy - r * 0.16f, r * 0.76f)
+                for (offset in listOf(-0.42f, 0f, 0.42f)) {
+                    val sx = cx + r * offset
+                    val sy = cy + r * 0.72f
+                    canvas.drawLine(sx - r * 0.1f, sy, sx + r * 0.1f, sy, paint)
+                    canvas.drawLine(sx, sy - r * 0.1f, sx, sy + r * 0.1f, paint)
+                }
+            }
+            "thunder", "thunder_night" -> {
+                if (icon.endsWith("night", true)) drawMoon(canvas, cx - r * 0.3f, cy - r * 0.35f, r * 0.55f)
+                drawCloud(canvas, cx, cy - r * 0.16f, r * 0.76f)
+                val bolt = Path().apply {
+                    moveTo(cx + r * 0.05f, cy + r * 0.3f)
+                    lineTo(cx - r * 0.18f, cy + r * 0.68f)
+                    lineTo(cx + r * 0.02f, cy + r * 0.68f)
+                    lineTo(cx - r * 0.05f, cy + r)
+                    lineTo(cx + r * 0.23f, cy + r * 0.57f)
+                    lineTo(cx + r * 0.05f, cy + r * 0.57f)
                     close()
                 }
-                canvas.drawPath(p, paint)
+                canvas.drawPath(bolt, paint)
             }
             "phone" -> {
                 canvas.drawRoundRect(
@@ -129,7 +153,7 @@ class FallbackIconDrawable(
                 )
                 canvas.drawCircle(cx, cy + r * .68f, r * .08f, paint)
             }
-            "message-circle" -> {
+            "message_circle" -> {
                 val path = Path().apply {
                     moveTo(cx - r, cy - r * .75f)
                     lineTo(cx + r, cy - r * .75f)
@@ -146,6 +170,43 @@ class FallbackIconDrawable(
                 canvas.drawCircle(cx, cy, r * .7f, paint)
             }
         }
+    }
+
+
+    private fun drawSun(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        canvas.drawCircle(cx, cy, r * 0.42f, paint)
+        for (i in 0 until 8) {
+            val a = Math.toRadians(i * 45.0)
+            canvas.drawLine(
+                cx + kotlin.math.cos(a).toFloat() * r * 0.72f,
+                cy + kotlin.math.sin(a).toFloat() * r * 0.72f,
+                cx + kotlin.math.cos(a).toFloat() * r,
+                cy + kotlin.math.sin(a).toFloat() * r,
+                paint
+            )
+        }
+    }
+
+    private fun drawMoon(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        val p = Path().apply {
+            moveTo(cx + r * 0.28f, cy - r)
+            cubicTo(cx - r * 0.65f, cy - r * 0.75f, cx - r * 0.7f, cy + r * 0.7f, cx + r * 0.2f, cy + r)
+            cubicTo(cx - r * 0.1f, cy + r * 0.2f, cx - r * 0.05f, cy - r * 0.2f, cx + r * 0.28f, cy - r)
+            close()
+        }
+        canvas.drawPath(p, paint)
+    }
+
+    private fun drawCloud(canvas: Canvas, cx: Float, cy: Float, r: Float) {
+        val path = Path().apply {
+            moveTo(cx - r * 0.82f, cy + r * 0.28f)
+            cubicTo(cx - r * 1.05f, cy - r * 0.02f, cx - r * 0.76f, cy - r * 0.34f, cx - r * 0.43f, cy - r * 0.27f)
+            cubicTo(cx - r * 0.32f, cy - r * 0.78f, cx + r * 0.38f, cy - r * 0.77f, cx + r * 0.47f, cy - r * 0.25f)
+            cubicTo(cx + r * 0.94f, cy - r * 0.33f, cx + r * 1.02f, cy + r * 0.13f, cx + r * 0.78f, cy + r * 0.3f)
+            lineTo(cx - r * 0.82f, cy + r * 0.3f)
+            close()
+        }
+        canvas.drawPath(path, paint)
     }
 
     fun setTintColor(color: Int) {

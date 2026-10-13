@@ -40,8 +40,8 @@ class AppViewerActivity : AppCompatActivity() {
         web = findViewById(R.id.webView)
         progress = findViewById(R.id.appProgress)
         applyProgressAccent()
-        IconLoader.applySvg(findViewById(R.id.appViewerCloseIcon), "x", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appViewerMoreIcon), "more-horizontal", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appViewerCloseIcon), "close", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appViewerMoreIcon), "more_vert", R.color.iconTint)
         findViewById<View>(R.id.appViewerClose).setOnClickListener { finish() }
         findViewById<View>(R.id.appViewerMore).setOnClickListener { showPageMenu(it) }
 
@@ -137,10 +137,10 @@ class AppViewerActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Abrir no navegador", svg = "external-link"),
-                NativePopupMenu.Item(2, "Copiar ligação", svg = "copy"),
+                NativePopupMenu.Item(1, "Abrir no navegador", svg = "arrow_top_right2"),
+                NativePopupMenu.Item(2, "Copiar ligação", svg = "link"),
                 NativePopupMenu.Item(3, "Compartilhar ligação", svg = "share"),
-                NativePopupMenu.Item(4, "Recarregar", svg = "refresh-cw")
+                NativePopupMenu.Item(4, "Recarregar", svg = "refresh")
             ),
             alignLeft = false,
             placeAbove = false

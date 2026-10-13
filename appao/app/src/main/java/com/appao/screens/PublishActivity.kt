@@ -14,7 +14,7 @@ class PublishActivity : AppCompatActivity() {
         setContentView(R.layout.activity_publish)
         SystemBarHelper.sync(this)
 
-        IconLoader.applySvg(findViewById(R.id.publishBackIcon), "arrow-left", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.publishBackIcon), "arrow_left", R.color.iconTint)
         findViewById<EditText>(R.id.publishText).apply {
             background = ContextCompat.getDrawable(this@PublishActivity, R.drawable.bg_pill_card)
             backgroundTintList = null

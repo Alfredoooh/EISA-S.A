@@ -46,12 +46,7 @@ class CommentAdapter(
                 .dontAnimate()
                 .into(h.avatar)
         } else {
-            h.avatar.setImageDrawable(
-                ContextCompat.getDrawable(
-                    h.itemView.context,
-                    R.drawable.ic_avatar_default
-                )
-            )
+            IconLoader.applySvg(h.avatar, "profile", R.color.iconTint)
         }
 
         bindReactionCounts(h, c)
@@ -67,14 +62,16 @@ class CommentAdapter(
         )
 
         reacts.forEach { (kind, label) ->
-            val iv = ImageView(h.itemView.context).apply {
+            val iv = TextView(h.itemView.context).apply {
                 layoutParams = LinearLayout.LayoutParams(
                     dp(h.itemView, 38),
                     dp(h.itemView, 38)
                 ).apply {
                     marginEnd = dp(h.itemView, 4)
                 }
-                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                gravity = android.view.Gravity.CENTER
+                text = reactionEmoji(kind)
+                textSize = 22f
                 contentDescription = label
                 alpha = 1f
                 scaleX = 1f
@@ -86,8 +83,6 @@ class CommentAdapter(
                     dp(h.itemView, 2)
                 )
             }
-
-            IconLoader.applyPng(iv, kind)
 
             iv.setOnClickListener {
                 val adapterPosition = h.bindingAdapterPosition
@@ -141,6 +136,16 @@ class CommentAdapter(
         }
     }
 
+    private fun reactionEmoji(kind: String): String = when (kind) {
+        "like" -> "👍"
+        "love" -> "❤️"
+        "haha" -> "😂"
+        "wow" -> "😮"
+        "sad" -> "😢"
+        "angry" -> "😡"
+        else -> "•"
+    }
+
     private fun bindReactionCounts(
         h: VH,
         c: Comment
@@ -168,14 +173,15 @@ class CommentAdapter(
                 background = roundedChip(h)
             }
 
-            val icon = ImageView(h.itemView.context).apply {
+            val icon = TextView(h.itemView.context).apply {
                 layoutParams = LinearLayout.LayoutParams(
                     dp(h.itemView, 18),
                     dp(h.itemView, 18)
                 )
-                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                gravity = android.view.Gravity.CENTER
+                text = reactionEmoji(kind)
+                textSize = 13f
             }
-            IconLoader.applyPng(icon, kind)
 
             val countView = TextView(h.itemView.context).apply {
                 text = count.toString()

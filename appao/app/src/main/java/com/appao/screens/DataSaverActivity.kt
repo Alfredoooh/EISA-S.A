@@ -16,7 +16,7 @@ class DataSaverActivity : AppCompatActivity() {
         setContentView(R.layout.activity_data_saver)
         SystemBarHelper.sync(this)
 
-        IconLoader.applySvg(findViewById(R.id.dataBackIcon), "arrow-left", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.dataBackIcon), "arrow_left", R.color.iconTint)
         findViewById<android.view.View>(R.id.dataBack).setOnClickListener { finish() }
 
         bindSwitch(R.id.dataSaverSwitch, "data_saving")
@@ -53,7 +53,7 @@ class DataSaverActivity : AppCompatActivity() {
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
         SystemBarHelper.sync(this)
-        IconLoader.applySvg(findViewById(R.id.dataBackIcon), "arrow-left", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.dataBackIcon), "arrow_left", R.color.iconTint)
         refreshSwitchColors()
     }
 

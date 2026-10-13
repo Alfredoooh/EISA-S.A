@@ -1,7 +1,7 @@
 package com.appao
 
 import android.view.View
-import android.widget.PopupWindow
+import android.app.Dialog
 
 /** Common floating menu entry point. Popups are anchored above the triggering control. */
 object NativePopupMenu {
@@ -9,7 +9,6 @@ object NativePopupMenu {
         val id: Int,
         val title: String,
         val svg: String? = null,
-        val png: String? = null,
         val iconColor: Int? = null,
         val checked: Boolean = false,
         val highlightColor: Int? = null
@@ -21,13 +20,12 @@ object NativePopupMenu {
         alignLeft: Boolean = false,
         placeAbove: Boolean = true,
         onClick: (Item) -> Unit
-    ): PopupWindow {
+    ): Dialog {
         val popupItems = items.map { item ->
             HtmlStylePopup.Item(
                 label = item.title,
-                iconName = item.svg ?: item.png,
+                iconName = item.svg,
                 checked = item.checked,
-                useSvg = item.svg != null,
                 iconColor = item.iconColor,
                 highlightColor = item.highlightColor,
                 onClick = { onClick(item) }

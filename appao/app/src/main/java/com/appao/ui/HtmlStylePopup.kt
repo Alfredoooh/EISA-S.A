@@ -1,8 +1,7 @@
 package com.appao
 
-import android.app.Activity
+import android.app.Dialog
 import android.content.Context
-import android.content.ContextWrapper
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
@@ -12,7 +11,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.PopupWindow
+import android.view.WindowManager
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import kotlin.math.max
@@ -29,7 +28,6 @@ object HtmlStylePopup {
         val label: String,
         val iconName: String? = null,
         val checked: Boolean = false,
-        val useSvg: Boolean = false,
         val iconColor: Int? = null,
         val highlightColor: Int? = null,
         val onClick: () -> Unit
@@ -48,7 +46,7 @@ object HtmlStylePopup {
         items: List<Item>,
         placeAbove: Boolean = true,
         alignLeft: Boolean = false
-    ): PopupWindow {
+    ): Dialog {
 
         val context =
             anchor.context
@@ -67,26 +65,8 @@ object HtmlStylePopup {
                     0.5f
                 ).toInt()
 
-        val rootView = anchor.rootView as? ViewGroup
-        val decorRoot = rootView?.findViewById<ViewGroup>(android.R.id.content) ?: rootView
-        fun owningActivity(ctx: Context): Activity? = when (ctx) {
-            is Activity -> ctx
-            is ContextWrapper -> owningActivity(ctx.baseContext)
-            else -> null
-        }
-        val activity = owningActivity(context)
-        val originalStatusBarColor = activity?.window?.statusBarColor
-        var popupRef: PopupWindow? = null
-        val dimOverlay = decorRoot?.let { decor ->
-            View(context).apply {
-                setBackgroundColor(Color.argb(22, 0, 0, 0))
-                alpha = 0f
-                isClickable = true
-                isFocusable = false
-                setOnClickListener { popupRef?.dismiss() }
-            }
-        }
-
+        // Dim-behind is provided by Android's native Dialog window. No custom
+        // decor overlay or manually tinted status bar is inserted.
         val compactColorMenu = items.size >= 6 && items.all { it.iconColor != null }
 
         val root =
@@ -115,57 +95,22 @@ object HtmlStylePopup {
                     true
             }
 
-        val popup =
-            PopupWindow(
-                root,
-                dp(MIN_WIDTH_DP),
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                true
-            ).apply {
-                popupRef = this
-
-                setBackgroundDrawable(
-                    ColorDrawable(
-                        Color.TRANSPARENT
-                    )
-                )
-
-                isFocusable =
-                    true
-
-                isOutsideTouchable =
-                    true
-
-                elevation =
-                    dp(18).toFloat()
-
-                inputMethodMode =
-                    PopupWindow.INPUT_METHOD_NOT_NEEDED
-
-                animationStyle =
-                    0
-
-                setOnDismissListener {
-                    if (dimOverlay != null && decorRoot != null && dimOverlay.parent === decorRoot) {
-                        runCatching { decorRoot.removeView(dimOverlay) }
-                    }
-                    if (activity != null && originalStatusBarColor != null) {
-                        runCatching { activity.window.statusBarColor = originalStatusBarColor }
-                    }
-                    root.animate().cancel()
-
-                    for (
-                        index in 0 until root.childCount
-                    ) {
-
-                        root.getChildAt(
-                            index
-                        )
-                            .animate()
-                            .cancel()
-                    }
+        val popup = Dialog(context).apply {
+            setContentView(root)
+            setCancelable(true)
+            setCanceledOnTouchOutside(true)
+            window?.apply {
+                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                // Deliberately keep Android's theme/system dimAmount.
+            }
+            setOnDismissListener {
+                root.animate().cancel()
+                for (index in 0 until root.childCount) {
+                    root.getChildAt(index).animate().cancel()
                 }
             }
+        }
 
         items.forEach { item ->
 
@@ -207,14 +152,16 @@ object HtmlStylePopup {
                         dp(ITEM_TRANSLATE_DP).toFloat()
                 }
 
+            val hasIcon = item.iconColor != null || !item.iconName.isNullOrBlank()
             val icon =
                 ImageView(context).apply {
 
                     layoutParams =
                         LinearLayout.LayoutParams(
-                            dp(if (compactColorMenu) 20 else 24),
-                            dp(if (compactColorMenu) 20 else 24)
+                            if (hasIcon) dp(if (compactColorMenu) 20 else 24) else 0,
+                            if (hasIcon) dp(if (compactColorMenu) 20 else 24) else 0
                         )
+                    visibility = if (hasIcon) View.VISIBLE else View.GONE
 
                     scaleType =
                         ImageView.ScaleType.CENTER_INSIDE
@@ -228,11 +175,7 @@ object HtmlStylePopup {
                             }
                         }
                     } else if (!item.iconName.isNullOrBlank()) {
-                        if (item.useSvg) {
-                            IconLoader.applySvg(this, item.iconName!!, R.color.iconTint)
-                        } else {
-                            IconLoader.applyPng(this, item.iconName!!, 0)
-                        }
+                        IconLoader.applySvg(this, item.iconName!!, if (item.highlightColor == null) R.color.iconTint else 0)
                         item.highlightColor?.let { setColorFilter(it, android.graphics.PorterDuff.Mode.SRC_IN) }
                     }
                 }
@@ -280,7 +223,7 @@ object HtmlStylePopup {
                 ).apply {
 
                     marginStart =
-                        dp(14)
+                        if (hasIcon) dp(14) else 0
                 }
             )
 
@@ -300,7 +243,8 @@ object HtmlStylePopup {
                         scaleType =
                             ImageView.ScaleType.CENTER
 
-                        IconLoader.applySvg(this, "check", R.color.iconTint)
+                        IconLoader.applySvg(this, "check_mark", if (item.highlightColor == null) R.color.iconTint else 0)
+                        item.highlightColor?.let { setColorFilter(it, android.graphics.PorterDuff.Mode.SRC_IN) }
                     }
 
                 row.addView(
@@ -359,8 +303,6 @@ object HtmlStylePopup {
             root.measuredWidth
         ).coerceAtMost(availableWidth)
         val height = root.measuredHeight
-        popup.width = width
-
         val location = IntArray(2)
         anchor.getLocationOnScreen(location)
 
@@ -393,57 +335,36 @@ object HtmlStylePopup {
         val top = centeredTop.coerceIn(minTop, maxTop)
         val overlapsAnchorFromTop = top < anchorTop
 
-        if (activity != null && originalStatusBarColor != null) {
-            runCatching {
-                // SystemBarHelper keeps the status bar transparent. Darken the
-                // underlying theme surface (not transparent black) for the same
-                // subtle scrim as the popup body, then restore the exact prior value.
-                val surface = ContextCompat.getColor(activity, R.color.bg)
-                activity.window.statusBarColor = androidx.core.graphics.ColorUtils.blendARGB(
-                    surface,
-                    Color.BLACK,
-                    0.08f
-                )
-            }
-        }
-
-        if (dimOverlay != null && decorRoot != null) {
-            runCatching {
-                decorRoot.addView(
-                    dimOverlay,
-                    ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                )
-            }.onSuccess {
-                dimOverlay.animate().alpha(1f).setDuration(120L).start()
-            }
-        }
-
-        popup.showAtLocation(
-            anchor,
-            Gravity.TOP or
-                Gravity.START,
-            left,
-            top
-        )
-
-        /*
-         * HTML .menu:
-         * opacity 0 + scale .5 -> opacity 1 + scale 1
-         */
-        root.pivotX =
-            (anchorRight - left)
-                .toFloat()
-                .coerceIn(0f, width.toFloat())
-
+        // Prepare the menu transform before the window is shown to avoid a
+        // one-frame flash. Background dimming itself remains fully native.
+        root.pivotX = (anchorRight - left).toFloat().coerceIn(0f, width.toFloat())
         root.pivotY = height / 2f
         root.scaleX = 0.96f
         root.scaleY = 0.96f
         root.alpha = 0f
         root.translationY = (if (overlapsAnchorFromTop) -dp(4) else dp(4)).toFloat()
 
+        val window = popup.window
+        if (window != null) {
+            window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            // Position the real Dialog window over the activated control.
+            // Its FLAG_DIM_BEHIND applies the system's native scrim to content
+            // and status bar; there is no manually drawn overlay.
+            window.setGravity(Gravity.TOP or Gravity.START)
+            window.setLayout(width, height)
+            val attributes = window.attributes
+            attributes.x = left.coerceAtLeast(0)
+            attributes.y = top.coerceAtLeast(0)
+            window.attributes = attributes
+        }
+        popup.show()
+        popup.window?.setLayout(width, height)
+
+        /*
+         * HTML .menu:
+         * opacity 0 + slight scale -> opacity 1 + scale 1
+         */
         root.animate()
             .translationY(0f)
             .scaleX(1f)

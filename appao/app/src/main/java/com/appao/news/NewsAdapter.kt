@@ -164,19 +164,21 @@ class NewsAdapter(
     }
 
     private fun bindTopCards(holder: TopCardsVH) {
-        IconLoader.applyPng(holder.savingsIcon, "leaf")
-        IconLoader.applyPng(holder.historyIcon, "clock")
+        IconLoader.applySvg(holder.savingsIcon, "chart_pie", R.color.iconTint)
+        IconLoader.applySvg(holder.historyIcon, "chart_bars", R.color.iconTint)
 
         val current = weather
-        if (current != null) {
-            IconLoader.applyPng(
-                holder.weatherIcon,
-                current.icon
+        val weatherGlyph = current?.icon ?: "sunny"
+        holder.weatherIcon.setImageDrawable(
+            FallbackIconDrawable(
+                weatherGlyph,
+                ContextCompat.getColor(holder.itemView.context, R.color.iconTint)
             )
+        )
+        if (current != null) {
             holder.weatherTemp.text = "${current.temp}°"
             holder.weatherCity.text = current.prov
         } else {
-            IconLoader.applyPng(holder.weatherIcon, "sunny")
             holder.weatherTemp.text = "--°"
             holder.weatherCity.text = "Luanda"
         }

@@ -284,7 +284,7 @@ object NativeSheetDialog {
                         }
                         IconLoader.applySvg(
                             check,
-                            "check",
+                            "check_mark",
                             R.color.iconTint
                         )
                         addView(check)

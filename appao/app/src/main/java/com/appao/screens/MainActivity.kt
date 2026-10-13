@@ -351,9 +351,9 @@ class MainActivity : AppCompatActivity() {
     private fun setupFeedHeader() {
         feedHeader.elevation = 0f
         feedHeader.translationZ = 0f
-        IconLoader.applySvg(findViewById(R.id.feedBackIcon), "arrow-left", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "pencil", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more-horizontal", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedBackIcon), "arrow_left", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "write", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more_vert", R.color.iconTint)
 
         findViewById<TextView>(R.id.feedToolbarTitle).apply {
             text = "Descobrir"
@@ -536,8 +536,8 @@ class MainActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Recarregar", svg = "refresh-cw"),
-                NativePopupMenu.Item(2, "Editar categorias", svg = "pencil"),
+                NativePopupMenu.Item(1, "Recarregar", svg = "refresh"),
+                NativePopupMenu.Item(2, "Editar categorias", svg = "write"),
                 NativePopupMenu.Item(3, "Guardados", svg = "bookmark")
             )
         ) { item ->
@@ -558,7 +558,7 @@ class MainActivity : AppCompatActivity() {
         IconLoader.applySvg(findViewById(R.id.biAddIcon), "plus", R.color.iconTint)
         // The composer secondary action uses the supplied filters icon.
         IconLoader.applySvg(findViewById(R.id.biSliderIcon), "filters", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow-up", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow_up", R.color.iconTint)
 
         // Native reproduction of the supplied HTML textarea. The action row is
         // structurally separate, so it stays anchored while the textarea grows.
@@ -679,11 +679,11 @@ class MainActivity : AppCompatActivity() {
         val appsHeader = findViewById<View>(R.id.appsHeaderBar)
         appsHeader.elevation = 0f
         appsHeader.translationZ = 0f
-        IconLoader.applyPng(findViewById(R.id.appsProfileAvatar), "avatar")
-        IconLoader.applyPng(findViewById(R.id.appsProfileAvatarBottom), "avatar")
+        IconLoader.applySvg(findViewById(R.id.appsProfileAvatar), "profile", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsProfileAvatarBottom), "profile", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsSearchIcon), "search", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsNewChatIcon), "new_chat", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow-right", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow_right2", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
         findViewById<View>(R.id.appsProfileBottom).setOnClickListener {
             startActivity(Intent(this, AuthActivity::class.java))
@@ -1249,11 +1249,8 @@ class MainActivity : AppCompatActivity() {
                     overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
                 }
                 "think" -> {
-                    getSharedPreferences("appao", MODE_PRIVATE).edit().putBoolean("think_mode", true).apply()
-                    showNavProgress()
-                    startActivity(Intent(this, AppViewerActivity::class.java).apply {
-                        putExtra("url", "file:///android_asset/apps/ai.html?mode=think")
-                    })
+                    val active = AppsPopup.toggleThink(this)
+                    AppAoToast.show(this, if (active) "Pensar mais ativado" else "Pensar mais desativado")
                 }
             }
         }
@@ -1461,7 +1458,7 @@ class MainActivity : AppCompatActivity() {
             listOf(
                 NativePopupMenu.Item(1, "Partilhar", svg = "share"),
                 NativePopupMenu.Item(2, if (isArticleSaved(item)) "Remover dos guardados" else "Guardar", svg = "bookmark"),
-                NativePopupMenu.Item(3, "Abrir no navegador", svg = "external-link")
+                NativePopupMenu.Item(3, "Abrir no navegador", svg = "arrow_top_right2")
             ),
             alignLeft = false,
             placeAbove = false
@@ -1602,17 +1599,17 @@ class MainActivity : AppCompatActivity() {
         appsHeader.setBackgroundColor(bg)
 
         IconLoader.applySvg(findViewById(R.id.homeMenuIcon), "menu", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedBackIcon), "arrow-left", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "pencil", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more-horizontal", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedBackIcon), "arrow_left", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "write", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more_vert", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biAddIcon), "plus", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSliderIcon), "filters", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow-up", R.color.iconTint)
-        IconLoader.applyPng(findViewById(R.id.appsProfileAvatar), "avatar")
-        IconLoader.applyPng(findViewById(R.id.appsProfileAvatarBottom), "avatar")
+        IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow_up", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsProfileAvatar), "profile", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsProfileAvatarBottom), "profile", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsSearchIcon), "search", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsNewChatIcon), "new_chat", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow-right", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow_right2", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
         findViewById<TextView>(R.id.feedToolbarTitle).setTextColor(ContextCompat.getColor(this, R.color.text))
         refreshFeedTabs(false)

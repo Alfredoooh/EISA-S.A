@@ -53,7 +53,7 @@ class ArticleActivity : AppCompatActivity() {
     private lateinit var source: TextView
     private lateinit var time: TextView
     private lateinit var favicon: ImageView
-    private lateinit var reactSlot: ImageView
+    private lateinit var reactSlot: TextView
     private lateinit var scroll: ScrollView
     private lateinit var articleBar: LinearLayout
     private lateinit var acInput: EditText
@@ -206,23 +206,23 @@ class ArticleActivity : AppCompatActivity() {
 
         IconLoader.applySvg(
             findViewById(R.id.aBackIcon),
-            "arrow-left",
+            "arrow_left",
             R.color.iconTint
         )
         IconLoader.applySvg(
             findViewById(R.id.acSendIcon),
-            "arrow-up",
+            "arrow_up",
             R.color.iconTint
         )
-        IconLoader.applySvg(findViewById(R.id.aMoreIcon), "more-horizontal", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.aMoreIcon), "more_vert", R.color.iconTint)
         IconLoader.applySvg(
             findViewById(R.id.cIcon),
-            "message-circle",
+            "new_chat",
             R.color.iconTint
         )
         IconLoader.applySvg(
             findViewById(R.id.acEmojiIcon),
-            "smile",
+            "heart",
             R.color.iconTint
         )
 
@@ -338,10 +338,10 @@ class ArticleActivity : AppCompatActivity() {
         time.setTextColor(ContextCompat.getColor(this, R.color.dim))
         summary.setTextColor(ContextCompat.getColor(this, R.color.dim))
         body.setTextColor(ContextCompat.getColor(this, R.color.text))
-        IconLoader.applySvg(findViewById(R.id.aBackIcon), "arrow-left", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.aMoreIcon), "more-horizontal", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.aBackIcon), "arrow_left", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.aMoreIcon), "more_vert", R.color.iconTint)
         acSend.background = AccentColorManager.primaryShape(this, android.graphics.drawable.GradientDrawable.OVAL)
-        IconLoader.applySvg(findViewById(R.id.acSendIcon), "arrow-up", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.acSendIcon), "arrow_up", R.color.iconTint)
         findViewById<ImageView>(R.id.acSendIcon).setColorFilter(
             AccentColorManager.onPrimaryColor(this),
             android.graphics.PorterDuff.Mode.SRC_IN
@@ -482,7 +482,7 @@ class ArticleActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Abrir no navegador", svg = "external-link"),
+                NativePopupMenu.Item(1, "Abrir no navegador", svg = "arrow_top_right2"),
                 NativePopupMenu.Item(2, if (isArticleSaved()) "Remover dos guardados" else "Guardar", svg = "bookmark"),
                 NativePopupMenu.Item(3, "Partilhar", svg = "share")
             )
@@ -632,14 +632,14 @@ class ArticleActivity : AppCompatActivity() {
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         val apps = listOf(
-            Triple("WhatsApp", "whatsapp", "com.whatsapp"),
-            Triple("Instagram", "instagram", "com.instagram.android"),
-            Triple("X", "x", "com.twitter.android"),
-            Triple("Facebook", "facebook", "com.facebook.katana"),
-            Triple("Messenger", "messenger", "com.facebook.orca"),
-            Triple("Telegram", "telegram", "org.telegram.messenger"),
-            Triple("LinkedIn", "linkedin", "com.linkedin.android"),
-            Triple("Mais", "share", null)
+            Triple("WhatsApp", "com.whatsapp", true),
+            Triple("Instagram", "com.instagram.android", true),
+            Triple("X", "com.twitter.android", true),
+            Triple("Facebook", "com.facebook.katana", true),
+            Triple("Messenger", "com.facebook.orca", true),
+            Triple("Telegram", "org.telegram.messenger", true),
+            Triple("LinkedIn", "com.linkedin.android", true),
+            Triple("Mais", null, false)
         )
 
         val grid = android.widget.GridLayout(this).apply {
@@ -649,7 +649,7 @@ class ArticleActivity : AppCompatActivity() {
 
         lateinit var shareDialog: com.google.android.material.bottomsheet.BottomSheetDialog
 
-        apps.forEachIndexed { index, (label, iconName, packageName) ->
+        apps.forEachIndexed { index, (label, packageName, _) ->
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = android.view.Gravity.CENTER
@@ -663,7 +663,11 @@ class ArticleActivity : AppCompatActivity() {
                 layoutParams = LinearLayout.LayoutParams(dp(42), dp(42))
                 scaleType = ImageView.ScaleType.CENTER_INSIDE
             }
-            IconLoader.applyPng(icon, iconName)
+            val appDrawable = packageName?.let { packageId ->
+                runCatching { packageManager.getApplicationIcon(packageId) }.getOrNull()
+            }
+            if (appDrawable != null) icon.setImageDrawable(appDrawable)
+            else IconLoader.applySvg(icon, "share", R.color.iconTint)
             item.addView(icon)
 
             item.addView(TextView(this).apply {
@@ -857,23 +861,13 @@ class ArticleActivity : AppCompatActivity() {
                     )
                 }
 
-            val icon =
-                ImageView(this).apply {
-
-                    layoutParams =
-                        LinearLayout.LayoutParams(
-                            dp(48),
-                            dp(48)
-                        )
-
-                    scaleType =
-                        ImageView.ScaleType.CENTER_INSIDE
-                }
-
-            IconLoader.applyPng(
-                icon,
-                kind
-            )
+            val icon = TextView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
+                gravity = android.view.Gravity.CENTER
+                text = reactionEmoji(kind)
+                textSize = 25f
+                contentDescription = label
+            }
 
             item.addView(
                 icon
@@ -962,13 +956,22 @@ class ArticleActivity : AppCompatActivity() {
         }
     }
 
+    private fun reactionEmoji(kind: String): String = when (kind) {
+        "like" -> "👍"
+        "love" -> "❤️"
+        "haha" -> "😂"
+        "wow" -> "😮"
+        "sad" -> "😢"
+        "angry" -> "😡"
+        else -> "•"
+    }
+
     private fun react(kind: String) {
         currentReact = kind
         reactSlot.visibility = View.VISIBLE
-        IconLoader.applyPng(
-            reactSlot,
-            kind
-        )
+        reactSlot.text = reactionEmoji(kind)
+        reactSlot.textSize = 16f
+        reactSlot.contentDescription = kind
         AppAoToast.show(
             this,
             "Reagiste: $kind"

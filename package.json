@@ -1,0 +1,16 @@
+{
+  "name": "nexa-news-node",
+  "version": "1.0.0",
+  "description": "Agregador de notícias via GDELT DOC 2.0 API",
+  "main": "server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

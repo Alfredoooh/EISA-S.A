@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#2563eb">
-<meta name="description" content="Notícias de Angola, Portugal, Brasil, África e do Mundo num só lugar.">
+<meta name="description" content="Notícias de Angola, Portugal, Brasil, África e do Mundo, via GDELT.">
 <title>Nexa News — Angola · Portugal · Brasil · África · Mundo</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%B0%3C/text%3E%3C/svg%3E">
 <style>
@@ -35,7 +35,6 @@
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
   background: var(--bg);
@@ -45,7 +44,6 @@ body {
 a { color: inherit; text-decoration: none; }
 button, input, select { font: inherit; color: inherit; }
 
-/* Cabeçalho */
 .top {
   position: sticky; top: 0; z-index: 20;
   background: var(--bg);
@@ -81,7 +79,6 @@ button, input, select { font: inherit; color: inherit; }
   color: var(--brand-text); font-weight: 600;
 }
 
-/* Conteúdo */
 main { max-width: 1160px; margin: 0 auto; padding: 10px 14px 24px; }
 .filters { display: flex; flex-direction: column; margin-bottom: 10px; }
 select {
@@ -95,7 +92,6 @@ select {
 }
 .grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
 
-/* Cartões (telemóvel: texto + miniatura à direita) */
 .card {
   display: grid; grid-template-columns: minmax(0, 1fr) 104px; gap: 12px;
   padding: 12px; background: var(--surface);
@@ -115,7 +111,6 @@ select {
 .badge {
   padding: 2px 8px; border-radius: 999px; font-weight: 700;
   color: var(--c, var(--brand));
-  background: rgba(128, 128, 128, .14);
   background: color-mix(in srgb, var(--c, var(--brand)) 15%, transparent);
 }
 .lang { border: 1px solid var(--border); border-radius: 6px; padding: 0 5px; font-size: .7rem; }
@@ -131,7 +126,6 @@ select {
 .r-AF { --c: #9b5de5; }
 .r-INT { --c: #3b82f6; }
 
-/* Esqueleto de carregamento */
 .sk i { display: block; height: 12px; margin: 9px 0; border-radius: 6px; background: var(--border); animation: pulse 1.2s ease-in-out infinite; }
 .sk i:nth-child(1) { width: 40%; }
 .sk i:nth-child(2) { width: 95%; height: 16px; }
@@ -151,7 +145,6 @@ footer {
 }
 .link { padding: 0; border: 0; background: none; color: var(--brand); text-decoration: underline; cursor: pointer; }
 
-/* Estado das fontes */
 dialog {
   width: min(640px, 94vw); max-height: 86vh; padding: 0;
   border: 1px solid var(--border); border-radius: 16px;
@@ -171,7 +164,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
 .dot.ok { background: var(--ok); }
 .dot.err { background: var(--err); }
 
-/* Ecrãs maiores */
 @media (min-width: 720px) {
   main { padding-top: 14px; }
   .filters { flex-direction: row; align-items: center; gap: 12px; }
@@ -206,7 +198,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
 <main>
   <section class="filters">
     <div id="cats" class="chips" role="group" aria-label="Categoria"></div>
-    <select id="sourceSel" aria-label="Fonte"></select>
   </section>
   <div id="banner" class="banner" hidden>
     <button id="btnNew" type="button">Há novas notícias — toque para atualizar</button>
@@ -226,7 +217,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
 <dialog id="dlg">
   <div class="dlg">
     <div class="dlg-head">
-      <strong>Estado das fontes</strong>
+      <strong>Estado das fontes (GDELT)</strong>
       <button id="dlgClose" class="icon" type="button" aria-label="Fechar">✕</button>
     </div>
     <p id="dlgSummary" class="dlg-sum"></p>
@@ -239,27 +230,25 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
   'use strict';
 
   const PAGE = 24;
-  const FILTERS = ['region', 'category', 'source', 'q'];
-  const METHOD = { feed: 'RSS', html: 'HTML', gnews: 'Google News' };
+  const FILTERS = ['region', 'category', 'q'];
   const $ = (id) => document.getElementById(id);
 
   const el = {
-    q: $('q'), regions: $('regions'), cats: $('cats'), sourceSel: $('sourceSel'),
+    q: $('q'), regions: $('regions'), cats: $('cats'),
     list: $('list'), skeleton: $('skeleton'), empty: $('empty'), sentinel: $('sentinel'),
     more: $('btnMore'), banner: $('banner'), status: $('status'),
     dlg: $('dlg'), dlgSummary: $('dlgSummary'), srcList: $('srcList'),
   };
 
   const state = {
-    region: '', category: '', source: '', q: '',
+    region: '', category: '', q: '',
     offset: 0, total: 0, loading: false, done: true,
-    updatedAt: null, sources: [], regions: [], categories: [], seen: new Set(),
+    updatedAt: null, regions: [], categories: [], seen: new Set(),
   };
   let reqId = 0;
   let retryTimer = 0;
   let qTimer = 0;
 
-  /* ── utilitários ─────────────────────────────────────────────── */
   function h(tag, attrs, ...kids) {
     const node = document.createElement(tag);
     for (const [key, value] of Object.entries(attrs || {})) {
@@ -296,7 +285,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
     return res.json();
   }
 
-  /* ── cartões ─────────────────────────────────────────────────── */
   function card(a) {
     const url = safeUrl(a.link);
     if (!url) return null;
@@ -343,7 +331,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
     let msg = '';
     if (data.total === 0) {
       msg = !data.meta.updated_at || data.meta.refreshing
-        ? 'A recolher notícias das fontes… o primeiro arranque pode demorar cerca de um minuto.'
+        ? 'A recolher notícias da GDELT… o primeiro arranque pode demorar alguns minutos.'
         : 'Nenhuma notícia encontrada com estes filtros.';
     }
     el.empty.textContent = msg;
@@ -352,11 +340,10 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
 
   function renderStatus(meta) {
     el.status.textContent = meta.updated_at
-      ? `Atualizado ${ago(meta.updated_at)} · ${meta.sources_ok}/${meta.sources_total} fontes ativas`
+      ? `Atualizado ${ago(meta.updated_at)} · ${meta.sources_ok}/${meta.sources_total} combinações ativas`
       : 'A recolher notícias…';
   }
 
-  /* ── filtros ─────────────────────────────────────────────────── */
   function chip(label, key, value) {
     const btn = h('button', {
       type: 'button', class: 'chip', text: label,
@@ -366,23 +353,9 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
     return btn;
   }
 
-  function renderSourceSelect() {
-    const options = state.sources
-      .filter((s) => s.enabled
-        && (!state.region || s.region === state.region)
-        && (!state.category || s.category === state.category))
-      .sort((a, b) => a.name.localeCompare(b.name, 'pt'));
-    if (state.source && !options.some((s) => s.id === state.source)) state.source = '';
-    el.sourceSel.replaceChildren(
-      h('option', { value: '', text: 'Todas as fontes' }),
-      ...options.map((s) => h('option', { value: s.id, text: s.name })));
-    el.sourceSel.value = state.source;
-  }
-
   function renderChips() {
     el.regions.replaceChildren(chip('Todas', 'region', ''), ...state.regions.map((r) => chip(r.label, 'region', r.code)));
     el.cats.replaceChildren(chip('Todas', 'category', ''), ...state.categories.map((c) => chip(c, 'category', c)));
-    renderSourceSelect();
   }
 
   function syncUrl() {
@@ -405,7 +378,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
     loadNews({ reset: true });
   }
 
-  /* ── notícias ────────────────────────────────────────────────── */
   async function loadNews({ reset = false, silent = false } = {}) {
     if (!reset && (state.loading || state.done)) return;
     clearTimeout(retryTimer);
@@ -473,22 +445,15 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
     } catch (err) { /* ignora falhas pontuais */ }
   }
 
-  /* ── estado das fontes ───────────────────────────────────────── */
   function renderSources(data) {
-    const rank = (s) => (!s.enabled ? 3 : s.ok === false ? 0 : s.ok === null ? 1 : 2);
+    const rank = (s) => (s.ok === false ? 0 : s.ok === null ? 1 : 2);
     const list = data.sources.slice().sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, 'pt'));
     el.dlgSummary.textContent =
-      `${data.meta.sources_ok} de ${data.meta.sources_total} fontes a responder · ${data.meta.articles} notícias em memória`;
+      `${data.meta.sources_ok} de ${data.meta.sources_total} combinações a responder · ${data.meta.articles} notícias em memória`;
     el.srcList.replaceChildren(...list.map((s) => {
-      const bits = [];
-      if (!s.enabled) {
-        bits.push('desativada');
-      } else {
-        if (s.method) bits.push(METHOD[s.method] || s.method);
-        bits.push(`${s.count} notícias`);
-        if (s.latest) bits.push('última ' + ago(s.latest));
-      }
-      const dot = !s.enabled ? '' : s.ok === true ? ' ok' : s.ok === false ? ' err' : '';
+      const bits = [`${s.count} notícias`];
+      if (s.latest) bits.push('última ' + ago(s.latest));
+      const dot = s.ok === true ? ' ok' : s.ok === false ? ' err' : '';
       return h('li', null,
         h('span', { class: 'dot' + dot }),
         h('div', null,
@@ -503,14 +468,12 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
     else el.dlg.setAttribute('open', '');
     try {
       const data = await api('/api/sources');
-      state.sources = data.sources;
       renderSources(data);
     } catch (err) {
       el.dlgSummary.textContent = 'Não foi possível obter o estado das fontes.';
     }
   }
 
-  /* ── eventos ─────────────────────────────────────────────────── */
   el.q.addEventListener('input', () => {
     clearTimeout(qTimer);
     qTimer = setTimeout(() => setFilter('q', el.q.value.trim()), 300);
@@ -522,7 +485,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
       el.q.blur();
     }
   });
-  el.sourceSel.addEventListener('change', () => setFilter('source', el.sourceSel.value));
 
   const reload = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -545,15 +507,15 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
   setInterval(poll, 60000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
 
-  /* ── arranque ────────────────────────────────────────────────── */
   async function init() {
     readUrl();
     el.q.value = state.q;
     showSkeleton(true);
     try {
       const data = await api('/api/sources');
-      Object.assign(state, { sources: data.sources, regions: data.regions, categories: data.categories });
-    } catch (err) { /* sem a lista de fontes, os filtros ficam só com "Todas" */ }
+      state.regions = data.regions;
+      state.categories = data.categories;
+    } catch (err) { /* sem a lista, os filtros ficam só com "Todas" */ }
     renderChips();
     loadNews({ reset: true });
   }

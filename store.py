@@ -1,3 +1,0 @@
-MAX_AGE_DAYS = int(os.environ.get("MAX_AGE_DAYS", "30"))
-PER_SOURCE_KEEP = 300
-MIN_KEEP_PER_SOURCE = 20

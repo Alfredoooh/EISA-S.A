@@ -6,6 +6,7 @@ Ordem de tentativas:
   3. descoberta automática do feed na página inicial + caminhos comuns (/feed, /rss ...)
   4. leitura dos títulos no HTML da página inicial
   5. Google News (pesquisa site:domínio) como último recurso
+  6. GDELT DOC API, para fontes marcadas como gdelt=True (delega em gdelt_fetcher)
 """
 from __future__ import annotations
 
@@ -395,11 +396,22 @@ def run_strategy(source: dict, strategy: dict) -> list[dict]:
     if kind == "gnews":
         body, _ = http_get(gnews_url(source))
         return parse_feed(source, body, gnews=True)
+    if kind == "gdelt":
+        import gdelt_fetcher
+        return gdelt_fetcher.fetch_gdelt(source, MAX_ITEMS)
     raise FetchError(f"estratégia desconhecida: {kind}")
 
 
 def fetch_source(source: dict, hint: dict | None = None) -> tuple[list[dict], dict | None, str]:
     """Devolve (artigos, estratégia que funcionou, mensagem de erro)."""
+    if source.get("gdelt"):
+        strategy = {"type": "gdelt"}
+        try:
+            items = run_strategy(source, strategy)
+        except FetchError as exc:
+            return [], None, str(exc)
+        return (items, strategy, "") if items else ([], None, "sem resultados")
+
     if not source.get("url"):
         return [], None, "URL por confirmar"
 

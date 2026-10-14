@@ -4,13 +4,16 @@ Campos de cada fonte:
   id          identificador único (slug)
   name        nome apresentado
   region      AO | PT | BR | AF | INT
-  category    Geral | Economia | Desporto | Oficial | Lifestyle
+  category    Geral | Economia | Desporto | Oficial | Lifestyle (ou uma categoria GDELT)
   url         página inicial (serve para descobrir o RSS ou, em último caso, ler os títulos do HTML)
   feeds       feeds RSS/Atom conhecidos (opcional; se falharem, o servidor descobre sozinho)
   lang        idioma principal: pt | en | fr
   gnews_only  True = usar só o Google News (sites sem RSS que bloqueiam robôs)
   enabled     False para desativar uma fonte sem a apagar
+  gdelt       True = fonte sintética que consulta a API GDELT em vez de um site
+  gdelt_category  id da categoria GDELT (só quando gdelt=True)
 """
+from gdelt_fetcher import gdelt_sources
 
 REGIONS = [
     {"code": "AO", "label": "Angola"},
@@ -32,6 +35,8 @@ def _src(sid, name, region, category, url, feeds=(), lang="pt", gnews_only=False
         "lang": lang,
         "gnews_only": gnews_only,
         "enabled": enabled,
+        "gdelt": False,
+        "gdelt_category": None,
     }
 
 
@@ -120,6 +125,11 @@ SOURCES = [
          ["https://www.france24.com/en/rss"], lang="en"),
 ]
 
-_ORDER = ["Geral", "Economia", "Desporto", "Oficial", "Lifestyle"]
+GDELT_REGIONS = ["AO", "PT", "BR"]
+SOURCES += gdelt_sources(GDELT_REGIONS)
+
+_ORDER = ["Geral", "Economia", "Política", "Desporto", "Saúde", "Ambiente", "Tecnologia",
+          "Energia", "Segurança", "Justiça", "Educação", "Protestos", "Direitos Humanos",
+          "Negócios", "Oficial", "Lifestyle"]
 _used = {s["category"] for s in SOURCES}
 CATEGORIES = [c for c in _ORDER if c in _used] + sorted(_used - set(_ORDER))

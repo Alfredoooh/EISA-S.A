@@ -40,9 +40,9 @@
 
             <TextView
                 android:id="@+id/source"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
+                android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:maxWidth="180dp"
                 android:ellipsize="end"
                 android:singleLine="true"
                 android:textColor="@color/text"
@@ -56,25 +56,24 @@
                 android:layout_marginStart="8dp"
                 android:textColor="@color/dim"
                 android:textSize="13.5sp" />
+            <LinearLayout
+                android:id="@+id/articleActions"
+                android:layout_width="wrap_content"
+                android:layout_height="30dp"
+                android:layout_marginStart="5dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:visibility="gone"
+                android:background="@android:color/transparent"
+                android:clipChildren="false"
+                android:clipToPadding="false" />
         </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/articleActions"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="7dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:visibility="gone"
-            android:background="@android:color/transparent"
-            android:clipChildren="false"
-            android:clipToPadding="false" />
 
         <TextView
             android:id="@+id/title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="7dp"
             android:maxLines="4"
             android:ellipsize="end"
             android:textColor="@color/text"

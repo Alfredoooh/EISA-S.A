@@ -2,6 +2,7 @@ package com.appao
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.PorterDuff
 import android.util.LruCache
@@ -27,12 +28,38 @@ object IconLoader {
         sizePx: Int,
         strokeScale: Float = 0.82f
     ): Bitmap? {
-        val key = "svg:$name:$sizePx:$strokeScale"
+        val key = "icon:$name:$sizePx:$strokeScale"
         cache.get(key)?.let { return it }
+
+        // Prefer the user's original transparent PNG pack when an icon exists.
+        // This preserves the intended heavier strokes and the native colors of
+        // heart_filled_color instead of substituting an older traced SVG.
+        val suppliedPng = runCatching {
+            context.assets.open("icons/png/$name.png").use { input ->
+                BitmapFactory.decodeStream(input)
+            }
+        }.getOrNull()
+        if (suppliedPng != null) {
+            val scaled = if (suppliedPng.width == sizePx && suppliedPng.height == sizePx) {
+                suppliedPng
+            } else {
+                Bitmap.createScaledBitmap(suppliedPng, sizePx, sizePx, true).also {
+                    if (it !== suppliedPng) suppliedPng.recycle()
+                }
+            }
+            cache.put(key, scaled)
+            return scaled
+        }
 
         return try {
             val raw = openSvg(context, name).use {
                 it.readBytes().toString(Charsets.UTF_8)
+            }
+            // Empty placeholder assets are intentionally left for the app owner to
+            // replace. Treat them like missing art so the existing runtime fallback
+            // can render an available native symbol until the real SVG is supplied.
+            if (raw.contains("<!-- Add the real ") || raw.contains("<!-- Add the final ")) {
+                return null
             }
             val source = normalizeSvgStrokeWeight(raw, strokeScale)
             val renderSize = (sizePx * 4).coerceAtLeast(96)

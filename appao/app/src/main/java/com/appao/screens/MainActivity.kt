@@ -104,6 +104,8 @@ class MainActivity : AppCompatActivity() {
     private var appsReady = false
 
     private var feedHeaderHeight = 0
+    private var feedStatusBarInset = 0
+    private var feedAppsMode = false
     private var feedBarProgress = 0f
     private var feedBarAnimator: ValueAnimator? = null
 
@@ -164,6 +166,7 @@ class MainActivity : AppCompatActivity() {
         safeStartup { setupHome() }
         safeStartup { setupFeed() }
         safeStartup { setupFeedHeader() }
+        safeStartup { populateFeedApps() }
         safeStartup { setupBottomInput() }
         safeStartup { setupAppsPanel() }
         safeStartup { setupTouchHost() }
@@ -260,11 +263,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupInsets() {
         val homeBottomBar = findViewById<View>(R.id.homeBottomBar)
-        val homeNavBaseHeight = dp(64)
+        homeBottomBar.visibility = View.GONE
         ViewCompat.setOnApplyWindowInsetsListener(homeBottomBar) { view, insets ->
-            val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
-            view.setPadding(dp(8), view.paddingTop, dp(8), systemBottom)
-            view.layoutParams = view.layoutParams.apply { height = homeNavBaseHeight + systemBottom }
+            view.visibility = View.GONE
             insets
         }
 
@@ -272,13 +273,12 @@ class MainActivity : AppCompatActivity() {
             val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
             val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
             val keyboardVisible = imeBottom > systemBottom + dp(80)
-            homeBottomBar.visibility = if (keyboardVisible) View.GONE else View.VISIBLE
             val params = view.layoutParams as? ViewGroup.MarginLayoutParams
             if (params != null) {
-                params.bottomMargin = if (keyboardVisible) 0 else homeNavBaseHeight + systemBottom
+                params.bottomMargin = if (keyboardVisible) dp(2) else dp(8) + systemBottom
                 view.layoutParams = params
             }
-            (view as ViewGroup).setPadding(dp(12), dp(8), dp(12), dp(8) + if (keyboardVisible) imeBottom else 0)
+            (view as ViewGroup).setPadding(dp(8), dp(6), dp(8), dp(6))
             bottomBarHeight = view.measuredHeight
             insets
         }
@@ -378,12 +378,13 @@ class MainActivity : AppCompatActivity() {
         setFeedBottomSelection(discover = true)
         findViewById<View>(R.id.feedNavDiscover).setOnClickListener {
             setFeedBottomSelection(discover = true)
+            showFeedAppsTab(false)
             recycler.smoothScrollToPosition(0)
             openFeedPanelImmediate()
         }
         findViewById<View>(R.id.feedNavApps).setOnClickListener {
             setFeedBottomSelection(discover = false)
-            openAppsPanel()
+            showFeedAppsTab(true)
         }
 
         // feedToolbar previously had no status-bar inset handling, so
@@ -400,6 +401,7 @@ class MainActivity : AppCompatActivity() {
             feedToolbar.layoutParams = feedToolbar.layoutParams.apply {
                 height = feedToolbarContentHeight + statusBarTop
             }
+            feedStatusBarInset = statusBarTop
             feedHeaderHeight = feedHeaderBaseHeight + statusBarTop
             view.layoutParams = view.layoutParams.apply {
                 height = feedHeaderHeight
@@ -579,17 +581,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupBottomInput() {
         IconLoader.applySvg(findViewById(R.id.biAddIcon), "plus", R.color.iconTint)
-        // The composer secondary action uses the supplied filters icon.
-        IconLoader.applySvg(findViewById(R.id.biSliderIcon), "filters", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow_up", R.color.iconTint)
+        // Home composer: media/tools button on the left and Web search on the right.
+        IconLoader.applySvg(findViewById(R.id.biSendIcon), "search", R.color.iconTint)
 
         // Native reproduction of the supplied HTML textarea. The action row is
         // structurally separate, so it stays anchored while the textarea grows.
-        biInput.setSingleLine(false)
-        biInput.maxLines = Int.MAX_VALUE
-        biInput.setHorizontallyScrolling(false)
-        biInput.setLineSpacing(0f, 1.6f)
-        biInput.gravity = Gravity.TOP or Gravity.START
+        biInput.setSingleLine(true)
+        biInput.maxLines = 1
+        biInput.setHorizontallyScrolling(true)
+        biInput.gravity = Gravity.CENTER_VERTICAL or Gravity.START
         biInput.includeFontPadding = true
         biInput.setPadding(0, 0, 0, 0)
         biInput.isVerticalScrollBarEnabled = false
@@ -613,7 +613,6 @@ class MainActivity : AppCompatActivity() {
             biBar.layoutParams = lp
             biBar.animate().cancel()
             biBar.animate().scaleX(if (focused) 1.012f else 1f).setDuration(220L).setInterpolator(Curves.SMOOTH).start()
-            findViewById<View>(R.id.homeBottomBar).animate().alpha(if (focused) 0.92f else 1f).setDuration(180L).start()
         }
 
         biSend.setOnClickListener { sendToAi() }
@@ -621,35 +620,9 @@ class MainActivity : AppCompatActivity() {
             sendToAi()
             true
         }
-        // Keep the existing attachment popup and secondary filter action.
-        findViewById<View>(R.id.biActions).translationY = dp(2).toFloat()
         findViewById<View>(R.id.biAdd).setOnClickListener { showAppsPopup(it) }
-
-        IconLoader.applySvg(findViewById(R.id.homeNavBackIcon), "arrow_left", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.homeNavHomeIcon), "home", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.homeNavAiIcon), "sparkles", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.homeNavFireIcon), "flame", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.homeNavNewTabIcon), "plus", R.color.iconTint)
-        updateBrowserTabCount()
-        findViewById<View>(R.id.homeNavBack).setOnClickListener {
-            when {
-                appsOpen -> closeAppsPanel()
-                feedOpen -> closeFeedPanel()
-                else -> biInput.clearFocus()
-            }
-        }
-        findViewById<View>(R.id.homeNavHome).setOnClickListener {
-            if (appsOpen) closeAppsPanel()
-            if (feedOpen) closeFeedPanel()
-            biInput.clearFocus()
-        }
-        findViewById<View>(R.id.homeNavTabs).setOnClickListener { openBrowserTabs() }
-        findViewById<View>(R.id.homeNavAi).setOnClickListener {
-            biInput.requestFocus()
-            biInput.post { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(biInput, InputMethodManager.SHOW_IMPLICIT) }
-        }
-        findViewById<View>(R.id.homeNavFire).setOnClickListener { clearBrowserSessions() }
-        findViewById<View>(R.id.homeNavNewTab).setOnClickListener { openNewBrowserTab() }
+        findViewById<View>(R.id.biAddIcon).translationY = dp(1).toFloat()
+        findViewById<View>(R.id.biSendIcon).translationY = dp(1).toFloat()
 
         applyComposerSurface()
         updateComposerExpanded(false)
@@ -662,81 +635,32 @@ class MainActivity : AppCompatActivity() {
     private fun updateComposerExpanded(focused: Boolean) {
         if (!::biInput.isInitialized) return
         val expanded = focused || biInput.text?.isNotBlank() == true
-        findViewById<View>(R.id.biActions).visibility = if (expanded) View.VISIBLE else View.GONE
-        biInput.gravity = if (expanded) Gravity.TOP or Gravity.START else Gravity.CENTER_VERTICAL or Gravity.START
+        biInput.gravity = Gravity.CENTER_VERTICAL or Gravity.START
         val pill = biPill
-        val verticalPadding = dp(if (expanded) 8 else 5)
+        val verticalPadding = dp(if (expanded) 6 else 5)
         pill.setPadding(pill.paddingLeft, verticalPadding, pill.paddingRight, verticalPadding)
         val row = findViewById<View>(R.id.biInputRow)
-        row.minimumHeight = dp(if (expanded) 42 else 40)
+        row.minimumHeight = dp(42)
         biBar.animate().cancel()
         biBar.animate().scaleX(if (expanded) 1.012f else 1f).setDuration(220L).setInterpolator(Curves.SMOOTH).start()
     }
 
     private fun updateComposerSendState() {
-        val active = biInput.text?.isNotBlank() == true
-        biSend.background = if (active) {
-            AccentColorManager.primaryShape(this, android.graphics.drawable.GradientDrawable.OVAL)
-        } else {
-            android.graphics.drawable.GradientDrawable().apply {
-                shape = android.graphics.drawable.GradientDrawable.OVAL
-                setColor(ContextCompat.getColor(this@MainActivity, R.color.card2))
-            }
-        }
-        findViewById<ImageView>(R.id.biSendIcon).setColorFilter(
-            if (active) AccentColorManager.onPrimaryColor(this) else ContextCompat.getColor(this, R.color.dim),
-            android.graphics.PorterDuff.Mode.SRC_IN
-        )
+        biSend.background = ContextCompat.getDrawable(this, R.drawable.bg_transparent_pressed)
+        findViewById<ImageView>(R.id.biSendIcon).clearColorFilter()
+        IconLoader.applySvg(findViewById(R.id.biSendIcon), "search", R.color.iconTint)
     }
 
     private fun resizeComposerInput(animate: Boolean) {
-        if (!::biInput.isInitialized || biInput.width <= 0) return
-
-        val density = resources.displayMetrics.density
-        val minHeight = (36f * density + 0.5f).toInt()
-        val maxHeight = (200f * density + 0.5f).toInt()
-        val width = biInput.width.coerceAtLeast(1)
-        val text = biInput.text
-
-        val measuredHeight = if (text.isEmpty()) {
-            minHeight
-        } else {
-            val measured = StaticLayout.Builder
-                .obtain(text, 0, text.length, biInput.paint, width)
-                .setIncludePad(true)
-                .setLineSpacing(0f, 1.6f)
-                .setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE)
-                .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
-                .build()
-                .height
-            measured.coerceAtLeast(minHeight)
-        }
-
-        val desired = measuredHeight.coerceAtMost(maxHeight)
-        val current = biInput.height.takeIf { it > 0 } ?: minHeight
-
-        composerHeightAnimator?.cancel()
-        if (animate && current != desired) {
-            composerHeightAnimator = ValueAnimator.ofInt(current, desired).apply {
-                duration = 300L
-                interpolator = PathInterpolator(0.4f, 0f, 0.2f, 1f)
-                addUpdateListener { animator ->
-                    val lp = biInput.layoutParams
-                    lp.height = animator.animatedValue as Int
-                    biInput.layoutParams = lp
-                }
-                start()
-            }
-        } else {
-            val lp = biInput.layoutParams
-            lp.height = desired
+        if (!::biInput.isInitialized) return
+        val targetHeight = dp(42)
+        val lp = biInput.layoutParams
+        if (lp.height != targetHeight) {
+            lp.height = targetHeight
             biInput.layoutParams = lp
         }
-
-        val atMax = desired >= maxHeight
-        biInput.isVerticalScrollBarEnabled = atMax
-        biInput.overScrollMode = if (atMax) View.OVER_SCROLL_ALWAYS else View.OVER_SCROLL_IF_CONTENT_SCROLLS
-        if (!atMax) biInput.scrollTo(0, 0)
+        biInput.isVerticalScrollBarEnabled = false
+        biInput.overScrollMode = View.OVER_SCROLL_NEVER
     }
 
     private fun applyComposerSurface() {
@@ -744,8 +668,6 @@ class MainActivity : AppCompatActivity() {
         biPill.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_card_bordered)
         biInput.setTextColor(ContextCompat.getColor(this, R.color.text))
         biInput.setHintTextColor(ContextCompat.getColor(this, R.color.dim))
-        findViewById<View>(R.id.biAddIcon).alpha = 0.4f
-        findViewById<View>(R.id.biSliderIcon).alpha = 0.4f
         updateComposerSendState()
     }
 
@@ -757,15 +679,10 @@ class MainActivity : AppCompatActivity() {
         appsHeader.elevation = 0f
         appsHeader.translationZ = 0f
         findViewById<ImageView>(R.id.appsProfileAvatar).setImageResource(R.mipmap.ic_launcher_round)
-        findViewById<ImageView>(R.id.appsProfileAvatarBottom).setImageResource(R.mipmap.ic_launcher_round)
         IconLoader.applySvg(findViewById(R.id.appsSearchIcon), "search", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsNewChatIcon), "new_chat", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsNewChatIcon), "edit_square", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow_right", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
-        findViewById<View>(R.id.appsProfileBottom).setOnClickListener {
-            startActivity(Intent(this, AuthActivity::class.java))
-        }
-
         findViewById<View>(R.id.appsProfile).setOnClickListener {
             startActivity(Intent(this, AuthActivity::class.java))
         }
@@ -1010,7 +927,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openFeedPanelImmediate() {
-        setFeedBottomSelection(discover = true)
+        setFeedBottomSelection(discover = !feedAppsMode)
+        showFeedAppsTab(feedAppsMode)
         feedOpen = true
         appsOpen = false
         appsPanel.visibility = View.GONE
@@ -1031,6 +949,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun openFeedPanel(gestureProgress: Float? = null) {
         if (isFinishing || isDestroyed) return
+        feedAppsMode = false
+        showFeedAppsTab(false)
         setFeedBottomSelection(discover = true)
         feedOpen = true
         appsOpen = false
@@ -1058,7 +978,7 @@ class MainActivity : AppCompatActivity() {
     private fun animateFeedTo(target: Float, current: Float, end: (() -> Unit)? = null) {
         feedAnimator?.cancel()
         feedAnimator = ValueAnimator.ofFloat(current, target).apply {
-            duration = 500L
+            duration = 420L
             interpolator = Curves.IOS
             addUpdateListener { setFeedProgress(it.animatedValue as Float) }
             if (end != null) {
@@ -1099,7 +1019,7 @@ class MainActivity : AppCompatActivity() {
     private fun animateAppsTo(target: Float, current: Float, end: (() -> Unit)? = null) {
         appsAnimator?.cancel()
         appsAnimator = ValueAnimator.ofFloat(current, target).apply {
-            duration = 500L
+            duration = 420L
             interpolator = Curves.IOS
             addUpdateListener { setAppsProgress(it.animatedValue as Float) }
             if (end != null) {
@@ -1296,15 +1216,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun sendToAi() {
         val query = biInput.text.toString().trim()
-        if (query.isEmpty()) return
-        biInput.clearFocus()
-        val looksLikeAddress = query.matches(Regex("(?i)^(https?://)?([a-z0-9-]+\\.)+[a-z]{2,}([/:?#].*)?$"))
-        if (looksLikeAddress) {
-            openNewBrowserTab(if (query.startsWith("http", true)) query else "https://$query")
-        } else {
-            startActivity(Intent(this, SearchActivity::class.java).apply { putExtra("query", query) })
-            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+        if (query.isEmpty()) {
+            biInput.requestFocus()
+            biInput.post { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(biInput, InputMethodManager.SHOW_IMPLICIT) }
+            return
         }
+        val looksLikeAddress = query.matches(Regex("(?i)^(https?://)?([a-z0-9-]+\\.)+[a-z]{2,}([/:?#].*)?$"))
+        val target = when {
+            query.startsWith("https://", true) || query.startsWith("http://", true) -> query
+            looksLikeAddress -> "https://$query"
+            else -> "https://duckduckgo.com/?q=" + android.net.Uri.encode(query)
+        }
+        biInput.clearFocus()
+        (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(biInput.windowToken, 0)
+        openNewBrowserTab(target)
         biInput.setText("")
     }
 
@@ -1339,6 +1264,73 @@ class MainActivity : AppCompatActivity() {
                 AppAoToast.show(this, "Separadores fechados")
             }
             .show()
+    }
+
+    private fun showFeedAppsTab(showApps: Boolean) {
+        feedAppsMode = showApps
+        findViewById<View>(R.id.feedAppsContent).apply {
+            visibility = if (showApps) View.VISIBLE else View.GONE
+            (layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
+                lp.topMargin = (if (showApps) dp(56) else dp(104)) + feedStatusBarInset
+                layoutParams = lp
+            }
+        }
+        recycler.visibility = if (showApps) View.GONE else View.VISIBLE
+        feedTabsScroll.visibility = if (showApps) View.GONE else View.VISIBLE
+        feedHeader.layoutParams = feedHeader.layoutParams.apply {
+            height = (if (showApps) dp(56) else dp(104)) + feedStatusBarInset
+        }
+        feedHeaderHeight = (if (showApps) dp(56) else dp(104)) + feedStatusBarInset
+        recycler.updatePadding(top = feedHeaderHeight)
+        findViewById<TextView>(R.id.feedToolbarTitle).text = if (showApps) "Apps" else "Descobrir"
+    }
+
+    private fun populateFeedApps() {
+        val list = findViewById<LinearLayout>(R.id.feedAppsList)
+        list.removeAllViews()
+        data class Shortcut(val title: String, val subtitle: String, val icon: String, val action: () -> Unit)
+        val shortcuts = listOf(
+            Shortcut("Assistente", "Pesquisar na Web", "sparkles") {
+                closeFeedPanel()
+                biInput.requestFocus()
+                biInput.post { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(biInput, InputMethodManager.SHOW_IMPLICIT) }
+            },
+            Shortcut("Navegador", "Abrir uma página", "search") { openNewBrowserTab() },
+            Shortcut("Guardados", "Artigos guardados", "bookmark") { startActivity(Intent(this, LibraryActivity::class.java)) },
+            Shortcut("Atividade", "Histórico de utilização", "chart_bars") { startActivity(Intent(this, UsageActivity::class.java)) },
+            Shortcut("Definições", "Personalizar a aplicação", "settings") { startActivity(Intent(this, SettingsActivity::class.java)) }
+        )
+        shortcuts.forEach { shortcut ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(14), dp(13), dp(14), dp(13))
+                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_drawer_item)
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { shortcut.action() }
+            }
+            val icon = ImageView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                IconLoader.applySvg(this, shortcut.icon, R.color.iconTint)
+            }
+            row.addView(icon)
+            val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            labels.addView(TextView(this).apply {
+                text = shortcut.title
+                textSize = 15.5f
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
+                typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+            })
+            labels.addView(TextView(this).apply {
+                text = shortcut.subtitle
+                textSize = 12.5f
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.dim))
+            })
+            row.addView(labels, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) })
+            list.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(8) })
+        }
     }
 
     private fun setFeedBottomSelection(discover: Boolean) {
@@ -1592,7 +1584,7 @@ class MainActivity : AppCompatActivity() {
                 NativePopupMenu.Item(3, "Abrir no navegador", svg = "arrow_top_right2")
             ),
             alignLeft = false,
-            placeAbove = false
+            placeAbove = true
         ) { choice ->
             when (choice.id) {
                 1 -> runCatching {
@@ -1736,14 +1728,13 @@ class MainActivity : AppCompatActivity() {
         IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more_vert", R.color.iconTint)
         // Preserve the correct Discover/Apps glyph pair and selected state after
         // theme changes or returning from another Activity.
-        setFeedBottomSelection(discover = !appsOpen)
+        setFeedBottomSelection(discover = !feedAppsMode)
         IconLoader.applySvg(findViewById(R.id.biAddIcon), "plus", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biSliderIcon), "filters", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow_up", R.color.iconTint)
+        
+        IconLoader.applySvg(findViewById(R.id.biSendIcon), "search", R.color.iconTint)
         findViewById<ImageView>(R.id.appsProfileAvatar).setImageResource(R.mipmap.ic_launcher_round)
-        findViewById<ImageView>(R.id.appsProfileAvatarBottom).setImageResource(R.mipmap.ic_launcher_round)
         IconLoader.applySvg(findViewById(R.id.appsSearchIcon), "search", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsNewChatIcon), "new_chat", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.appsNewChatIcon), "edit_square", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow_right", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
         findViewById<TextView>(R.id.feedToolbarTitle).setTextColor(ContextCompat.getColor(this, R.color.text))
@@ -1758,13 +1749,10 @@ class MainActivity : AppCompatActivity() {
             android.graphics.drawable.GradientDrawable.RECTANGLE,
             999f
         )
-        findViewById<View>(R.id.appsSettings).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
+        findViewById<View>(R.id.appsSettings).background = ContextCompat.getDrawable(this, R.drawable.bg_transparent_pressed)
         findViewById<View>(R.id.appsProfile).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
         findViewById<ImageView>(R.id.appsProfileAvatar).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
-        findViewById<View>(R.id.appsProfileBottom).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
-        findViewById<ImageView>(R.id.appsProfileAvatarBottom).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
         findViewById<ImageView>(R.id.appsProfileAvatar).setImageResource(R.mipmap.ic_launcher_round)
-        findViewById<ImageView>(R.id.appsProfileAvatarBottom).setImageResource(R.mipmap.ic_launcher_round)
         selectAppsTab(appsTabIsApps, false)
         if (::adapter.isInitialized) adapter.refreshTheme(recycler)
         // Theme changes update the current surface in place; no feed request or data rebuild is made.

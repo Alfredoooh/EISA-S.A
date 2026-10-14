@@ -18,7 +18,7 @@
             android:id="@+id/usageBack"
             android:layout_width="@dimen/icon_button_size"
             android:layout_height="@dimen/icon_button_size"
-            android:background="@drawable/bg_circle_card"
+            android:background="@drawable/bg_transparent_pressed"
             android:clickable="true"
             android:focusable="true">
             <ImageView

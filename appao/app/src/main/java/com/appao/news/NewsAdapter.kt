@@ -484,8 +484,6 @@ class NewsAdapter(
             }
         )
 
-        body.addView(metaRow)
-
         val actionsRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -494,14 +492,15 @@ class NewsAdapter(
         }
         addArticleActions(actionsRow, item, compact = compact || square)
         if (actionsRow.childCount > 0) {
-            body.addView(
+            metaRow.addView(
                 actionsRow,
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
-                ).apply { topMargin = dp(context, 7) }
+                ).apply { marginStart = dp(context, 5) }
             )
         }
+        body.addView(metaRow)
 
         val title = TextView(context).apply {
             text = item.title
@@ -606,7 +605,7 @@ class NewsAdapter(
         return card
     }
 
-    /** Transparent, left-aligned article actions shown before each article description. */
+    /** Transparent article actions aligned to the upper-right of each card. */
     private fun addArticleActions(container: LinearLayout, item: NewsItem, compact: Boolean) {
         container.removeAllViews()
         container.background = android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
@@ -619,8 +618,8 @@ class NewsAdapter(
         }
         container.visibility = View.VISIBLE
         val context = container.context
-        val actionSize = dp(context, if (compact) 30 else 32)
-        val glyphSize = dp(context, if (compact) 17 else 18)
+        val actionSize = dp(context, if (compact) 26 else 28)
+        val glyphSize = dp(context, if (compact) 18 else 19)
         fun addAction(iconName: String, description: String, heartActive: Boolean = false, callback: (View) -> Unit) {
             val button = FrameLayout(context).apply {
                 contentDescription = description
@@ -637,10 +636,10 @@ class NewsAdapter(
             button.setOnClickListener { callback(button) }
             container.addView(
                 button,
-                LinearLayout.LayoutParams(actionSize, actionSize).apply { marginEnd = dp(context, 7) }
+                LinearLayout.LayoutParams(actionSize, actionSize).apply { marginStart = dp(context, 3) }
             )
         }
-        // Order is intentionally heart first, then the vertical options menu.
+        // Heart and vertical options are right-aligned in the top metadata row.
         val saved = isSaved?.invoke(item) == true
         addAction(if (saved) "heart_filled_color" else "heart", if (saved) "Remover dos guardados" else "Guardar notícia", saved) {
             onToggleSaved?.invoke(item)

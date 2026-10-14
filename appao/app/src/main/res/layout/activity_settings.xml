@@ -13,7 +13,7 @@
 
         <FrameLayout android:id="@+id/setBack"
             android:layout_width="@dimen/icon_button_size" android:layout_height="@dimen/icon_button_size"
-            android:background="@drawable/bg_circle_card"
+            android:background="@drawable/bg_transparent_pressed"
             android:clickable="true" android:focusable="true">
             <ImageView android:id="@+id/setBackIcon"
                 android:layout_width="@dimen/icon_button_icon_size" android:layout_height="@dimen/icon_button_icon_size"
@@ -36,16 +36,16 @@
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:orientation="vertical" android:paddingStart="16dp" android:paddingEnd="16dp" android:paddingBottom="32dp">
             <TextView style="@style/SettingsLabel" android:text="PREFERÊNCIAS"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowTheme"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowAccent"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowLang"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowData"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowTheme" android:layout_marginBottom="5dp"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowAccent" android:layout_marginBottom="5dp"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowLang" android:layout_marginBottom="5dp"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowData" android:layout_marginBottom="5dp"/>
             <TextView style="@style/SettingsLabel" android:text="ATIVIDADE E LOCALIZAÇÃO"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowUsage"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowLoc"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowUsage" android:layout_marginBottom="5dp"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowLoc" android:layout_marginBottom="5dp"/>
             <TextView style="@style/SettingsLabel" android:text="CONTA E POLÍTICAS"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowAccount"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowTerms"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowAccount" android:layout_marginBottom="5dp"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowTerms" android:layout_marginBottom="5dp"/>
         </LinearLayout>
     </com.appao.BounceScrollView>
 </LinearLayout>

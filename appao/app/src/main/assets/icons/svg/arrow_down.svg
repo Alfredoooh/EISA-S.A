@@ -1,5 +1,1 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-
-<path d="M251,55 L244,60 L241,67 L241,439 L240,440 L112,312 L108,310 L98,310 L96,311 L90,317 L88,325 L90,332 L242,484 L245,485 L250,489 L260,490 L270,484 L422,332 L424,323 L420,314 L414,310 L404,310 L400,312 L272,440 L271,439 L271,66 L270,63 L265,57 L261,55Z" fill="#000000" fill-rule="evenodd" />
-</svg>
+<svg viewBox="0 0 512 512" version="1" xmlns="http://www.w3.org/2000/svg" desc="Created with imagetracer.js version 1.6" ><path fill="#000000" stroke="rgb(0,0,0)" stroke-width="0" opacity="1" d="M 254 55 Q 268 54 271 63 L 274 69 L 275 432 L 392 315 L 405 312 L 416 320 L 419 333 L 417 339 L 269 487 L 256 491 L 245 487 L 97 340 L 94 327 L 102 315 L 115 312 L 122 315 L 239 432 L 239 70 L 247 58 L 254 55 Z " /><path fill="#000000" stroke="rgb(0,0,0)" stroke-width="0" opacity="0" d="M 0 0 L 512 0 L 512 512 L 0 512 L 0 0 Z M 254 55 L 247 58 L 239 70 L 239 432 L 122 315 L 115 312 L 102 315 L 94 327 L 97 340 L 245 487 L 256 491 L 269 487 L 417 339 L 419 333 L 416 320 L 405 312 L 392 315 L 275 432 L 274 69 L 271 63 Q 267 54 254 55 Z " /></svg>

@@ -71,26 +71,24 @@ class MainActivity : AppCompatActivity() {
 
     private val items = mutableListOf<NewsItem>()
     private val categories = mutableListOf(
-        NewsCategory("world", "Internacional", listOf("gnews")),
-        NewsCategory("business", "Negócios", listOf("gnews", "currents")),
-        NewsCategory("technology", "Tecnologia", listOf("gnews", "currents")),
-        NewsCategory("entertainment", "Entretenimento", listOf("gnews", "currents")),
-        NewsCategory("sports", "Desporto", listOf("gnews", "currents")),
-        NewsCategory("science", "Ciência", listOf("gnews", "currents")),
-        NewsCategory("health", "Saúde", listOf("gnews", "currents")),
-        NewsCategory("society", "Sociedade", listOf("currents")),
-        NewsCategory("politics_government", "Política e Governo", listOf("currents")),
-        NewsCategory("lifestyle_leisure", "Estilo de Vida e Lazer", listOf("currents")),
-        NewsCategory("human_interest", "Interesse Humano", listOf("currents")),
-        NewsCategory("crime_law_justice", "Crime, Direito e Justiça", listOf("currents")),
-        NewsCategory("education", "Educação", listOf("currents")),
-        NewsCategory("environment", "Ambiente", listOf("currents")),
-        NewsCategory("labour", "Trabalho", listOf("currents")),
-        NewsCategory("automotive", "Automóvel", listOf("currents")),
-        NewsCategory("real_estate", "Imobiliário", listOf("currents"))
+        NewsCategory("Geral", "Geral"),
+        NewsCategory("Economia", "Economia"),
+        NewsCategory("Política", "Política"),
+        NewsCategory("Desporto", "Desporto"),
+        NewsCategory("Saúde", "Saúde"),
+        NewsCategory("Ambiente", "Ambiente"),
+        NewsCategory("Tecnologia", "Tecnologia"),
+        NewsCategory("Energia", "Energia"),
+        NewsCategory("Segurança", "Segurança"),
+        NewsCategory("Justiça", "Justiça"),
+        NewsCategory("Educação", "Educação"),
+        NewsCategory("Protestos", "Protestos"),
+        NewsCategory("Direitos Humanos", "Direitos Humanos"),
+        NewsCategory("Negócios", "Negócios"),
+        NewsCategory("Entretenimento", "Entretenimento")
     )
 
-    private var currentCat = "Internacional"
+    private var currentCat = "Geral"
     private var feedLoadJob: Job? = null
     private var feedRequestGeneration: Long = 0L
     private var page = 1
@@ -193,8 +191,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun restoreState(savedInstanceState: Bundle?) {
         val state = savedInstanceState ?: return
-        currentCat = (state.getString("main.category", "Internacional") ?: "Internacional").let { saved ->
-            if (saved == "Todas" || saved == "Para você" || saved == "Seguindo") "Internacional" else saved
+        currentCat = (state.getString("main.category", "Geral") ?: "Geral").let { saved ->
+            if (saved == "Todas" || saved == "Para você" || saved == "Seguindo" || saved == "Internacional") "Geral" else saved
         }
         page = state.getInt("main.page", 1).coerceAtLeast(1)
         feedOpen = state.getBoolean("main.feed_open", false)
@@ -261,24 +259,31 @@ class MainActivity : AppCompatActivity() {
     }.toString()
 
     private fun setupInsets() {
-        ViewCompat.setOnApplyWindowInsetsListener(biBar) { view, insets ->
+        val homeBottomBar = findViewById<View>(R.id.homeBottomBar)
+        val homeNavBaseHeight = dp(64)
+        ViewCompat.setOnApplyWindowInsetsListener(homeBottomBar) { view, insets ->
             val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
-            val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            val safeBottom = if (systemBottom > imeBottom) systemBottom else imeBottom
-            val frame = view as ViewGroup
-            frame.setPadding(dp(14), dp(10), dp(14), dp(14) + safeBottom)
-            bottomBarHeight = view.measuredHeight
+            view.setPadding(dp(8), view.paddingTop, dp(8), systemBottom)
+            view.layoutParams = view.layoutParams.apply { height = homeNavBaseHeight + systemBottom }
             insets
         }
 
-        biBar.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
-            bottomBarHeight = v.height
+        ViewCompat.setOnApplyWindowInsetsListener(biBar) { view, insets ->
+            val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
+            val keyboardVisible = imeBottom > systemBottom + dp(80)
+            homeBottomBar.visibility = if (keyboardVisible) View.GONE else View.VISIBLE
+            val params = view.layoutParams as? ViewGroup.MarginLayoutParams
+            if (params != null) {
+                params.bottomMargin = if (keyboardVisible) 0 else homeNavBaseHeight + systemBottom
+                view.layoutParams = params
+            }
+            (view as ViewGroup).setPadding(dp(12), dp(8), dp(12), dp(8) + if (keyboardVisible) imeBottom else 0)
+            bottomBarHeight = view.measuredHeight
+            insets
         }
+        biBar.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> bottomBarHeight = v.height }
 
-        // Same pattern as biBar above: the drawer's bottom tabs row used a
-        // fixed 16dp margin, which does not account for the real system
-        // navigation bar inset and gets clipped on devices with a taller
-        // gesture bar. Apply the system inset as bottom margin instead.
         val appsBottomBar = findViewById<View>(R.id.appsBottomBar)
         val appsBottomBarBaseMargin = dp(16)
         ViewCompat.setOnApplyWindowInsetsListener(appsBottomBar) { view, insets ->
@@ -370,17 +375,15 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.feedBack).setOnClickListener { closeFeedPanel() }
         findViewById<View>(R.id.feedPublish).setOnClickListener { openPublish() }
         findViewById<View>(R.id.feedMore).setOnClickListener { showFeedMorePopup(it) }
-        IconLoader.applySvg(findViewById(R.id.feedNavDiscoverIcon), "search", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedNavAppsIcon), "apps", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedNavBrowserIcon), "arrow_top_right", R.color.iconTint)
+        setFeedBottomSelection(discover = true)
         findViewById<View>(R.id.feedNavDiscover).setOnClickListener {
+            setFeedBottomSelection(discover = true)
             recycler.smoothScrollToPosition(0)
             openFeedPanelImmediate()
         }
-        findViewById<View>(R.id.feedNavApps).setOnClickListener { openAppsPanel() }
-        findViewById<View>(R.id.feedNavBrowser).setOnClickListener {
-            startActivity(Intent(this, AppViewerActivity::class.java).putExtra("url", "https://www.google.com"))
-            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+        findViewById<View>(R.id.feedNavApps).setOnClickListener {
+            setFeedBottomSelection(discover = false)
+            openAppsPanel()
         }
 
         // feedToolbar previously had no status-bar inset handling, so
@@ -523,7 +526,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun selectedServerCategoryId(): String =
-        categories.firstOrNull { it.label == currentCat }?.id ?: "world"
+        categories.firstOrNull { it.label == currentCat }?.label ?: "Geral"
 
     private fun updateFeedCategoryAndReload(force: Boolean) {
         findViewById<TextView>(R.id.feedToolbarTitle).text = "Descobrir"
@@ -596,25 +599,78 @@ class MainActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 biInput.post { resizeComposerInput(true) }
+                updateComposerExpanded(biInput.hasFocus())
                 updateComposerSendState()
             }
             override fun afterTextChanged(s: Editable?) = Unit
         })
+        biInput.setOnFocusChangeListener { _, focused ->
+            updateComposerExpanded(focused)
+            val lp = biBar.layoutParams as? ViewGroup.MarginLayoutParams ?: return@setOnFocusChangeListener
+            val target = dp(if (focused) 4 else 12)
+            lp.marginStart = target
+            lp.marginEnd = target
+            biBar.layoutParams = lp
+            biBar.animate().cancel()
+            biBar.animate().scaleX(if (focused) 1.012f else 1f).setDuration(220L).setInterpolator(Curves.SMOOTH).start()
+            findViewById<View>(R.id.homeBottomBar).animate().alpha(if (focused) 0.92f else 1f).setDuration(180L).start()
+        }
 
         biSend.setOnClickListener { sendToAi() }
         biInput.setOnEditorActionListener { _, _, _ ->
             sendToAi()
             true
         }
-        // Keep the existing More popup and its native sheet implementation.
+        // Keep the existing attachment popup and secondary filter action.
         findViewById<View>(R.id.biActions).translationY = dp(2).toFloat()
         findViewById<View>(R.id.biAdd).setOnClickListener { showAppsPopup(it) }
 
+        IconLoader.applySvg(findViewById(R.id.homeNavBackIcon), "arrow_left", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.homeNavHomeIcon), "home", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.homeNavAiIcon), "sparkles", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.homeNavFireIcon), "flame", R.color.iconTint)
+        IconLoader.applySvg(findViewById(R.id.homeNavNewTabIcon), "plus", R.color.iconTint)
+        updateBrowserTabCount()
+        findViewById<View>(R.id.homeNavBack).setOnClickListener {
+            when {
+                appsOpen -> closeAppsPanel()
+                feedOpen -> closeFeedPanel()
+                else -> biInput.clearFocus()
+            }
+        }
+        findViewById<View>(R.id.homeNavHome).setOnClickListener {
+            if (appsOpen) closeAppsPanel()
+            if (feedOpen) closeFeedPanel()
+            biInput.clearFocus()
+        }
+        findViewById<View>(R.id.homeNavTabs).setOnClickListener { openBrowserTabs() }
+        findViewById<View>(R.id.homeNavAi).setOnClickListener {
+            biInput.requestFocus()
+            biInput.post { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(biInput, InputMethodManager.SHOW_IMPLICIT) }
+        }
+        findViewById<View>(R.id.homeNavFire).setOnClickListener { clearBrowserSessions() }
+        findViewById<View>(R.id.homeNavNewTab).setOnClickListener { openNewBrowserTab() }
+
         applyComposerSurface()
+        updateComposerExpanded(false)
         biInput.post {
             resizeComposerInput(false)
             updateComposerSendState()
         }
+    }
+
+    private fun updateComposerExpanded(focused: Boolean) {
+        if (!::biInput.isInitialized) return
+        val expanded = focused || biInput.text?.isNotBlank() == true
+        findViewById<View>(R.id.biActions).visibility = if (expanded) View.VISIBLE else View.GONE
+        biInput.gravity = if (expanded) Gravity.TOP or Gravity.START else Gravity.CENTER_VERTICAL or Gravity.START
+        val pill = biPill
+        val verticalPadding = dp(if (expanded) 8 else 5)
+        pill.setPadding(pill.paddingLeft, verticalPadding, pill.paddingRight, verticalPadding)
+        val row = findViewById<View>(R.id.biInputRow)
+        row.minimumHeight = dp(if (expanded) 42 else 40)
+        biBar.animate().cancel()
+        biBar.animate().scaleX(if (expanded) 1.012f else 1f).setDuration(220L).setInterpolator(Curves.SMOOTH).start()
     }
 
     private fun updateComposerSendState() {
@@ -637,7 +693,7 @@ class MainActivity : AppCompatActivity() {
         if (!::biInput.isInitialized || biInput.width <= 0) return
 
         val density = resources.displayMetrics.density
-        val minHeight = (26f * density + 0.5f).toInt()
+        val minHeight = (36f * density + 0.5f).toInt()
         val maxHeight = (200f * density + 0.5f).toInt()
         val width = biInput.width.coerceAtLeast(1)
         val text = biInput.text
@@ -954,6 +1010,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openFeedPanelImmediate() {
+        setFeedBottomSelection(discover = true)
         feedOpen = true
         appsOpen = false
         appsPanel.visibility = View.GONE
@@ -965,6 +1022,7 @@ class MainActivity : AppCompatActivity() {
     private fun openAppsPanelImmediate() {
         appsOpen = true
         feedOpen = false
+        setFeedBottomSelection(discover = false)
         feedPanel.visibility = View.GONE
         appsPanel.visibility = View.VISIBLE
         refreshAppsTabsAfterLayout()
@@ -973,6 +1031,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun openFeedPanel(gestureProgress: Float? = null) {
         if (isFinishing || isDestroyed) return
+        setFeedBottomSelection(discover = true)
         feedOpen = true
         appsOpen = false
         appsPanel.visibility = View.GONE
@@ -1013,6 +1072,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun openAppsPanel(gestureProgress: Float? = null) {
         if (isFinishing || isDestroyed) return
+        setFeedBottomSelection(discover = false)
         appsOpen = true
         feedOpen = false
         feedPanel.visibility = View.GONE
@@ -1056,7 +1116,8 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val categoryJob = async(Dispatchers.IO) { NewsRepository.fetchCategories() }
             val cached = withContext(Dispatchers.IO) {
-                NewsRepository.readCategoryCache(this@MainActivity, "world")
+                NewsRepository.readCategoryCache(this@MainActivity, "Geral")
+                    .ifEmpty { NewsRepository.readCategoryCache(this@MainActivity, "world") }
                     .ifEmpty { NewsRepository.readCache(this@MainActivity) }
             }
             if (isFinishing || isDestroyed) return@launch
@@ -1073,7 +1134,7 @@ class MainActivity : AppCompatActivity() {
                 categories.clear()
                 categories.addAll(liveCategories)
                 if (categories.none { it.label == currentCat }) {
-                    currentCat = categories.firstOrNull { it.id == "world" }?.label ?: "Internacional"
+                    currentCat = categories.firstOrNull { it.label == "Geral" }?.label ?: categories.firstOrNull()?.label ?: "Geral"
                     page = 1
                     exhausted = false
                     loadNews(false)
@@ -1101,7 +1162,7 @@ class MainActivity : AppCompatActivity() {
 
     private suspend fun fetchFeedCategory(category: String, pageNumber: Int): List<NewsItem> {
         val serverCategory = categories.firstOrNull { it.label == category }
-        return NewsRepository.fetchByCategory(serverCategory?.id ?: "world", pageNumber)
+        return NewsRepository.fetchByCategory(serverCategory?.label ?: category, pageNumber)
     }
 
     private fun loadNews(force: Boolean) {
@@ -1136,7 +1197,7 @@ class MainActivity : AppCompatActivity() {
                 items.clear()
                 items.addAll(clean)
                 NewsRepository.writeCategoryCache(this@MainActivity, categoryId, clean)
-                if (categoryId == "world") NewsRepository.writeCache(this@MainActivity, clean)
+                if (categoryId == "Geral") NewsRepository.writeCache(this@MainActivity, clean)
                 adapter.submit(clean)
                 updateFeedStack()
             } else if (items.isNotEmpty()) {
@@ -1207,7 +1268,7 @@ class MainActivity : AppCompatActivity() {
             items.addAll(fresh)
             adapter.append(fresh)
             NewsRepository.writeCategoryCache(this@MainActivity, categoryIdAtStart, items)
-            if (categoryIdAtStart == "world") NewsRepository.writeCache(this@MainActivity, items)
+            if (categoryIdAtStart == "Geral") NewsRepository.writeCache(this@MainActivity, items)
             updateFeedStack()
         }
     }
@@ -1237,11 +1298,57 @@ class MainActivity : AppCompatActivity() {
         val query = biInput.text.toString().trim()
         if (query.isEmpty()) return
         biInput.clearFocus()
-        startActivity(Intent(this, SearchActivity::class.java).apply {
-            putExtra("query", query)
+        val looksLikeAddress = query.matches(Regex("(?i)^(https?://)?([a-z0-9-]+\\.)+[a-z]{2,}([/:?#].*)?$"))
+        if (looksLikeAddress) {
+            openNewBrowserTab(if (query.startsWith("http", true)) query else "https://$query")
+        } else {
+            startActivity(Intent(this, SearchActivity::class.java).apply { putExtra("query", query) })
+            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+        }
+        biInput.setText("")
+    }
+
+    private fun updateBrowserTabCount() {
+        val count = BrowserTabStore.tabs(this).size
+        findViewById<TextView>(R.id.homeNavTabsCount).text = count.coerceAtMost(99).toString()
+    }
+
+    private fun openBrowserTabs() {
+        startActivity(Intent(this, BrowserTabsActivity::class.java))
+        overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+    }
+
+    private fun openNewBrowserTab(url: String = "https://duckduckgo.com/") {
+        val tab = BrowserTabStore.create(this, url)
+        startActivity(Intent(this, AppViewerActivity::class.java).apply {
+            putExtra("browser_mode", true)
+            putExtra("browser_tab_id", tab.id)
+            putExtra("url", tab.url)
         })
         overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
-        biInput.setText("")
+    }
+
+    private fun clearBrowserSessions() {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Limpar separadores")
+            .setMessage("Queres fechar todos os separadores guardados do browser?")
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Limpar") { _, _ ->
+                BrowserTabStore.clear(this)
+                updateBrowserTabCount()
+                AppAoToast.show(this, "Separadores fechados")
+            }
+            .show()
+    }
+
+    private fun setFeedBottomSelection(discover: Boolean) {
+        if (!::feedPanel.isInitialized) return
+        runCatching {
+            IconLoader.applySvg(findViewById(R.id.feedNavDiscoverIcon), if (discover) "compass_filled" else "compass", R.color.iconTint)
+            IconLoader.applySvg(findViewById(R.id.feedNavAppsIcon), if (discover) "apps" else "apps_filled", R.color.iconTint)
+            findViewById<TextView>(R.id.feedNavDiscoverLabel).setTextColor(ContextCompat.getColor(this, if (discover) R.color.text else R.color.dim))
+            findViewById<TextView>(R.id.feedNavAppsLabel).setTextColor(ContextCompat.getColor(this, if (discover) R.color.dim else R.color.text))
+        }
     }
 
     private fun showAppsPopup(anchor: View) {
@@ -1577,6 +1684,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (::biBar.isInitialized) updateBrowserTabCount()
         SystemBarHelper.sync(this)
         refreshNativeTheme()
         progress.animate().alpha(0f).setDuration(180L).withEndAction {
@@ -1587,7 +1695,7 @@ class MainActivity : AppCompatActivity() {
             val hidden = hiddenCategories()
             val selected = categories.firstOrNull { it.label == currentCat }
             if (selected != null && selected.id in hidden) {
-                currentCat = categories.firstOrNull { it.id == "world" }?.label ?: "Internacional"
+                currentCat = categories.firstOrNull { it.label == "Geral" }?.label ?: categories.firstOrNull()?.label ?: "Geral"
                 page = 1
                 exhausted = false
                 updateFeedCategoryAndReload(false)
@@ -1626,9 +1734,9 @@ class MainActivity : AppCompatActivity() {
         IconLoader.applySvg(findViewById(R.id.feedBackIcon), "arrow_left", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "write", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more_vert", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedNavDiscoverIcon), "search", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedNavAppsIcon), "apps", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedNavBrowserIcon), "arrow_top_right", R.color.iconTint)
+        // Preserve the correct Discover/Apps glyph pair and selected state after
+        // theme changes or returning from another Activity.
+        setFeedBottomSelection(discover = !appsOpen)
         IconLoader.applySvg(findViewById(R.id.biAddIcon), "plus", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSliderIcon), "filters", R.color.iconTint)
         IconLoader.applySvg(findViewById(R.id.biSendIcon), "arrow_up", R.color.iconTint)

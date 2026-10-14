@@ -32,12 +32,14 @@ data class NewsCategory(
 object NewsRepository {
 
     private const val TAG = "AppAo.News"
-    private const val BASE = "https://eisa-sa-servers.onrender.com"
+    private const val BASE = "https://feedlummy.onrender.com"
+    // Article extraction remains on the legacy content endpoint; news feeds use Feedlummy only.
+    private const val ARTICLE_BASE = "https://eisa-sa-servers.onrender.com"
     private const val KEY = "sk_live_168c3937133560729e5c18a7f1a5183fd3a8a3b351a833b692224a00ef5b45a3"
     private const val CACHE_PREFS = "appao"
     private const val CACHE_KEY = "news_cache_v3_international"
     private const val CACHE_TIME_KEY = "news_cache_v3_international_time"
-    private const val MAX_ARTICLES_PER_CATEGORY = 12
+    private const val MAX_ARTICLES_PER_CATEGORY = 30
     private const val MAX_CACHE_ARTICLES = 80
     private const val MAX_BODY_BYTES = 1_500_000L
     private const val MAX_ARTICLE_BYTES = 4_000_000L
@@ -57,23 +59,21 @@ object NewsRepository {
         .build()
 
     private val defaultCategories = listOf(
-        NewsCategory("world", "Internacional", listOf("gnews")),
-        NewsCategory("business", "Negócios", listOf("gnews", "currents")),
-        NewsCategory("technology", "Tecnologia", listOf("gnews", "currents")),
-        NewsCategory("entertainment", "Entretenimento", listOf("gnews", "currents")),
-        NewsCategory("sports", "Desporto", listOf("gnews", "currents")),
-        NewsCategory("science", "Ciência", listOf("gnews", "currents")),
-        NewsCategory("health", "Saúde", listOf("gnews", "currents")),
-        NewsCategory("society", "Sociedade", listOf("currents")),
-        NewsCategory("politics_government", "Política e Governo", listOf("currents")),
-        NewsCategory("lifestyle_leisure", "Estilo de Vida e Lazer", listOf("currents")),
-        NewsCategory("human_interest", "Interesse Humano", listOf("currents")),
-        NewsCategory("crime_law_justice", "Crime, Direito e Justiça", listOf("currents")),
-        NewsCategory("education", "Educação", listOf("currents")),
-        NewsCategory("environment", "Ambiente", listOf("currents")),
-        NewsCategory("labour", "Trabalho", listOf("currents")),
-        NewsCategory("automotive", "Automóvel", listOf("currents")),
-        NewsCategory("real_estate", "Imobiliário", listOf("currents"))
+        NewsCategory("Geral", "Geral"),
+        NewsCategory("Economia", "Economia"),
+        NewsCategory("Política", "Política"),
+        NewsCategory("Desporto", "Desporto"),
+        NewsCategory("Saúde", "Saúde"),
+        NewsCategory("Ambiente", "Ambiente"),
+        NewsCategory("Tecnologia", "Tecnologia"),
+        NewsCategory("Energia", "Energia"),
+        NewsCategory("Segurança", "Segurança"),
+        NewsCategory("Justiça", "Justiça"),
+        NewsCategory("Educação", "Educação"),
+        NewsCategory("Protestos", "Protestos"),
+        NewsCategory("Direitos Humanos", "Direitos Humanos"),
+        NewsCategory("Negócios", "Negócios"),
+        NewsCategory("Entretenimento", "Entretenimento")
     )
     @Volatile private var cachedCategories: List<NewsCategory>? = null
     @Volatile private var categoriesLoadedAt: Long = 0L
@@ -89,9 +89,9 @@ object NewsRepository {
         return withContext(Dispatchers.IO) {
             try {
                 val request = Request.Builder()
-                    .url("$BASE/news/categories")
+                    .url("$BASE/api/sources")
                     .header("Accept", "application/json")
-                    .header("x-api-key", KEY)
+                    .header("Accept-Charset", "utf-8")
                     .build()
                 client.newCall(request).execute().use { response ->
                     val raw = response.body?.string().orEmpty()
@@ -102,21 +102,19 @@ object NewsRepository {
                         val parsed = ArrayList<NewsCategory>()
                         if (array != null) {
                             for (i in 0 until array.length()) {
-                                val item = array.optJSONObject(i) ?: continue
-                                val id = item.optString("id").trim()
-                                val label = item.optString("label").trim()
-                                if (id.isBlank() || label.isBlank()) continue
-                                val providerArray = item.optJSONArray("providers")
-                                val providers = ArrayList<String>()
-                                if (providerArray != null) {
-                                    for (j in 0 until providerArray.length()) {
-                                        providerArray.optString(j).takeIf { it.isNotBlank() }?.let(providers::add)
-                                    }
-                                }
-                                parsed += NewsCategory(id, label, providers)
+                                val entry = array.opt(i)
+                                val label = when (entry) {
+                                    is JSONObject -> entry.optString("label")
+                                        .ifBlank { entry.optString("name") }
+                                        .ifBlank { entry.optString("id") }
+                                    else -> entry?.toString().orEmpty()
+                                }.trim()
+                                if (label.isBlank()) continue
+                                parsed += NewsCategory(id = label, label = label)
                             }
                         }
-                        (parsed.takeIf { it.isNotEmpty() } ?: defaultCategories).also {
+                        (parsed.distinctBy { it.label.lowercase(Locale.ROOT) }.takeIf { it.isNotEmpty() }
+                            ?: defaultCategories).also {
                             cachedCategories = it
                             categoriesLoadedAt = System.currentTimeMillis()
                         }
@@ -124,7 +122,7 @@ object NewsRepository {
                 }
             } catch (t: Throwable) {
                 if (t is kotlinx.coroutines.CancellationException) throw t
-                android.util.Log.w(TAG, "Could not load server categories; using the server's documented category IDs", t)
+                Log.w(TAG, "Could not load Feedlummy taxonomy; using documented categories", t)
                 cachedCategories ?: defaultCategories
             }
         }
@@ -134,154 +132,88 @@ object NewsRepository {
     fun resetDedup() = Unit
 
     suspend fun fetchGeneral(page: Int = 1): List<NewsItem> =
-        fetchByCategory("world", page, "")
+        fetchByCategory("", page, "")
 
+    /** Feedlummy: GET /api/news?limit=30&offset=N, optionally filtered by exact category label. */
     suspend fun fetchByCategory(
         category: String,
         page: Int = 1,
-        country: String = "AO"
+        country: String = ""
     ): List<NewsItem> = withContext(Dispatchers.IO) {
         try {
-            // API v3 is international-only. Never append country=AO or legacy category aliases.
-            val encodedCategory = URLEncoder.encode(category, "UTF-8")
-            val url = "$BASE/news?category=$encodedCategory&page=$page&pageSize=20"
-
+            val limit = MAX_ARTICLES_PER_CATEGORY
+            val offset = ((page.coerceAtLeast(1) - 1) * limit).coerceAtLeast(0)
+            val query = StringBuilder("$BASE/api/news?limit=$limit&offset=$offset")
+            // Feedlummy's documented default endpoint returns all categories.
+            // The app's "Geral" tab represents that unfiltered feed.
+            if (category.isNotBlank() && !category.equals("Geral", ignoreCase = true)) {
+                query.append("&category=").append(URLEncoder.encode(category, "UTF-8"))
+            }
             val request = Request.Builder()
-                .url(url)
+                .url(query.toString())
                 .header("Accept", "application/json")
                 .header("Accept-Charset", "utf-8")
-                .header("x-api-key", KEY)
                 .build()
 
             client.newCall(request).execute().use { response ->
-                val body = response.body
-                    ?: return@withContext emptyList()
-
+                val body = response.body ?: return@withContext emptyList()
                 val length = body.contentLength()
-                if (
-                    length > MAX_BODY_BYTES
-                ) {
-                    Log.w(
-                        TAG,
-                        "Ignoring oversized news response: $length bytes"
-                    )
+                if (length > MAX_BODY_BYTES) {
+                    Log.w(TAG, "Ignoring oversized Feedlummy response: $length bytes")
                     return@withContext emptyList()
                 }
-
                 if (!response.isSuccessful) {
-                    Log.w(
-                        TAG,
-                        "News HTTP ${response.code} for $category page=$page"
-                    )
+                    Log.w(TAG, "Feedlummy HTTP ${response.code} for category=$category offset=$offset")
                     return@withContext emptyList()
                 }
+                val raw = decodeBody(body.bytes(), response.header("Content-Type"))
+                if (raw.toByteArray(Charsets.UTF_8).size > MAX_BODY_BYTES) return@withContext emptyList()
+                val root = JSONObject(raw)
+                val array = root.optJSONArray("items") ?: root.optJSONArray("articles") ?: JSONArray()
+                val result = ArrayList<NewsItem>(minOf(array.length(), limit))
 
-                val raw = decodeBody(
-                    body.bytes(),
-                    response.header("Content-Type")
-                )
-
-                if (
-                    raw.toByteArray(Charsets.UTF_8).size >
-                    MAX_BODY_BYTES
-                ) {
-                    return@withContext emptyList()
-                }
-
-                val array = JSONObject(raw)
-                    .optJSONArray("articles")
-                    ?: return@withContext emptyList()
-
-                val result = ArrayList<NewsItem>(
-                    minOf(
-                        array.length(),
-                        MAX_ARTICLES_PER_CATEGORY
-                    )
-                )
-
-                for (
-                    i in 0 until minOf(
-                        array.length(),
-                        MAX_ARTICLES_PER_CATEGORY
-                    )
-                ) {
-                    val article =
-                        array.optJSONObject(i)
-                            ?: continue
-
-                    val link =
-                        article.optString("url")
-                            .trim()
-
-                    val title = cleanText(
-                        article.optString("title")
-                    )
-
-                    if (
-                        link.length < 8 ||
-                        title.isBlank() ||
-                        !link.startsWith(
-                            "http",
-                            true
-                        )
-                    ) {
-                        continue
-                    }
+                for (i in 0 until minOf(array.length(), limit)) {
+                    val article = array.optJSONObject(i) ?: continue
+                    val link = article.optString("link").ifBlank { article.optString("url") }.trim()
+                    val title = cleanText(article.optString("title"))
+                    if (link.length < 8 || title.isBlank() || !link.startsWith("http", true)) continue
 
                     val domain = try {
-                        URL(link)
-                            .host
-                            .removePrefix("www.")
-                            .lowercase(Locale.ROOT)
-                    } catch (_: Throwable) {
-                        ""
+                        URL(link).host.removePrefix("www.").lowercase(Locale.ROOT)
+                    } catch (_: Throwable) { "" }
+                    val sourceValue = article.opt("source")
+                    val sourceText = when (sourceValue) {
+                        is JSONObject -> sourceValue.optString("name").ifBlank { sourceValue.optString("label") }
+                        else -> sourceValue?.toString().orEmpty()
                     }
-
-                    val source = cleanText(
-                        article.optString("source")
-                    ).ifBlank { domain }
+                    val source = cleanText(sourceText).ifBlank { domain }
+                    val published = article.optString("published")
+                        .ifBlank { article.optString("publishedAt") }
+                        .ifBlank {
+                            val ts = article.optLong("ts", 0L)
+                            if (ts > 0L) java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+                                .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+                                .format(java.util.Date(ts * 1000L)) else ""
+                        }
 
                     result += NewsItem(
-                        id = stableId(
-                            link,
-                            title
-                        ),
+                        id = article.optString("id").ifBlank { stableId(link, title) },
                         title = title.take(500),
-                        summary = cleanText(
-                            article.optString("description")
-                        ),
+                        summary = cleanText(article.optString("summary").ifBlank { article.optString("description") }).take(8000),
                         link = link.take(4000),
                         source = source.take(120),
-                        date = article
-                            .optString("publishedAt")
-                            .take(80),
-                        image = article
-                            .optString("image")
-                            .trim()
-                            .take(2000),
-                        logo = if (domain.isNotEmpty()) {
-                            "https://www.google.com/s2/favicons?domain=$domain&sz=128"
-                        } else {
-                            ""
-                        }
+                        date = published.take(80),
+                        image = article.optString("image").trim().take(2000),
+                        logo = article.optString("logo").trim().ifBlank {
+                            if (domain.isNotEmpty()) "https://www.google.com/s2/favicons?domain=$domain&sz=128" else ""
+                        }.take(1000)
                     )
                 }
-
                 deduplicate(result)
             }
         } catch (t: Throwable) {
-            if (
-                t is kotlinx.coroutines.CancellationException
-            ) {
-                throw t
-            }
-
-            Log.e(
-                TAG,
-                "fetchByCategory failed",
-                t
-            )
-
+            if (t is kotlinx.coroutines.CancellationException) throw t
+            Log.e(TAG, "fetchByCategory failed for Feedlummy ($category)", t)
             emptyList()
         }
     }
@@ -296,7 +228,7 @@ object NewsRepository {
             }
 
             val requestUrl =
-                "$BASE/article?url=" +
+                "$ARTICLE_BASE/article?url=" +
                     URLEncoder.encode(
                         url,
                         "UTF-8"

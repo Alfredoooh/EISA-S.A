@@ -76,14 +76,6 @@ class CategoryManagerActivity : AppCompatActivity() {
                 setTypeface(typeface, android.graphics.Typeface.BOLD)
                 maxLines = 2
             })
-            if (category.providers.isNotEmpty()) {
-                labels.addView(TextView(this).apply {
-                    text = category.providers.joinToString(" · ") { it.uppercase() }
-                    setTextColor(ContextCompat.getColor(this@CategoryManagerActivity, R.color.dim))
-                    textSize = 10.5f
-                    setPadding(0, dp(2), 0, 0)
-                })
-            }
             row.addView(labels, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
 
             val checkedState = intArrayOf(android.R.attr.state_checked)

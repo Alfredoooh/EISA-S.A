@@ -54,6 +54,7 @@
         <activity android:name=".CategoryManagerActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
         <activity android:name=".CommentsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
         <activity android:name=".PublishActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
+        <activity android:name=".BrowserTabsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
         <activity android:name=".AppViewerActivity" android:exported="false" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
     </application>
 </manifest>

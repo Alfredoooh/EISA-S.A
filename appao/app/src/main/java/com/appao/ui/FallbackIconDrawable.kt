@@ -52,6 +52,49 @@ class FallbackIconDrawable(
                 canvas.drawLine(cx - r * .7f, cy, cx - r * .1f, cy - r * .6f, paint)
                 canvas.drawLine(cx - r * .7f, cy, cx - r * .1f, cy + r * .6f, paint)
             }
+            "arrow_right" -> {
+                canvas.drawLine(cx - r * .7f, cy, cx + r * .7f, cy, paint)
+                canvas.drawLine(cx + r * .7f, cy, cx + r * .1f, cy - r * .6f, paint)
+                canvas.drawLine(cx + r * .7f, cy, cx + r * .1f, cy + r * .6f, paint)
+            }
+            "close_circle_mini" -> {
+                canvas.drawCircle(cx, cy, r * .9f, paint)
+                canvas.drawLine(cx - r * .36f, cy - r * .36f, cx + r * .36f, cy + r * .36f, paint)
+                canvas.drawLine(cx + r * .36f, cy - r * .36f, cx - r * .36f, cy + r * .36f, paint)
+            }
+            "compass_filled" -> {
+                canvas.drawCircle(cx, cy, r * .94f, paint)
+                val needle = Path().apply {
+                    moveTo(cx + r * .08f, cy - r * .76f)
+                    lineTo(cx + r * .42f, cy + r * .1f)
+                    lineTo(cx - r * .08f, cy + r * .02f)
+                    lineTo(cx - r * .42f, cy - r * .1f)
+                    close()
+                }
+                val fill = Paint(paint).apply { style = Paint.Style.FILL }
+                canvas.drawPath(needle, fill)
+                canvas.drawCircle(cx, cy, r * .12f, fill)
+            }
+            "new_chat" -> {
+                val bubble = Path().apply {
+                    moveTo(cx - r * .8f, cy - r * .6f)
+                    lineTo(cx + r * .62f, cy - r * .6f)
+                    quadTo(cx + r * .82f, cy - r * .6f, cx + r * .82f, cy - r * .4f)
+                    lineTo(cx + r * .82f, cy + r * .35f)
+                    quadTo(cx + r * .82f, cy + r * .55f, cx + r * .62f, cy + r * .55f)
+                    lineTo(cx + r * .05f, cy + r * .55f)
+                    lineTo(cx - r * .45f, cy + r * .95f)
+                    lineTo(cx - r * .35f, cy + r * .55f)
+                    lineTo(cx - r * .8f, cy + r * .55f)
+                    quadTo(cx - r, cy + r * .55f, cx - r, cy + r * .35f)
+                    lineTo(cx - r, cy - r * .4f)
+                    quadTo(cx - r, cy - r * .6f, cx - r * .8f, cy - r * .6f)
+                    close()
+                }
+                canvas.drawPath(bubble, paint)
+                canvas.drawLine(cx + r * .18f, cy - r * .25f, cx + r * .18f, cy + r * .2f, paint)
+                canvas.drawLine(cx - r * .05f, cy - r * .025f, cx + r * .4f, cy - r * .025f, paint)
+            }
             "x" -> {
                 canvas.drawLine(cx - r * .6f, cy - r * .6f, cx + r * .6f, cy + r * .6f, paint)
                 canvas.drawLine(cx + r * .6f, cy - r * .6f, cx - r * .6f, cy + r * .6f, paint)

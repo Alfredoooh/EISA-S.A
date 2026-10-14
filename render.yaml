@@ -1,38 +1,18 @@
 services:
   - type: web
-    name: news-api
-    env: node
-    buildCommand: npm install
-    startCommand: npm start
+    name: nexa-news
+    runtime: python
+    plan: free
+    region: frankfurt
+    branch: main
+    autoDeploy: true
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 120
     healthCheckPath: /health
     envVars:
-      - key: PORT
-        value: 3000
-      - key: API_KEY
-        sync: false
-      - key: CURRENTS_API_KEY
-        sync: false
-      - key: GNEWS_API_KEY
-        sync: false
-      - key: REQUIRE_API_KEY
-        value: true
-      - key: DEFAULT_LANGUAGE
-        value: en
-      - key: CACHE_TTL
-        value: 60
-      - key: ARTICLE_CACHE_TTL
-        value: 1800
-      - key: RATE_LIMIT_WINDOW_MS
-        value: 60000
-      - key: RATE_LIMIT_MAX
-        value: 90
-      - key: SCRAPER_TIMEOUT_MS
-        value: 18000
-      - key: SCRAPER_MAX_HTML_BYTES
-        value: 8388608
-      - key: GDELT_MIN_INTERVAL_MS
-        value: 5500
-      - key: NEWS_RETENTION_HOURS
-        value: 168
-      - key: SEARXNG_INSTANCES
-        value: https://search.jeremyh.xyz,https://searx.tsmdt.de,https://search.serpensin.com,https://search.anoni.net,https://searx.ononoki.org
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: REFRESH_SECONDS
+        value: "600"
+      - key: REFRESH_TOKEN
+        generateValue: true

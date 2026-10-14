@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#2563eb">
+<meta name="description" content="Notícias de Angola, Portugal, Brasil, África e do Mundo num só lugar.">
+<title>Nexa News — Angola · Portugal · Brasil · África · Mundo</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%B0%3C/text%3E%3C/svg%3E">
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --text: #121821;
+  --muted: #667085;
+  --border: #e3e7ec;
+  --brand: #2563eb;
+  --brand-text: #ffffff;
+  --ok: #16a34a;
+  --err: #dc2626;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --text: #e6edf3;
+    --muted: #8b97a7;
+    --border: #262d36;
+    --brand: #4f8ef7;
+    --brand-text: #0b1220;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+a { color: inherit; text-decoration: none; }
+button, input, select { font: inherit; color: inherit; }
+
+/* Cabeçalho */
+.top {
+  position: sticky; top: 0; z-index: 20;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: calc(8px + env(safe-area-inset-top)) 14px 8px;
+}
+.wrap { max-width: 1160px; margin: 0 auto; }
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.brand { margin: 0; font-size: 1.15rem; font-weight: 800; letter-spacing: -.01em; }
+.actions { display: flex; gap: 6px; }
+.icon {
+  width: 38px; height: 38px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface);
+  cursor: pointer; font-size: 1.05rem; line-height: 1;
+}
+.search {
+  width: 100%; margin-top: 8px; padding: 10px 14px;
+  border: 1px solid var(--border); border-radius: 12px;
+  background: var(--surface); outline: none;
+}
+.search:focus, select:focus-visible, .chip:focus-visible, .icon:focus-visible, .more:focus-visible {
+  outline: 2px solid var(--brand); outline-offset: 1px;
+}
+.chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 8px 0 2px; }
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: 0 0 auto; padding: 6px 13px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface);
+  cursor: pointer; font-size: .88rem;
+}
+.chip[aria-pressed="true"] {
+  background: var(--brand); border-color: var(--brand);
+  color: var(--brand-text); font-weight: 600;
+}
+
+/* Conteúdo */
+main { max-width: 1160px; margin: 0 auto; padding: 10px 14px 24px; }
+.filters { display: flex; flex-direction: column; margin-bottom: 10px; }
+select {
+  width: 100%; margin-top: 6px; padding: 9px 12px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--surface);
+}
+.banner { margin-bottom: 10px; }
+.banner button {
+  width: 100%; padding: 10px; border: 0; border-radius: 12px;
+  background: var(--brand); color: var(--brand-text); font-weight: 600; cursor: pointer;
+}
+.grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+
+/* Cartões (telemóvel: texto + miniatura à direita) */
+.card {
+  display: grid; grid-template-columns: minmax(0, 1fr) 104px; gap: 12px;
+  padding: 12px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.card.noimg { grid-template-columns: minmax(0, 1fr); }
+.body { grid-column: 1; grid-row: 1; min-width: 0; }
+.media {
+  grid-column: 2; grid-row: 1; display: block;
+  width: 104px; height: 104px; border-radius: 10px; overflow: hidden; background: var(--border);
+}
+.media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.meta {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px;
+  margin-bottom: 6px; font-size: .78rem; color: var(--muted);
+}
+.badge {
+  padding: 2px 8px; border-radius: 999px; font-weight: 700;
+  color: var(--c, var(--brand));
+  background: rgba(128, 128, 128, .14);
+  background: color-mix(in srgb, var(--c, var(--brand)) 15%, transparent);
+}
+.lang { border: 1px solid var(--border); border-radius: 6px; padding: 0 5px; font-size: .7rem; }
+.title { margin: 0; font-size: 1.02rem; line-height: 1.3; font-weight: 700; }
+.title a:hover { text-decoration: underline; }
+.summary {
+  margin: 6px 0 0; color: var(--muted); font-size: .9rem;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.r-AO { --c: #e5483b; }
+.r-PT { --c: #16a34a; }
+.r-BR { --c: #d99a00; }
+.r-AF { --c: #9b5de5; }
+.r-INT { --c: #3b82f6; }
+
+/* Esqueleto de carregamento */
+.sk i { display: block; height: 12px; margin: 9px 0; border-radius: 6px; background: var(--border); animation: pulse 1.2s ease-in-out infinite; }
+.sk i:nth-child(1) { width: 40%; }
+.sk i:nth-child(2) { width: 95%; height: 16px; }
+.sk i:nth-child(3) { width: 75%; }
+@keyframes pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .sk i { animation: none; } }
+
+.empty { text-align: center; color: var(--muted); padding: 36px 12px; }
+.more {
+  display: block; margin: 16px auto 0; padding: 10px 22px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface); cursor: pointer;
+}
+footer {
+  max-width: 1160px; margin: 0 auto;
+  padding: 4px 14px calc(24px + env(safe-area-inset-bottom));
+  color: var(--muted); font-size: .82rem; text-align: center;
+}
+.link { padding: 0; border: 0; background: none; color: var(--brand); text-decoration: underline; cursor: pointer; }
+
+/* Estado das fontes */
+dialog {
+  width: min(640px, 94vw); max-height: 86vh; padding: 0;
+  border: 1px solid var(--border); border-radius: 16px;
+  background: var(--surface); color: var(--text);
+}
+dialog::backdrop { background: rgba(0, 0, 0, .55); }
+.dlg { display: flex; flex-direction: column; max-height: 86vh; }
+.dlg-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.dlg-sum { margin: 0; padding: 10px 16px 0; color: var(--muted); font-size: .85rem; }
+.srcs { list-style: none; margin: 0; padding: 6px 16px 16px; overflow: auto; min-height: 0; }
+.srcs li { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.srcs li:last-child { border-bottom: 0; }
+.srcs div { min-width: 0; display: flex; flex-direction: column; }
+.srcs small { color: var(--muted); }
+.srcs .err-text { color: var(--err); word-break: break-word; }
+.dot { flex: 0 0 auto; width: 9px; height: 9px; margin-top: 7px; border-radius: 50%; background: #98a2b3; }
+.dot.ok { background: var(--ok); }
+.dot.err { background: var(--err); }
+
+/* Ecrãs maiores */
+@media (min-width: 720px) {
+  main { padding-top: 14px; }
+  .filters { flex-direction: row; align-items: center; gap: 12px; }
+  .filters .chips { flex: 1 1 auto; min-width: 0; padding: 0; }
+  select { width: 240px; margin-top: 0; flex: 0 0 auto; }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .card { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+  .media { order: -1; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 0; }
+  .body { padding: 12px 14px 14px; }
+  .summary { -webkit-line-clamp: 3; }
+}
+@media (min-width: 1080px) {
+  .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="bar">
+      <h1 class="brand">📰 Nexa News</h1>
+      <div class="actions">
+        <button id="btnReload" class="icon" type="button" aria-label="Atualizar" title="Atualizar">↻</button>
+        <button id="btnSources" class="icon" type="button" aria-label="Estado das fontes" title="Estado das fontes">ⓘ</button>
+      </div>
+    </div>
+    <input id="q" class="search" type="search" placeholder="Pesquisar notícias…" autocomplete="off" enterkeyhint="search" aria-label="Pesquisar notícias">
+    <div id="regions" class="chips" role="group" aria-label="Região"></div>
+  </div>
+</header>
+
+<main>
+  <section class="filters">
+    <div id="cats" class="chips" role="group" aria-label="Categoria"></div>
+    <select id="sourceSel" aria-label="Fonte"></select>
+  </section>
+  <div id="banner" class="banner" hidden>
+    <button id="btnNew" type="button">Há novas notícias — toque para atualizar</button>
+  </div>
+  <div id="list" class="grid"></div>
+  <div id="skeleton" class="grid" hidden></div>
+  <p id="empty" class="empty" role="status" hidden></p>
+  <div id="sentinel" aria-hidden="true"></div>
+  <button id="btnMore" class="more" type="button" hidden>Carregar mais</button>
+</main>
+
+<footer>
+  <span id="status" aria-live="polite">A carregar…</span> ·
+  <button id="btnStatus" class="link" type="button">Estado das fontes</button>
+</footer>
+
+<dialog id="dlg">
+  <div class="dlg">
+    <div class="dlg-head">
+      <strong>Estado das fontes</strong>
+      <button id="dlgClose" class="icon" type="button" aria-label="Fechar">✕</button>
+    </div>
+    <p id="dlgSummary" class="dlg-sum"></p>
+    <ul id="srcList" class="srcs"></ul>
+  </div>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+
+  const PAGE = 24;
+  const FILTERS = ['region', 'category', 'source', 'q'];
+  const METHOD = { feed: 'RSS', html: 'HTML', gnews: 'Google News' };
+  const $ = (id) => document.getElementById(id);
+
+  const el = {
+    q: $('q'), regions: $('regions'), cats: $('cats'), sourceSel: $('sourceSel'),
+    list: $('list'), skeleton: $('skeleton'), empty: $('empty'), sentinel: $('sentinel'),
+    more: $('btnMore'), banner: $('banner'), status: $('status'),
+    dlg: $('dlg'), dlgSummary: $('dlgSummary'), srcList: $('srcList'),
+  };
+
+  const state = {
+    region: '', category: '', source: '', q: '',
+    offset: 0, total: 0, loading: false, done: true,
+    updatedAt: null, sources: [], regions: [], categories: [], seen: new Set(),
+  };
+  let reqId = 0;
+  let retryTimer = 0;
+  let qTimer = 0;
+
+  /* ── utilitários ─────────────────────────────────────────────── */
+  function h(tag, attrs, ...kids) {
+    const node = document.createElement(tag);
+    for (const [key, value] of Object.entries(attrs || {})) {
+      if (value === false || value == null) continue;
+      if (key === 'class') node.className = value;
+      else if (key === 'text') node.textContent = value;
+      else node.setAttribute(key, value === true ? '' : String(value));
+    }
+    for (const kid of kids.flat()) {
+      if (kid == null || kid === false) continue;
+      node.append(typeof kid === 'object' ? kid : document.createTextNode(String(kid)));
+    }
+    return node;
+  }
+
+  const safeUrl = (u) => (typeof u === 'string' && /^https?:\/\//i.test(u) ? u : '');
+  const nearBottom = () => el.sentinel.getBoundingClientRect().top < window.innerHeight + 600;
+
+  function ago(ts) {
+    const s = Math.max(0, Math.floor(Date.now() / 1000 - ts));
+    if (s < 60) return 'agora mesmo';
+    const m = Math.floor(s / 60);
+    if (m < 60) return `há ${m} min`;
+    const hrs = Math.floor(m / 60);
+    if (hrs < 24) return `há ${hrs} h`;
+    const d = Math.floor(hrs / 24);
+    if (d < 7) return `há ${d} d`;
+    return new Date(ts * 1000).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' });
+  }
+
+  async function api(path) {
+    const res = await fetch(path, { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }
+
+  /* ── cartões ─────────────────────────────────────────────────── */
+  function card(a) {
+    const url = safeUrl(a.link);
+    if (!url) return null;
+    const image = safeUrl(a.image);
+    const date = new Date(a.ts * 1000);
+    const when = (a.dated ? '' : '≈ ') + ago(a.ts);
+    const region = String(a.region || '').replace(/[^A-Za-z]/g, '');
+
+    const media = image
+      ? h('a', { class: 'media', href: url, target: '_blank', rel: 'noopener noreferrer', tabindex: '-1', 'aria-hidden': 'true' },
+          h('img', { src: image, alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer' }))
+      : null;
+
+    const node = h('article', { class: media ? 'card' : 'card noimg' },
+      h('div', { class: 'body' },
+        h('div', { class: 'meta' },
+          h('span', { class: 'badge r-' + region, text: a.source }),
+          a.lang && a.lang !== 'pt' ? h('span', { class: 'lang', text: a.lang.toUpperCase() }) : null,
+          h('time', { datetime: isNaN(date) ? null : date.toISOString(), text: when })),
+        h('h2', { class: 'title' },
+          h('a', { href: url, target: '_blank', rel: 'noopener noreferrer', text: a.title })),
+        a.summary ? h('p', { class: 'summary', text: a.summary }) : null),
+      media);
+
+    if (media) {
+      media.firstChild.addEventListener('error', () => {
+        media.remove();
+        node.classList.add('noimg');
+      }, { once: true });
+    }
+    return node;
+  }
+
+  function showSkeleton(on) {
+    if (on && !el.skeleton.childElementCount) {
+      for (let i = 0; i < 6; i++) {
+        el.skeleton.append(h('div', { class: 'card noimg sk' }, h('div', { class: 'body' }, h('i'), h('i'), h('i'))));
+      }
+    }
+    el.skeleton.hidden = !on;
+  }
+
+  function renderEmpty(data) {
+    let msg = '';
+    if (data.total === 0) {
+      msg = !data.meta.updated_at || data.meta.refreshing
+        ? 'A recolher notícias das fontes… o primeiro arranque pode demorar cerca de um minuto.'
+        : 'Nenhuma notícia encontrada com estes filtros.';
+    }
+    el.empty.textContent = msg;
+    el.empty.hidden = !msg;
+  }
+
+  function renderStatus(meta) {
+    el.status.textContent = meta.updated_at
+      ? `Atualizado ${ago(meta.updated_at)} · ${meta.sources_ok}/${meta.sources_total} fontes ativas`
+      : 'A recolher notícias…';
+  }
+
+  /* ── filtros ─────────────────────────────────────────────────── */
+  function chip(label, key, value) {
+    const btn = h('button', {
+      type: 'button', class: 'chip', text: label,
+      'aria-pressed': state[key] === value ? 'true' : 'false',
+    });
+    btn.addEventListener('click', () => setFilter(key, value));
+    return btn;
+  }
+
+  function renderSourceSelect() {
+    const options = state.sources
+      .filter((s) => s.enabled
+        && (!state.region || s.region === state.region)
+        && (!state.category || s.category === state.category))
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt'));
+    if (state.source && !options.some((s) => s.id === state.source)) state.source = '';
+    el.sourceSel.replaceChildren(
+      h('option', { value: '', text: 'Todas as fontes' }),
+      ...options.map((s) => h('option', { value: s.id, text: s.name })));
+    el.sourceSel.value = state.source;
+  }
+
+  function renderChips() {
+    el.regions.replaceChildren(chip('Todas', 'region', ''), ...state.regions.map((r) => chip(r.label, 'region', r.code)));
+    el.cats.replaceChildren(chip('Todas', 'category', ''), ...state.categories.map((c) => chip(c, 'category', c)));
+    renderSourceSelect();
+  }
+
+  function syncUrl() {
+    const params = new URLSearchParams();
+    for (const key of FILTERS) if (state[key]) params.set(key, state[key]);
+    const qs = params.toString();
+    history.replaceState(null, '', qs ? '?' + qs : location.pathname);
+  }
+
+  function readUrl() {
+    const params = new URLSearchParams(location.search);
+    for (const key of FILTERS) state[key] = params.get(key) || '';
+  }
+
+  function setFilter(key, value) {
+    if (state[key] === value) return;
+    state[key] = value;
+    if (key === 'region' || key === 'category') renderChips();
+    syncUrl();
+    loadNews({ reset: true });
+  }
+
+  /* ── notícias ────────────────────────────────────────────────── */
+  async function loadNews({ reset = false, silent = false } = {}) {
+    if (!reset && (state.loading || state.done)) return;
+    clearTimeout(retryTimer);
+    const id = ++reqId;
+    state.loading = true;
+    if (reset) {
+      el.banner.hidden = true;
+      if (!silent) {
+        el.list.replaceChildren();
+        el.empty.hidden = true;
+        el.more.hidden = true;
+        showSkeleton(true);
+      }
+    }
+    const offset = reset ? 0 : state.offset;
+    const params = new URLSearchParams({ limit: String(PAGE), offset: String(offset) });
+    for (const key of FILTERS) if (state[key]) params.set(key, state[key]);
+
+    try {
+      const data = await api('/api/news?' + params);
+      if (id !== reqId) return;
+      showSkeleton(false);
+      if (reset) {
+        el.list.replaceChildren();
+        state.seen.clear();
+      }
+      for (const item of data.items) {
+        if (state.seen.has(item.id)) continue;
+        state.seen.add(item.id);
+        const node = card(item);
+        if (node) el.list.append(node);
+      }
+      state.offset = offset + data.items.length;
+      state.total = data.total;
+      state.done = data.items.length === 0 || state.offset >= data.total;
+      state.updatedAt = data.meta.updated_at;
+      renderStatus(data.meta);
+      renderEmpty(data);
+      el.more.hidden = state.done;
+      if (data.total === 0 && (!data.meta.updated_at || data.meta.refreshing)) {
+        retryTimer = setTimeout(() => loadNews({ reset: true, silent: true }), 4000);
+      } else {
+        setTimeout(() => { if (!state.done && nearBottom()) loadNews(); }, 0);
+      }
+    } catch (err) {
+      if (id !== reqId) return;
+      showSkeleton(false);
+      if (!silent) {
+        el.empty.textContent = 'Não foi possível carregar as notícias. Verifique a ligação e tente novamente.';
+        el.empty.hidden = false;
+      }
+    } finally {
+      if (id === reqId) state.loading = false;
+    }
+  }
+
+  async function poll() {
+    try {
+      const meta = await api('/health');
+      renderStatus(meta);
+      if (meta.updated_at && state.updatedAt && meta.updated_at !== state.updatedAt) {
+        if (window.scrollY < 150) loadNews({ reset: true, silent: true });
+        else el.banner.hidden = false;
+      }
+    } catch (err) { /* ignora falhas pontuais */ }
+  }
+
+  /* ── estado das fontes ───────────────────────────────────────── */
+  function renderSources(data) {
+    const rank = (s) => (!s.enabled ? 3 : s.ok === false ? 0 : s.ok === null ? 1 : 2);
+    const list = data.sources.slice().sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, 'pt'));
+    el.dlgSummary.textContent =
+      `${data.meta.sources_ok} de ${data.meta.sources_total} fontes a responder · ${data.meta.articles} notícias em memória`;
+    el.srcList.replaceChildren(...list.map((s) => {
+      const bits = [];
+      if (!s.enabled) {
+        bits.push('desativada');
+      } else {
+        if (s.method) bits.push(METHOD[s.method] || s.method);
+        bits.push(`${s.count} notícias`);
+        if (s.latest) bits.push('última ' + ago(s.latest));
+      }
+      const dot = !s.enabled ? '' : s.ok === true ? ' ok' : s.ok === false ? ' err' : '';
+      return h('li', null,
+        h('span', { class: 'dot' + dot }),
+        h('div', null,
+          h('strong', { text: s.name }),
+          h('small', { text: bits.join(' · ') }),
+          s.error && s.ok !== true ? h('small', { class: 'err-text', text: s.error }) : null));
+    }));
+  }
+
+  async function openSources() {
+    if (el.dlg.showModal) el.dlg.showModal();
+    else el.dlg.setAttribute('open', '');
+    try {
+      const data = await api('/api/sources');
+      state.sources = data.sources;
+      renderSources(data);
+    } catch (err) {
+      el.dlgSummary.textContent = 'Não foi possível obter o estado das fontes.';
+    }
+  }
+
+  /* ── eventos ─────────────────────────────────────────────────── */
+  el.q.addEventListener('input', () => {
+    clearTimeout(qTimer);
+    qTimer = setTimeout(() => setFilter('q', el.q.value.trim()), 300);
+  });
+  el.q.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      clearTimeout(qTimer);
+      setFilter('q', el.q.value.trim());
+      el.q.blur();
+    }
+  });
+  el.sourceSel.addEventListener('change', () => setFilter('source', el.sourceSel.value));
+
+  const reload = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    loadNews({ reset: true });
+  };
+  $('btnReload').addEventListener('click', reload);
+  $('btnNew').addEventListener('click', reload);
+  el.more.addEventListener('click', () => loadNews());
+  $('btnSources').addEventListener('click', openSources);
+  $('btnStatus').addEventListener('click', openSources);
+  $('dlgClose').addEventListener('click', () => el.dlg.close());
+  el.dlg.addEventListener('click', (e) => { if (e.target === el.dlg) el.dlg.close(); });
+
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) loadNews();
+    }, { rootMargin: '600px 0px' }).observe(el.sentinel);
+  }
+
+  setInterval(poll, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+
+  /* ── arranque ────────────────────────────────────────────────── */
+  async function init() {
+    readUrl();
+    el.q.value = state.q;
+    showSkeleton(true);
+    try {
+      const data = await api('/api/sources');
+      Object.assign(state, { sources: data.sources, regions: data.regions, categories: data.categories });
+    } catch (err) { /* sem a lista de fontes, os filtros ficam só com "Todas" */ }
+    renderChips();
+    loadNews({ reset: true });
+  }
+  init();
+})();
+</script>
+</body>
+</html>

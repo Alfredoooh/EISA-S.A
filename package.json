@@ -1,7 +1,7 @@
 {
   "name": "nexa-news-node",
-  "version": "1.0.0",
-  "description": "Agregador de notícias via GDELT DOC 2.0 API",
+  "version": "2.0.0",
+  "description": "Agregador de notícias: GDELT + The Guardian + NYT + GNews + NewsData",
   "main": "server.js",
   "type": "commonjs",
   "engines": {

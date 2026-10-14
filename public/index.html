@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#2563eb">
-<meta name="description" content="Notícias de Angola, Portugal, Brasil, África e do Mundo, via GDELT.">
-<title>Nexa News — Angola · Portugal · Brasil · África · Mundo</title>
+<meta name="description" content="Agregador de notícias: GDELT, The Guardian, NYT, GNews, NewsData.">
+<title>Nexa News</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%B0%3C/text%3E%3C/svg%3E">
 <style>
 :root {
@@ -81,10 +81,6 @@ button, input, select { font: inherit; color: inherit; }
 
 main { max-width: 1160px; margin: 0 auto; padding: 10px 14px 24px; }
 .filters { display: flex; flex-direction: column; margin-bottom: 10px; }
-select {
-  width: 100%; margin-top: 6px; padding: 9px 12px;
-  border: 1px solid var(--border); border-radius: 12px; background: var(--surface);
-}
 .banner { margin-bottom: 10px; }
 .banner button {
   width: 100%; padding: 10px; border: 0; border-radius: 12px;
@@ -113,18 +109,18 @@ select {
   color: var(--c, var(--brand));
   background: color-mix(in srgb, var(--c, var(--brand)) 15%, transparent);
 }
-.lang { border: 1px solid var(--border); border-radius: 6px; padding: 0 5px; font-size: .7rem; }
+.prov { border: 1px solid var(--border); border-radius: 6px; padding: 0 5px; font-size: .7rem; }
 .title { margin: 0; font-size: 1.02rem; line-height: 1.3; font-weight: 700; }
 .title a:hover { text-decoration: underline; }
 .summary {
   margin: 6px 0 0; color: var(--muted); font-size: .9rem;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.r-AO { --c: #e5483b; }
-.r-PT { --c: #16a34a; }
-.r-BR { --c: #d99a00; }
-.r-AF { --c: #9b5de5; }
-.r-INT { --c: #3b82f6; }
+.p-gdelt { --c: #3b82f6; }
+.p-guardian { --c: #052962; }
+.p-nyt { --c: #121212; }
+.p-gnews { --c: #16a34a; }
+.p-newsdata { --c: #d99a00; }
 
 .sk i { display: block; height: 12px; margin: 9px 0; border-radius: 6px; background: var(--border); animation: pulse 1.2s ease-in-out infinite; }
 .sk i:nth-child(1) { width: 40%; }
@@ -166,9 +162,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
 
 @media (min-width: 720px) {
   main { padding-top: 14px; }
-  .filters { flex-direction: row; align-items: center; gap: 12px; }
-  .filters .chips { flex: 1 1 auto; min-width: 0; padding: 0; }
-  select { width: 240px; margin-top: 0; flex: 0 0 auto; }
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
   .card { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
   .media { order: -1; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 0; }
@@ -191,14 +184,14 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
       </div>
     </div>
     <input id="q" class="search" type="search" placeholder="Pesquisar notícias…" autocomplete="off" enterkeyhint="search" aria-label="Pesquisar notícias">
-    <div id="regions" class="chips" role="group" aria-label="Região"></div>
+    <div id="cats" class="chips" role="group" aria-label="Categoria"></div>
   </div>
 </header>
 
 <main>
-  <section class="filters">
-    <div id="cats" class="chips" role="group" aria-label="Categoria"></div>
-  </section>
+  <div class="filters">
+    <div id="provs" class="chips" role="group" aria-label="Fonte"></div>
+  </div>
   <div id="banner" class="banner" hidden>
     <button id="btnNew" type="button">Há novas notícias — toque para atualizar</button>
   </div>
@@ -217,7 +210,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
 <dialog id="dlg">
   <div class="dlg">
     <div class="dlg-head">
-      <strong>Estado das fontes (GDELT)</strong>
+      <strong>Estado das fontes</strong>
       <button id="dlgClose" class="icon" type="button" aria-label="Fechar">✕</button>
     </div>
     <p id="dlgSummary" class="dlg-sum"></p>
@@ -230,20 +223,20 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
   'use strict';
 
   const PAGE = 24;
-  const FILTERS = ['region', 'category', 'q'];
+  const FILTERS = ['category', 'provider', 'q'];
   const $ = (id) => document.getElementById(id);
 
   const el = {
-    q: $('q'), regions: $('regions'), cats: $('cats'),
+    q: $('q'), cats: $('cats'), provs: $('provs'),
     list: $('list'), skeleton: $('skeleton'), empty: $('empty'), sentinel: $('sentinel'),
     more: $('btnMore'), banner: $('banner'), status: $('status'),
     dlg: $('dlg'), dlgSummary: $('dlgSummary'), srcList: $('srcList'),
   };
 
   const state = {
-    region: '', category: '', q: '',
+    category: '', provider: '', q: '',
     offset: 0, total: 0, loading: false, done: true,
-    updatedAt: null, regions: [], categories: [], seen: new Set(),
+    updatedAt: null, providers: [], categories: [], seen: new Set(),
   };
   let reqId = 0;
   let retryTimer = 0;
@@ -290,8 +283,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
     if (!url) return null;
     const image = safeUrl(a.image);
     const date = new Date(a.ts * 1000);
-    const when = (a.dated ? '' : '≈ ') + ago(a.ts);
-    const region = String(a.region || '').replace(/[^A-Za-z]/g, '');
+    const provider = String(a.provider || '').replace(/[^a-z]/gi, '');
 
     const media = image
       ? h('a', { class: 'media', href: url, target: '_blank', rel: 'noopener noreferrer', tabindex: '-1', 'aria-hidden': 'true' },
@@ -301,9 +293,9 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
     const node = h('article', { class: media ? 'card' : 'card noimg' },
       h('div', { class: 'body' },
         h('div', { class: 'meta' },
-          h('span', { class: 'badge r-' + region, text: a.source }),
-          a.lang && a.lang !== 'pt' ? h('span', { class: 'lang', text: a.lang.toUpperCase() }) : null,
-          h('time', { datetime: isNaN(date) ? null : date.toISOString(), text: when })),
+          h('span', { class: 'badge p-' + provider, text: a.source }),
+          h('span', { class: 'prov', text: a.provider.toUpperCase() }),
+          h('time', { datetime: isNaN(date) ? null : date.toISOString(), text: ago(a.ts) })),
         h('h2', { class: 'title' },
           h('a', { href: url, target: '_blank', rel: 'noopener noreferrer', text: a.title })),
         a.summary ? h('p', { class: 'summary', text: a.summary }) : null),
@@ -331,7 +323,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
     let msg = '';
     if (data.total === 0) {
       msg = !data.meta.updated_at || data.meta.refreshing
-        ? 'A recolher notícias da GDELT… o primeiro arranque pode demorar alguns minutos.'
+        ? 'A recolher notícias… o primeiro arranque pode demorar alguns minutos.'
         : 'Nenhuma notícia encontrada com estes filtros.';
     }
     el.empty.textContent = msg;
@@ -354,8 +346,11 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
   }
 
   function renderChips() {
-    el.regions.replaceChildren(chip('Todas', 'region', ''), ...state.regions.map((r) => chip(r.label, 'region', r.code)));
     el.cats.replaceChildren(chip('Todas', 'category', ''), ...state.categories.map((c) => chip(c, 'category', c)));
+    el.provs.replaceChildren(
+      chip('Todas as fontes', 'provider', ''),
+      ...state.providers.map((p) => chip(p.label, 'provider', p.id))
+    );
   }
 
   function syncUrl() {
@@ -373,7 +368,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
   function setFilter(key, value) {
     if (state[key] === value) return;
     state[key] = value;
-    if (key === 'region' || key === 'category') renderChips();
+    renderChips();
     syncUrl();
     loadNews({ reset: true });
   }
@@ -513,7 +508,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
     showSkeleton(true);
     try {
       const data = await api('/api/sources');
-      state.regions = data.regions;
+      state.providers = data.providers;
       state.categories = data.categories;
     } catch (err) { /* sem a lista, os filtros ficam só com "Todas" */ }
     renderChips();

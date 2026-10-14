@@ -4,30 +4,38 @@ const crypto = require('crypto');
 const path = require('path');
 const express = require('express');
 
-const { fetchRegionCategory, CATEGORIES, REGIONS } = require('./gdelt');
+const { CATEGORIES } = require('./categories');
+const gdelt = require('./sources/gdelt');
+const guardian = require('./sources/guardian');
+const nyt = require('./sources/nyt');
+const gnews = require('./sources/gnews');
+const newsdata = require('./sources/newsdata');
 
 const PORT = process.env.PORT || 5000;
 const REFRESH_SECONDS = Math.max(120, parseInt(process.env.REFRESH_SECONDS || '600', 10));
 const MAX_ITEMS_PER_COMBO = parseInt(process.env.MAX_ITEMS_PER_COMBO || '60', 10);
 const MAX_AGE_DAYS = parseInt(process.env.MAX_AGE_DAYS || '30', 10);
-const MAX_ARTICLES = parseInt(process.env.MAX_ARTICLES || '4000', 10);
-const COMBO_CONCURRENCY = Math.max(1, parseInt(process.env.COMBO_CONCURRENCY || '3', 10));
+const MAX_ARTICLES = parseInt(process.env.MAX_ARTICLES || '8000', 10);
+const COMBO_CONCURRENCY = Math.max(1, parseInt(process.env.COMBO_CONCURRENCY || '4', 10));
 const REFRESH_TOKEN = process.env.REFRESH_TOKEN || '';
 const CORS_ORIGIN = process.env.CORS_ORIGINS || '*';
-const ACTIVE_REGIONS = (process.env.GDELT_REGIONS || 'AO,PT,BR,AF,INT')
-  .split(',')
-  .map((s) => s.trim().toUpperCase())
-  .filter(Boolean);
+
+const PROVIDERS = {
+  gdelt: { label: 'GDELT', fetchCategory: gdelt.fetchCategory },
+  guardian: { label: 'The Guardian', fetchCategory: guardian.fetchCategory },
+  nyt: { label: 'NYT', fetchCategory: nyt.fetchCategory },
+  gnews: { label: 'GNews', fetchCategory: gnews.fetchCategory },
+  newsdata: { label: 'NewsData', fetchCategory: newsdata.fetchCategory },
+};
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public'), { etag: false, cacheControl: false }));
 
-// ── estado em memória ──────────────────────────────────────────────────────
 const state = {
   updatedAt: 0,
   refreshing: false,
   articlesById: new Map(),
-  comboStatus: new Map(), // "AO:economia" -> { ok, count, error, checkedAt, latest }
+  comboStatus: new Map(), // "gdelt:economia" -> status
 };
 
 function hashId(link) {
@@ -41,23 +49,23 @@ function norm(text) {
     .toLowerCase();
 }
 
-function comboKey(region, catId) {
-  return `${region}:${catId}`;
+function comboKey(provider, catId) {
+  return `${provider}:${catId}`;
 }
 
 function allCombos() {
   const out = [];
-  for (const region of ACTIVE_REGIONS) {
+  for (const provider of Object.keys(PROVIDERS)) {
     for (const catId of Object.keys(CATEGORIES)) {
-      out.push({ region, catId });
+      out.push({ provider, catId });
     }
   }
   return out;
 }
 
-for (const { region, catId } of allCombos()) {
-  state.comboStatus.set(comboKey(region, catId), {
-    region,
+for (const { provider, catId } of allCombos()) {
+  state.comboStatus.set(comboKey(provider, catId), {
+    provider,
     catId,
     label: CATEGORIES[catId].label,
     ok: null,
@@ -65,25 +73,24 @@ for (const { region, catId } of allCombos()) {
     error: '',
     checkedAt: null,
     latest: null,
+    ms: null,
   });
 }
 
-// ── recolha ──────────────────────────────────────────────────────────────
-async function refreshCombo(region, catId) {
-  const key = comboKey(region, catId);
+async function refreshCombo(provider, catId) {
+  const key = comboKey(provider, catId);
   const status = state.comboStatus.get(key);
   const startedAt = Date.now();
   try {
-    const items = await fetchRegionCategory(region, catId, MAX_ITEMS_PER_COMBO);
+    const items = await PROVIDERS[provider].fetchCategory(catId, MAX_ITEMS_PER_COMBO);
     const now = Date.now() / 1000;
-    let kept = 0;
     let latest = null;
 
     for (const item of items) {
       const id = hashId(item.link);
-      const ts = item.ts !== null ? item.ts : now;
+      const ts = item.ts !== null && item.ts !== undefined ? item.ts : now;
       const existing = state.articlesById.get(id);
-      if (existing && existing.ts >= ts) continue; // já temos uma versão igual ou mais recente
+      if (existing && existing.ts >= ts) continue;
       state.articlesById.set(id, {
         id,
         title: item.title,
@@ -91,15 +98,13 @@ async function refreshCombo(region, catId) {
         summary: item.summary,
         image: item.image,
         source: item.source,
-        sourceId: item.sourceId,
-        region: item.region,
+        provider: item.provider,
         category: item.category,
-        lang: item.lang,
-        dated: item.dated,
+        categoryId: item.categoryId,
+        lang: item.lang || '',
         ts,
         search: norm(`${item.title} ${item.source}`),
       });
-      kept += 1;
       if (latest === null || ts > latest) latest = ts;
     }
 
@@ -109,14 +114,12 @@ async function refreshCombo(region, catId) {
     status.latest = latest;
     status.checkedAt = Math.floor(Date.now() / 1000);
     status.ms = Date.now() - startedAt;
-    return kept;
   } catch (err) {
     status.ok = false;
     status.error = err.message || 'erro desconhecido';
     status.checkedAt = Math.floor(Date.now() / 1000);
     status.ms = Date.now() - startedAt;
     console.warn(`combo ${key} falhou: ${status.error}`);
-    return 0;
   }
 }
 
@@ -150,13 +153,12 @@ function refreshAll() {
   state.refreshing = true;
   refreshPromise = (async () => {
     const combos = allCombos();
-    await runPool(combos, ({ region, catId }) => refreshCombo(region, catId), COMBO_CONCURRENCY);
+    await runPool(combos, ({ provider, catId }) => refreshCombo(provider, catId), COMBO_CONCURRENCY);
     pruneOldArticles();
     state.updatedAt = Math.floor(Date.now() / 1000);
     const okCount = [...state.comboStatus.values()].filter((s) => s.ok).length;
     console.log(
-      `Atualização concluída: ${okCount}/${state.comboStatus.size} combinações OK, ` +
-        `${state.articlesById.size} notícias em memória.`
+      `Atualização concluída: ${okCount}/${state.comboStatus.size} combinações OK, ${state.articlesById.size} notícias em memória.`
     );
   })()
     .catch((err) => console.error('erro na atualização:', err))
@@ -178,20 +180,14 @@ function ensureFresh() {
   if (staleFor > REFRESH_SECONDS * 1.5) refreshAll();
 }
 
-// ── consulta ────────────────────────────────────────────────────────────
-function queryArticles({ region, category, lang, q, limit, offset }) {
+function queryArticles({ category, provider, q, limit, offset }) {
   let items = [...state.articlesById.values()];
 
-  const regions = new Set((region || '').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean));
-  if (regions.size) items = items.filter((a) => regions.has(a.region));
-
-  const categories = new Set(
-    (category || '').split(',').map((s) => norm(s.trim())).filter(Boolean)
-  );
+  const categories = new Set((category || '').split(',').map((s) => norm(s.trim())).filter(Boolean));
   if (categories.size) items = items.filter((a) => categories.has(norm(a.category)));
 
-  const langs = new Set((lang || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));
-  if (langs.size) items = items.filter((a) => langs.has(a.lang));
+  const providers = new Set((provider || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));
+  if (providers.size) items = items.filter((a) => providers.has(a.provider));
 
   const tokens = norm(q).split(/\s+/).filter(Boolean);
   if (tokens.length) items = items.filter((a) => tokens.every((t) => a.search.includes(t)));
@@ -205,13 +201,11 @@ function queryArticles({ region, category, lang, q, limit, offset }) {
     summary: a.summary,
     image: a.image,
     source: a.source,
-    source_id: a.sourceId,
-    region: a.region,
+    provider: a.provider,
     category: a.category,
     lang: a.lang,
     ts: Math.floor(a.ts),
     published: new Date(a.ts * 1000).toISOString(),
-    dated: a.dated,
   }));
   return { total, items: page };
 }
@@ -233,7 +227,6 @@ function intArg(req, name, def, lo, hi) {
   return Math.max(lo, Math.min(hi, v));
 }
 
-// ── rotas ───────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', ...meta() });
 });
@@ -243,9 +236,8 @@ app.get('/api/news', (req, res) => {
   const limit = intArg(req, 'limit', 30, 1, 100);
   const offset = intArg(req, 'offset', 0, 0, 100000);
   const result = queryArticles({
-    region: req.query.region || '',
     category: req.query.category || '',
-    lang: req.query.lang || '',
+    provider: req.query.provider || '',
     q: req.query.q || '',
     limit,
     offset,
@@ -255,21 +247,21 @@ app.get('/api/news', (req, res) => {
 
 app.get('/api/sources', (req, res) => {
   const sources = [...state.comboStatus.values()].map((s) => ({
-    id: comboKey(s.region, s.catId),
-    name: `GDELT · ${s.label}`,
-    region: s.region,
+    id: comboKey(s.provider, s.catId),
+    name: `${PROVIDERS[s.provider].label} · ${s.label}`,
+    provider: s.provider,
     category: s.label,
     ok: s.ok,
     count: s.count,
     latest: s.latest,
     checked_at: s.checkedAt,
-    ms: s.ms || null,
+    ms: s.ms,
     error: s.error,
   }));
   res.json({
     meta: meta(),
-    regions: REGIONS.map((r) => ({ code: r.code, label: r.label })),
-    categories: Object.entries(CATEGORIES).map(([id, c]) => ({ id, label: c.label })).map((c) => c.label),
+    providers: Object.entries(PROVIDERS).map(([id, p]) => ({ id, label: p.label })),
+    categories: Object.values(CATEGORIES).map((c) => c.label),
     sources,
   });
 });
@@ -308,6 +300,6 @@ app.use((req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Nexa News (Node, GDELT) a correr na porta ${PORT}`);
+  console.log(`Nexa News (Node) a correr na porta ${PORT}`);
   if (process.env.DISABLE_BACKGROUND !== '1') startBackgroundLoop();
 });

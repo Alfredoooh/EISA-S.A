@@ -605,7 +605,7 @@ class MainActivity : AppCompatActivity() {
             HomeSite("Downloads", internal = "downloads"),
             HomeSite("Mais", internal = "more")
         )
-        sites.forEachIndexed { index, site ->
+        sites.forEachIndexed { index, quickEntry ->
             val tile = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
@@ -614,10 +614,10 @@ class MainActivity : AppCompatActivity() {
                 setPadding(dp(2), dp(6), dp(2), dp(7))
                 setBackgroundResource(R.drawable.bg_transparent_pressed)
                 setOnClickListener {
-                    when (site.internal) {
+                    when (quickEntry.internal) {
                         "downloads" -> startActivity(Intent(this@MainActivity, BrowserDownloadsActivity::class.java))
                         "more" -> showMoreQuickSites(this)
-                        else -> openNewBrowserTab(site.url)
+                        else -> openNewBrowserTab(quickEntry.url)
                     }
                 }
             }
@@ -626,16 +626,16 @@ class MainActivity : AppCompatActivity() {
                 clipToOutline = true
             }
             val icon = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
-            if (site.url.isNotBlank()) {
-                val favicon = BrowserTabStore.faviconFor(site.url)
+            if (quickEntry.url.isNotBlank()) {
+                val favicon = BrowserTabStore.faviconFor(quickEntry.url)
                 Glide.with(this).load(favicon).circleCrop().placeholder(R.drawable.logo).error(R.drawable.logo).into(icon)
             } else {
-                IconLoader.applyIcon(icon, if (site.internal == "downloads") "download" else "plus", R.color.iconTint)
+                IconLoader.applyIcon(icon, if (quickEntry.internal == "downloads") "download" else "plus", R.color.iconTint)
             }
             iconBox.addView(icon, FrameLayout.LayoutParams(-1, -1))
             tile.addView(iconBox, LinearLayout.LayoutParams(dp(44), dp(44)))
             tile.addView(TextView(this).apply {
-                text = site.label
+                text = quickEntry.label
                 textSize = 11f
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END

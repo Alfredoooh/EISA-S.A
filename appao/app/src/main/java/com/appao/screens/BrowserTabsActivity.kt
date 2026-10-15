@@ -186,7 +186,7 @@ class BrowserTabsActivity : AppCompatActivity() {
         addView(ImageView(this@BrowserTabsActivity).apply {
             layoutParams = FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER)
             scaleType = ImageView.ScaleType.FIT_CENTER
-            IconLoader.applySvg(this, icon, R.color.iconTint)
+            IconLoader.applyIcon(this, icon, R.color.iconTint)
         })
     }
 

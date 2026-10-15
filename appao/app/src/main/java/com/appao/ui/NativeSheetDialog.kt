@@ -282,7 +282,7 @@ object NativeSheetDialog {
                             scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
                             contentDescription = "Selecionado"
                         }
-                        IconLoader.applySvg(
+                        IconLoader.applyIcon(
                             check,
                             "check_mark",
                             R.color.iconTint

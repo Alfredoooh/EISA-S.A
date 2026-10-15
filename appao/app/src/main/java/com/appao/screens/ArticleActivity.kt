@@ -204,23 +204,23 @@ class ArticleActivity : AppCompatActivity() {
         }
         sheetCard.post { updateSheetChrome() }
 
-        IconLoader.applySvg(
+        IconLoader.applyIcon(
             findViewById(R.id.aBackIcon),
             "arrow_left",
             R.color.iconTint
         )
-        IconLoader.applySvg(
+        IconLoader.applyIcon(
             findViewById(R.id.acSendIcon),
             "arrow_up",
             R.color.iconTint
         )
-        IconLoader.applySvg(findViewById(R.id.aMoreIcon), "more_vert", R.color.iconTint)
-        IconLoader.applySvg(
+        IconLoader.applyIcon(findViewById(R.id.aMoreIcon), "more_vert", R.color.iconTint)
+        IconLoader.applyIcon(
             findViewById(R.id.cIcon),
             "new_chat",
             R.color.iconTint
         )
-        IconLoader.applySvg(
+        IconLoader.applyIcon(
             findViewById(R.id.acEmojiIcon),
             "heart",
             R.color.iconTint
@@ -338,10 +338,10 @@ class ArticleActivity : AppCompatActivity() {
         time.setTextColor(ContextCompat.getColor(this, R.color.dim))
         summary.setTextColor(ContextCompat.getColor(this, R.color.dim))
         body.setTextColor(ContextCompat.getColor(this, R.color.text))
-        IconLoader.applySvg(findViewById(R.id.aBackIcon), "arrow_left", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.aMoreIcon), "more_vert", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.aBackIcon), "arrow_left", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.aMoreIcon), "more_vert", R.color.iconTint)
         acSend.background = AccentColorManager.primaryShape(this, android.graphics.drawable.GradientDrawable.OVAL)
-        IconLoader.applySvg(findViewById(R.id.acSendIcon), "arrow_up", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.acSendIcon), "arrow_up", R.color.iconTint)
         findViewById<ImageView>(R.id.acSendIcon).setColorFilter(
             AccentColorManager.onPrimaryColor(this),
             android.graphics.PorterDuff.Mode.SRC_IN
@@ -482,19 +482,32 @@ class ArticleActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Abrir no navegador", svg = "arrow_top_right2"),
-                NativePopupMenu.Item(2, if (isArticleSaved()) "Remover dos guardados" else "Guardar", svg = "bookmark"),
-                NativePopupMenu.Item(3, "Partilhar", svg = "share")
+                NativePopupMenu.Item(1, "Abrir no navegador", iconName = "arrow_top_right2"),
+                NativePopupMenu.Item(2, if (isArticleSaved()) "Remover dos guardados" else "Guardar", iconName = "bookmark"),
+                NativePopupMenu.Item(3, "Partilhar", iconName = "share")
             )
         ) { item ->
             when (item.id) {
-                1 -> runCatching {
-                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(itemLink)))
-                }.onFailure { AppAoToast.show(this, "Não foi possível abrir o navegador") }
+                1 -> openInAppBrowser()
                 2 -> toggleSavedArticle()
                 3 -> showShareSheet()
             }
         }
+    }
+
+    private fun openInAppBrowser() {
+        val url = itemLink.trim()
+        if (!url.startsWith("http://", true) && !url.startsWith("https://", true)) {
+            AppAoToast.show(this, "Ligação inválida")
+            return
+        }
+        val tab = BrowserTabStore.create(this, url)
+        startActivity(Intent(this, AppViewerActivity::class.java).apply {
+            putExtra("browser_mode", true)
+            putExtra("browser_tab_id", tab.id)
+            putExtra("url", tab.url)
+        })
+        overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
     }
 
     private fun isArticleSaved(): Boolean {
@@ -667,7 +680,7 @@ class ArticleActivity : AppCompatActivity() {
                 runCatching { packageManager.getApplicationIcon(packageId) }.getOrNull()
             }
             if (appDrawable != null) icon.setImageDrawable(appDrawable)
-            else IconLoader.applySvg(icon, "share", R.color.iconTint)
+            else IconLoader.applyIcon(icon, "share", R.color.iconTint)
             item.addView(icon)
 
             item.addView(TextView(this).apply {

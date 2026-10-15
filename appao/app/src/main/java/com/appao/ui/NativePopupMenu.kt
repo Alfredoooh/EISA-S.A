@@ -8,7 +8,7 @@ object NativePopupMenu {
     data class Item(
         val id: Int,
         val title: String,
-        val svg: String? = null,
+        val iconName: String? = null,
         val iconColor: Int? = null,
         val checked: Boolean = false,
         val highlightColor: Int? = null
@@ -24,7 +24,7 @@ object NativePopupMenu {
         val popupItems = items.map { item ->
             HtmlStylePopup.Item(
                 label = item.title,
-                iconName = item.svg,
+                iconName = item.iconName,
                 checked = item.checked,
                 iconColor = item.iconColor,
                 highlightColor = item.highlightColor,

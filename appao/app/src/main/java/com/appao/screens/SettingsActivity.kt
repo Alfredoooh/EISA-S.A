@@ -14,13 +14,16 @@ import androidx.core.view.updatePadding
 
 class SettingsActivity : AppCompatActivity() {
 
-    private data class Row(val id: Int, val svg: String, val title: String)
+    private data class Row(val id: Int, val icon: String, val title: String)
 
     private val rows = listOf(
         Row(R.id.rowTheme, "contrast", "Tema"),
         Row(R.id.rowAccent, "", "Cor de destaque"),
         Row(R.id.rowLang, "language", "Idioma"),
         Row(R.id.rowData, "chart_pie", "Poupança de dados"),
+        Row(R.id.rowAdBlock, "shield_check", "Bloqueador de anúncios"),
+        Row(R.id.rowSiteDark, "moon", "Forçar tema escuro em sites"),
+        Row(R.id.rowDownloads, "download", "Downloads"),
         Row(R.id.rowUsage, "chart_bars", "Atividade de uso"),
         Row(R.id.rowLoc, "location", "Localização"),
         Row(R.id.rowAccount, "profile", "Definições de conta"),
@@ -58,9 +61,10 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun renderRows() {
-        IconLoader.applySvg(findViewById(R.id.setBackIcon), "arrow_left", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.setBackIcon), "arrow_left", R.color.iconTint)
         findViewById<View>(R.id.setBack).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
         applyRowGroup(listOf(R.id.rowTheme, R.id.rowAccent, R.id.rowLang, R.id.rowData))
+        applyRowGroup(listOf(R.id.rowAdBlock, R.id.rowSiteDark, R.id.rowDownloads))
         applyRowGroup(listOf(R.id.rowUsage, R.id.rowLoc))
         applyRowGroup(listOf(R.id.rowAccount, R.id.rowTerms))
         rows.forEach { rowDef ->
@@ -68,7 +72,7 @@ class SettingsActivity : AppCompatActivity() {
             if (rowDef.id == R.id.rowAccent) {
                 styleAccentSwatch(row.findViewById(R.id.rowIcon))
             } else {
-                IconLoader.applySvgThin(row.findViewById(R.id.rowIcon), rowDef.svg, R.color.iconTint)
+                IconLoader.applyIconThin(row.findViewById(R.id.rowIcon), rowDef.icon, R.color.iconTint)
             }
             row.findViewById<TextView>(R.id.rowTitle).text = rowDef.title
             row.setOnClickListener {
@@ -77,6 +81,22 @@ class SettingsActivity : AppCompatActivity() {
                     R.id.rowAccent -> showAccentPicker(row)
                     R.id.rowLang -> showLangPicker(row)
                     R.id.rowData -> openDataSaver()
+                    R.id.rowAdBlock -> {
+                        val enabled = !BrowserPreferences.adBlockEnabled(this)
+                        BrowserPreferences.setAdBlockEnabled(this, enabled)
+                        refreshValues()
+                        AppAoToast.show(this, if (enabled) "Bloqueador de anúncios ativado" else "Bloqueador de anúncios desativado")
+                    }
+                    R.id.rowSiteDark -> {
+                        val enabled = !BrowserPreferences.forceDarkEnabled(this)
+                        BrowserPreferences.setForceDarkEnabled(this, enabled)
+                        refreshValues()
+                        AppAoToast.show(this, if (enabled) "Tema escuro de sites ativado" else "Tema escuro de sites desativado")
+                    }
+                    R.id.rowDownloads -> {
+                        startActivity(Intent(this, BrowserDownloadsActivity::class.java))
+                        overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+                    }
                     R.id.rowUsage -> openUsage()
                     R.id.rowLoc -> openLocationSettings()
                     R.id.rowAccount -> startActivity(Intent(this, AuthActivity::class.java))
@@ -98,8 +118,8 @@ class SettingsActivity : AppCompatActivity() {
             row.background = ContextCompat.getDrawable(this, drawable)
             val params = row.layoutParams as? android.view.ViewGroup.MarginLayoutParams
             params?.let {
-                it.topMargin = dp(2)
-                it.bottomMargin = dp(2)
+                it.topMargin = dp(1)
+                it.bottomMargin = dp(1)
                 row.layoutParams = it
             }
         }
@@ -115,7 +135,7 @@ class SettingsActivity : AppCompatActivity() {
             row.findViewById<TextView>(R.id.rowTitle).setTextColor(textColor)
             row.findViewById<TextView>(R.id.rowValue).setTextColor(dim)
             if (rowDef.id == R.id.rowAccent) styleAccentSwatch(row.findViewById(R.id.rowIcon))
-            else IconLoader.applySvgThin(row.findViewById(R.id.rowIcon), rowDef.svg, R.color.iconTint)
+            else IconLoader.applyIconThin(row.findViewById(R.id.rowIcon), rowDef.icon, R.color.iconTint)
         }
         findViewById<View>(R.id.rowTheme).findViewById<TextView>(R.id.rowValue).apply {
             visibility = View.VISIBLE
@@ -132,6 +152,18 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<View>(R.id.rowData).findViewById<TextView>(R.id.rowValue).apply {
             visibility = View.VISIBLE
             text = if (dataSavingEnabled()) "Ligada" else "Desligada"
+        }
+        findViewById<View>(R.id.rowAdBlock).findViewById<TextView>(R.id.rowValue).apply {
+            visibility = View.VISIBLE
+            text = if (BrowserPreferences.adBlockEnabled(this@SettingsActivity)) "Ligado" else "Desligado"
+        }
+        findViewById<View>(R.id.rowSiteDark).findViewById<TextView>(R.id.rowValue).apply {
+            visibility = View.VISIBLE
+            text = if (BrowserPreferences.forceDarkEnabled(this@SettingsActivity)) "Ligado" else "Desligado"
+        }
+        findViewById<View>(R.id.rowDownloads).findViewById<TextView>(R.id.rowValue).apply {
+            visibility = View.VISIBLE
+            text = "Abrir"
         }
     }
 

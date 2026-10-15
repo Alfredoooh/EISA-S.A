@@ -19,6 +19,10 @@ import android.view.animation.PathInterpolator
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.GridLayout
+import android.widget.HorizontalScrollView
+import android.widget.ScrollView
+import android.widget.ProgressBar
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -34,6 +38,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -47,6 +53,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var rootHost: DrawerHostLayout
     private lateinit var homePage: View
     private lateinit var homeHeader: View
+    private lateinit var homeContentScroll: View
+    private lateinit var homeQuickSites: GridLayout
+    private lateinit var homeNewsSections: LinearLayout
+    private lateinit var homeEmptyNews: View
     private lateinit var feedPanel: View
     private lateinit var feedHeader: View
     private lateinit var feedTabsHost: LinearLayout
@@ -64,6 +74,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var biPill: View
     private lateinit var biInput: EditText
     private lateinit var biSend: FrameLayout
+    private lateinit var appsGrid: GridLayout
+    private var homeNewsJob: Job? = null
     private lateinit var pullIndicator: PullRefreshIndicatorView
     private lateinit var homeFeedStack: View
     private lateinit var stackBack: ImageView
@@ -100,7 +112,7 @@ class MainActivity : AppCompatActivity() {
     private var feedAnimator: ValueAnimator? = null
     private var appsAnimator: ValueAnimator? = null
 
-    private var appsTabIsApps = false
+    private var appsTabIsApps = true
     private var appsReady = false
 
     private var feedHeaderHeight = 0
@@ -140,6 +152,10 @@ class MainActivity : AppCompatActivity() {
         rootHost = findViewById(R.id.rootMain)
         homePage = findViewById(R.id.homePage)
         homeHeader = findViewById(R.id.homeHeader)
+        homeContentScroll = findViewById(R.id.homeContentScroll)
+        homeQuickSites = findViewById(R.id.homeQuickSites)
+        homeNewsSections = findViewById(R.id.homeNewsSections)
+        homeEmptyNews = findViewById(R.id.homeEmptyNews)
         feedPanel = findViewById(R.id.feedPanel)
         feedHeader = findViewById(R.id.feedHeader)
         feedTabsHost = findViewById(R.id.feedTabsHost)
@@ -155,6 +171,7 @@ class MainActivity : AppCompatActivity() {
         biPill = findViewById(R.id.biPill)
         biInput = findViewById(R.id.biInput)
         biSend = findViewById(R.id.biSend)
+        appsGrid = findViewById(R.id.appsGrid)
         pullIndicator = findViewById(R.id.pullIndicator)
         homeFeedStack = findViewById(R.id.homeFeedStack)
         stackBack = findViewById(R.id.stackBack)
@@ -164,6 +181,7 @@ class MainActivity : AppCompatActivity() {
 
         safeStartup { setupInsets() }
         safeStartup { setupHome() }
+        safeStartup { populateHomeQuickSites() }
         safeStartup { setupFeed() }
         safeStartup { setupFeedHeader() }
         safeStartup { populateFeedApps() }
@@ -218,7 +236,8 @@ class MainActivity : AppCompatActivity() {
                         source = NewsRepository.cleanForDisplay(o.optString("source")),
                         date = o.optString("date"),
                         image = o.optString("image"),
-                        logo = o.optString("logo")
+                        logo = o.optString("logo"),
+                        category = o.optString("category").ifBlank { "Geral" }
                     )
                 }
             }
@@ -257,6 +276,7 @@ class MainActivity : AppCompatActivity() {
                 put("date", item.date)
                 put("image", item.image)
                 put("logo", item.logo)
+                put("category", item.category)
             })
         }
     }.toString()
@@ -283,6 +303,15 @@ class MainActivity : AppCompatActivity() {
             insets
         }
         biBar.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> bottomBarHeight = v.height }
+        ViewCompat.setOnApplyWindowInsetsListener(homeContentScroll) { view, insets ->
+            val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
+            val params = view.layoutParams as? ViewGroup.MarginLayoutParams
+            if (params != null) {
+                params.bottomMargin = dp(76) + systemBottom
+                view.layoutParams = params
+            }
+            insets
+        }
 
         val appsBottomBar = findViewById<View>(R.id.appsBottomBar)
         val appsBottomBarBaseMargin = dp(16)
@@ -308,16 +337,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupHome() {
+        homeHeader.visibility = View.GONE
         homeHeader.elevation = 0f
         homeHeader.translationZ = 0f
-        IconLoader.applySvg(findViewById(R.id.homeMenuIcon), "menu", R.color.iconTint)
-
         homeFeedStack.background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
         homeFeedStack.foreground = null
         homeFeedStack.stateListAnimator = null
         homeFeedStack.isFocusable = false
         homeFeedStack.setOnClickListener { openFeedPanel() }
         findViewById<View>(R.id.homeMenu).setOnClickListener { openAppsPanel() }
+        homeEmptyNews.visibility = View.GONE
+        findViewById<ImageView>(R.id.homeEmptyNewsIcon).setImageDrawable(EmptyNewsIllustrationDrawable(this))
 
         stackBack.scaleType = ImageView.ScaleType.CENTER_CROP
         stackFront.scaleType = ImageView.ScaleType.CENTER_CROP
@@ -364,9 +394,9 @@ class MainActivity : AppCompatActivity() {
     private fun setupFeedHeader() {
         feedHeader.elevation = 0f
         feedHeader.translationZ = 0f
-        IconLoader.applySvg(findViewById(R.id.feedBackIcon), "arrow_left", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "write", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more_vert", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.feedBackIcon), "arrow_left", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.feedPublishIcon), "write", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.feedMoreIcon), "more_vert", R.color.iconTint)
 
         findViewById<TextView>(R.id.feedToolbarTitle).apply {
             text = "Descobrir"
@@ -511,7 +541,7 @@ class MainActivity : AppCompatActivity() {
             layoutParams = FrameLayout.LayoutParams(dp(19), dp(19), Gravity.CENTER)
             scaleType = ImageView.ScaleType.CENTER_INSIDE
         }
-        IconLoader.applySvg(plusIcon, "write", R.color.iconTint)
+        IconLoader.applyIcon(plusIcon, "write", R.color.iconTint)
         plus.addView(plusIcon)
         plus.setOnClickListener { showCategoryManager() }
         feedTabsHost.addView(plus)
@@ -557,13 +587,230 @@ class MainActivity : AppCompatActivity() {
         loadNews(force && cached.isEmpty())
     }
 
+    private data class HomeSite(val label: String, val url: String = "", val internal: String = "")
+
+    private fun populateHomeQuickSites() {
+        if (!::homeQuickSites.isInitialized) return
+        homeQuickSites.removeAllViews()
+        homeQuickSites.columnCount = 5
+        val sites = listOf(
+            HomeSite("Google", "https://www.google.com"),
+            HomeSite("YouTube", "https://m.youtube.com"),
+            HomeSite("Facebook", "https://m.facebook.com"),
+            HomeSite("Wikipedia", "https://www.wikipedia.org"),
+            HomeSite("X", "https://x.com"),
+            HomeSite("GitHub", "https://github.com"),
+            HomeSite("LinkedIn", "https://www.linkedin.com"),
+            HomeSite("Google News", "https://news.google.com"),
+            HomeSite("Downloads", internal = "downloads"),
+            HomeSite("Mais", internal = "more")
+        )
+        sites.forEachIndexed { index, site ->
+            val tile = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                isClickable = true
+                isFocusable = true
+                setPadding(dp(2), dp(6), dp(2), dp(7))
+                setBackgroundResource(R.drawable.bg_transparent_pressed)
+                setOnClickListener {
+                    when (site.internal) {
+                        "downloads" -> startActivity(Intent(this@MainActivity, BrowserDownloadsActivity::class.java))
+                        "more" -> showMoreQuickSites(this)
+                        else -> openNewBrowserTab(site.url)
+                    }
+                }
+            }
+            val iconBox = FrameLayout(this).apply {
+                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_circle_card)
+                clipToOutline = true
+            }
+            val icon = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
+            if (site.url.isNotBlank()) {
+                val favicon = BrowserTabStore.faviconFor(site.url)
+                Glide.with(this).load(favicon).circleCrop().placeholder(R.drawable.logo).error(R.drawable.logo).into(icon)
+            } else {
+                IconLoader.applyIcon(icon, if (site.internal == "downloads") "download" else "plus", R.color.iconTint)
+            }
+            iconBox.addView(icon, FrameLayout.LayoutParams(-1, -1))
+            tile.addView(iconBox, LinearLayout.LayoutParams(dp(44), dp(44)))
+            tile.addView(TextView(this).apply {
+                text = site.label
+                textSize = 11f
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                gravity = Gravity.CENTER
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
+                setPadding(0, dp(5), 0, 0)
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            val params = GridLayout.LayoutParams(
+                GridLayout.spec(index / 5, 1, 1f),
+                GridLayout.spec(index % 5, 1, 1f)
+            ).apply { width = 0; height = dp(82); setMargins(dp(1), dp(1), dp(1), dp(1)) }
+            homeQuickSites.addView(tile, params)
+        }
+    }
+
+    private fun showMoreQuickSites(anchor: View) {
+        NativePopupMenu.show(anchor, listOf(
+            NativePopupMenu.Item(1, "Reddit", iconName = "chat"),
+            NativePopupMenu.Item(2, "BBC News", iconName = "newspaper"),
+            NativePopupMenu.Item(3, "Reuters", iconName = "newspaper"),
+            NativePopupMenu.Item(4, "Downloads", iconName = "download")
+        ), alignLeft = false, placeAbove = true) { item ->
+            when (item.id) {
+                1 -> openNewBrowserTab("https://www.reddit.com")
+                2 -> openNewBrowserTab("https://www.bbc.com/news")
+                3 -> openNewBrowserTab("https://www.reuters.com")
+                4 -> startActivity(Intent(this, BrowserDownloadsActivity::class.java))
+            }
+        }
+    }
+
+    private fun loadHomeNewsSections(sourceCategories: List<NewsCategory>) {
+        homeNewsJob?.cancel()
+        if (!::homeNewsSections.isInitialized) return
+        homeEmptyNews.visibility = View.GONE
+        homeNewsSections.removeAllViews()
+        homeNewsSections.addView(TextView(this).apply {
+            text = "A carregar notícias…"
+            textSize = 13f
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.dim))
+            setPadding(0, dp(14), 0, dp(20))
+        })
+
+        // Fetch by exact category, rather than grouping only the first few global pages.
+        // This guarantees a fair category sample and caps every section at 20 articles.
+        val chosen = sourceCategories
+            .distinctBy { it.label.lowercase(Locale.ROOT) }
+            .ifEmpty { NewsRepository.categoriesSnapshot() }
+
+        homeNewsJob = lifecycleScope.launch {
+            val categoryResults = runCatching {
+                supervisorScope {
+                    chosen.map { category ->
+                        async(Dispatchers.IO) {
+                            val articles = if (category.label.equals("Geral", ignoreCase = true)) {
+                                NewsRepository.fetchGeneral(page = 1, limit = 20)
+                            } else {
+                                NewsRepository.fetchByCategory(category.label, page = 1, country = "", limit = 20)
+                            }
+                            category to articles.distinctBy { it.id.ifBlank { normalizeUrl(it.link) } }.take(20)
+                        }
+                    }.awaitAll()
+                }
+            }.getOrDefault(emptyList())
+
+            if (isFinishing || isDestroyed) return@launch
+            homeNewsSections.removeAllViews()
+            var displayed = 0
+
+            categoryResults.forEach { (category, categoryItems) ->
+                if (categoryItems.isEmpty()) return@forEach
+                displayed += categoryItems.size
+
+                val header = LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(1), dp(9), dp(1), dp(5))
+                }
+                header.addView(TextView(this@MainActivity).apply {
+                    text = category.label
+                    textSize = 18f
+                    typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+                    setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
+                }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                homeNewsSections.addView(header)
+
+                val horizontal = HorizontalScrollView(this@MainActivity).apply {
+                    isHorizontalScrollBarEnabled = false
+                    overScrollMode = View.OVER_SCROLL_NEVER
+                    clipToPadding = false
+                }
+                val row = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL; clipToPadding = false }
+                categoryItems.forEach { item -> row.addView(createHomeNewsCard(item)) }
+                horizontal.addView(row)
+                homeNewsSections.addView(horizontal, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+                val continueButton = TextView(this@MainActivity).apply {
+                    text = "Continuar a ver ${category.label}  ›"
+                    textSize = 13f
+                    typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+                    setTextColor(AccentColorManager.resolvedOr(this@MainActivity, R.color.pri))
+                    setPadding(dp(2), dp(10), dp(2), dp(12))
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener {
+                        currentCat = categories.firstOrNull { it.label.equals(category.label, true) }?.label ?: category.label
+                        page = 1
+                        exhausted = false
+                        openFeedPanel()
+                        updateFeedCategoryAndReload(true)
+                    }
+                }
+                homeNewsSections.addView(continueButton)
+            }
+
+            if (displayed == 0) {
+                homeEmptyNews.visibility = View.VISIBLE
+                homeNewsSections.removeAllViews()
+            } else {
+                homeEmptyNews.visibility = View.GONE
+            }
+        }
+    }
+
+    private fun createHomeNewsCard(item: NewsItem): View {
+        val density = resources.displayMetrics.density
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_news_text_card)
+            setPadding(dp(8), dp(8), dp(8), dp(10))
+            isClickable = true; isFocusable = true
+            setOnClickListener { openArticle(item, this) }
+        }
+        val imageHost = FrameLayout(this).apply {
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_news_image_card)
+            clipToOutline = true
+        }
+        val image = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP; clipToOutline = true }
+        if (item.image.isNotBlank()) {
+            Glide.with(this).load(item.image).centerCrop().placeholder(R.drawable.logo).error(R.drawable.logo).into(image)
+        } else {
+            IconLoader.applyIcon(image, "newspaper", R.color.iconTint)
+            image.scaleType = ImageView.ScaleType.CENTER_INSIDE
+            image.setPadding(dp(38), dp(28), dp(38), dp(28))
+            image.setBackgroundColor(ContextCompat.getColor(this, R.color.card2))
+        }
+        imageHost.addView(image, FrameLayout.LayoutParams(-1, -1))
+        card.addView(imageHost, LinearLayout.LayoutParams(dp(226), dp(118)))
+        card.addView(TextView(this).apply {
+            text = item.title
+            textSize = 14f
+            maxLines = 3
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
+            setPadding(dp(1), dp(8), dp(1), dp(4))
+        }, LinearLayout.LayoutParams(dp(226), ViewGroup.LayoutParams.WRAP_CONTENT))
+        card.addView(TextView(this).apply {
+            text = item.source
+            textSize = 11.5f
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.dim))
+            setPadding(dp(1), dp(2), dp(1), 0)
+        }, LinearLayout.LayoutParams(dp(226), ViewGroup.LayoutParams.WRAP_CONTENT))
+        return card.also { it.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(10); bottomMargin = dp(6) } }
+    }
+
     private fun showFeedMorePopup(anchor: View) {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Recarregar", svg = "refresh"),
-                NativePopupMenu.Item(2, "Editar categorias", svg = "write"),
-                NativePopupMenu.Item(3, "Guardados", svg = "bookmark")
+                NativePopupMenu.Item(1, "Recarregar", iconName = "refresh"),
+                NativePopupMenu.Item(2, "Editar categorias", iconName = "write"),
+                NativePopupMenu.Item(3, "Guardados", iconName = "bookmark")
             )
         ) { item ->
             when (item.id) {
@@ -580,12 +827,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupBottomInput() {
-        IconLoader.applySvg(findViewById(R.id.biAddIcon), "plus", R.color.iconTint)
-        // Home composer: media/tools button on the left and Web search on the right.
-        IconLoader.applySvg(findViewById(R.id.biSendIcon), "search", R.color.iconTint)
-
-        // Native reproduction of the supplied HTML textarea. The action row is
-        // structurally separate, so it stays anchored while the textarea grows.
+        // Always keep one blank browser tab available on first launch, like a real browser.
+        if (BrowserTabStore.tabs(this).isEmpty()) BrowserTabStore.create(this, "https://duckduckgo.com/")
+        // The home bottom bar intentionally reuses the same geometry and controls as the browser address bar.
+        IconLoader.applyIcon(findViewById(R.id.biAddIcon), "plus", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.biFaviconIcon), "global", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.biSendIcon), "sparkles", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.biFireIcon), "flame", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.biMoreIcon), "menu", R.color.iconTint)
         biInput.setSingleLine(true)
         biInput.maxLines = 1
         biInput.setHorizontallyScrolling(true)
@@ -593,79 +842,61 @@ class MainActivity : AppCompatActivity() {
         biInput.includeFontPadding = true
         biInput.setPadding(0, 0, 0, 0)
         biInput.isVerticalScrollBarEnabled = false
-        biInput.overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
-
+        biInput.overScrollMode = View.OVER_SCROLL_NEVER
+        biInput.imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_GO
+        biInput.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
         biInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                biInput.post { resizeComposerInput(true) }
-                updateComposerExpanded(biInput.hasFocus())
-                updateComposerSendState()
-            }
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = updateComposerSendState()
             override fun afterTextChanged(s: Editable?) = Unit
         })
         biInput.setOnFocusChangeListener { _, focused ->
-            updateComposerExpanded(focused)
-            val lp = biBar.layoutParams as? ViewGroup.MarginLayoutParams ?: return@setOnFocusChangeListener
-            val target = dp(if (focused) 4 else 12)
-            lp.marginStart = target
-            lp.marginEnd = target
-            biBar.layoutParams = lp
-            biBar.animate().cancel()
-            biBar.animate().scaleX(if (focused) 1.012f else 1f).setDuration(220L).setInterpolator(Curves.SMOOTH).start()
+            val lp = biBar.layoutParams as? ViewGroup.MarginLayoutParams
+            if (lp != null) {
+                val target = dp(if (focused) 0 else 5)
+                lp.marginStart = target
+                lp.marginEnd = target
+                biBar.layoutParams = lp
+            }
+            biPill.animate().cancel()
+            biPill.animate().scaleX(if (focused) 1.01f else 1f)
+                .setDuration(320L).setInterpolator(Curves.SMOOTH).start()
         }
-
-        biSend.setOnClickListener { sendToAi() }
-        biInput.setOnEditorActionListener { _, _, _ ->
-            sendToAi()
-            true
-        }
+        // Address submit always opens the in-app browser. AI is a separate sparkle action.
+        biInput.setOnEditorActionListener { _, _, _ -> openBrowserFromInput(); true }
+        biPill.setOnClickListener { biInput.requestFocus() }
+        biSend.setOnClickListener { openAiFromHome() }
         findViewById<View>(R.id.biAdd).setOnClickListener { showAppsPopup(it) }
-        findViewById<View>(R.id.biAddIcon).translationY = dp(1).toFloat()
-        findViewById<View>(R.id.biSendIcon).translationY = dp(1).toFloat()
-
+        findViewById<View>(R.id.biFire).setOnClickListener { showClearBrowsingFromHome(it) }
+        findViewById<View>(R.id.biTabs).setOnClickListener { openBrowserTabs() }
+        findViewById<View>(R.id.biMore).setOnClickListener { showHomeBrowserMenu(it) }
         applyComposerSurface()
         updateComposerExpanded(false)
-        biInput.post {
-            resizeComposerInput(false)
-            updateComposerSendState()
-        }
+        updateBrowserTabCount()
     }
 
     private fun updateComposerExpanded(focused: Boolean) {
         if (!::biInput.isInitialized) return
-        val expanded = focused || biInput.text?.isNotBlank() == true
         biInput.gravity = Gravity.CENTER_VERTICAL or Gravity.START
-        val pill = biPill
-        val verticalPadding = dp(if (expanded) 6 else 5)
-        pill.setPadding(pill.paddingLeft, verticalPadding, pill.paddingRight, verticalPadding)
-        val row = findViewById<View>(R.id.biInputRow)
-        row.minimumHeight = dp(42)
-        biBar.animate().cancel()
-        biBar.animate().scaleX(if (expanded) 1.012f else 1f).setDuration(220L).setInterpolator(Curves.SMOOTH).start()
+        biPill.minimumHeight = dp(46)
     }
 
     private fun updateComposerSendState() {
         biSend.background = ContextCompat.getDrawable(this, R.drawable.bg_transparent_pressed)
-        findViewById<ImageView>(R.id.biSendIcon).clearColorFilter()
-        IconLoader.applySvg(findViewById(R.id.biSendIcon), "search", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.biSendIcon), "sparkles", R.color.iconTint)
     }
 
     private fun resizeComposerInput(animate: Boolean) {
         if (!::biInput.isInitialized) return
-        val targetHeight = dp(42)
         val lp = biInput.layoutParams
-        if (lp.height != targetHeight) {
-            lp.height = targetHeight
-            biInput.layoutParams = lp
-        }
+        if (lp.height != dp(46)) { lp.height = dp(46); biInput.layoutParams = lp }
         biInput.isVerticalScrollBarEnabled = false
         biInput.overScrollMode = View.OVER_SCROLL_NEVER
     }
 
     private fun applyComposerSurface() {
         biBar.setBackgroundColor(ContextCompat.getColor(this, R.color.bg))
-        biPill.background = ContextCompat.getDrawable(this, R.drawable.bg_pill_card_bordered)
+        biPill.background = ContextCompat.getDrawable(this, R.drawable.bg_toolbar_actions)
         biInput.setTextColor(ContextCompat.getColor(this, R.color.text))
         biInput.setHintTextColor(ContextCompat.getColor(this, R.color.dim))
         updateComposerSendState()
@@ -674,44 +905,29 @@ class MainActivity : AppCompatActivity() {
     private fun setupAppsPanel() {
         if (appsReady) return
         appsReady = true
-
         val appsHeader = findViewById<View>(R.id.appsHeaderBar)
         appsHeader.elevation = 0f
         appsHeader.translationZ = 0f
         findViewById<ImageView>(R.id.appsProfileAvatar).setImageResource(R.mipmap.ic_launcher_round)
-        IconLoader.applySvg(findViewById(R.id.appsSearchIcon), "search", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsNewChatIcon), "edit_square", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow_right", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
-        findViewById<View>(R.id.appsProfile).setOnClickListener {
-            startActivity(Intent(this, AuthActivity::class.java))
-        }
+        IconLoader.applyIcon(findViewById(R.id.appsHistoryIcon), "history", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.appsBackIcon), "arrow_right", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
+        findViewById<View>(R.id.appsProfile).visibility = View.GONE
+        findViewById<View>(R.id.appsSearch).visibility = View.GONE
+        findViewById<View>(R.id.appsNewChat).visibility = View.GONE
         findViewById<View>(R.id.appsBack).setOnClickListener { closeAppsPanel() }
         findViewById<View>(R.id.appsSettings).setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
-        }
-
-        val appsTab = findViewById<TextView>(R.id.appsTab)
-        val conversationsTab = findViewById<TextView>(R.id.conversationsTab)
-        appsTab.text = "Conversas"
-        conversationsTab.text = "Projetos"
-        appsTab.setOnClickListener { selectAppsTab(false, true) }
-        conversationsTab.setOnClickListener { selectAppsTab(true, true) }
-
-        findViewById<View>(R.id.appsSearch).setOnClickListener {
-            startActivity(Intent(this, SearchActivity::class.java).putExtra("menu_search", true))
+            startActivity(Intent(this, HistorySettingsActivity::class.java))
             overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
         }
-        findViewById<View>(R.id.appsNewChat).setOnClickListener {
-            biInput.setText("")
-            biInput.clearFocus()
-            closeAppsPanel()
-            AppAoToast.show(this, "Nova conversa pronta")
-        }
-
+        val pagesTab = findViewById<TextView>(R.id.appsTab)
+        val conversationsTab = findViewById<TextView>(R.id.conversationsTab)
+        pagesTab.text = "Páginas"
+        conversationsTab.text = "Conversas"
+        pagesTab.setOnClickListener { selectAppsTab(true, true) }
+        conversationsTab.setOnClickListener { selectAppsTab(false, true) }
         populateAppsGrid()
-        // appsPanel starts GONE; its children measure as 0x0 until the first open.
-        // Never calculate tab widths during that hidden state.
+        refreshConversationHistory()
         appsBottomTabs.post { selectAppsTab(appsTabIsApps, false) }
     }
 
@@ -719,60 +935,27 @@ class MainActivity : AppCompatActivity() {
         appsTabIsApps = apps
         appsContent.visibility = if (apps) View.VISIBLE else View.GONE
         conversationsContent.visibility = if (apps) View.GONE else View.VISIBLE
-
-        val appsTab = findViewById<TextView>(R.id.appsTab)
+        val pagesTab = findViewById<TextView>(R.id.appsTab)
         val conversationsTab = findViewById<TextView>(R.id.conversationsTab)
         val active = AccentColorManager.onPrimaryColor(this)
         val inactive = ContextCompat.getColor(this, R.color.dim)
-        appsTab.setTextColor(if (!apps) active else inactive)
-        conversationsTab.setTextColor(if (apps) active else inactive)
-        appsTabIndicator.background = AccentColorManager.primaryShape(
-            this,
-            android.graphics.drawable.GradientDrawable.RECTANGLE,
-            999f
-        )
-
+        pagesTab.setTextColor(if (apps) active else inactive)
+        conversationsTab.setTextColor(if (!apps) active else inactive)
+        appsTabIndicator.background = AccentColorManager.primaryShape(this, android.graphics.drawable.GradientDrawable.RECTANGLE, 999f)
         val available = appsBottomTabs.width - appsBottomTabs.paddingLeft - appsBottomTabs.paddingRight
         val tabHeight = appsBottomTabs.height - appsBottomTabs.paddingTop - appsBottomTabs.paddingBottom
-        // When the panel is GONE, width/height are zero. Mutating the children to 2dp
-        // at that point permanently collapses the tabs until another screen/theme pass.
-        if (appsBottomTabs.width <= 0 || appsBottomTabs.height <= 0 || available <= dp(40) || tabHeight <= dp(16)) {
-            return
-        }
+        if (appsBottomTabs.width <= 0 || appsBottomTabs.height <= 0 || available <= dp(40) || tabHeight <= dp(16)) return
         val tabWidth = available / 2
-
-        appsTabIndicator.layoutParams = (appsTabIndicator.layoutParams as FrameLayout.LayoutParams).apply {
-            width = tabWidth
-            height = tabHeight
-            leftMargin = 0
-            topMargin = 0
-        }
-        appsTab.layoutParams = (appsTab.layoutParams as FrameLayout.LayoutParams).apply {
-            width = tabWidth
-            height = tabHeight
-            leftMargin = 0
-            topMargin = 0
-        }
-        conversationsTab.layoutParams = (conversationsTab.layoutParams as FrameLayout.LayoutParams).apply {
-            width = tabWidth
-            height = tabHeight
-            leftMargin = tabWidth
-            topMargin = 0
-        }
-
+        appsTabIndicator.layoutParams = (appsTabIndicator.layoutParams as FrameLayout.LayoutParams).apply { width = tabWidth; height = tabHeight; leftMargin = 0; topMargin = 0 }
+        pagesTab.layoutParams = (pagesTab.layoutParams as FrameLayout.LayoutParams).apply { width = tabWidth; height = tabHeight; leftMargin = 0; topMargin = 0 }
+        conversationsTab.layoutParams = (conversationsTab.layoutParams as FrameLayout.LayoutParams).apply { width = tabWidth; height = tabHeight; leftMargin = tabWidth; topMargin = 0 }
         appsTabIndicator.visibility = View.VISIBLE
         appsTabIndicator.alpha = 1f
         appsTabIndicator.animate().cancel()
-        val target = if (apps) tabWidth.toFloat() else 0f
-        if (animated) {
-            appsTabIndicator.animate()
-                .translationX(target)
-                .setDuration(280L)
-                .setInterpolator(Curves.SMOOTH)
-                .start()
-        } else {
-            appsTabIndicator.translationX = target
-        }
+        val target = if (apps) 0f else tabWidth.toFloat()
+        if (animated) appsTabIndicator.animate().translationX(target).setDuration(320L).setInterpolator(Curves.SMOOTH).start()
+        else appsTabIndicator.translationX = target
+        if (apps) populateAppsGrid() else refreshConversationHistory()
     }
 
     private fun refreshAppsTabsAfterLayout() {
@@ -786,8 +969,87 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun populateAppsGrid() {
-        // Apps tab remains available but intentionally contains no app cards.
-        findViewById<android.widget.GridLayout>(R.id.appsGrid).removeAllViews()
+        if (!::appsGrid.isInitialized) return
+        appsGrid.removeAllViews()
+        val history = BrowsingHistoryStore.all(this)
+        if (history.isEmpty()) {
+            val empty = TextView(this).apply {
+                text = "As páginas visitadas aparecerão aqui.\n\nAbre uma página no browser para começar o histórico."
+                textSize = 14f
+                gravity = Gravity.CENTER
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.dim))
+                setPadding(dp(20), dp(44), dp(20), dp(44))
+            }
+            appsGrid.addView(empty, GridLayout.LayoutParams().apply { width = ViewGroup.LayoutParams.MATCH_PARENT; height = ViewGroup.LayoutParams.WRAP_CONTENT; columnSpec = GridLayout.spec(0, 1f) })
+            return
+        }
+        history.take(300).forEachIndexed { index, entry ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_settings_single)
+                setPadding(dp(12), dp(10), dp(10), dp(10))
+                isClickable = true; isFocusable = true
+                setOnClickListener { openNewBrowserTab(entry.url); closeAppsPanel() }
+            }
+            val icon = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_INSIDE }
+            val faviconUrl = entry.favicon.ifBlank { BrowserTabStore.faviconFor(entry.url) }
+            if (faviconUrl.isNotBlank()) Glide.with(this).load(faviconUrl).circleCrop().placeholder(R.drawable.logo).into(icon)
+            else IconLoader.applyIcon(icon, "global", R.color.iconTint)
+            row.addView(icon, LinearLayout.LayoutParams(dp(34), dp(34)))
+            val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(10), 0, 0, 0) }
+            labels.addView(TextView(this).apply {
+                text = entry.title; textSize = 14f; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
+                typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
+            })
+            labels.addView(TextView(this).apply {
+                text = "${android.net.Uri.parse(entry.url).host.orEmpty().removePrefix("www.")} · ${historyTime(entry.visitedAt)}"
+                textSize = 12f; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.dim))
+                setPadding(0, dp(3), 0, 0)
+            })
+            row.addView(labels, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            val params = GridLayout.LayoutParams().apply {
+                width = ViewGroup.LayoutParams.MATCH_PARENT; height = ViewGroup.LayoutParams.WRAP_CONTENT
+                columnSpec = GridLayout.spec(0, 1f); setMargins(dp(2), dp(2), dp(2), dp(2))
+            }
+            appsGrid.addView(row, params)
+        }
+    }
+
+    private fun refreshConversationHistory() {
+        val column = findViewById<LinearLayout>(R.id.conversationsHistoryColumn)
+        val empty = findViewById<TextView>(R.id.conversationsEmpty)
+        for (i in column.childCount - 1 downTo 1) column.removeViewAt(i)
+        val entries = ConversationHistoryStore.all(this)
+        empty.visibility = if (entries.isEmpty()) View.VISIBLE else View.GONE
+        entries.take(200).forEach { entry ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_settings_single)
+                setPadding(dp(13), dp(12), dp(13), dp(12))
+                isClickable = true; isFocusable = true
+                setOnClickListener { startActivity(Intent(this@MainActivity, SearchActivity::class.java).putExtra("query", entry.query)); overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit) }
+            }
+            row.addView(ImageView(this).apply { IconLoader.applyIcon(this, "chat_history", R.color.iconTint) }, LinearLayout.LayoutParams(dp(22), dp(22)))
+            row.addView(TextView(this).apply {
+                text = entry.title; textSize = 14f; maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text)); setPadding(dp(11),0,0,0)
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            column.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(3) })
+        }
+    }
+
+    private fun historyTime(value: Long): String {
+        if (value <= 0L) return ""
+        val elapsed = (System.currentTimeMillis() - value).coerceAtLeast(0L)
+        return when {
+            elapsed < 60_000L -> "agora"
+            elapsed < 3_600_000L -> "há ${elapsed / 60_000L} min"
+            elapsed < 86_400_000L -> "há ${elapsed / 3_600_000L} h"
+            else -> java.text.SimpleDateFormat("dd/MM", Locale.getDefault()).format(java.util.Date(value))
+        }
     }
 
     private fun setupTouchHost() {
@@ -978,7 +1240,7 @@ class MainActivity : AppCompatActivity() {
     private fun animateFeedTo(target: Float, current: Float, end: (() -> Unit)? = null) {
         feedAnimator?.cancel()
         feedAnimator = ValueAnimator.ofFloat(current, target).apply {
-            duration = 420L
+            duration = 520L
             interpolator = Curves.IOS
             addUpdateListener { setFeedProgress(it.animatedValue as Float) }
             if (end != null) {
@@ -998,6 +1260,8 @@ class MainActivity : AppCompatActivity() {
         feedPanel.visibility = View.GONE
         appsPanel.visibility = View.VISIBLE
         refreshAppsTabsAfterLayout()
+        populateAppsGrid()
+        refreshConversationHistory()
         val width = rootHost.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
         val current = gestureProgress ?: ((appsPanel.translationX + width) / width).coerceIn(0f, 1f)
         animateAppsTo(1f, current)
@@ -1019,7 +1283,7 @@ class MainActivity : AppCompatActivity() {
     private fun animateAppsTo(target: Float, current: Float, end: (() -> Unit)? = null) {
         appsAnimator?.cancel()
         appsAnimator = ValueAnimator.ofFloat(current, target).apply {
-            duration = 420L
+            duration = 520L
             interpolator = Curves.IOS
             addUpdateListener { setAppsProgress(it.animatedValue as Float) }
             if (end != null) {
@@ -1035,6 +1299,14 @@ class MainActivity : AppCompatActivity() {
         adapter.showSkeleton(8)
         lifecycleScope.launch {
             val categoryJob = async(Dispatchers.IO) { NewsRepository.fetchCategories() }
+            homeEmptyNews.visibility = View.GONE
+            homeNewsSections.removeAllViews()
+            homeNewsSections.addView(TextView(this@MainActivity).apply {
+                text = "A carregar notícias…"
+                textSize = 13f
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.dim))
+                setPadding(0, dp(14), 0, dp(20))
+            })
             val cached = withContext(Dispatchers.IO) {
                 NewsRepository.readCategoryCache(this@MainActivity, "Geral")
                     .ifEmpty { NewsRepository.readCategoryCache(this@MainActivity, "world") }
@@ -1060,6 +1332,7 @@ class MainActivity : AppCompatActivity() {
                     loadNews(false)
                 }
                 refreshFeedTabs(false)
+                loadHomeNewsSections(liveCategories)
             }
         }
     }
@@ -1214,28 +1487,81 @@ class MainActivity : AppCompatActivity() {
         view.clipToOutline = true
     }
 
-    private fun sendToAi() {
+    private fun openBrowserFromInput() {
         val query = biInput.text.toString().trim()
         if (query.isEmpty()) {
             biInput.requestFocus()
             biInput.post { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(biInput, InputMethodManager.SHOW_IMPLICIT) }
             return
         }
-        val looksLikeAddress = query.matches(Regex("(?i)^(https?://)?([a-z0-9-]+\\.)+[a-z]{2,}([/:?#].*)?$"))
-        val target = when {
-            query.startsWith("https://", true) || query.startsWith("http://", true) -> query
-            looksLikeAddress -> "https://$query"
-            else -> "https://duckduckgo.com/?q=" + android.net.Uri.encode(query)
-        }
+        val target = normalizeBrowserTarget(query)
         biInput.clearFocus()
         (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(biInput.windowToken, 0)
-        openNewBrowserTab(target)
         biInput.setText("")
+        openNewBrowserTab(target)
+    }
+
+    private fun normalizeBrowserTarget(value: String): String {
+        val input = value.trim()
+        if (input.isBlank()) return "https://duckduckgo.com/"
+        if (input.startsWith("http://", true) || input.startsWith("https://", true)) return input
+        val looksLikeAddress = !input.contains(' ') && input.contains('.') && !input.startsWith(".") && input.substringAfterLast('.', "").length in 2..20
+        return if (looksLikeAddress) "https://$input" else "https://duckduckgo.com/?q=" + android.net.Uri.encode(input)
+    }
+
+    private fun openAiFromHome() {
+        val query = biInput.text.toString().trim()
+        if (query.isNotBlank()) ConversationHistoryStore.record(this, query)
+        startActivity(Intent(this, SearchActivity::class.java).putExtra("query", query))
+        overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
     }
 
     private fun updateBrowserTabCount() {
-        val count = BrowserTabStore.tabs(this).size
-        findViewById<TextView>(R.id.homeNavTabsCount).text = count.coerceAtMost(99).toString()
+        val count = BrowserTabStore.tabs(this).size.coerceAtMost(99).toString()
+        findViewById<TextView>(R.id.biTabsCount).text = count
+    }
+
+    private fun showHomeBrowserMenu(anchor: View) {
+        val adBlock = BrowserPreferences.adBlockEnabled(this)
+        val forcedDark = BrowserPreferences.forceDarkEnabled(this)
+        NativePopupMenu.show(anchor, listOf(
+            NativePopupMenu.Item(1, "Novo separador", iconName = "plus"),
+            NativePopupMenu.Item(2, "Todos os separadores", iconName = "apps"),
+            NativePopupMenu.Item(3, "Downloads", iconName = "download"),
+            NativePopupMenu.Item(4, "Histórico", iconName = "history"),
+            NativePopupMenu.Item(5, "Nova conversa", iconName = "edit_square"),
+            NativePopupMenu.Item(6, "Perfil", iconName = "profile"),
+            NativePopupMenu.Item(7, "Definições", iconName = "settings"),
+            NativePopupMenu.Item(8, if (adBlock) "Bloqueador de anúncios: ligado" else "Bloqueador de anúncios: desligado", iconName = "shield_check", checked = adBlock),
+            NativePopupMenu.Item(9, if (forcedDark) "Forçar tema escuro: ligado" else "Forçar tema escuro: desligado", iconName = "moon", checked = forcedDark),
+            NativePopupMenu.Item(10, "Limpar dados de navegação", iconName = "delete_bin")
+        ), alignLeft = false, placeAbove = true) { item ->
+            when (item.id) {
+                1 -> openNewBrowserTab()
+                2 -> openBrowserTabs()
+                3 -> startActivity(Intent(this, BrowserDownloadsActivity::class.java))
+                4 -> openAppsPanel()
+                5 -> { ConversationHistoryStore.record(this, "Nova conversa"); startActivity(Intent(this, SearchActivity::class.java)); overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit) }
+                6 -> startActivity(Intent(this, AuthActivity::class.java))
+                7 -> startActivity(Intent(this, SettingsActivity::class.java))
+                8 -> { BrowserPreferences.setAdBlockEnabled(this, !adBlock); AppAoToast.show(this, if (!adBlock) "Bloqueador de anúncios ativado" else "Bloqueador de anúncios desativado") }
+                9 -> { BrowserPreferences.setForceDarkEnabled(this, !forcedDark); AppAoToast.show(this, if (!forcedDark) "Tema escuro de sites ativado" else "Tema escuro de sites desativado") }
+                10 -> showClearBrowsingFromHome(anchor)
+            }
+        }
+    }
+
+    private fun showClearBrowsingFromHome(anchor: View) {
+        NativeM3Dialog.confirm(this, "Limpar navegação", "Limpar páginas visitadas e fechar separadores guardados?") { accepted ->
+            if (accepted) {
+                BrowsingHistoryStore.clear(this)
+                BrowserTabStore.clear(this)
+                BrowserTabStore.create(this, "https://duckduckgo.com/")
+                updateBrowserTabCount()
+                populateAppsGrid()
+                AppAoToast.show(this, "Histórico limpo; uma nova página está pronta")
+            }
+        }
     }
 
     private fun openBrowserTabs() {
@@ -1313,7 +1639,7 @@ class MainActivity : AppCompatActivity() {
             val icon = ImageView(this).apply {
                 layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
                 scaleType = ImageView.ScaleType.CENTER_INSIDE
-                IconLoader.applySvg(this, shortcut.icon, R.color.iconTint)
+                IconLoader.applyIcon(this, shortcut.icon, R.color.iconTint)
             }
             row.addView(icon)
             val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -1336,8 +1662,8 @@ class MainActivity : AppCompatActivity() {
     private fun setFeedBottomSelection(discover: Boolean) {
         if (!::feedPanel.isInitialized) return
         runCatching {
-            IconLoader.applySvg(findViewById(R.id.feedNavDiscoverIcon), if (discover) "compass_filled" else "compass", R.color.iconTint)
-            IconLoader.applySvg(findViewById(R.id.feedNavAppsIcon), if (discover) "apps" else "apps_filled", R.color.iconTint)
+            IconLoader.applyIcon(findViewById(R.id.feedNavDiscoverIcon), if (discover) "compass_filled" else "compass", R.color.iconTint)
+            IconLoader.applyIcon(findViewById(R.id.feedNavAppsIcon), if (discover) "apps" else "apps_filled", R.color.iconTint)
             findViewById<TextView>(R.id.feedNavDiscoverLabel).setTextColor(ContextCompat.getColor(this, if (discover) R.color.text else R.color.dim))
             findViewById<TextView>(R.id.feedNavAppsLabel).setTextColor(ContextCompat.getColor(this, if (discover) R.color.dim else R.color.text))
         }
@@ -1570,6 +1896,7 @@ class MainActivity : AppCompatActivity() {
             put("date", item.date)
             put("image", item.image)
             put("logo", item.logo)
+            put("category", item.category)
         })
         prefs.edit().putString("library_json", updated.toString()).apply()
         AppAoToast.show(this, if (wasSaved) "Removido dos guardados" else "Notícia guardada")
@@ -1579,9 +1906,9 @@ class MainActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Partilhar", svg = "share"),
-                NativePopupMenu.Item(2, if (isArticleSaved(item)) "Remover dos guardados" else "Guardar", svg = "bookmark"),
-                NativePopupMenu.Item(3, "Abrir no navegador", svg = "arrow_top_right2")
+                NativePopupMenu.Item(1, "Partilhar", iconName = "share"),
+                NativePopupMenu.Item(2, if (isArticleSaved(item)) "Remover dos guardados" else "Guardar", iconName = "bookmark"),
+                NativePopupMenu.Item(3, "Abrir no navegador", iconName = "arrow_top_right2")
             ),
             alignLeft = false,
             placeAbove = true
@@ -1597,9 +1924,7 @@ class MainActivity : AppCompatActivity() {
                     toggleArticleSaved(item)
                     adapter.notifyDataSetChanged()
                 }
-                3 -> runCatching {
-                    startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(item.link)))
-                }.onFailure { AppAoToast.show(this, "Não foi possível abrir o navegador") }
+                3 -> openNewBrowserTab(item.link)
             }
         }
     }
@@ -1677,6 +2002,8 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (::biBar.isInitialized) updateBrowserTabCount()
+        if (::appsGrid.isInitialized) populateAppsGrid()
+        if (::appsPanel.isInitialized) refreshConversationHistory()
         SystemBarHelper.sync(this)
         refreshNativeTheme()
         progress.animate().alpha(0f).setDuration(180L).withEndAction {
@@ -1722,21 +2049,24 @@ class MainActivity : AppCompatActivity() {
         appsHeader.translationZ = 0f
         appsHeader.setBackgroundColor(bg)
 
-        IconLoader.applySvg(findViewById(R.id.homeMenuIcon), "menu", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedBackIcon), "arrow_left", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedPublishIcon), "write", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.feedMoreIcon), "more_vert", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.homeMenuIcon), "menu", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.biFaviconIcon), "global", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.biFireIcon), "flame", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.biMoreIcon), "menu", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.feedBackIcon), "arrow_left", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.feedPublishIcon), "write", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.feedMoreIcon), "more_vert", R.color.iconTint)
         // Preserve the correct Discover/Apps glyph pair and selected state after
         // theme changes or returning from another Activity.
         setFeedBottomSelection(discover = !feedAppsMode)
-        IconLoader.applySvg(findViewById(R.id.biAddIcon), "plus", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.biAddIcon), "plus", R.color.iconTint)
         
-        IconLoader.applySvg(findViewById(R.id.biSendIcon), "search", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.biSendIcon), "sparkles", R.color.iconTint)
         findViewById<ImageView>(R.id.appsProfileAvatar).setImageResource(R.mipmap.ic_launcher_round)
-        IconLoader.applySvg(findViewById(R.id.appsSearchIcon), "search", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsNewChatIcon), "edit_square", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsBackIcon), "arrow_right", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.appsSearchIcon), "search", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.appsNewChatIcon), "edit_square", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.appsBackIcon), "arrow_right", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.appsSettingsIcon), "settings", R.color.iconTint)
         findViewById<TextView>(R.id.feedToolbarTitle).setTextColor(ContextCompat.getColor(this, R.color.text))
         refreshFeedTabs(false)
         findViewById<TextView>(R.id.appsTitle).setTextColor(ContextCompat.getColor(this, R.color.text))

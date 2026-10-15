@@ -46,7 +46,7 @@ class CommentAdapter(
                 .dontAnimate()
                 .into(h.avatar)
         } else {
-            IconLoader.applySvg(h.avatar, "profile", R.color.iconTint)
+            IconLoader.applyIcon(h.avatar, "profile", R.color.iconTint)
         }
 
         bindReactionCounts(h, c)

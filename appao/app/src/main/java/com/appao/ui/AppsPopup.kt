@@ -6,7 +6,7 @@ import android.app.Dialog
 
 /** Native anchored quick-add menu opened from the fixed AI composer. */
 object AppsPopup {
-    data class Option(val id: Int, val label: String, val svg: String?, val actionKey: String)
+    data class Option(val id: Int, val label: String, val iconName: String?, val actionKey: String)
 
     private val OPTIONS = listOf(
         Option(1, "Carregar ficheiro", "attachment", "file"),
@@ -49,7 +49,7 @@ object AppsPopup {
                 NativePopupMenu.Item(
                     option.id,
                     option.label,
-                    svg = option.svg,
+                    iconName = option.iconName,
                     checked = isThink && thinkActive,
                     highlightColor = if (isThink && thinkActive) thinkColor else null
                 )

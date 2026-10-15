@@ -120,7 +120,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginTop="58dp"
-        android:layout_marginBottom="62dp"
+        android:layout_marginBottom="0dp"
         android:background="@color/bg"
         android:transitionName="browser_tab_preview" />
 
@@ -135,36 +135,5 @@
         android:elevation="20dp"
         android:translationZ="20dp" />
 
-    <LinearLayout
-        android:id="@+id/browserBottomBar"
-        android:layout_width="match_parent"
-        android:layout_height="62dp"
-        android:layout_gravity="bottom"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:background="@color/bg"
-        android:elevation="8dp">
 
-        <FrameLayout android:id="@+id/browserBack" android:layout_width="42dp" android:layout_height="50dp" android:background="@drawable/bg_transparent_pressed" android:clickable="true" android:focusable="true">
-            <ImageView android:id="@+id/browserBackIcon" android:layout_width="22dp" android:layout_height="22dp" android:layout_gravity="center" android:scaleType="fitCenter" />
-        </FrameLayout>
-        <FrameLayout android:id="@+id/browserHome" android:layout_width="42dp" android:layout_height="50dp" android:background="@drawable/bg_transparent_pressed" android:clickable="true" android:focusable="true">
-            <ImageView android:id="@+id/browserHomeIcon" android:layout_width="22dp" android:layout_height="22dp" android:layout_gravity="center" android:scaleType="fitCenter" />
-        </FrameLayout>
-        <FrameLayout android:id="@+id/browserBottomTabs" android:layout_width="42dp" android:layout_height="42dp" android:background="@drawable/bg_auth_segment" android:clickable="true" android:focusable="true">
-            <TextView android:id="@+id/browserTabsCountBottom" android:layout_width="24dp" android:layout_height="24dp" android:layout_gravity="center" android:gravity="center" android:background="@drawable/bg_browser_tab_counter" android:text="1" android:textColor="@color/text" android:textSize="12sp" android:textStyle="bold" />
-        </FrameLayout>
-        <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
-        <FrameLayout android:id="@+id/browserBottomAi" android:layout_width="40dp" android:layout_height="50dp" android:background="@drawable/bg_transparent_pressed" android:clickable="true" android:focusable="true">
-            <ImageView android:id="@+id/browserBottomAiIcon" android:layout_width="22dp" android:layout_height="22dp" android:layout_gravity="center" android:scaleType="fitCenter" />
-        </FrameLayout>
-        <FrameLayout android:id="@+id/browserBottomFire" android:layout_width="40dp" android:layout_height="50dp" android:background="@drawable/bg_transparent_pressed" android:clickable="true" android:focusable="true">
-            <ImageView android:id="@+id/browserBottomFireIcon" android:layout_width="22dp" android:layout_height="22dp" android:layout_gravity="center" android:scaleType="fitCenter" />
-        </FrameLayout>
-        <FrameLayout android:id="@+id/browserNewTab" android:layout_width="40dp" android:layout_height="50dp" android:background="@drawable/bg_transparent_pressed" android:clickable="true" android:focusable="true">
-            <ImageView android:id="@+id/browserNewTabIcon" android:layout_width="24dp" android:layout_height="24dp" android:layout_gravity="center" android:scaleType="fitCenter" />
-        </FrameLayout>
-    </LinearLayout>
 </FrameLayout>

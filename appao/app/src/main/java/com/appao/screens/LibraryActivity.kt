@@ -26,7 +26,7 @@ class LibraryActivity : AppCompatActivity() {
 
 
 
-        IconLoader.applySvg(
+        IconLoader.applyIcon(
             findViewById(R.id.libBackIcon),
             "arrow_left",
             R.color.iconTint
@@ -73,7 +73,8 @@ class LibraryActivity : AppCompatActivity() {
                     source = obj.optString("source"),
                     date = obj.optString("date"),
                     image = obj.optString("image"),
-                    logo = obj.optString("logo")
+                    logo = obj.optString("logo"),
+                    category = obj.optString("category").ifBlank { "Geral" }
                 )
             }
             result
@@ -85,7 +86,7 @@ class LibraryActivity : AppCompatActivity() {
         val empty = findViewById<View>(R.id.libEmpty)
         val emptyImage = findViewById<ImageView>(R.id.libEmptyImg)
 
-        IconLoader.applySvg(emptyImage, "archive", R.color.iconTint)
+        IconLoader.applyIcon(emptyImage, "archive", R.color.iconTint)
 
         if (items.isEmpty()) {
             empty.visibility = View.VISIBLE

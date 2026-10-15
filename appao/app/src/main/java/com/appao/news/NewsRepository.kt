@@ -131,19 +131,20 @@ object NewsRepository {
     /** Kept for compatibility with the existing MainActivity. */
     fun resetDedup() = Unit
 
-    suspend fun fetchGeneral(page: Int = 1): List<NewsItem> =
-        fetchByCategory("", page, "")
+    suspend fun fetchGeneral(page: Int = 1, limit: Int = 100): List<NewsItem> =
+        fetchByCategory("", page, "", limit)
 
-    /** Feedlummy: GET /api/news?limit=30&offset=N, optionally filtered by exact category label. */
+    /** Feedlummy: GET /api/news?limit=1..100&offset=N, optionally filtered by exact category label. */
     suspend fun fetchByCategory(
         category: String,
         page: Int = 1,
-        country: String = ""
+        country: String = "",
+        limit: Int = MAX_ARTICLES_PER_CATEGORY
     ): List<NewsItem> = withContext(Dispatchers.IO) {
         try {
-            val limit = MAX_ARTICLES_PER_CATEGORY
-            val offset = ((page.coerceAtLeast(1) - 1) * limit).coerceAtLeast(0)
-            val query = StringBuilder("$BASE/api/news?limit=$limit&offset=$offset")
+            val requestedLimit = limit.coerceIn(1, 100)
+            val offset = ((page.coerceAtLeast(1) - 1) * requestedLimit).coerceAtLeast(0)
+            val query = StringBuilder("$BASE/api/news?limit=$requestedLimit&offset=$offset")
             // Feedlummy's documented default endpoint returns all categories.
             // The app's "Geral" tab represents that unfiltered feed.
             if (category.isNotBlank() && !category.equals("Geral", ignoreCase = true)) {
@@ -170,9 +171,9 @@ object NewsRepository {
                 if (raw.toByteArray(Charsets.UTF_8).size > MAX_BODY_BYTES) return@withContext emptyList()
                 val root = JSONObject(raw)
                 val array = root.optJSONArray("items") ?: root.optJSONArray("articles") ?: JSONArray()
-                val result = ArrayList<NewsItem>(minOf(array.length(), limit))
+                val result = ArrayList<NewsItem>(minOf(array.length(), requestedLimit))
 
-                for (i in 0 until minOf(array.length(), limit)) {
+                for (i in 0 until minOf(array.length(), requestedLimit)) {
                     val article = array.optJSONObject(i) ?: continue
                     val link = article.optString("link").ifBlank { article.optString("url") }.trim()
                     val title = cleanText(article.optString("title"))
@@ -206,7 +207,8 @@ object NewsRepository {
                         image = article.optString("image").trim().take(2000),
                         logo = article.optString("logo").trim().ifBlank {
                             if (domain.isNotEmpty()) "https://www.google.com/s2/favicons?domain=$domain&sz=128" else ""
-                        }.take(1000)
+                        }.take(1000),
+                        category = cleanText(article.optString("category").ifBlank { "Geral" }).take(120)
                     )
                 }
                 deduplicate(result)
@@ -321,7 +323,8 @@ object NewsRepository {
                 source = cleanText(o.optString("source")),
                 date = o.optString("date"),
                 image = o.optString("image"),
-                logo = o.optString("logo")
+                logo = o.optString("logo"),
+                category = o.optString("category").ifBlank { "Geral" }
             )
         }
         deduplicate(items)
@@ -348,6 +351,7 @@ object NewsRepository {
                     put("date", item.date.take(80))
                     put("image", item.image.take(2000))
                     put("logo", item.logo.take(1000))
+                    put("category", item.category.take(120))
                 })
             }
             ctx.getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE).edit()

@@ -56,7 +56,7 @@ class AuthActivity : AppCompatActivity() {
             insets
         }
 
-        IconLoader.applySvg(
+        IconLoader.applyIcon(
             findViewById(R.id.authCloseIcon),
             "close",
             R.color.iconTint
@@ -110,7 +110,7 @@ class AuthActivity : AppCompatActivity() {
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
         SystemBarHelper.sync(this)
-        IconLoader.applySvg(findViewById(R.id.authCloseIcon), "close", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.authCloseIcon), "close", R.color.iconTint)
         updateTabs(false)
     }
 

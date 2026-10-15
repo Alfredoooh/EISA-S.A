@@ -46,6 +46,62 @@ jobs:
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$PROJECT_DIR/local.properties"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
+      - name: Download official Remix Icon font
+        env:
+          REMIX_ICON_VERSION: "v4.9.1"
+        run: |
+          set -euo pipefail
+
+          # The Android module loads this font from assets/fonts/remixicon.ttf.
+          # Keep the font version pinned so the codepoints used by IconLoader.kt
+          # remain consistent between builds.
+          APP_MODULE_DIR="$PROJECT_DIR/app"
+          if [ ! -d "$APP_MODULE_DIR/src/main" ] && [ -d "$PROJECT_DIR/src/main" ]; then
+            APP_MODULE_DIR="$PROJECT_DIR"
+          fi
+          if [ ! -d "$APP_MODULE_DIR/src/main" ]; then
+            echo "ERROR: Could not find the Android module src/main directory."
+            exit 1
+          fi
+
+          FONT_DIR="$APP_MODULE_DIR/src/main/assets/fonts"
+          FONT_FILE="$FONT_DIR/remixicon.ttf"
+          TEMP_FONT="$FONT_FILE.download"
+          mkdir -p "$FONT_DIR"
+          rm -f "$TEMP_FONT"
+
+          URLS=(
+            "https://raw.githubusercontent.com/Remix-Design/RemixIcon/${REMIX_ICON_VERSION}/fonts/remixicon.ttf"
+            "https://cdn.jsdelivr.net/gh/Remix-Design/RemixIcon@${REMIX_ICON_VERSION}/fonts/remixicon.ttf"
+          )
+          DOWNLOADED=false
+          for url in "${URLS[@]}"; do
+            echo "Downloading Remix Icon font ${REMIX_ICON_VERSION}..."
+            if curl --fail --location --silent --show-error \
+                --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 90 \
+                --user-agent "AppAo-GitHub-Actions/1.0" \
+                "$url" --output "$TEMP_FONT"; then
+              SIZE="$(stat -c%s "$TEMP_FONT")"
+              SIGNATURE="$(od -An -tx1 -N4 "$TEMP_FONT" | tr -d ' \n')"
+              if [ "$SIZE" -ge 10000 ] && [[ "$SIGNATURE" == "00010000" || "$SIGNATURE" == "4f54544f" || "$SIGNATURE" == "74727565" ]]; then
+                DOWNLOADED=true
+                break
+              fi
+              echo "Downloaded file failed font validation (size=$SIZE, signature=$SIGNATURE)."
+            fi
+            rm -f "$TEMP_FONT"
+          done
+
+          if [ "$DOWNLOADED" != "true" ]; then
+            echo "ERROR: Could not download a valid Remix Icon TTF from either pinned source."
+            exit 1
+          fi
+
+          mv "$TEMP_FONT" "$FONT_FILE"
+          chmod 644 "$FONT_FILE"
+          echo "Remix Icon font ready: $FONT_FILE ($(stat -c%s "$FONT_FILE") bytes)"
+          echo "Remix Icon font signature: $(od -An -tx1 -N4 "$FONT_FILE" | tr -d ' \n')"
+
       - name: Generate official Gradle Wrapper
         run: |
           set -euo pipefail

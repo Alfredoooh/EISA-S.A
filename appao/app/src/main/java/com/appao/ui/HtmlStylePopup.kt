@@ -13,6 +13,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.view.WindowManager
 import android.widget.TextView
+import android.widget.ScrollView
 import androidx.core.content.ContextCompat
 import kotlin.math.max
 
@@ -95,6 +96,19 @@ object HtmlStylePopup {
                     true
             }
 
+        val rowsContainer = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            clipChildren = false
+            clipToPadding = false
+        }
+        val scroll = ScrollView(context).apply {
+            isFillViewport = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            clipToPadding = false
+            addView(rowsContainer, ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
         val popup = Dialog(context).apply {
             setContentView(root)
             setCancelable(true)
@@ -102,12 +116,13 @@ object HtmlStylePopup {
             window?.apply {
                 setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
                 addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-                // Deliberately keep Android's theme/system dimAmount.
+                // Native Android window dim; no view overlay and no status-bar tint hacks.
+                setDimAmount(0.20f)
             }
             setOnDismissListener {
                 root.animate().cancel()
-                for (index in 0 until root.childCount) {
-                    root.getChildAt(index).animate().cancel()
+                for (index in 0 until rowsContainer.childCount) {
+                    rowsContainer.getChildAt(index).animate().cancel()
                 }
             }
         }
@@ -175,7 +190,7 @@ object HtmlStylePopup {
                             }
                         }
                     } else if (!item.iconName.isNullOrBlank()) {
-                        IconLoader.applySvg(this, item.iconName!!, if (item.highlightColor == null) R.color.iconTint else 0)
+                        IconLoader.applyIcon(this, item.iconName!!, if (item.highlightColor == null) R.color.iconTint else 0)
                         item.highlightColor?.let { setColorFilter(it, android.graphics.PorterDuff.Mode.SRC_IN) }
                     }
                 }
@@ -243,7 +258,7 @@ object HtmlStylePopup {
                         scaleType =
                             ImageView.ScaleType.CENTER
 
-                        IconLoader.applySvg(this, "check_mark", if (item.highlightColor == null) R.color.iconTint else 0)
+                        IconLoader.applyIcon(this, "check_mark", if (item.highlightColor == null) R.color.iconTint else 0)
                         item.highlightColor?.let { setColorFilter(it, android.graphics.PorterDuff.Mode.SRC_IN) }
                     }
 
@@ -276,64 +291,64 @@ object HtmlStylePopup {
                 }
             }
 
-            root.addView(
-                row
+            rowsContainer.addView(
+                row,
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             )
         }
 
-        // Use activity-window coordinates consistently. Some Android builds return
-        // a visible-frame top that already includes toolbar/inset offsets, which
-        // previously forced the popup underneath its triggering button.
+        // Use the anchor's screen position and translate it into the dialog window's
+        // content coordinate system. This keeps the popup in front of the button even
+        // when system bars or edge-to-edge insets are present.
         val decor = anchor.rootView
-        val availableWidthPx = decor.width.takeIf { it > 0 } ?: context.resources.displayMetrics.widthPixels
-        val availableHeightPx = decor.height.takeIf { it > 0 } ?: context.resources.displayMetrics.heightPixels
-        val edgeInset = dp(8)
-        val availableWidth = (availableWidthPx - edgeInset * 2).coerceAtLeast(dp(180))
+        val display = context.resources.displayMetrics
+        val visibleFrame = android.graphics.Rect()
+        decor.getWindowVisibleDisplayFrame(visibleFrame)
+        val decorScreen = IntArray(2).also { decor.getLocationOnScreen(it) }
+        val anchorScreen = IntArray(2).also { anchor.getLocationOnScreen(it) }
+        val edge = dp(8)
+        val windowOriginX = decorScreen[0]
+        val windowOriginY = decorScreen[1]
+        val availableLeftScreen = maxOf(visibleFrame.left, windowOriginX) + edge
+        val availableTopScreen = maxOf(visibleFrame.top, windowOriginY) + edge
+        val availableRightScreen = minOf(visibleFrame.right, windowOriginX + (decor.width.takeIf { it > 0 } ?: display.widthPixels)) - edge
+        val availableBottomScreen = minOf(visibleFrame.bottom, windowOriginY + (decor.height.takeIf { it > 0 } ?: display.heightPixels)) - edge
+        val availableWidth = (availableRightScreen - availableLeftScreen).coerceAtLeast(dp(180))
         val measureWidth = minOf(dp(MAX_WIDTH_DP), availableWidth)
+        val maxHeight = (availableBottomScreen - availableTopScreen).coerceAtLeast(dp(160)).coerceAtMost(dp(660))
 
         root.measure(
-            View.MeasureSpec.makeMeasureSpec(
-                measureWidth,
-                View.MeasureSpec.AT_MOST
-            ),
-            View.MeasureSpec.makeMeasureSpec(
-                0,
-                View.MeasureSpec.UNSPECIFIED
-            )
+            View.MeasureSpec.makeMeasureSpec(measureWidth, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(maxHeight, View.MeasureSpec.AT_MOST)
         )
+        val width = root.measuredWidth.coerceAtMost(availableWidth)
+        val height = root.measuredHeight.coerceAtMost(maxHeight)
 
-        val width = max(
-            minOf(dp(MIN_WIDTH_DP), availableWidth),
-            root.measuredWidth
-        ).coerceAtMost(availableWidth)
-        val height = root.measuredHeight
-        val location = IntArray(2)
-        anchor.getLocationInWindow(location)
-        val anchorLeft = location[0]
-        val anchorTop = location[1]
-        val anchorRight = anchorLeft + anchor.width
-        val edge = dp(8)
-        val maxLeft = (availableWidthPx - width - edge).coerceAtLeast(edge)
-        val anchorCenterX = anchorLeft + anchor.width / 2
-        val preferLeftEdge = alignLeft || anchorCenterX < availableWidthPx / 2
-        val preferredLeft = if (preferLeftEdge) anchorLeft else anchorRight - width
-        val left = preferredLeft.coerceIn(edge, maxLeft)
+        val anchorLeftScreen = anchorScreen[0]
+        val anchorTopScreen = anchorScreen[1]
+        val anchorRightScreen = anchorLeftScreen + anchor.width
+        val anchorBottomScreen = anchorTopScreen + anchor.height
+        val anchorCenterX = anchorLeftScreen + anchor.width / 2
+        val preferLeftEdge = alignLeft || anchorCenterX < (availableLeftScreen + availableRightScreen) / 2
+        val preferredLeftScreen = if (preferLeftEdge) anchorLeftScreen else anchorRightScreen - width
+        val leftScreen = preferredLeftScreen.coerceIn(availableLeftScreen, (availableRightScreen - width).coerceAtLeast(availableLeftScreen))
 
-        // Centre the dialog on the button (overlapping it), clamp only when needed
-        // to keep the complete popup within the activity window.
-        val maxTop = (availableHeightPx - height - edge).coerceAtLeast(edge)
-        val centeredTop = anchorTop + (anchor.height - height) / 2
-        val top = centeredTop.coerceIn(edge, maxTop)
-        val overlapsAnchorFromTop = top < anchorTop
+        val centerTarget = anchorTopScreen + anchor.height / 2
+        // Overlap the triggering control itself, rather than rendering above or
+        // below it. Clamp only at the actual visible system-window edges.
+        val centeredTopScreen = centerTarget - height / 2
+        val topScreen = centeredTopScreen.coerceIn(availableTopScreen, (availableBottomScreen - height).coerceAtLeast(availableTopScreen))
 
+        val left = (leftScreen - windowOriginX).coerceAtLeast(edge)
+        val top = (topScreen - windowOriginY).coerceAtLeast(edge)
         // Prepare the menu transform before the window is shown to avoid a
         // one-frame flash. Background dimming itself remains fully native.
-        root.pivotX = (anchorLeft + anchor.width / 2f - left).coerceIn(0f, width.toFloat())
+        root.pivotX = (anchorCenterX - leftScreen).coerceIn(0f, width.toFloat())
         root.pivotY = height / 2f
         root.scaleX = 0.96f
         root.scaleY = 0.96f
         root.alpha = 0f
-        root.translationY = (if (overlapsAnchorFromTop) -dp(4) else dp(4)).toFloat()
+        root.translationY = if (topScreen < anchorTopScreen) -dp(3).toFloat() else dp(3).toFloat()
 
         val window = popup.window
         if (window != null) {
@@ -376,8 +391,8 @@ object HtmlStylePopup {
             .withLayer()
             .start()
 
-        for (index in 0 until root.childCount) {
-            val row = root.getChildAt(index)
+        for (index in 0 until rowsContainer.childCount) {
+            val row = rowsContainer.getChildAt(index)
             row.postDelayed({
                 if (!row.isAttachedToWindow) return@postDelayed
                 row.animate()

@@ -2,22 +2,25 @@ package com.appao
 
 import android.annotation.SuppressLint
 import android.app.ActivityOptions
+import android.app.DownloadManager
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.webkit.CookieManager
-import android.webkit.JavascriptInterface
 import android.webkit.JsPromptResult
+import android.webkit.DownloadListener
+import android.webkit.URLUtil
+import android.webkit.WebResourceResponse
 import android.webkit.JsResult
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
@@ -37,9 +40,12 @@ import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
+import java.io.ByteArrayInputStream
 import java.net.URLEncoder
 
-/** Full WebView browser with persistent tabs, address bar, page menu and bottom navigation. */
+/** Full in-app WebView browser with persistent tabs, address bar, native browser menu and downloads. */
 class AppViewerActivity : AppCompatActivity() {
     private lateinit var web: WebView
     private lateinit var progress: View
@@ -63,14 +69,9 @@ class AppViewerActivity : AppCompatActivity() {
         web.transitionName = intent.getStringExtra("transition_name") ?: "browser_tab_preview"
         applyProgressAccent()
 
-        IconLoader.applySvg(findViewById(R.id.browserAddressAiIcon), "sparkles", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.browserFireIcon), "flame", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.appViewerMoreIcon), "menu", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.browserBackIcon), "arrow_left", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.browserHomeIcon), "home", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.browserBottomAiIcon), "sparkles", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.browserBottomFireIcon), "flame", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.browserNewTabIcon), "plus", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.browserAddressAiIcon), "sparkles", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.browserFireIcon), "flame", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.appViewerMoreIcon), "menu", R.color.iconTint)
 
         tabId = intent.getStringExtra("browser_tab_id").orEmpty()
         val incomingUrl = intent.getStringExtra("url")?.trim().orEmpty()
@@ -89,11 +90,12 @@ class AppViewerActivity : AppCompatActivity() {
             allowUniversalAccessFromFileURLs = false
             loadWithOverviewMode = true
             useWideViewPort = true
-            builtInZoomControls = false
+            builtInZoomControls = true
             displayZoomControls = false
             mediaPlaybackRequiresUserGesture = true
             setSupportMultipleWindows(false)
         }
+        applyBrowserPreferences()
         web.setBackgroundColor(ContextCompat.getColor(this, R.color.bg))
         web.isVerticalScrollBarEnabled = false
         web.isHorizontalScrollBarEnabled = false
@@ -105,15 +107,22 @@ class AppViewerActivity : AppCompatActivity() {
             }
 
             override fun onPageFinished(view: WebView, url: String) {
-                injectThemeObserver(view)
                 if (!address.hasFocus()) address.setText(url)
                 val title = view.title?.take(250).orEmpty().ifBlank { hostFor(url).ifBlank { "Nova aba" } }
+                BrowsingHistoryStore.record(this@AppViewerActivity, url, title)
                 lifecycleScope.launch(Dispatchers.IO) {
                     BrowserTabStore.updatePage(this@AppViewerActivity, tabId, url, title)
                 }
                 loadFavicon(url)
                 updateTabCounters()
                 view.postDelayed({ savePageSnapshot() }, 320L)
+            }
+
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                if (BrowserPreferences.adBlockEnabled(this@AppViewerActivity) && isKnownAdRequest(request.url)) {
+                    return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+                }
+                return super.shouldInterceptRequest(view, request)
             }
 
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -141,7 +150,6 @@ class AppViewerActivity : AppCompatActivity() {
                 return true
             }
         }
-        web.addJavascriptInterface(HtmlThemeBridge(), "AppAoTheme")
         web.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                 val target = (resources.displayMetrics.widthPixels * newProgress / 100f).toInt()
@@ -165,6 +173,29 @@ class AppViewerActivity : AppCompatActivity() {
             }
         }
 
+        web.setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
+            val uri = runCatching { Uri.parse(url) }.getOrNull()
+            if (uri == null || (uri.scheme != "http" && uri.scheme != "https")) {
+                AppAoToast.show(this, "Ligação de download inválida")
+                return@DownloadListener
+            }
+            runCatching {
+                val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+                val request = DownloadManager.Request(uri).apply {
+                    setTitle(fileName)
+                    setDescription(hostFor(url).ifBlank { "Download do browser" })
+                    setMimeType(mimeType)
+                    setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                    setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+                    if (!userAgent.isNullOrBlank()) addRequestHeader("User-Agent", userAgent)
+                    CookieManager.getInstance().getCookie(url)?.takeIf { it.isNotBlank() }?.let { addRequestHeader("Cookie", it) }
+                }
+                val downloadManager = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
+                downloadManager.enqueue(request)
+                AppAoToast.show(this, "Download iniciado")
+            }.onFailure { AppAoToast.show(this, "Não foi possível iniciar o download") }
+        })
+
         address.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_SEARCH) {
                 loadAddressFromInput(); true
@@ -176,14 +207,8 @@ class AppViewerActivity : AppCompatActivity() {
         findViewById<View>(R.id.browserAddressPill).setOnClickListener { address.requestFocus() }
         findViewById<View>(R.id.browserAddressAi).setOnClickListener { askAiAboutPage() }
         findViewById<View>(R.id.browserFire).setOnClickListener { clearBrowserData() }
-        findViewById<View>(R.id.browserBottomFire).setOnClickListener { clearBrowserData() }
         findViewById<View>(R.id.browserTabsTop).setOnClickListener { openTabs() }
-        findViewById<View>(R.id.browserBottomTabs).setOnClickListener { openTabs() }
         findViewById<View>(R.id.appViewerMore).setOnClickListener { showPageMenu(it) }
-        findViewById<View>(R.id.browserBack).setOnClickListener { if (web.canGoBack()) web.goBack() else finish() }
-        findViewById<View>(R.id.browserHome).setOnClickListener { web.loadUrl("https://duckduckgo.com/") }
-        findViewById<View>(R.id.browserBottomAi).setOnClickListener { askAiAboutPage() }
-        findViewById<View>(R.id.browserNewTab).setOnClickListener { openNewTab() }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { if (web.canGoBack()) web.goBack() else finish() }
@@ -258,6 +283,9 @@ class AppViewerActivity : AppCompatActivity() {
                 CookieManager.getInstance().removeAllCookies(null)
                 CookieManager.getInstance().flush()
                 BrowserTabStore.clear(this)
+                BrowsingHistoryStore.clear(this)
+                ConversationHistoryStore.clear(this)
+                runCatching { android.webkit.WebStorage.getInstance().deleteAllData() }
                 val fresh = BrowserTabStore.create(this, "https://duckduckgo.com/")
                 tabId = fresh.id
                 updateTabCounters()
@@ -266,28 +294,111 @@ class AppViewerActivity : AppCompatActivity() {
     }
 
     private fun showPageMenu(anchor: View) {
+        val adsEnabled = BrowserPreferences.adBlockEnabled(this)
+        val forceDarkEnabled = BrowserPreferences.forceDarkEnabled(this)
         NativePopupMenu.show(anchor, listOf(
-            NativePopupMenu.Item(1, "Novo separador", svg = "plus"),
-            NativePopupMenu.Item(2, "Todos os separadores", svg = "apps"),
-            NativePopupMenu.Item(3, "Abrir no navegador externo", svg = "arrow_top_right"),
-            NativePopupMenu.Item(4, "Copiar ligação", svg = "link"),
-            NativePopupMenu.Item(5, "Partilhar ligação", svg = "share"),
-            NativePopupMenu.Item(6, "Recarregar", svg = "refresh")
-        ), alignLeft = false, placeAbove = false) { item ->
+            NativePopupMenu.Item(1, "Recuar", iconName = "arrow_go_back", checked = false),
+            NativePopupMenu.Item(2, "Avançar", iconName = "arrow_go_forward", checked = false),
+            NativePopupMenu.Item(3, "Recarregar", iconName = "refresh"),
+            NativePopupMenu.Item(4, "Novo separador", iconName = "plus"),
+            NativePopupMenu.Item(5, "Todos os separadores", iconName = "apps"),
+            NativePopupMenu.Item(6, "Diminuir zoom", iconName = "zoom_out"),
+            NativePopupMenu.Item(7, "Aumentar zoom", iconName = "zoom_in"),
+            NativePopupMenu.Item(8, "Repor zoom", iconName = "contrast"),
+            NativePopupMenu.Item(9, if (adsEnabled) "Bloqueador de anúncios: ligado" else "Bloqueador de anúncios: desligado", iconName = "shield_check", checked = adsEnabled),
+            NativePopupMenu.Item(10, if (forceDarkEnabled) "Forçar tema escuro: ligado" else "Forçar tema escuro: desligado", iconName = "moon", checked = forceDarkEnabled),
+            NativePopupMenu.Item(11, "Downloads", iconName = "download"),
+            NativePopupMenu.Item(12, "Copiar ligação", iconName = "link"),
+            NativePopupMenu.Item(13, "Partilhar ligação", iconName = "share"),
+            NativePopupMenu.Item(14, "Limpar dados de navegação", iconName = "delete_bin"),
+            NativePopupMenu.Item(15, "Pesquisar nesta página", iconName = "search")
+        ), alignLeft = false, placeAbove = true) { item ->
             val currentUrl = web.url?.takeIf { it.isNotBlank() } ?: "https://duckduckgo.com/"
             when (item.id) {
-                1 -> openNewTab()
-                2 -> openTabs()
-                3 -> runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(currentUrl))) }
-                    .onFailure { AppAoToast.show(this, "Não foi possível abrir o navegador") }
-                4 -> {
-                    val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("Ligação", currentUrl)); AppAoToast.show(this, "Ligação copiada")
+                1 -> if (web.canGoBack()) web.goBack() else AppAoToast.show(this, "Não há página anterior")
+                2 -> if (web.canGoForward()) web.goForward() else AppAoToast.show(this, "Não há página seguinte")
+                3 -> web.reload()
+                4 -> openNewTab()
+                5 -> openTabs()
+                6 -> {
+                    if (!web.zoomOut()) web.settings.textZoom = (web.settings.textZoom - 10).coerceAtLeast(50)
                 }
-                5 -> runCatching {
+                7 -> {
+                    if (!web.zoomIn()) web.settings.textZoom = (web.settings.textZoom + 10).coerceAtMost(200)
+                }
+                8 -> { web.settings.textZoom = 100; web.setInitialScale(0); web.reload() }
+                9 -> {
+                    BrowserPreferences.setAdBlockEnabled(this, !adsEnabled)
+                    AppAoToast.show(this, if (!adsEnabled) "Bloqueador de anúncios ativado" else "Bloqueador de anúncios desativado")
+                    web.reload()
+                }
+                10 -> {
+                    BrowserPreferences.setForceDarkEnabled(this, !forceDarkEnabled)
+                    applyBrowserPreferences()
+                    AppAoToast.show(this, if (!forceDarkEnabled) "Tema escuro de sites ativado" else "Tema escuro de sites desativado")
+                    web.reload()
+                }
+                11 -> startActivity(Intent(this, BrowserDownloadsActivity::class.java)).also { overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit) }
+                12 -> {
+                    val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("Ligação", currentUrl))
+                    AppAoToast.show(this, "Ligação copiada")
+                }
+                13 -> runCatching {
                     startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, currentUrl) }, "Partilhar ligação"))
                 }.onFailure { AppAoToast.show(this, "Não foi possível partilhar") }
-                6 -> web.reload()
+                14 -> clearBrowserData()
+                15 -> findTextInPage()
+            }
+        }
+    }
+
+    private fun findTextInPage() {
+        val queryInput = EditText(this).apply {
+            hint = "Texto a encontrar"
+            setSingleLine(true)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
+            setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.text))
+            setHintTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dim))
+            setPadding(dp(18), dp(10), dp(18), dp(10))
+        }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Pesquisar nesta página")
+            .setView(queryInput)
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Pesquisar") { _, _ ->
+                val query = queryInput.text?.toString().orEmpty().trim()
+                if (query.isNotBlank()) {
+                    web.clearMatches()
+                    web.findAllAsync(query)
+                    AppAoToast.show(this, "A procurar na página")
+                }
+            }
+            .show()
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density + 0.5f).toInt()
+
+    private fun isKnownAdRequest(uri: Uri): Boolean {
+        val host = uri.host?.lowercase(java.util.Locale.ROOT)?.removePrefix("www.") ?: return false
+        val blockedHosts = listOf(
+            "doubleclick.net", "googlesyndication.com", "googleadservices.com", "adservice.google.com",
+            "adnxs.com", "adform.net", "taboola.com", "outbrain.com", "criteo.com", "teads.tv",
+            "scorecardresearch.com", "adsrvr.org", "amazon-adsystem.com", "adroll.com", "pubmatic.com",
+            "openx.net", "rubiconproject.com", "quantserve.com", "moatads.com"
+        )
+        return blockedHosts.any { host == it || host.endsWith(".$it") }
+    }
+
+    private fun applyBrowserPreferences() {
+        if (!::web.isInitialized) return
+        val forceDark = BrowserPreferences.forceDarkEnabled(this)
+        val settings = web.settings
+        runCatching {
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+                WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, forceDark)
+            } else if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+                WebSettingsCompat.setForceDark(settings, if (forceDark) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF)
             }
         }
     }
@@ -295,14 +406,13 @@ class AppViewerActivity : AppCompatActivity() {
     private fun loadFavicon(url: String) {
         val iconUrl = BrowserTabStore.faviconFor(url)
         if (iconUrl.isBlank()) {
-            IconLoader.applySvg(favicon, "search", R.color.iconTint)
+            IconLoader.applyIcon(favicon, "search", R.color.iconTint)
         } else Glide.with(this).load(iconUrl).circleCrop().placeholder(R.drawable.logo).into(favicon)
     }
 
     private fun updateTabCounters() {
         val count = BrowserTabStore.count(this).coerceAtMost(99).toString()
         findViewById<TextView>(R.id.browserTabsCountTop).text = count
-        findViewById<TextView>(R.id.browserTabsCountBottom).text = count
     }
 
     private fun savePageSnapshot() {
@@ -323,42 +433,6 @@ class AppViewerActivity : AppCompatActivity() {
         bitmap.recycle()
     }
 
-    @Suppress("SetJavaScriptEnabled")
-    private fun injectThemeObserver(view: WebView) {
-        view.evaluateJavascript("""
-            (function(){
-              if(window.__appAoThemeObserverInstalled){ return; }
-              window.__appAoThemeObserverInstalled=true;
-              function send(){
-                try{
-                  var root=document.documentElement, body=document.body;
-                  var cs=getComputedStyle(root);
-                  var bg=(cs.getPropertyValue('--bg')||'').trim();
-                  if(!bg && body){ bg=getComputedStyle(body).backgroundColor; }
-                  var meta=document.querySelector('meta[name=theme-color]');
-                  if(!bg && meta){ bg=meta.content||''; }
-                  var dark=(root.getAttribute('data-theme')==='dark');
-                  if(window.AppAoTheme && bg) window.AppAoTheme.setTheme(bg,dark);
-                }catch(e){}
-              }
-              send();
-              new MutationObserver(send).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme','class','style']});
-            })();
-        """.trimIndent(), null)
-    }
-
-    private inner class HtmlThemeBridge {
-        @JavascriptInterface fun setTheme(color: String, dark: Boolean) {
-            runOnUiThread {
-                try {
-                    val normalized = color.trim()
-                    val parsed: Int? = if (normalized.startsWith("#")) Color.parseColor(normalized) else null
-                    if (parsed != null) SystemBarHelper.syncColor(this@AppViewerActivity, parsed) else SystemBarHelper.sync(this@AppViewerActivity, dark)
-                } catch (_: Throwable) { SystemBarHelper.sync(this@AppViewerActivity) }
-            }
-        }
-    }
-
     private fun applyProgressAccent() {
         if (::progress.isInitialized) progress.background = AccentColorManager.primaryShape(this, android.graphics.drawable.GradientDrawable.RECTANGLE, 2f)
     }
@@ -368,7 +442,7 @@ class AppViewerActivity : AppCompatActivity() {
         SystemBarHelper.sync(this)
         applyProgressAccent()
         if (::web.isInitialized) {
-            web.post { injectThemeObserver(web) }
+            applyBrowserPreferences()
             updateTabCounters()
         }
     }

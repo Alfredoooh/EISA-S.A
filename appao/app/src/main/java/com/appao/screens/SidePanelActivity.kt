@@ -27,7 +27,7 @@ class SidePanelActivity : AppCompatActivity() {
         }
         ViewCompat.requestApplyInsets(topBar)
 
-        IconLoader.applySvg(
+        IconLoader.applyIcon(
             findViewById(R.id.sideCloseIcon),
             "arrow_right",
             R.color.iconTint

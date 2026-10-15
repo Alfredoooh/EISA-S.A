@@ -98,14 +98,14 @@ class SearchActivity : AppCompatActivity() {
             insets
         }
 
-        IconLoader.applySvg(findViewById(R.id.searchCloseIcon), "close", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "more_vert", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchAddIcon), "plus", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchSliderIcon), "filters", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.searchSendIcon), "arrow_up", R.color.iconTint)
-        IconLoader.applySvg(findViewById(R.id.menuSearchBackIcon), "arrow_left", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.searchCloseIcon), "close", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.searchMoreIcon), "more_vert", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.searchAddIcon), "plus", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.searchSliderIcon), "filters", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.searchSendIcon), "arrow_up", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.menuSearchBackIcon), "arrow_left", R.color.iconTint)
         // This asset is intentionally user-supplied later; IconLoader shows its fallback until installed.
-        IconLoader.applySvg(findViewById(R.id.menuSearchClearIcon), "close_circle_mini", 0)
+        IconLoader.applyIcon(findViewById(R.id.menuSearchClearIcon), "close_circle_mini", 0)
 
         galleryMode = intent.getBooleanExtra("gallery_mode", false)
         cameraMode = intent.getBooleanExtra("camera_mode", false)
@@ -113,7 +113,7 @@ class SearchActivity : AppCompatActivity() {
         findViewById<View>(R.id.searchGalleryRecentTab).setOnClickListener { setGalleryTab(0) }
         findViewById<View>(R.id.searchGalleryAllTab).setOnClickListener { setGalleryTab(1) }
         findViewById<View>(R.id.searchGalleryFoldersTab).setOnClickListener { setGalleryTab(2) }
-        IconLoader.applySvg(findViewById(R.id.searchCameraButtonIcon), "camera", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.searchCameraButtonIcon), "camera", R.color.iconTint)
         findViewById<View>(R.id.searchClose).setOnClickListener {
             if (galleryMode && activeGalleryTab == 2 && openGalleryFolder != null) {
                 openGalleryFolder = null
@@ -247,8 +247,8 @@ class SearchActivity : AppCompatActivity() {
             findViewById<View>(R.id.searchGalleryBottomBar).visibility = View.GONE
             findViewById<View>(R.id.searchMediaEmpty).visibility = View.GONE
             findViewById<View>(R.id.searchMore).visibility = View.GONE
-            IconLoader.applySvg(findViewById(R.id.searchCameraIcon), "camera", R.color.iconTint)
-            IconLoader.applySvg(findViewById(R.id.searchCameraButtonIcon), "camera", R.color.iconTint)
+            IconLoader.applyIcon(findViewById(R.id.searchCameraIcon), "camera", R.color.iconTint)
+            IconLoader.applyIcon(findViewById(R.id.searchCameraButtonIcon), "camera", R.color.iconTint)
             val cameraPanel = findViewById<View>(R.id.searchCameraPanel)
             cameraPanel.setPadding(0, 0, 0, 0)
             val cameraFrame = findViewById<View>(R.id.searchCameraFrame)
@@ -423,7 +423,7 @@ class SearchActivity : AppCompatActivity() {
                             layoutParams = LinearLayout.LayoutParams(dp(30), dp(30))
                             scaleType = ImageView.ScaleType.FIT_CENTER
                         }
-                        IconLoader.applySvg(icon, "folder", R.color.iconTint)
+                        IconLoader.applyIcon(icon, "folder", R.color.iconTint)
                         addView(icon)
                         addView(TextView(this@SearchActivity).apply {
                             tag = "folder_label"
@@ -515,8 +515,8 @@ class SearchActivity : AppCompatActivity() {
         val action = findViewById<View>(R.id.searchMore)
         val count = selectedGalleryUris.size
         action.visibility = if (count > 0) View.VISIBLE else View.GONE
-        if (count > 0) IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "check_mark", R.color.iconTint)
-        else IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "more_vert", R.color.iconTint)
+        if (count > 0) IconLoader.applyIcon(findViewById(R.id.searchMoreIcon), "check_mark", R.color.iconTint)
+        else IconLoader.applyIcon(findViewById(R.id.searchMoreIcon), "more_vert", R.color.iconTint)
         findViewById<TextView>(R.id.searchModeTitle).text = if (openGalleryFolder != null) {
             openGalleryFolder!!.substringAfterLast('/').ifBlank { "Pasta" }
         } else if (count > 0) "Galeria ($count)" else "Galeria"
@@ -609,7 +609,7 @@ class SearchActivity : AppCompatActivity() {
                     image.close()
                     if (bytes != null) runOnUiThread {
                         capturedPhotoBytes = bytes
-                        IconLoader.applySvg(findViewById(R.id.searchMoreIcon), "check_mark", R.color.iconTint)
+                        IconLoader.applyIcon(findViewById(R.id.searchMoreIcon), "check_mark", R.color.iconTint)
                         findViewById<View>(R.id.searchMore).visibility = View.VISIBLE
                     }
                 }, Handler(Looper.getMainLooper()))
@@ -727,10 +727,10 @@ class SearchActivity : AppCompatActivity() {
         NativePopupMenu.show(
             anchor,
             listOf(
-                NativePopupMenu.Item(1, "Eliminar pesquisa", svg = "trash_bin"),
-                NativePopupMenu.Item(2, "Arquivar pesquisa", svg = "archive"),
-                NativePopupMenu.Item(3, "Iniciar nova pesquisa", svg = "plus"),
-                NativePopupMenu.Item(4, "Renomear pesquisa", svg = "write")
+                NativePopupMenu.Item(1, "Eliminar pesquisa", iconName = "trash_bin"),
+                NativePopupMenu.Item(2, "Arquivar pesquisa", iconName = "archive"),
+                NativePopupMenu.Item(3, "Iniciar nova pesquisa", iconName = "plus"),
+                NativePopupMenu.Item(4, "Renomear pesquisa", iconName = "write")
             )
         ) { item ->
             when (item.id) {
@@ -768,6 +768,7 @@ class SearchActivity : AppCompatActivity() {
             return
         }
         if (query.isBlank()) return
+        ConversationHistoryStore.record(this, query)
         resultQuery.text = query
         input.clearFocus()
         AppAoToast.show(this, "Pesquisa atualizada")
@@ -793,6 +794,10 @@ class SearchActivity : AppCompatActivity() {
                 !lower.contains("article") && !lower.contains("comment")
         }
         val labels = mutableListOf<String>()
+        ConversationHistoryStore.all(this).forEach { entry ->
+            labels += entry.title
+            if (entry.query.isNotBlank()) labels += entry.query
+        }
         val field = Regex("\"(?:title|name|label|subject|preview|lastMessage|last_message)\"\\s*:\\s*\"([^\"]*)\"", RegexOption.IGNORE_CASE)
         relevantKeys.values.forEach { value ->
             val raw = value as? String ?: return@forEach

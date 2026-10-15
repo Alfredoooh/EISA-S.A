@@ -164,8 +164,8 @@ class NewsAdapter(
     }
 
     private fun bindTopCards(holder: TopCardsVH) {
-        IconLoader.applySvg(holder.savingsIcon, "chart_pie", R.color.iconTint)
-        IconLoader.applySvg(holder.historyIcon, "chart_bars", R.color.iconTint)
+        IconLoader.applyIcon(holder.savingsIcon, "chart_pie", R.color.iconTint)
+        IconLoader.applyIcon(holder.historyIcon, "chart_bars", R.color.iconTint)
 
         val current = weather
         val weatherGlyph = current?.icon ?: "sunny"
@@ -630,7 +630,7 @@ class NewsAdapter(
             val image = ImageView(context).apply {
                 layoutParams = FrameLayout.LayoutParams(glyphSize, glyphSize, Gravity.CENTER)
                 scaleType = ImageView.ScaleType.FIT_CENTER
-                IconLoader.applySvg(this, iconName, if (heartActive) 0 else R.color.iconTint)
+                IconLoader.applyIcon(this, iconName, if (heartActive) 0 else R.color.iconTint)
             }
             button.addView(image)
             button.setOnClickListener { callback(button) }

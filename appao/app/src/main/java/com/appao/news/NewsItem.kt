@@ -8,5 +8,6 @@ data class NewsItem(
     val source: String,
     val date: String,
     val image: String,
-    val logo: String
+    val logo: String,
+    val category: String = "Geral"
 )

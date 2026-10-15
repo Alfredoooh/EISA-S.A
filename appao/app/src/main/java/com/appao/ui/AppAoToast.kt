@@ -14,7 +14,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.DrawableCompat
 import com.google.android.material.snackbar.Snackbar
 
-/** Floating rounded snackbar styled to match the app's surface and close.svg affordance. */
+/** Floating rounded snackbar styled to match the app surface and Remix close glyph. */
 object AppAoToast {
     fun show(context: Context, message: String) {
         val activity = context as? Activity
@@ -62,7 +62,7 @@ object AppAoToast {
 
         snackbar.view.findViewById<Button>(com.google.android.material.R.id.snackbar_action)?.post {
             val action = snackbar.view.findViewById<Button>(com.google.android.material.R.id.snackbar_action)
-            val iconBitmap = IconLoader.svgBitmap(context, "close", dp(20))
+            val iconBitmap = IconLoader.iconBitmap(context, "close", dp(20))
             val baseIcon: Drawable = iconBitmap?.let { BitmapDrawable(context.resources, it) }
                 ?: ContextCompat.getDrawable(context, android.R.drawable.ic_menu_close_clear_cancel)!!
             val icon = DrawableCompat.wrap(baseIcon).mutate().apply {

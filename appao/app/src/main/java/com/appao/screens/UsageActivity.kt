@@ -30,7 +30,7 @@ class UsageActivity : AppCompatActivity() {
         setContentView(R.layout.activity_usage)
         SystemBarHelper.sync(this)
 
-        IconLoader.applySvg(findViewById(R.id.usageBackIcon), "arrow_left", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.usageBackIcon), "arrow_left", R.color.iconTint)
         findViewById<View>(R.id.usageBack).setOnClickListener { finish() }
         render()
     }
@@ -56,7 +56,7 @@ class UsageActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.usageTotal).text =
             if (totalMinutes < 60) "$totalMinutes min" else "${totalMinutes / 60} h ${totalMinutes % 60} min"
 
-        IconLoader.applySvg(findViewById(R.id.usagePieIcon), "chart_pie", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.usagePieIcon), "chart_pie", R.color.iconTint)
         findViewById<UsageChartView>(R.id.usageBars).setBarData(week, labels)
 
         val counts = UsageTracker.sourceCounts(this)
@@ -152,7 +152,11 @@ class UsageActivity : AppCompatActivity() {
             row.addView(time)
             row.setOnClickListener {
                 if (visit.link.isNotBlank()) runCatching {
-                    startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(visit.link)))
+                    val tab = BrowserTabStore.create(this@UsageActivity, visit.link)
+                    startActivity(android.content.Intent(this@UsageActivity, AppViewerActivity::class.java).apply {
+                        putExtra("browser_mode", true); putExtra("browser_tab_id", tab.id); putExtra("url", tab.url)
+                    })
+                    overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
                 }
             }
             val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)

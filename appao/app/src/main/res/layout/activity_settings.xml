@@ -36,16 +36,20 @@
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:orientation="vertical" android:paddingStart="16dp" android:paddingEnd="16dp" android:paddingBottom="32dp">
             <TextView style="@style/SettingsLabel" android:text="PREFERÊNCIAS"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowTheme" android:layout_marginBottom="5dp"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowAccent" android:layout_marginBottom="5dp"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowLang" android:layout_marginBottom="5dp"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowData" android:layout_marginBottom="5dp"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowTheme" android:layout_marginBottom="2dp"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowAccent" android:layout_marginBottom="2dp"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowLang" android:layout_marginBottom="2dp"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowData" android:layout_marginBottom="2dp"/>
+            <TextView style="@style/SettingsLabel" android:text="NAVEGAÇÃO"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowAdBlock" android:layout_marginBottom="2dp"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowSiteDark" android:layout_marginBottom="2dp"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowDownloads" android:layout_marginBottom="2dp"/>
             <TextView style="@style/SettingsLabel" android:text="ATIVIDADE E LOCALIZAÇÃO"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowUsage" android:layout_marginBottom="5dp"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowLoc" android:layout_marginBottom="5dp"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowUsage" android:layout_marginBottom="2dp"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowLoc" android:layout_marginBottom="2dp"/>
             <TextView style="@style/SettingsLabel" android:text="CONTA E POLÍTICAS"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowAccount" android:layout_marginBottom="5dp"/>
-            <include layout="@layout/row_setting" android:id="@+id/rowTerms" android:layout_marginBottom="5dp"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowAccount" android:layout_marginBottom="2dp"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowTerms" android:layout_marginBottom="2dp"/>
         </LinearLayout>
     </com.appao.BounceScrollView>
 </LinearLayout>

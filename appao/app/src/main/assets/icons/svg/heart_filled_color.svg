@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-<defs><linearGradient id="heartGradient" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#F52EC2"/><stop offset="48%" stop-color="#FC4EA3"/><stop offset="100%" stop-color="#FF806F"/></linearGradient></defs>
-<path d="M98,49 L79,58 L62,70 L43,90 L33,106 L27,120 L21,147 L20,183 L24,210 L32,237 L44,264 L58,288 L76,313 L98,339 L135,376 L170,406 L219,444 L256,470 L332,413 L381,371 L421,330 L455,286 L467,266 L478,243 L485,224 L491,198 L492,161 L489,142 L484,125 L477,109 L467,93 L448,72 L429,58 L408,48 L391,43 L375,41 L356,41 L332,45 L316,51 L302,58 L284,71 L270,85 L255,107 L242,87 L224,69 L205,56 L190,49 L170,43 L155,41 L124,42Z" fill="url(#heartGradient)" fill-rule="evenodd"/>
-</svg>

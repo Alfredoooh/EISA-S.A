@@ -3,6 +3,8 @@ package com.appao
 import android.app.Activity
 import android.view.ViewGroup
 import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.webkit.WebChromeClient
 import java.lang.ref.WeakReference
 
 /** Keeps one live WebView per browser tab so tab selection preserves DOM, scroll position and back/forward state. */
@@ -32,7 +34,7 @@ object BrowserWebViewPool {
         val existing = views[toId]
         if (existing != null && existing !== view) {
             runCatching { (existing.parent as? ViewGroup)?.removeView(existing) }
-            runCatching { existing.stopLoading(); existing.webViewClient = null; existing.webChromeClient = null; existing.destroy() }
+            runCatching { existing.stopLoading(); existing.webViewClient = WebViewClient(); existing.webChromeClient = WebChromeClient(); existing.destroy() }
         }
         views[toId] = view
         owners[toId] = WeakReference(owner)
@@ -48,7 +50,7 @@ object BrowserWebViewPool {
         owners.remove(tabId)
         val view = views.remove(tabId) ?: return
         runCatching { (view.parent as? ViewGroup)?.removeView(view) }
-        runCatching { view.stopLoading(); view.webViewClient = null; view.webChromeClient = null; view.setDownloadListener(null); view.destroy() }
+        runCatching { view.stopLoading(); view.webViewClient = WebViewClient(); view.webChromeClient = WebChromeClient(); view.setDownloadListener(null); view.destroy() }
     }
 
     @Synchronized fun clearExcept(tabIdToKeep: String? = null) {

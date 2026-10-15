@@ -10,6 +10,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.net.Uri
 import android.os.Bundle
+import android.os.Build
 import android.os.Environment
 import android.view.Gravity
 import android.view.View
@@ -27,6 +28,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
+import android.webkit.WebSettings
 import android.webkit.WebViewClient
 import android.widget.EditText
 import android.widget.ImageView
@@ -40,8 +42,6 @@ import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import androidx.webkit.WebSettingsCompat
-import androidx.webkit.WebViewFeature
 import java.io.ByteArrayInputStream
 import java.net.URLEncoder
 
@@ -390,15 +390,18 @@ class AppViewerActivity : AppCompatActivity() {
         return blockedHosts.any { host == it || host.endsWith(".$it") }
     }
 
+    @Suppress("DEPRECATION")
     private fun applyBrowserPreferences() {
         if (!::web.isInitialized) return
         val forceDark = BrowserPreferences.forceDarkEnabled(this)
         val settings = web.settings
         runCatching {
-            if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
-                WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, forceDark)
-            } else if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
-                WebSettingsCompat.setForceDark(settings, if (forceDark) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF)
+            // Use the platform WebSettings API so this browser preference does
+            // not require AndroidX WebKit classes to be present at compile time.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                settings.algorithmicDarkeningAllowed = forceDark
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                settings.forceDark = if (forceDark) WebSettings.FORCE_DARK_ON else WebSettings.FORCE_DARK_OFF
             }
         }
     }

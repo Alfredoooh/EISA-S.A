@@ -55,5 +55,44 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'com.github.bumptech.glide:glide:4.16.0'
-    implementation 'com.caverock:androidsvg-aar:1.4'
+    implementation 'androidx.webkit:webkit:1.12.1'
 }
+
+
+// Download only the official Remix Icon font at build time. The app uses glyphs from
+// the font instead of packaged SVG/PNG interface icons, so vector quality is preserved.
+def remixFontFile = file("src/main/assets/fonts/remixicon.ttf")
+tasks.register("downloadRemixIconFont") {
+    outputs.file(remixFontFile)
+    doLast {
+        if (!remixFontFile.exists() || remixFontFile.length() < 10000L) {
+            remixFontFile.parentFile.mkdirs()
+            def candidates = [
+                "https://raw.githubusercontent.com/Remix-Design/RemixIcon/v4.9.1/fonts/remixicon.ttf",
+                "https://cdn.jsdelivr.net/gh/Remix-Design/RemixIcon@v4.9.1/fonts/remixicon.ttf"
+            ]
+            Exception last = null
+            boolean downloaded = false
+            candidates.each { urlText ->
+                if (!downloaded) {
+                    try {
+                        def connection = new URL(urlText).openConnection()
+                        connection.setConnectTimeout(15000)
+                        connection.setReadTimeout(30000)
+                        connection.setRequestProperty("User-Agent", "AppAo-Gradle/1.0")
+                        connection.getInputStream().withCloseable { input ->
+                            remixFontFile.withOutputStream { output -> output << input }
+                        }
+                        if (remixFontFile.length() < 10000L) throw new GradleException("Downloaded Remix Icon font is unexpectedly small")
+                        downloaded = true
+                    } catch (Exception ex) {
+                        last = ex
+                        remixFontFile.delete()
+                    }
+                }
+            }
+            if (!downloaded) throw new GradleException("Unable to download official Remix Icon v4.9.1 font. Check GitHub Actions network access.", last)
+        }
+    }
+}
+tasks.named("preBuild").configure { dependsOn(tasks.named("downloadRemixIconFont")) }

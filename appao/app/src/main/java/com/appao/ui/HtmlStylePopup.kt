@@ -105,7 +105,7 @@ object HtmlStylePopup {
             isFillViewport = false
             overScrollMode = View.OVER_SCROLL_NEVER
             clipToPadding = false
-            addView(rowsContainer, ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(rowsContainer, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
         root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
@@ -343,7 +343,7 @@ object HtmlStylePopup {
         val top = (topScreen - windowOriginY).coerceAtLeast(edge)
         // Prepare the menu transform before the window is shown to avoid a
         // one-frame flash. Background dimming itself remains fully native.
-        root.pivotX = (anchorCenterX - leftScreen).coerceIn(0f, width.toFloat())
+        root.pivotX = (anchorCenterX - leftScreen).toFloat().coerceIn(0f, width.toFloat())
         root.pivotY = height / 2f
         root.scaleX = 0.96f
         root.scaleY = 0.96f

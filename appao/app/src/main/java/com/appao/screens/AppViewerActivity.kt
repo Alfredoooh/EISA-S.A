@@ -721,7 +721,7 @@ class AppViewerActivity : AppCompatActivity() {
 
         val scroll = ScrollView(this).apply { isFillViewport = false; overScrollMode = View.OVER_SCROLL_NEVER; isVerticalScrollBarEnabled = false }
         val actions = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        scroll.addView(actions, ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        scroll.addView(actions, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(430)))
 
         fun actionRow(icon: String, title: String, detail: String? = null, action: () -> Unit) {
@@ -1058,10 +1058,10 @@ class AppViewerActivity : AppCompatActivity() {
         fileChooserCallback = null
         if (::web.isInitialized && BrowserWebViewPool.contains(tabId) && BrowserWebViewPool.isOwner(tabId, this)) {
             BrowserWebViewPool.releaseOwner(tabId, this)
-            runCatching { web.webViewClient = null; web.webChromeClient = null; web.setDownloadListener(null) }
+            runCatching { web.webViewClient = WebViewClient(); web.webChromeClient = WebChromeClient(); web.setDownloadListener(null) }
             runCatching { (web.parent as? ViewGroup)?.removeView(web) }
         } else if (::web.isInitialized && !BrowserWebViewPool.contains(tabId)) {
-            runCatching { web.stopLoading(); web.webViewClient = null; web.webChromeClient = null; web.destroy() }
+            runCatching { web.stopLoading(); web.webViewClient = WebViewClient(); web.webChromeClient = WebChromeClient(); web.destroy() }
         }
         super.onDestroy()
     }

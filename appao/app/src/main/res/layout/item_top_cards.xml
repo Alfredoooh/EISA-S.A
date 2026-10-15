@@ -93,10 +93,9 @@
                     android:layout_marginTop="4dp"
                     android:text="Poupança de dados"
                     android:textColor="@color/text"
-                    android:textSize="10.5sp"
-                    android:textStyle="bold"
+                    android:textSize="10.5sp" android:textStyle="normal"
                     android:maxLines="2"
-                    android:ellipsize="end" />
+                    android:ellipsize="end"  android:fontFamily="sans-serif-medium"/>
 
                 <TextView
                     android:id="@+id/topSavingsState"
@@ -138,8 +137,7 @@
                     android:layout_marginTop="4dp"
                     android:text="Histórico"
                     android:textColor="@color/text"
-                    android:textSize="10.5sp"
-                    android:textStyle="bold" />
+                    android:textSize="10.5sp" android:textStyle="normal" android:fontFamily="sans-serif-medium"/>
 
                 <TextView
                     android:id="@+id/topHistoryState"

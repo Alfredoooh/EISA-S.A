@@ -27,8 +27,7 @@
         android:paddingBottom="16dp"
         android:text="Categoria"
         android:textColor="@color/text"
-        android:textSize="17sp"
-        android:textStyle="bold"/>
+        android:textSize="17sp" android:textStyle="normal" android:fontFamily="sans-serif-medium"/>
 
     <ScrollView
         android:layout_width="match_parent"

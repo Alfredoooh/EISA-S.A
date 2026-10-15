@@ -77,9 +77,8 @@
             android:maxLines="4"
             android:ellipsize="end"
             android:textColor="@color/text"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:lineSpacingMultiplier="1.28" />
+            android:textSize="16sp" android:textStyle="normal"
+            android:lineSpacingMultiplier="1.28"  android:fontFamily="sans-serif-medium"/>
 
         <FrameLayout
             android:id="@+id/imageCard"

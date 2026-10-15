@@ -55,7 +55,7 @@ class BrowserTabsActivity : AppCompatActivity() {
         titleBox.addView(TextView(this).apply {
             text = "Separadores"
             textSize = 20f
-            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL))
             setTextColor(ContextCompat.getColor(this@BrowserTabsActivity, R.color.text))
         })
         countLabel = TextView(this).apply {
@@ -222,7 +222,7 @@ class BrowserTabsActivity : AppCompatActivity() {
                 textSize = 12.5f
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
-                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL))
                 setTextColor(ContextCompat.getColor(this@BrowserTabsActivity, R.color.text))
                 setPadding(dp(7), 0, dp(3), 0)
             }

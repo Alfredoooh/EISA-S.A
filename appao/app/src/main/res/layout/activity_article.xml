@@ -115,9 +115,8 @@
                         android:paddingStart="16dp"
                         android:paddingEnd="16dp"
                         android:textColor="@color/text"
-                        android:textSize="21sp"
-                        android:textStyle="bold"
-                        android:lineSpacingMultiplier="1.12" />
+                        android:textSize="21sp" android:textStyle="normal"
+                        android:lineSpacingMultiplier="1.12"  android:fontFamily="sans-serif-medium"/>
 
                     <TextView
                         android:id="@+id/aSummary"
@@ -182,8 +181,7 @@
                                 android:layout_marginStart="8dp"
                                 android:text="Comentários"
                                 android:textColor="@color/text"
-                                android:textSize="16sp"
-                                android:textStyle="bold" />
+                                android:textSize="16sp" android:textStyle="normal" android:fontFamily="sans-serif-medium"/>
 
                             <TextView
                                 android:id="@+id/cCount"

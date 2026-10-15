@@ -37,8 +37,7 @@
                 android:layout_height="wrap_content"
                 android:text="Comentários"
                 android:textColor="@color/text"
-                android:textSize="18sp"
-                android:textStyle="bold" />
+                android:textSize="18sp" android:textStyle="normal" android:fontFamily="sans-serif-medium"/>
             <TextView
                 android:id="@+id/commentsArticleTitle"
                 android:layout_width="match_parent"

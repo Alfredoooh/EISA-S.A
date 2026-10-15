@@ -26,8 +26,7 @@
         android:layout_weight="1"
         android:layout_marginStart="12dp"
         android:textColor="@color/text"
-        android:textSize="14.5sp"
-        android:textStyle="bold" />
+        android:textSize="14.5sp" android:textStyle="normal" android:fontFamily="sans-serif-medium"/>
 
     <TextView
         android:id="@+id/rowValue"

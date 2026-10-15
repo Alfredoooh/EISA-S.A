@@ -197,8 +197,7 @@ object NativeSheetDialog {
                 gravity = Gravity.CENTER
                 textSize = 17f
                 setTypeface(
-                    android.graphics.Typeface.DEFAULT,
-                    android.graphics.Typeface.BOLD
+                    android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
                 )
                 setTextColor(
                     ContextCompat.getColor(

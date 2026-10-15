@@ -513,8 +513,8 @@ class NewsAdapter(
             )
             setTypeface(
                 Typeface.create(
-                    "sans-serif",
-                    Typeface.BOLD
+                    "sans-serif-medium",
+                    Typeface.NORMAL
                 )
             )
             setLineSpacing(0f, 1.25f)

@@ -639,7 +639,7 @@ class ArticleActivity : AppCompatActivity() {
             text = "Partilhar notícia"
             gravity = android.view.Gravity.CENTER
             textSize = 17f
-            setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+            setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL))
             setTextColor(ContextCompat.getColor(this@ArticleActivity, R.color.text))
             setPadding(dp(18), dp(12), dp(18), dp(16))
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -796,8 +796,7 @@ class ArticleActivity : AppCompatActivity() {
                     17f
 
                 setTypeface(
-                    android.graphics.Typeface.DEFAULT,
-                    android.graphics.Typeface.BOLD
+                    android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
                 )
 
                 setTextColor(

@@ -30,6 +30,8 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebSettings
 import android.webkit.WebViewClient
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
@@ -396,11 +398,11 @@ class AppViewerActivity : AppCompatActivity() {
         val forceDark = BrowserPreferences.forceDarkEnabled(this)
         val settings = web.settings
         runCatching {
-            // Use the platform WebSettings API so this browser preference does
-            // not require AndroidX WebKit classes to be present at compile time.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                settings.algorithmicDarkeningAllowed = forceDark
+            // Prefer WebView's algorithmic darkening API when the installed provider supports it.
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+                WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, forceDark)
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                @Suppress("DEPRECATION")
                 settings.forceDark = if (forceDark) WebSettings.FORCE_DARK_ON else WebSettings.FORCE_DARK_OFF
             }
         }

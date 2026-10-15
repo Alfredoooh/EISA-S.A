@@ -24,7 +24,7 @@
             android:layout_width="0dp" android:layout_height="wrap_content"
             android:layout_weight="1" android:layout_marginStart="8dp"
             android:text="Biblioteca"
-            android:textColor="@color/text" android:textSize="18sp" android:textStyle="bold"/>
+            android:textColor="@color/text" android:textSize="18sp" android:textStyle="normal" android:fontFamily="sans-serif-medium"/>
     </LinearLayout>
 
     <View android:layout_width="match_parent" android:layout_height="1dp"
@@ -56,7 +56,7 @@
                 android:layout_marginTop="16dp"
                 android:text="Nada guardado ainda"
                 android:gravity="center"
-                android:textColor="@color/text" android:textSize="16sp" android:textStyle="bold"/>
+                android:textColor="@color/text" android:textSize="16sp" android:textStyle="normal" android:fontFamily="sans-serif-medium"/>
 
             <TextView
                 android:layout_width="match_parent" android:layout_height="wrap_content"

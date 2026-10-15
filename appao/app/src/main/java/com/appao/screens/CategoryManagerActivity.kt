@@ -73,7 +73,7 @@ class CategoryManagerActivity : AppCompatActivity() {
                 text = category.label
                 setTextColor(ContextCompat.getColor(this@CategoryManagerActivity, R.color.text))
                 textSize = 14.5f
-                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL))
                 maxLines = 2
             })
             row.addView(labels, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))

@@ -47,20 +47,6 @@
                 android:textColorHint="@color/dim"
                 android:textSize="14sp"
                 android:padding="0dp" />
-            <FrameLayout
-                android:id="@+id/browserAddressAi"
-                android:layout_width="34dp"
-                android:layout_height="36dp"
-                android:background="@drawable/bg_transparent_pressed"
-                android:clickable="true"
-                android:focusable="true">
-                <ImageView
-                    android:id="@+id/browserAddressAiIcon"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:layout_gravity="center"
-                    android:scaleType="fitCenter" />
-            </FrameLayout>
         </LinearLayout>
 
         <FrameLayout
@@ -110,6 +96,49 @@
                 android:id="@+id/appViewerMoreIcon"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:scaleType="fitCenter" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/browserFindBar"
+        android:layout_width="match_parent"
+        android:layout_height="58dp"
+        android:layout_gravity="top"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:background="@color/bg"
+        android:visibility="gone">
+        <EditText
+            android:id="@+id/browserFindInput"
+            android:layout_width="0dp"
+            android:layout_height="42dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_toolbar_actions"
+            android:singleLine="true"
+            android:imeOptions="actionSearch"
+            android:inputType="text"
+            android:hint="Pesquisar nesta página"
+            android:textColor="@color/text"
+            android:textColorHint="@color/dim"
+            android:textSize="15sp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp" />
+        <FrameLayout
+            android:id="@+id/browserFindClose"
+            android:layout_width="42dp"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_transparent_pressed"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="Fechar pesquisa">
+            <ImageView
+                android:id="@+id/browserFindCloseIcon"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
                 android:layout_gravity="center"
                 android:scaleType="fitCenter" />
         </FrameLayout>

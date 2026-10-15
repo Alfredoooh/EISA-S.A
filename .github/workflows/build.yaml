@@ -24,7 +24,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.client_payload.branch }}
+          ref: ${{ github.event.client_payload.branch || github.ref_name }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -43,64 +43,94 @@ jobs:
           set -euo pipefail
           PROJECT_DIR="$GITHUB_WORKSPACE/appao"
           if [ ! -d "$PROJECT_DIR/app" ]; then PROJECT_DIR="$GITHUB_WORKSPACE"; fi
+          if [ -d "$PROJECT_DIR/app/src/main" ]; then
+            APP_MODULE_DIR="$PROJECT_DIR/app"
+          elif [ -d "$PROJECT_DIR/src/main" ]; then
+            APP_MODULE_DIR="$PROJECT_DIR"
+          else
+            echo "ERROR: No Android module was found below $PROJECT_DIR."
+            exit 1
+          fi
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$PROJECT_DIR/local.properties"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "APP_MODULE_DIR=$APP_MODULE_DIR" >> "$GITHUB_ENV"
 
-      - name: Download official Remix Icon font
+      - name: Download official Ionicons SVG assets
         env:
-          REMIX_ICON_VERSION: "v4.9.1"
+          IONICONS_VERSION: "v8.0.13"
         run: |
           set -euo pipefail
 
-          # The Android module loads this font from assets/fonts/remixicon.ttf.
-          # Keep the font version pinned so the codepoints used by IconLoader.kt
-          # remain consistent between builds.
-          APP_MODULE_DIR="$PROJECT_DIR/app"
-          if [ ! -d "$APP_MODULE_DIR/src/main" ] && [ -d "$PROJECT_DIR/src/main" ]; then
-            APP_MODULE_DIR="$PROJECT_DIR"
-          fi
-          if [ ! -d "$APP_MODULE_DIR/src/main" ]; then
+          if [ -z "${APP_MODULE_DIR:-}" ] || [ ! -d "$APP_MODULE_DIR/src/main" ]; then
             echo "ERROR: Could not find the Android module src/main directory."
             exit 1
           fi
 
-          FONT_DIR="$APP_MODULE_DIR/src/main/assets/fonts"
-          FONT_FILE="$FONT_DIR/remixicon.ttf"
-          TEMP_FONT="$FONT_FILE.download"
-          mkdir -p "$FONT_DIR"
-          rm -f "$TEMP_FONT"
-
-          URLS=(
-            "https://raw.githubusercontent.com/Remix-Design/RemixIcon/${REMIX_ICON_VERSION}/fonts/remixicon.ttf"
-            "https://cdn.jsdelivr.net/gh/Remix-Design/RemixIcon@${REMIX_ICON_VERSION}/fonts/remixicon.ttf"
+          ICON_DIR="$APP_MODULE_DIR/src/main/assets/icons/ionicons"
+          mkdir -p "$ICON_DIR"
+          ICONS=(
+            "menu-outline" "ellipsis-vertical-outline" "ellipsis-horizontal-outline" "arrow-back-outline" "arrow-forward-outline" "arrow-up-outline"
+            "arrow-down-outline" "chevron-down-outline" "open-outline" "add-outline" "add-circle-outline" "search-outline"
+            "home-outline" "home" "apps-outline" "apps" "compass-outline" "compass"
+            "flame-outline" "sparkles-outline" "create-outline" "settings-outline" "contrast-outline" "language-outline"
+            "globe-outline" "location-outline" "funnel-outline" "options-outline" "camera-outline" "folder-outline"
+            "archive-outline" "bookmark-outline" "bookmark" "heart-outline" "heart" "pie-chart-outline"
+            "bar-chart-outline" "checkmark-outline" "checkmark-circle-outline" "close-outline" "close-circle-outline" "link-outline"
+            "share-social-outline" "refresh-outline" "trash-outline" "document-text-outline" "reader-outline" "newspaper-outline"
+            "person-outline" "person-circle-outline" "speedometer-outline" "lock-closed-outline" "lock-open-outline" "image-outline"
+            "attach-outline" "moon-outline" "sunny-outline" "shield-checkmark-outline" "download-outline" "file-tray-full-outline"
+            "expand-outline" "contract-outline" "arrow-undo-outline" "arrow-redo-outline" "time-outline" "chatbubble-outline"
+            "chatbubbles-outline" "rocket-outline" "notifications-outline" "eye-outline" "eye-off-outline" "wifi-outline"
+            "calendar-outline" "copy-outline" "desktop-outline" "key-outline" "swap-vertical-outline" "mail-outline"
+            "paper-plane-outline" "bluetooth-outline" "logo-google"
           )
-          DOWNLOADED=false
-          for url in "${URLS[@]}"; do
-            echo "Downloading Remix Icon font ${REMIX_ICON_VERSION}..."
-            if curl --fail --location --silent --show-error \
-                --retry 2 --retry-delay 2 --connect-timeout 15 --max-time 90 \
-                --user-agent "AppAo-GitHub-Actions/1.0" \
-                "$url" --output "$TEMP_FONT"; then
-              SIZE="$(stat -c%s "$TEMP_FONT")"
-              SIGNATURE="$(od -An -tx1 -N4 "$TEMP_FONT" | tr -d ' \n')"
-              if [ "$SIZE" -ge 10000 ] && [[ "$SIGNATURE" == "00010000" || "$SIGNATURE" == "4f54544f" || "$SIGNATURE" == "74727565" ]]; then
-                DOWNLOADED=true
-                break
-              fi
-              echo "Downloaded file failed font validation (size=$SIZE, signature=$SIGNATURE)."
+
+          for icon in "${ICONS[@]}"; do
+            target="$ICON_DIR/$icon.svg"
+            if [ -s "$target" ] && grep -q '<svg' "$target"; then
+              echo "Using cached Ionicon: $icon"
+              continue
             fi
-            rm -f "$TEMP_FONT"
+            tmp="$target.download"
+            rm -f "$tmp"
+            urls=(
+              "https://cdn.jsdelivr.net/npm/ionicons@8.0.13/dist/ionicons/svg/$icon.svg"
+              "https://raw.githubusercontent.com/ionic-team/ionicons/$IONICONS_VERSION/src/svg/$icon.svg"
+            )
+            downloaded=false
+            for url in "${urls[@]}"; do
+              if curl --fail --location --silent --show-error \
+                  --retry 2 --retry-delay 1 --connect-timeout 15 --max-time 60 \
+                  --user-agent "AppAo-GitHub-Actions/1.0" "$url" --output "$tmp"; then
+                if [ -s "$tmp" ] && grep -q '<svg' "$tmp" && [ "$(wc -c < "$tmp")" -gt 80 ]; then
+                  downloaded=true
+                  break
+                fi
+              fi
+              rm -f "$tmp"
+            done
+            if [ "$downloaded" != "true" ]; then
+              echo "ERROR: Could not download a valid Ionicons SVG for $icon from the pinned official release."
+              exit 1
+            fi
+            mv "$tmp" "$target"
+            chmod 644 "$target"
           done
 
-          if [ "$DOWNLOADED" != "true" ]; then
-            echo "ERROR: Could not download a valid Remix Icon TTF from either pinned source."
-            exit 1
-          fi
+          LICENSE_FILE="$APP_MODULE_DIR/IONICONS_LICENSE.txt"
+          if [ ! -s "$LICENSE_FILE" ]; then
+            cat > "$LICENSE_FILE" <<'LICENSE'
+          Ionicons
+          Copyright (c) 2015-present Ionic
 
-          mv "$TEMP_FONT" "$FONT_FILE"
-          chmod 644 "$FONT_FILE"
-          echo "Remix Icon font ready: $FONT_FILE ($(stat -c%s "$FONT_FILE") bytes)"
-          echo "Remix Icon font signature: $(od -An -tx1 -N4 "$FONT_FILE" | tr -d ' \n')"
+          Ionicons is distributed under the MIT License. The official icon set and license are available at:
+          https://github.com/ionic-team/ionicons
+
+          The build downloads only the required SVG assets from the pinned upstream release v8.0.13.
+          No Flaticon assets are scraped or bundled.
+          LICENSE
+          fi
+          echo "Ionicons SVG assets downloaded and validated: ${#ICONS[@]} files."
 
       - name: Generate official Gradle Wrapper
         run: |
@@ -203,8 +233,6 @@ jobs:
           and LOOPLY_KEY_PASSWORD to the key password (the same as the keystore password for this generated key).
           EOF
             chmod 600 "$INFO_PATH"
-            # Also include Base64 text so it can be copied into a GitHub Secret
-            # without requiring a terminal on the user's device.
             base64 -w 0 "$KEYSTORE_PATH" > "$SIGNING_DIR/appao-local.keystore.base64.txt"
             chmod 600 "$SIGNING_DIR/appao-local.keystore.base64.txt"
             GENERATED=true
@@ -264,7 +292,7 @@ jobs:
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          APK_DIR="$PROJECT_DIR/app/build/outputs/apk/debug"
+          APK_DIR="$APP_MODULE_DIR/build/outputs/apk/debug"
           APK="$(find "$APK_DIR" -maxdepth 1 -type f -name '*-debug.apk' ! -name 'appao-local-signed.apk' -print -quit)"
           if [ -z "$APK" ] || [ ! -s "$APK" ]; then
             echo "ERROR: The Debug APK was not found in $APK_DIR."
@@ -299,7 +327,7 @@ jobs:
       - name: Verify APK size
         run: |
           set -euo pipefail
-          APK="$PROJECT_DIR/app/build/outputs/apk/debug/appao-local-signed.apk"
+          APK="$APP_MODULE_DIR/build/outputs/apk/debug/appao-local-signed.apk"
           if [ ! -s "$APK" ]; then
             echo "ERROR: Signed local APK was not generated."
             exit 1
@@ -322,7 +350,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: appao-local-signed-apk
-          path: '**/app/build/outputs/apk/debug/appao-local-signed.apk'
+          path: '**/build/outputs/apk/debug/appao-local-signed.apk'
           if-no-files-found: error
           retention-days: 30
 

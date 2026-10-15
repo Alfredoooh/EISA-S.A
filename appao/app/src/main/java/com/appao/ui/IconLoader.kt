@@ -4,180 +4,164 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.LinearGradient
-import android.graphics.Paint
-import android.graphics.PorterDuff
-import android.graphics.Rect
-import android.graphics.Shader
-import android.graphics.Typeface
+import android.graphics.ColorFilter
+import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.util.LruCache
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
+import com.caverock.androidsvg.SVG
 import java.util.Locale
 
 /**
- * Renders UI icons from the official Remix Icon font at the view's actual bounds.
- * The font is downloaded from the pinned official Remix Icon release by the Gradle
- * preBuild task; no SVG or raster icon assets are used for app UI.
+ * Native SVG icon renderer backed by the official Ionicons SVG pack.
+ * The Gradle preBuild task downloads only the SVGs referenced below from the
+ * pinned Ionicons release; no font glyphs, runtime network access, or raster
+ * icon files are required.
  */
 object IconLoader {
-    private val bitmapCache = LruCache<String, Bitmap>(48)
-    @Volatile private var cachedTypeface: Typeface? = null
-
-    private val glyphs: Map<String, Int> = mapOf(
-        "menu" to 0xEF3E, "more_vert" to 0xEF77, "more_horizontal" to 0xEF79,
-        "arrow_left" to 0xEA60, "arrow_right" to 0xEA6C, "arrow_up" to 0xEA76,
-        "arrow_down" to 0xEA4C, "arrow_down2" to 0xEA4E,
-        "arrow_top_right" to 0xEA70, "arrow_top_right2" to 0xECAF,
-        "plus" to 0xEA13, "add" to 0xEA13, "search" to 0xF0D1,
-        "search_line" to 0xF0D1, "home" to 0xEE2B, "home_filled" to 0xEE26,
-        "apps" to 0xEA44, "apps_filled" to 0xEA43,
-        "compass" to 0xEBBE, "compass_filled" to 0xEBC3,
-        "flame" to 0xED33, "fire" to 0xED33, "sparkles" to 0xF36B,
-        "write" to 0xEFE0, "edit" to 0xEFE0, "edit_square" to 0xEC82,
-        "settings" to 0xF0E6, "contrast" to 0xEBD4, "language" to 0xEDCF,
-        "location" to 0xEF14, "filters" to 0xED27, "filter" to 0xED27,
-        "camera" to 0xEB31, "folder" to 0xED6A, "archive" to 0xEA48,
-        "bookmark" to 0xEAE5, "heart" to 0xEE0F, "heart_filled" to 0xEE0E,
-        "heart_filled_color" to 0xEE0E, "chart_pie" to 0xEFFA,
-        "chart_bars" to 0xEA96, "check_mark" to 0xEB7B,
-        "check_mark_circle" to 0xEB81, "close" to 0xEB99,
-        "close_circle_mini" to 0xEB97, "link" to 0xEEAF,
-        "share" to 0xF0FE, "refresh" to 0xF064, "trash_bin" to 0xEC2A, "delete_bin" to 0xEC2A,
-        "file_text" to 0xED0F, "profile" to 0xF256, "user" to 0xF264,
-        "speedometer" to 0xF371, "locked" to 0xEECE, "no_locked" to 0xEED2,
-        "image" to 0xEE4B, "attachment" to 0xEA86,
-        "translate" to 0xF226, "moon" to 0xEF75, "sun" to 0xF1BF,
-        "shield_check" to 0xF100, "download" to 0xEC5A,
-        "download_2" to 0xEC54, "external_link" to 0xECAF,
-        "zoom_in" to 0xF2DB, "zoom_out" to 0xF2DD,
-        "arrow_go_back" to 0xEA58, "arrow_go_forward" to 0xEA5A,
-        "history" to 0xEE17, "message_new" to 0xEB63,
-        "new_chat" to 0xEC82, "file_list" to 0xECEF, "terms" to 0xECEF,
-        "global" to 0xEDCF, "browser" to 0xEC7A,
-        "rocket" to 0xF094, "clear" to 0xEC2A,
-        "account_circle" to 0xEA09, "notification" to 0xEF94,
-        "eye" to 0xECB5, "eye_off" to 0xECB7,
-        "archive_box" to 0xEA48, "pencil" to 0xEFE0,
-        "bookmark_filled" to 0xEAE4, "back" to 0xEA60,
-        "forward" to 0xEA6C, "check" to 0xEB7B,
-        "arrow_up_right" to 0xEA70, "map_pin" to 0xEF14,
-        "chat" to 0xEB51, "chat_history" to 0xEB61,
-        "download_folder" to 0xED60, "newspaper" to 0xEF8F,
-        "article" to 0xEA7E, "settings_list" to 0xEEBD,
-        "wifi" to 0xF2A5, "calendar" to 0xEB27,
-        "time" to 0xF20F, "globe" to 0xEDD1,
-        "check_circle" to 0xEB81, "plus_circle" to 0xEA11,
-        "filter_settings" to 0xED25, "menu_line" to 0xEF3E,
-        "apps_line" to 0xEA44, "apps_fill" to 0xEA43,
-        "compass_line" to 0xEBC4, "compass_fill" to 0xEBC3,
-        "heart_line" to 0xEE0F, "heart_fill" to 0xEE0E,
-        "history_line" to 0xEE17, "settings_line" to 0xF0E6,
-        "fire_line" to 0xED33, "sparkling_2_line" to 0xF36B
+    private val sourceCache = LruCache<String, String>(96)
+    private val aliases: Map<String, String> = mapOf(
+        "menu" to "menu-outline", "menu_line" to "menu-outline",
+        "more_vert" to "ellipsis-vertical-outline", "more_horizontal" to "ellipsis-horizontal-outline",
+        "arrow_left" to "arrow-back-outline", "back" to "arrow-back-outline",
+        "arrow_right" to "arrow-forward-outline", "forward" to "arrow-forward-outline",
+        "arrow_up" to "arrow-up-outline", "arrow_down" to "arrow-down-outline",
+        "arrow_down2" to "chevron-down-outline", "arrow_top_right" to "arrow-up-outline",
+        "arrow_top_right2" to "open-outline", "arrow_up_right" to "open-outline",
+        "plus" to "add-outline", "add" to "add-outline", "plus_circle" to "add-circle-outline",
+        "search" to "search-outline", "search_line" to "search-outline",
+        "home" to "home-outline", "home_filled" to "home",
+        "apps" to "apps-outline", "apps_line" to "apps-outline", "apps-outline" to "apps-outline",
+        "apps_filled" to "apps", "apps_fill" to "apps",
+        "compass" to "compass-outline", "compass_line" to "compass-outline",
+        "compass_filled" to "compass", "compass_fill" to "compass",
+        "flame" to "flame-outline", "fire" to "flame-outline", "fire_line" to "flame-outline",
+        "sparkles" to "sparkles-outline", "sparkling_2_line" to "sparkles-outline",
+        "write" to "create-outline", "edit" to "create-outline", "pencil" to "create-outline",
+        "edit_square" to "create-outline", "settings" to "settings-outline", "settings_line" to "settings-outline",
+        "contrast" to "contrast-outline", "language" to "language-outline", "global" to "globe-outline", "globe" to "globe-outline",
+        "location" to "location-outline", "map_pin" to "location-outline",
+        "filters" to "funnel-outline", "filter" to "funnel-outline", "filter_settings" to "options-outline",
+        "camera" to "camera-outline", "folder" to "folder-outline", "archive" to "archive-outline", "archive_box" to "archive-outline",
+        "bookmark" to "bookmark-outline", "bookmark_filled" to "bookmark",
+        "heart" to "heart-outline", "heart_line" to "heart-outline", "heart_filled" to "heart", "heart_fill" to "heart", "heart_filled_color" to "heart",
+        "chart_pie" to "pie-chart-outline", "chart_bars" to "bar-chart-outline",
+        "check_mark" to "checkmark-outline", "check" to "checkmark-outline",
+        "check_mark_circle" to "checkmark-circle-outline", "check_circle" to "checkmark-circle-outline",
+        "close" to "close-outline", "close_circle_mini" to "close-circle-outline",
+        "link" to "link-outline", "share" to "share-social-outline", "refresh" to "refresh-outline",
+        "trash_bin" to "trash-outline", "delete_bin" to "trash-outline", "clear" to "trash-outline",
+        "file_text" to "document-text-outline", "terms" to "document-text-outline", "file_list" to "reader-outline", "article" to "reader-outline", "newspaper" to "newspaper-outline",
+        "profile" to "person-outline", "user" to "person-outline", "person-circle" to "person-circle-outline", "account_circle" to "person-circle-outline",
+        "speedometer" to "speedometer-outline", "locked" to "lock-closed-outline", "no_locked" to "lock-open-outline",
+        "image" to "image-outline", "attachment" to "attach-outline", "translate" to "language-outline",
+        "moon" to "moon-outline", "sun" to "sunny-outline", "shield_check" to "shield-checkmark-outline",
+        "download" to "download-outline", "download_2" to "download-outline", "download_folder" to "file-tray-full-outline",
+        "external_link" to "open-outline", "zoom_in" to "expand-outline", "zoom_out" to "contract-outline",
+        "arrow_go_back" to "arrow-undo-outline", "arrow_go_forward" to "arrow-redo-outline",
+        "history" to "time-outline", "history_line" to "time-outline", "time" to "time-outline",
+        "message_new" to "create-outline", "new_chat" to "create-outline", "chat" to "chatbubble-outline", "chat_history" to "chatbubbles-outline",
+        "browser" to "globe-outline", "rocket" to "rocket-outline", "notification" to "notifications-outline",
+        "downloads" to "download-outline", "desktop" to "desktop-outline", "key" to "key-outline",
+        "eye" to "eye-outline", "eye_off" to "eye-off-outline", "settings_list" to "options-outline",
+        "wifi" to "wifi-outline", "calendar" to "calendar-outline", "copy" to "copy-outline",
+        "apps_filled_color" to "apps", "compass_line_color" to "compass-outline"
     )
 
-    fun clearMemory() {
-        bitmapCache.evictAll()
+    fun clearMemory() { sourceCache.evictAll() }
+
+    private fun normalizedName(name: String): String = name.lowercase(Locale.ROOT).trim().replace('-', '_')
+
+    private fun source(context: Context, name: String): String? {
+        val iconFile = aliases[normalizedName(name)] ?: run {
+            val direct = name.lowercase(Locale.ROOT).trim()
+            if (direct.matches(Regex("[a-z0-9-]+"))) direct else return null
+        }
+        sourceCache.get(iconFile)?.let { return it }
+        val xml = runCatching {
+            context.assets.open("icons/ionicons/$iconFile.svg").bufferedReader(Charsets.UTF_8).use { it.readText() }
+                .replace("currentColor", "#${Integer.toHexString(ContextCompat.getColor(context, R.color.iconTint)).takeLast(6)}")
+        }.getOrNull() ?: return null
+        sourceCache.put(iconFile, xml)
+        return xml
     }
-
-    private fun typeface(context: Context): Typeface? {
-        cachedTypeface?.let { return it }
-        return runCatching {
-            Typeface.createFromAsset(context.assets, "fonts/remixicon.ttf").also {
-                cachedTypeface = it
-            }
-        }.getOrNull()
-    }
-
-    private fun normalizedName(name: String): String = name.lowercase(Locale.ROOT)
-        .replace('-', '_').trim()
-
-    private fun codepoint(name: String): Int? = glyphs[normalizedName(name)]
 
     private fun drawable(context: Context, name: String, tint: Int): Drawable? {
-        val font = typeface(context) ?: return null
-        val cp = codepoint(name) ?: return null
-        return RemixGlyphDrawable(font, String(Character.toChars(cp)), tint, normalizedName(name) == "heart_filled_color")
+        val iconFile = aliases[normalizedName(name)] ?: run {
+            val direct = name.lowercase(Locale.ROOT).trim()
+            if (direct.matches(Regex("[a-z0-9-]+"))) direct else return null
+        }
+        val raw = sourceCache.get(iconFile) ?: runCatching {
+            context.assets.open("icons/ionicons/$iconFile.svg").bufferedReader(Charsets.UTF_8).use { it.readText() }
+        }.getOrNull()?.also { sourceCache.put(iconFile, it) } ?: return null
+        val colorized = raw
+            .replace("currentColor", String.format(Locale.US, "#%06X", 0xFFFFFF and tint))
+            .replace("#000000", String.format(Locale.US, "#%06X", 0xFFFFFF and tint))
+        return runCatching { IonSvgDrawable(colorized, tint) }.getOrNull()
     }
 
-    /** High-quality bitmap variant for compact UI (for example snackbars). */
     fun iconBitmap(context: Context, name: String, sizePx: Int, strokeScale: Float = 1f): Bitmap? {
-        val normalized = normalizedName(name)
-        val key = "$normalized:$sizePx:$strokeScale"
-        bitmapCache.get(key)?.let { return it }
-        val glyph = drawable(context, normalized, ContextCompat.getColor(context, R.color.iconTint)) ?: return null
-        val scaleSize = (sizePx * 3).coerceAtLeast(72)
-        val large = Bitmap.createBitmap(scaleSize, scaleSize, Bitmap.Config.ARGB_8888)
-        glyph.setBounds(0, 0, scaleSize, scaleSize)
-        Canvas(large).drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
-        glyph.draw(Canvas(large))
-        val result = Bitmap.createScaledBitmap(large, sizePx.coerceAtLeast(1), sizePx.coerceAtLeast(1), true)
-        if (result !== large) large.recycle()
-        bitmapCache.put(key, result)
-        return result
+        val size = sizePx.coerceAtLeast(1)
+        val icon = drawable(context, name, ContextCompat.getColor(context, R.color.iconTint)) ?: return null
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        icon.setBounds(0, 0, size, size)
+        icon.draw(Canvas(bitmap))
+        return bitmap
     }
 
     fun applyIcon(view: ImageView, name: String, tintRes: Int = 0) {
         val tint = if (tintRes != 0) ContextCompat.getColor(view.context, tintRes)
         else ContextCompat.getColor(view.context, R.color.iconTint)
-        val normalized = normalizedName(name)
-        val icon = drawable(view.context, normalized, tint)
+        val icon = drawable(view.context, name, tint)
         if (icon != null) {
-            icon.setBounds(0, 0, resolveSize(view), resolveSize(view))
+            val size = resolveSize(view)
+            icon.setBounds(0, 0, size, size)
             view.setImageDrawable(icon)
             view.clearColorFilter()
         } else {
             view.clearColorFilter()
-            view.setImageDrawable(FallbackIconDrawable(normalized, tint))
+            view.setImageDrawable(FallbackIconDrawable(normalizedName(name), tint))
         }
     }
 
-    /** Remix Icon font outlines are crisp already; this sizing variant is for thin toolbar glyphs. */
     fun applyIconThin(view: ImageView, name: String, tintRes: Int = 0) {
+        // Outline SVGs already provide the thin visual weight; keep the same optical size everywhere.
         applyIcon(view, name, tintRes)
-        view.scaleX = 0.94f
-        view.scaleY = 0.94f
+        view.scaleX = 1f
+        view.scaleY = 1f
     }
 
     private fun resolveSize(view: ImageView): Int {
+        val target = (22f * view.resources.displayMetrics.density + 0.5f).toInt().coerceAtLeast(1)
         val lp = view.layoutParams
         val width = lp?.width?.takeIf { it > 0 } ?: view.width
-        return width.takeIf { it > 0 } ?: 96
+        val height = lp?.height?.takeIf { it > 0 } ?: view.height
+        val available = listOf(width, height).filter { it > 0 }.minOrNull()
+        return if (available == null) target else minOf(target, available)
     }
 
-    private class RemixGlyphDrawable(
-        private val font: Typeface,
-        private val glyph: String,
-        private val tint: Int,
-        private val gradientHeart: Boolean
-    ) : Drawable() {
-        private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
-            typeface = font
-            textAlign = Paint.Align.CENTER
-            style = Paint.Style.FILL
-            color = tint
-        }
+
+    private class IonSvgDrawable(private val source: String, private val tint: Int) : Drawable() {
+        private val svg: SVG = SVG.getFromString(source)
+        private var drawableAlpha = 255
+        private var filter: ColorFilter? = null
 
         override fun draw(canvas: Canvas) {
             val b = bounds
             if (b.width() <= 0 || b.height() <= 0) return
-            val width = b.width().toFloat()
-            val height = b.height().toFloat()
-            paint.textSize = minOf(width, height) * 0.92f
-            paint.shader = if (gradientHeart) LinearGradient(
-                b.left.toFloat(), b.top.toFloat(), b.right.toFloat(), b.bottom.toFloat(),
-                intArrayOf(Color.rgb(255, 70, 105), Color.rgb(244, 58, 100), Color.rgb(255, 135, 93)),
-                null, Shader.TileMode.CLAMP
-            ) else null
-            val fm = paint.fontMetrics
-            val baseline = b.exactCenterY() - (fm.ascent + fm.descent) / 2f
-            canvas.drawText(glyph, b.exactCenterX(), baseline, paint)
-            paint.shader = null
+            val checkpoint = canvas.save()
+            if (drawableAlpha < 255) canvas.saveLayerAlpha(b.left.toFloat(), b.top.toFloat(), b.right.toFloat(), b.bottom.toFloat(), drawableAlpha)
+            val oldFilter = filter
+            if (oldFilter != null) {
+                // SVG is already tint-coloured. The custom filter is retained for Drawable API correctness.
+            }
+            svg.renderToCanvas(canvas, RectF(b.left.toFloat(), b.top.toFloat(), b.right.toFloat(), b.bottom.toFloat()))
+            canvas.restoreToCount(checkpoint)
         }
 
-        override fun setAlpha(alpha: Int) { paint.alpha = alpha; invalidateSelf() }
-        override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) { paint.colorFilter = colorFilter; invalidateSelf() }
+        override fun setAlpha(alpha: Int) { drawableAlpha = alpha.coerceIn(0, 255); invalidateSelf() }
+        override fun setColorFilter(colorFilter: ColorFilter?) { filter = colorFilter; invalidateSelf() }
         @Deprecated("Deprecated in Java") override fun getOpacity(): Int = android.graphics.PixelFormat.TRANSLUCENT
     }
 }

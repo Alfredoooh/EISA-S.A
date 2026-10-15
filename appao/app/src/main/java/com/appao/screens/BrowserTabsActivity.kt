@@ -126,20 +126,39 @@ class BrowserTabsActivity : AppCompatActivity() {
 
     private fun refreshTabs() {
         if (!::adapter.isInitialized) return
-        val tabs = BrowserTabStore.tabs(this)
-        adapter.submit(tabs)
-        countLabel.text = if (tabs.size == 1) "1 separador aberto" else "${tabs.size} separadores abertos"
+        val realTabs = BrowserTabStore.tabs(this)
+        // The app home is a first-class card in the tab overview, but is not stored as a WebView tab.
+        val homeTab = BrowserTab("__home__", "appao://home", "Início", "", "", Long.MAX_VALUE)
+        adapter.submit(listOf(homeTab) + realTabs)
+        countLabel.text = "Início + ${realTabs.size} ${if (realTabs.size == 1) "separador" else "separadores"}"
     }
 
     private fun openNewTab() {
-        val tab = BrowserTabStore.create(this, "https://duckduckgo.com/")
+        val tab = BrowserTabStore.create(this, "https://www.google.com/")
         openTab(tab, null)
     }
 
     private fun openTab(tab: BrowserTab, preview: View?) {
         val transitionName = preview?.transitionName?.takeIf { it.isNotBlank() }
             ?: "browser_tab_preview_${tab.id}"
+        if (tab.id == "__home__") {
+            val launch = Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            val transitioned = preview != null && runCatching {
+                val options = ActivityOptions.makeSceneTransitionAnimation(this, preview, "browser_tab_preview")
+                startActivity(launch, options.toBundle())
+            }.isSuccess
+            if (!transitioned) startActivity(launch)
+            finish()
+            if (!transitioned) overridePendingTransition(R.anim.publish_return_enter, R.anim.publish_return_exit)
+            return
+        }
+        if (tab.id == sourceTabId) {
+            // Selecting the currently active tab only closes the overview; the existing page remains alive.
+            finishWithMotion()
+            return
+        }
         val launch = Intent(this, AppViewerActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra("browser_mode", true)
             putExtra("browser_tab_id", tab.id)
             putExtra("url", tab.url)
@@ -160,6 +179,22 @@ class BrowserTabsActivity : AppCompatActivity() {
         }
     }
 
+    private fun closeTab(tab: BrowserTab) {
+        if (tab.id == "__home__") {
+            startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+            finishWithMotion()
+            return
+        }
+        BrowserTabStore.remove(this, tab.id)
+        BrowserWebViewPool.removeAndDestroy(tab.id)
+        if (tab.id == sourceTabId) {
+            startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+            finishWithMotion()
+        } else {
+            refreshTabs()
+        }
+    }
+
     private fun clearTabs() {
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("Limpar separadores")
@@ -167,7 +202,9 @@ class BrowserTabsActivity : AppCompatActivity() {
             .setNegativeButton("Cancelar", null)
             .setPositiveButton("Limpar") { _, _ ->
                 BrowserTabStore.clear(this)
-                refreshTabs()
+                BrowserWebViewPool.clearExcept(null)
+                startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+                finishWithMotion()
             }
             .show()
     }
@@ -247,10 +284,7 @@ class BrowserTabsActivity : AppCompatActivity() {
             val holder = TabHolder(card, favicon, title, close, preview)
             holder.close.setOnClickListener { v ->
                 val pos = holder.bindingAdapterPosition
-                if (pos != RecyclerView.NO_POSITION) {
-                    BrowserTabStore.remove(this@BrowserTabsActivity, data[pos].id)
-                    refreshTabs()
-                }
+                if (pos != RecyclerView.NO_POSITION) closeTab(data[pos])
             }
             card.setOnClickListener {
                 val pos = holder.bindingAdapterPosition
@@ -263,6 +297,14 @@ class BrowserTabsActivity : AppCompatActivity() {
             val tab = data[position]
             holder.preview.transitionName = if (sourceTabId == tab.id) "browser_tab_preview" else "browser_tab_preview_${tab.id}"
             holder.title.text = tab.title.ifBlank { titleFromUrl(tab.url) }
+            if (tab.id == "__home__") {
+                Glide.with(this@BrowserTabsActivity).clear(holder.favicon)
+                IconLoader.applyIcon(holder.favicon, "home", R.color.iconTint)
+                holder.preview.setImageDrawable(com.appao.EmptyNewsIllustrationDrawable(this@BrowserTabsActivity))
+                holder.preview.setBackgroundColor(ContextCompat.getColor(this@BrowserTabsActivity, R.color.bg))
+                holder.itemView.contentDescription = "Separador Início"
+                return
+            }
             Glide.with(this@BrowserTabsActivity).load(tab.favicon.ifBlank { BrowserTabStore.faviconFor(tab.url) }).circleCrop().placeholder(R.drawable.logo).into(holder.favicon)
             val imageFile = tab.snapshotPath.takeIf { it.isNotBlank() }?.let(::File)
             if (imageFile != null && imageFile.exists()) {
@@ -273,8 +315,7 @@ class BrowserTabsActivity : AppCompatActivity() {
                 holder.preview.setBackgroundColor(ContextCompat.getColor(this@BrowserTabsActivity, R.color.card2))
             }
             holder.itemView.setOnLongClickListener {
-                BrowserTabStore.remove(this@BrowserTabsActivity, tab.id)
-                refreshTabs()
+                closeTab(tab)
                 true
             }
         }

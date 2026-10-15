@@ -6,6 +6,9 @@ import android.animation.ValueAnimator
 import android.content.Intent
 import android.graphics.Rect
 import android.os.Bundle
+import android.widget.PopupWindow
+import android.os.Looper
+import android.os.Handler
 import android.provider.MediaStore
 import android.text.Editable
 import android.text.Layout
@@ -80,6 +83,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var homeFeedStack: View
     private lateinit var stackBack: ImageView
     private lateinit var stackFront: ImageView
+    private lateinit var homeAddressBar: View
+    private lateinit var homeAddressInput: EditText
+    private lateinit var homeSearchEngineIcon: ImageView
+    private lateinit var homeAddressClear: View
+    private var homeSuggestionsPopup: PopupWindow? = null
+    private val homeSuggestionHandler = Handler(Looper.getMainLooper())
+    private var homeSuggestionRunnable: Runnable? = null
+    private var feedEmptyOverlay: View? = null
 
     private val items = mutableListOf<NewsItem>()
     private val categories = mutableListOf(
@@ -282,10 +293,12 @@ class MainActivity : AppCompatActivity() {
     }.toString()
 
     private fun setupInsets() {
-        val homeBottomBar = findViewById<View>(R.id.homeBottomBar)
-        homeBottomBar.visibility = View.GONE
-        ViewCompat.setOnApplyWindowInsetsListener(homeBottomBar) { view, insets ->
-            view.visibility = View.GONE
+        findViewById<View>(R.id.homeBottomBar).visibility = View.GONE
+        findViewById<View>(R.id.biBar).visibility = View.GONE
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.homeMainBottomNav)) { view, insets ->
+            val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
+            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, dp(2) + systemBottom)
+            view.layoutParams = view.layoutParams.apply { height = dp(64) + systemBottom }
             insets
         }
 
@@ -307,7 +320,7 @@ class MainActivity : AppCompatActivity() {
             val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
             val params = view.layoutParams as? ViewGroup.MarginLayoutParams
             if (params != null) {
-                params.bottomMargin = dp(76) + systemBottom
+                params.bottomMargin = dp(64) + systemBottom
                 view.layoutParams = params
             }
             insets
@@ -337,26 +350,235 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupHome() {
-        homeHeader.visibility = View.GONE
+        homeHeader.visibility = View.VISIBLE
         homeHeader.elevation = 0f
         homeHeader.translationZ = 0f
+        homeHeader.setBackgroundColor(ContextCompat.getColor(this, R.color.bg))
+        homeFeedStack.visibility = View.GONE
+        findViewById<View>(R.id.homeMenu).visibility = View.GONE
         homeFeedStack.background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
         homeFeedStack.foreground = null
         homeFeedStack.stateListAnimator = null
         homeFeedStack.isFocusable = false
-        homeFeedStack.setOnClickListener { openFeedPanel() }
-        findViewById<View>(R.id.homeMenu).setOnClickListener { openAppsPanel() }
         homeEmptyNews.visibility = View.GONE
         findViewById<ImageView>(R.id.homeEmptyNewsIcon).setImageDrawable(EmptyNewsIllustrationDrawable(this))
+        findViewById<TextView>(R.id.homeQuickTitle).visibility = View.GONE
+        findViewById<TextView>(R.id.homeNewsTitle).visibility = View.GONE
+        findViewById<View>(R.id.homeQuickDivider).visibility = View.VISIBLE
 
+        homeAddressBar = findViewById(R.id.homeAddressBar)
+        homeAddressBar.transitionName = "browser_tab_preview"
+        homeAddressInput = findViewById(R.id.homeAddressInput)
+        homeSearchEngineIcon = findViewById(R.id.homeSearchEngineIcon)
+        homeAddressClear = findViewById(R.id.homeAddressClear)
+        updateSearchEngineIcon()
+        IconLoader.applyIcon(findViewById(R.id.homeAddressClearIcon), "close", R.color.iconTint)
+        homeAddressBar.background = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+            cornerRadius = dp(100).toFloat()
+            setColor(ContextCompat.getColor(this@MainActivity, R.color.card2))
+            setStroke(dp(1), ContextCompat.getColor(this@MainActivity, R.color.border))
+        }
+        homeAddressInput.setSingleLine(true)
+        homeAddressInput.maxLines = 1
+        homeAddressInput.setHorizontallyScrolling(true)
+        homeAddressInput.gravity = Gravity.CENTER_VERTICAL or Gravity.START
+        homeAddressInput.setPadding(0, 0, 0, 0)
+        homeAddressInput.imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_GO
+        homeAddressInput.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_AUTO_CORRECT
+        homeAddressInput.setOnEditorActionListener { _, _, _ ->
+            val query = homeAddressInput.text?.toString().orEmpty().trim()
+            if (query.isNotBlank()) {
+                hideHomeSuggestions()
+                openNewBrowserTab(normalizeBrowserTarget(query))
+                homeAddressInput.clearFocus()
+                (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(homeAddressInput.windowToken, 0)
+            }
+            true
+        }
+        homeAddressInput.setOnFocusChangeListener { _, focused ->
+            animateHomeSearchMode(focused)
+            homeAddressClear.visibility = if (focused || homeAddressInput.text?.isNotEmpty() == true) View.VISIBLE else View.GONE
+            if (focused) showHomeSuggestions(homeAddressInput.text?.toString().orEmpty()) else homeSuggestionHandler.postDelayed({ hideHomeSuggestions() }, 120)
+        }
+        homeAddressInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                homeAddressClear.visibility = if (homeAddressInput.hasFocus() || !s.isNullOrEmpty()) View.VISIBLE else View.GONE
+                if (homeAddressInput.hasFocus()) {
+                    homeSuggestionRunnable?.let(homeSuggestionHandler::removeCallbacks)
+                    val query = s?.toString().orEmpty()
+                    homeSuggestionRunnable = Runnable { showHomeSuggestions(query) }
+                    homeSuggestionRunnable?.let { homeSuggestionHandler.postDelayed(it, 130) }
+                }
+            }
+            override fun afterTextChanged(s: Editable?) = Unit
+        })
+        homeSearchEngineIcon.setOnClickListener { showSearchEnginePicker(it) }
+        findViewById<View>(R.id.homeSearchEngineButton).setOnClickListener { showSearchEnginePicker(it) }
+        homeAddressClear.setOnClickListener {
+            homeAddressInput.setText("")
+            homeAddressInput.requestFocus()
+            showHomeSuggestions("")
+            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(homeAddressInput, InputMethodManager.SHOW_IMPLICIT)
+        }
+        setupHomeNavigation()
         stackBack.scaleType = ImageView.ScaleType.CENTER_CROP
         stackFront.scaleType = ImageView.ScaleType.CENTER_CROP
-        stackBack.rotation = -8.5f
-        stackFront.rotation = 7.5f
-        stackBack.translationX = -dp(5).toFloat()
-        stackBack.translationY = dp(2).toFloat()
-        stackFront.translationX = dp(4).toFloat()
-        stackFront.translationY = 0f
+    }
+
+    private fun setupHomeNavigation() {
+        IconLoader.applyIcon(findViewById(R.id.homeMainNavHomeIcon), "home", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.homeMainNavTabsIcon), "copy", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.homeMainNavAppsIcon), "apps-outline", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.homeMainNavProfileIcon), "person-circle", R.color.iconTint)
+        findViewById<View>(R.id.homeMainNavHome).setOnClickListener {
+            hideHomeSuggestions()
+            if (feedOpen) closeFeedPanel()
+            if (appsOpen) closeAppsPanel()
+            homePage.visibility = View.VISIBLE
+        }
+        findViewById<View>(R.id.homeMainNavTabs).setOnClickListener { hideHomeSuggestions(); openBrowserTabs() }
+        findViewById<View>(R.id.homeMainNavApps).setOnClickListener {
+            hideHomeSuggestions()
+            if (feedOpen) closeFeedPanel()
+            if (appsOpen) closeAppsPanel() else openAppsPanel()
+        }
+        findViewById<View>(R.id.homeMainNavProfile).setOnClickListener { showHomeBrowserMenu(it) }
+        updateHomeTabCount()
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.homeMainBottomNav)) { view, insets ->
+            val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
+            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, dp(2) + systemBottom)
+            view.layoutParams = view.layoutParams.apply { height = dp(64) + systemBottom }
+            insets
+        }
+    }
+
+    private fun updateHomeTabCount() {
+        findViewById<TextView>(R.id.homeMainNavTabsCount).text = BrowserTabStore.count(this).coerceAtMost(99).toString()
+    }
+
+    private fun animateHomeSearchMode(focused: Boolean) {
+        if (!::homeAddressBar.isInitialized) return
+        val lp = homeAddressBar.layoutParams as? ViewGroup.MarginLayoutParams ?: return
+        val targetMargin = dp(if (focused) 8 else 16)
+        val targetHeight = dp(if (focused) 56 else 52)
+        homeAddressBar.animate().cancel()
+        val startMargin = lp.marginStart
+        val startEnd = lp.marginEnd
+        val startHeight = lp.height
+        ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 220L
+            interpolator = Curves.SMOOTH
+            addUpdateListener { animator ->
+                val t = animator.animatedValue as Float
+                val params = homeAddressBar.layoutParams as ViewGroup.MarginLayoutParams
+                params.marginStart = (startMargin + (targetMargin - startMargin) * t).toInt()
+                params.marginEnd = (startEnd + (targetMargin - startEnd) * t).toInt()
+                params.height = (startHeight + (targetHeight - startHeight) * t).toInt()
+                homeAddressBar.layoutParams = params
+            }
+        }.start()
+    }
+
+    private data class HomeSuggestion(val label: String, val target: String, val icon: String = "search")
+
+    private fun showSearchEnginePicker(anchor: View) {
+        val current = BrowserPreferences.searchEngine(this)
+        NativePopupMenu.show(anchor, listOf(
+            NativePopupMenu.Item(1, "Google", iconName = "search", checked = current == "Google"),
+            NativePopupMenu.Item(2, "Bing", iconName = "search", checked = current == "Bing"),
+            NativePopupMenu.Item(3, "DuckDuckGo", iconName = "search", checked = current == "DuckDuckGo"),
+            NativePopupMenu.Item(4, "Brave Search", iconName = "search", checked = current == "Brave")
+        ), alignLeft = true, placeAbove = false) { item ->
+            val engine = when (item.id) { 2 -> "Bing"; 3 -> "DuckDuckGo"; 4 -> "Brave"; else -> "Google" }
+            BrowserPreferences.setSearchEngine(this, engine)
+            updateSearchEngineIcon()
+            homeAddressInput.hint = "Pesquisar com $engine ou escrever endereço"
+        }
+    }
+
+    private fun updateSearchEngineIcon() {
+        if (!::homeSearchEngineIcon.isInitialized) return
+        val engine = BrowserPreferences.searchEngine(this)
+        val icon = when (engine.lowercase(Locale.ROOT)) {
+            "google" -> "logo-google"
+            "bing" -> "globe-outline"
+            "brave" -> "shield-checkmark-outline"
+            else -> "search-outline"
+        }
+        IconLoader.applyIcon(homeSearchEngineIcon, icon, R.color.iconTint)
+        homeSearchEngineIcon.contentDescription = "Motor de pesquisa: $engine"
+    }
+
+    private fun showHomeSuggestions(query: String) {
+        if (!::homeAddressInput.isInitialized || !homeAddressInput.hasFocus()) return
+        val trimmed = query.trim()
+        val suggestions = mutableListOf<HomeSuggestion>()
+        if (trimmed.isNotBlank()) suggestions += HomeSuggestion("Pesquisar “$trimmed”", BrowserPreferences.searchUrl(this, trimmed), "search")
+        BrowsingHistoryStore.all(this)
+            .filter { trimmed.isBlank() || it.title.contains(trimmed, true) || it.url.contains(trimmed, true) }
+            .distinctBy { it.url }
+            .take(if (trimmed.isBlank()) 6 else 4)
+            .forEach { entry -> suggestions += HomeSuggestion(entry.title.ifBlank { entry.url }, entry.url, "history") }
+        if (suggestions.isEmpty()) {
+            suggestions += HomeSuggestion("Escreve para pesquisar na Web", BrowserPreferences.searchUrl(this, trimmed), "search")
+        }
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = dp(20).toFloat()
+                setColor(ContextCompat.getColor(this@MainActivity, R.color.card))
+                setStroke(dp(1), ContextCompat.getColor(this@MainActivity, R.color.border))
+            }
+        }
+        suggestions.distinctBy { it.label to it.target }.take(7).forEach { suggestion ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(46)
+                setPadding(dp(12), dp(5), dp(12), dp(5))
+                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_transparent_pressed)
+                isClickable = true
+                isFocusable = true
+                setOnClickListener {
+                    hideHomeSuggestions()
+                    homeAddressInput.setText("")
+                    homeAddressInput.clearFocus()
+                    (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(homeAddressInput.windowToken, 0)
+                    openNewBrowserTab(suggestion.target)
+                }
+            }
+            val icon = ImageView(this).apply { IconLoader.applyIcon(this, suggestion.icon, R.color.iconTint) }
+            row.addView(icon, LinearLayout.LayoutParams(dp(20), dp(20)))
+            row.addView(TextView(this).apply {
+                text = suggestion.label
+                textSize = 14f
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
+                setPadding(dp(12), 0, 0, 0)
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            panel.addView(row)
+        }
+        val width = (resources.displayMetrics.widthPixels - dp(16)).coerceAtLeast(dp(220))
+        homeSuggestionsPopup?.dismiss()
+        homeSuggestionsPopup = PopupWindow(panel, width, ViewGroup.LayoutParams.WRAP_CONTENT, false).apply {
+            isOutsideTouchable = true
+            isFocusable = false
+            elevation = dp(8).toFloat()
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+            inputMethodMode = PopupWindow.INPUT_METHOD_NOT_NEEDED
+            showAsDropDown(homeAddressBar, -dp(8), dp(4))
+        }
+    }
+
+    private fun hideHomeSuggestions() {
+        homeSuggestionRunnable?.let(homeSuggestionHandler::removeCallbacks)
+        homeSuggestionsPopup?.dismiss()
+        homeSuggestionsPopup = null
     }
 
     private fun setupFeed() {
@@ -368,7 +590,9 @@ class MainActivity : AppCompatActivity() {
             isSaved = { item -> isArticleSaved(item) },
             onToggleSaved = { item ->
                 toggleArticleSaved(item)
-                if (::adapter.isInitialized) adapter.notifyDataSetChanged()
+                if (::adapter.isInitialized) {
+                    if (feedAppsMode) showFeedAppsTab(true) else adapter.notifyDataSetChanged()
+                }
             }
         )
         recycler.layoutManager = LinearLayoutManager(this)
@@ -381,10 +605,14 @@ class MainActivity : AppCompatActivity() {
         recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
                 if (dy != 0) updateFeedBarsFromScroll(dy)
-                if (!rv.canScrollVertically(1) && !loading && !exhausted) loadMore()
+                if (!feedAppsMode && !rv.canScrollVertically(1) && !loading && !exhausted) loadMore()
             }
         })
 
+        findViewById<ImageView>(R.id.feedSavedEmptyIcon).setImageDrawable(EmptySavedIllustrationDrawable(this))
+        findViewById<ImageView>(R.id.feedEmptyExploreIcon).setImageDrawable(EmptyNewsIllustrationDrawable(this))
+        findViewById<View>(R.id.feedSavedEmpty).visibility = View.GONE
+        findViewById<View>(R.id.feedEmptyExplore).visibility = View.GONE
         pullIndicator.alpha = 0f
         pullIndicator.scaleX = 0f
         pullIndicator.scaleY = 0f
@@ -395,15 +623,15 @@ class MainActivity : AppCompatActivity() {
         feedHeader.elevation = 0f
         feedHeader.translationZ = 0f
         IconLoader.applyIcon(findViewById(R.id.feedBackIcon), "arrow_left", R.color.iconTint)
-        IconLoader.applyIcon(findViewById(R.id.feedPublishIcon), "write", R.color.iconTint)
         IconLoader.applyIcon(findViewById(R.id.feedMoreIcon), "more_vert", R.color.iconTint)
+        findViewById<View>(R.id.feedPublish).visibility = View.GONE
 
         findViewById<TextView>(R.id.feedToolbarTitle).apply {
             text = "Descobrir"
             visibility = View.VISIBLE
         }
         findViewById<View>(R.id.feedBack).setOnClickListener { closeFeedPanel() }
-        findViewById<View>(R.id.feedPublish).setOnClickListener { openPublish() }
+        findViewById<View>(R.id.feedPublish).visibility = View.GONE
         findViewById<View>(R.id.feedMore).setOnClickListener { showFeedMorePopup(it) }
         setFeedBottomSelection(discover = true)
         findViewById<View>(R.id.feedNavDiscover).setOnClickListener {
@@ -679,8 +907,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(0, dp(14), 0, dp(20))
         })
 
-        // Fetch by exact category, rather than grouping only the first few global pages.
-        // This guarantees a fair category sample and caps every section at 20 articles.
+        // Fetch by exact category, with a predictable limit of ten articles per category.
         val chosen = sourceCategories
             .distinctBy { it.label.lowercase(Locale.ROOT) }
             .ifEmpty { NewsRepository.categoriesSnapshot() }
@@ -691,11 +918,11 @@ class MainActivity : AppCompatActivity() {
                     chosen.map { category ->
                         async(Dispatchers.IO) {
                             val articles = if (category.label.equals("Geral", ignoreCase = true)) {
-                                NewsRepository.fetchGeneral(page = 1, limit = 20)
+                                NewsRepository.fetchGeneral(page = 1, limit = 10)
                             } else {
-                                NewsRepository.fetchByCategory(category.label, page = 1, country = "", limit = 20)
+                                NewsRepository.fetchByCategory(category.label, page = 1, country = "", limit = 10)
                             }
-                            category to articles.distinctBy { it.id.ifBlank { normalizeUrl(it.link) } }.take(20)
+                            category to articles.distinctBy { it.id.ifBlank { normalizeUrl(it.link) } }.take(10)
                         }
                     }.awaitAll()
                 }
@@ -722,18 +949,15 @@ class MainActivity : AppCompatActivity() {
                 }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
                 homeNewsSections.addView(header)
 
-                val horizontal = HorizontalScrollView(this@MainActivity).apply {
-                    isHorizontalScrollBarEnabled = false
-                    overScrollMode = View.OVER_SCROLL_NEVER
+                val vertical = LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.VERTICAL
                     clipToPadding = false
                 }
-                val row = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL; clipToPadding = false }
-                categoryItems.forEach { item -> row.addView(createHomeNewsCard(item)) }
-                horizontal.addView(row)
-                homeNewsSections.addView(horizontal, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                categoryItems.take(10).forEach { item -> vertical.addView(createHomeNewsCard(item)) }
+                homeNewsSections.addView(vertical, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
                 val continueButton = TextView(this@MainActivity).apply {
-                    text = "Continuar a ver ${category.label}  ›"
+                    text = "Ver mais ${category.label}  ›"
                     textSize = 13f
                     typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
                     setTextColor(AccentColorManager.resolvedOr(this@MainActivity, R.color.pri))
@@ -761,47 +985,64 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun createHomeNewsCard(item: NewsItem): View {
-        val density = resources.displayMetrics.density
         val card = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
             background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_news_text_card)
-            setPadding(dp(8), dp(8), dp(8), dp(10))
-            isClickable = true; isFocusable = true
+            setPadding(0, dp(10), 0, dp(10))
+            isClickable = true
+            isFocusable = true
             setOnClickListener { openArticle(item, this) }
         }
+        val textColumn = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, dp(10), 0)
+        }
+        textColumn.addView(TextView(this).apply {
+            text = item.title
+            textSize = 15.5f
+            maxLines = 3
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        val meta = listOf(item.source, item.date).filter { it.isNotBlank() }.joinToString("   ")
+        textColumn.addView(TextView(this).apply {
+            text = meta
+            textSize = 11.5f
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.dim))
+            setPadding(0, dp(7), 0, 0)
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        card.addView(textColumn, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+
         val imageHost = FrameLayout(this).apply {
             background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_news_image_card)
             clipToOutline = true
         }
-        val image = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP; clipToOutline = true }
+        val image = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            clipToOutline = true
+            contentDescription = item.title
+        }
         if (item.image.isNotBlank()) {
             Glide.with(this).load(item.image).centerCrop().placeholder(R.drawable.logo).error(R.drawable.logo).into(image)
         } else {
             IconLoader.applyIcon(image, "newspaper", R.color.iconTint)
             image.scaleType = ImageView.ScaleType.CENTER_INSIDE
-            image.setPadding(dp(38), dp(28), dp(38), dp(28))
+            image.setPadding(dp(24), dp(20), dp(24), dp(20))
             image.setBackgroundColor(ContextCompat.getColor(this, R.color.card2))
         }
         imageHost.addView(image, FrameLayout.LayoutParams(-1, -1))
-        card.addView(imageHost, LinearLayout.LayoutParams(dp(226), dp(118)))
-        card.addView(TextView(this).apply {
-            text = item.title
-            textSize = 14f
-            maxLines = 3
-            ellipsize = android.text.TextUtils.TruncateAt.END
-            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
-            setPadding(dp(1), dp(8), dp(1), dp(4))
-        }, LinearLayout.LayoutParams(dp(226), ViewGroup.LayoutParams.WRAP_CONTENT))
-        card.addView(TextView(this).apply {
-            text = item.source
-            textSize = 11.5f
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.END
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.dim))
-            setPadding(dp(1), dp(2), dp(1), 0)
-        }, LinearLayout.LayoutParams(dp(226), ViewGroup.LayoutParams.WRAP_CONTENT))
-        return card.also { it.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(10); bottomMargin = dp(6) } }
+        card.addView(imageHost, LinearLayout.LayoutParams(dp(104), dp(76)))
+        card.foreground = ContextCompat.getDrawable(this, R.drawable.bg_news_pressed)
+        return card.also {
+            it.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(1)
+            }
+        }
     }
 
     private fun showFeedMorePopup(anchor: View) {
@@ -810,13 +1051,13 @@ class MainActivity : AppCompatActivity() {
             listOf(
                 NativePopupMenu.Item(1, "Recarregar", iconName = "refresh"),
                 NativePopupMenu.Item(2, "Editar categorias", iconName = "write"),
-                NativePopupMenu.Item(3, "Guardados", iconName = "bookmark")
+                NativePopupMenu.Item(3, "Ver guardados", iconName = "bookmark")
             )
         ) { item ->
             when (item.id) {
                 1 -> loadNews(true)
                 2 -> showCategoryManager()
-                3 -> startActivity(Intent(this, LibraryActivity::class.java).putExtra("source", "saved"))
+                3 -> { openFeedPanel(); showFeedAppsTab(true); setFeedBottomSelection(discover = false) }
             }
         }
     }
@@ -865,7 +1106,8 @@ class MainActivity : AppCompatActivity() {
         // Address submit always opens the in-app browser. AI is a separate sparkle action.
         biInput.setOnEditorActionListener { _, _, _ -> openBrowserFromInput(); true }
         biPill.setOnClickListener { biInput.requestFocus() }
-        biSend.setOnClickListener { openAiFromHome() }
+        biSend.visibility = View.GONE
+        biSend.setOnClickListener(null)
         findViewById<View>(R.id.biAdd).setOnClickListener { showAppsPopup(it) }
         findViewById<View>(R.id.biFire).setOnClickListener { showClearBrowsingFromHome(it) }
         findViewById<View>(R.id.biTabs).setOnClickListener { openBrowserTabs() }
@@ -882,8 +1124,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateComposerSendState() {
-        biSend.background = ContextCompat.getDrawable(this, R.drawable.bg_transparent_pressed)
-        IconLoader.applyIcon(findViewById(R.id.biSendIcon), "sparkles", R.color.iconTint)
+        biSend.visibility = View.GONE
     }
 
     private fun resizeComposerInput(animate: Boolean) {
@@ -973,22 +1214,45 @@ class MainActivity : AppCompatActivity() {
         appsGrid.removeAllViews()
         val history = BrowsingHistoryStore.all(this)
         if (history.isEmpty()) {
-            val empty = TextView(this).apply {
-                text = "As páginas visitadas aparecerão aqui.\n\nAbre uma página no browser para começar o histórico."
-                textSize = 14f
+            val empty = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(dp(20), dp(26), dp(20), dp(32))
+            }
+            empty.addView(ImageView(this).apply {
+                setImageDrawable(EmptyHistoryIllustrationDrawable(this@MainActivity))
+                contentDescription = "Ilustração de histórico vazio"
+                scaleType = ImageView.ScaleType.FIT_CENTER
+            }, LinearLayout.LayoutParams(dp(124), dp(112)))
+            empty.addView(TextView(this).apply {
+                text = "Ainda não há histórico"
+                textSize = 16f
+                gravity = Gravity.CENTER
+                typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
+                setPadding(0, dp(10), 0, dp(4))
+            })
+            empty.addView(TextView(this).apply {
+                text = "As páginas que visita aparecerão aqui."
+                textSize = 13f
                 gravity = Gravity.CENTER
                 setTextColor(ContextCompat.getColor(this@MainActivity, R.color.dim))
-                setPadding(dp(20), dp(44), dp(20), dp(44))
-            }
+            })
             appsGrid.addView(empty, GridLayout.LayoutParams().apply { width = ViewGroup.LayoutParams.MATCH_PARENT; height = ViewGroup.LayoutParams.WRAP_CONTENT; columnSpec = GridLayout.spec(0, 1f) })
             return
         }
-        history.take(300).forEachIndexed { index, entry ->
+        val visibleHistory = history.take(300)
+        visibleHistory.forEachIndexed { index, entry ->
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_settings_single)
-                setPadding(dp(12), dp(10), dp(10), dp(10))
+                background = ContextCompat.getDrawable(this@MainActivity, when {
+                    visibleHistory.size == 1 -> R.drawable.bg_settings_single
+                    index == 0 -> R.drawable.bg_settings_top
+                    index == visibleHistory.lastIndex -> R.drawable.bg_settings_bottom
+                    else -> R.drawable.bg_settings_middle
+                })
+                setPadding(dp(14), dp(12), dp(12), dp(12))
                 isClickable = true; isFocusable = true
                 setOnClickListener { openNewBrowserTab(entry.url); closeAppsPanel() }
             }
@@ -1012,7 +1276,7 @@ class MainActivity : AppCompatActivity() {
             row.addView(labels, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             val params = GridLayout.LayoutParams().apply {
                 width = ViewGroup.LayoutParams.MATCH_PARENT; height = ViewGroup.LayoutParams.WRAP_CONTENT
-                columnSpec = GridLayout.spec(0, 1f); setMargins(dp(2), dp(2), dp(2), dp(2))
+                columnSpec = GridLayout.spec(0, 1f); setMargins(dp(2), dp(1), dp(2), dp(1))
             }
             appsGrid.addView(row, params)
         }
@@ -1400,6 +1664,11 @@ class MainActivity : AppCompatActivity() {
                 adapter.submit(emptyList())
                 exhausted = true
             }
+            if (!feedAppsMode) {
+                val isEmpty = items.isEmpty()
+                findViewById<View>(R.id.feedEmptyExplore).visibility = if (isEmpty) View.VISIBLE else View.GONE
+                recycler.visibility = if (isEmpty) View.GONE else View.VISIBLE
+            }
         }
     }
 
@@ -1503,10 +1772,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun normalizeBrowserTarget(value: String): String {
         val input = value.trim()
-        if (input.isBlank()) return "https://duckduckgo.com/"
+        if (input.isBlank()) return "https://www.google.com/"
         if (input.startsWith("http://", true) || input.startsWith("https://", true)) return input
         val looksLikeAddress = !input.contains(' ') && input.contains('.') && !input.startsWith(".") && input.substringAfterLast('.', "").length in 2..20
-        return if (looksLikeAddress) "https://$input" else "https://duckduckgo.com/?q=" + android.net.Uri.encode(input)
+        return if (looksLikeAddress) "https://$input" else BrowserPreferences.searchUrl(this, input)
     }
 
     private fun openAiFromHome() {
@@ -1552,24 +1821,37 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showClearBrowsingFromHome(anchor: View) {
-        NativeM3Dialog.confirm(this, "Limpar navegação", "Limpar páginas visitadas e fechar separadores guardados?") { accepted ->
+        NativeM3Dialog.confirm(this, "Limpar navegação", "Limpar o histórico, os cookies, a cache e fechar todos os separadores?") { accepted ->
             if (accepted) {
                 BrowsingHistoryStore.clear(this)
+                ConversationHistoryStore.clear(this)
                 BrowserTabStore.clear(this)
-                BrowserTabStore.create(this, "https://duckduckgo.com/")
+                BrowserWebViewPool.clearExcept(null)
+                runCatching { android.webkit.CookieManager.getInstance().removeAllCookies(null); android.webkit.CookieManager.getInstance().flush() }
+                runCatching { android.webkit.WebStorage.getInstance().deleteAllData() }
+                runCatching { android.webkit.WebView(this).apply { clearCache(true); destroy() } }
                 updateBrowserTabCount()
                 populateAppsGrid()
-                AppAoToast.show(this, "Histórico limpo; uma nova página está pronta")
+                refreshConversationHistory()
+                AppAoToast.show(this, "Histórico e dados de navegação limpos")
             }
         }
     }
 
     private fun openBrowserTabs() {
-        startActivity(Intent(this, BrowserTabsActivity::class.java))
-        overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+        hideHomeSuggestions()
+        val launch = Intent(this, BrowserTabsActivity::class.java).putExtra("source_tab_id", "__home__")
+        val launched = runCatching {
+            val options = android.app.ActivityOptions.makeSceneTransitionAnimation(this, homeAddressBar, "browser_tab_preview")
+            startActivity(launch, options.toBundle())
+        }.isSuccess
+        if (!launched) {
+            startActivity(launch)
+            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+        }
     }
 
-    private fun openNewBrowserTab(url: String = "https://duckduckgo.com/") {
+    private fun openNewBrowserTab(url: String = "https://www.google.com/") {
         val tab = BrowserTabStore.create(this, url)
         startActivity(Intent(this, AppViewerActivity::class.java).apply {
             putExtra("browser_mode", true)
@@ -1586,29 +1868,68 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton("Cancelar", null)
             .setPositiveButton("Limpar") { _, _ ->
                 BrowserTabStore.clear(this)
+                BrowserWebViewPool.clearExcept(null)
                 updateBrowserTabCount()
                 AppAoToast.show(this, "Separadores fechados")
             }
             .show()
     }
 
-    private fun showFeedAppsTab(showApps: Boolean) {
-        feedAppsMode = showApps
-        findViewById<View>(R.id.feedAppsContent).apply {
-            visibility = if (showApps) View.VISIBLE else View.GONE
-            (layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
-                lp.topMargin = (if (showApps) dp(56) else dp(104)) + feedStatusBarInset
-                layoutParams = lp
-            }
+    /** The second feed tab is now the saved-articles collection, never an Apps directory. */
+    private fun showFeedAppsTab(showSaved: Boolean) {
+        feedAppsMode = showSaved
+        val savedItems = if (showSaved) savedNewsItems() else items.toList()
+        findViewById<View>(R.id.feedAppsContent).visibility = View.GONE
+        findViewById<View>(R.id.feedSavedEmpty).visibility = if (showSaved && savedItems.isEmpty()) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.feedEmptyExplore).visibility = if (!showSaved && savedItems.isEmpty() && !loading) View.VISIBLE else View.GONE
+        recycler.visibility = if ((showSaved && savedItems.isEmpty()) || (!showSaved && savedItems.isEmpty() && !loading)) View.GONE else View.VISIBLE
+        feedTabsScroll.visibility = if (showSaved) View.GONE else View.VISIBLE
+
+        val headerHeightDp = if (showSaved) 56 else 104
+        findViewById<View>(R.id.feedSavedEmpty).layoutParams = findViewById<View>(R.id.feedSavedEmpty).layoutParams.apply {
+            (this as? ViewGroup.MarginLayoutParams)?.topMargin = dp(headerHeightDp) + feedStatusBarInset
         }
-        recycler.visibility = if (showApps) View.GONE else View.VISIBLE
-        feedTabsScroll.visibility = if (showApps) View.GONE else View.VISIBLE
-        feedHeader.layoutParams = feedHeader.layoutParams.apply {
-            height = (if (showApps) dp(56) else dp(104)) + feedStatusBarInset
+        findViewById<View>(R.id.feedEmptyExplore).layoutParams = findViewById<View>(R.id.feedEmptyExplore).layoutParams.apply {
+            (this as? ViewGroup.MarginLayoutParams)?.topMargin = dp(headerHeightDp) + feedStatusBarInset
         }
-        feedHeaderHeight = (if (showApps) dp(56) else dp(104)) + feedStatusBarInset
+        findViewById<View>(R.id.feedAppsContent).layoutParams = findViewById<View>(R.id.feedAppsContent).layoutParams.apply {
+            (this as? ViewGroup.MarginLayoutParams)?.topMargin = dp(headerHeightDp) + feedStatusBarInset
+        }
+        feedHeader.layoutParams = feedHeader.layoutParams.apply { height = dp(headerHeightDp) + feedStatusBarInset }
+        feedHeaderHeight = dp(headerHeightDp) + feedStatusBarInset
         recycler.updatePadding(top = feedHeaderHeight)
-        findViewById<TextView>(R.id.feedToolbarTitle).text = if (showApps) "Apps" else "Descobrir"
+        findViewById<TextView>(R.id.feedToolbarTitle).text = if (showSaved) "Guardados" else "Descobrir"
+        if (showSaved) adapter.submit(savedItems) else adapter.submit(items)
+        setFeedBottomSelection(discover = !showSaved)
+    }
+
+    private fun savedNewsItems(): List<NewsItem> {
+        val raw = getSharedPreferences("appao", MODE_PRIVATE).getString("library_json", "[]") ?: "[]"
+        return runCatching {
+            val array = JSONArray(raw)
+            buildList {
+                val seen = HashSet<String>()
+                for (index in 0 until array.length()) {
+                    val obj = array.optJSONObject(index) ?: continue
+                    val link = obj.optString("link").trim()
+                    val title = NewsRepository.cleanForDisplay(obj.optString("title")).trim()
+                    if (link.isBlank() || title.isBlank()) continue
+                    val key = normalizeUrl(link)
+                    if (!seen.add(key)) continue
+                    add(NewsItem(
+                        id = obj.optString("id").ifBlank { key },
+                        title = title,
+                        summary = NewsRepository.cleanForDisplay(obj.optString("summary")),
+                        link = link,
+                        source = NewsRepository.cleanForDisplay(obj.optString("source")),
+                        date = NewsRepository.cleanForDisplay(obj.optString("date")),
+                        image = obj.optString("image"),
+                        logo = obj.optString("logo"),
+                        category = obj.optString("category", "Geral")
+                    ))
+                }
+            }
+        }.getOrDefault(emptyList())
     }
 
     private fun populateFeedApps() {
@@ -1663,7 +1984,7 @@ class MainActivity : AppCompatActivity() {
         if (!::feedPanel.isInitialized) return
         runCatching {
             IconLoader.applyIcon(findViewById(R.id.feedNavDiscoverIcon), if (discover) "compass_filled" else "compass", R.color.iconTint)
-            IconLoader.applyIcon(findViewById(R.id.feedNavAppsIcon), if (discover) "apps" else "apps_filled", R.color.iconTint)
+            IconLoader.applyIcon(findViewById(R.id.feedNavAppsIcon), if (discover) "bookmark" else "bookmark_filled", R.color.iconTint)
             findViewById<TextView>(R.id.feedNavDiscoverLabel).setTextColor(ContextCompat.getColor(this, if (discover) R.color.text else R.color.dim))
             findViewById<TextView>(R.id.feedNavAppsLabel).setTextColor(ContextCompat.getColor(this, if (discover) R.color.dim else R.color.text))
         }
@@ -2002,6 +2323,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (::biBar.isInitialized) updateBrowserTabCount()
+        if (::homeAddressInput.isInitialized) updateHomeTabCount()
         if (::appsGrid.isInitialized) populateAppsGrid()
         if (::appsPanel.isInitialized) refreshConversationHistory()
         SystemBarHelper.sync(this)
@@ -2038,6 +2360,18 @@ class MainActivity : AppCompatActivity() {
         appsContent.setBackgroundColor(bg)
         conversationsContent.setBackgroundColor(bg)
         homeHeader.setBackgroundColor(bg)
+        if (::homeAddressBar.isInitialized) {
+            homeAddressBar.background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = dp(100).toFloat()
+                setColor(ContextCompat.getColor(this@MainActivity, R.color.card2))
+                setStroke(dp(1), ContextCompat.getColor(this@MainActivity, R.color.border))
+            }
+            homeAddressInput.setTextColor(ContextCompat.getColor(this, R.color.text))
+            homeAddressInput.setHintTextColor(ContextCompat.getColor(this, R.color.dim))
+            updateSearchEngineIcon()
+            IconLoader.applyIcon(findViewById(R.id.homeAddressClearIcon), "close", R.color.iconTint)
+        }
         feedHeader.setBackgroundColor(bg)
         biBar.setBackgroundColor(bg)
         feedHeader.elevation = 0f

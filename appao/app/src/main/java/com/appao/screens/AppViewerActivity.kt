@@ -164,17 +164,17 @@ class AppViewerActivity : AppCompatActivity() {
             val result = web.hitTestResult
             val target = result?.extra?.trim().orEmpty()
             if (target.isBlank() || !target.startsWith("http://", true) && !target.startsWith("https://", true)) return@setOnLongClickListener false
+            val isVideoUrl = isLikelyVideoUrl(target)
             when (result.type) {
                 WebView.HitTestResult.IMAGE_TYPE, WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
                     showWebElementActions(target, "image"); true
                 }
-                WebView.HitTestResult.VIDEO_TYPE, WebView.HitTestResult.SRC_VIDEO_TYPE -> {
-                    showWebElementActions(target, "video"); true
-                }
                 WebView.HitTestResult.ANCHOR_TYPE, WebView.HitTestResult.SRC_ANCHOR_TYPE -> {
-                    showWebElementActions(target, "link"); true
+                    showWebElementActions(target, if (isVideoUrl) "video" else "link"); true
                 }
-                else -> false
+                else -> if (isVideoUrl) {
+                    showWebElementActions(target, "video"); true
+                } else false
             }
         }
 
@@ -705,6 +705,20 @@ class AppViewerActivity : AppCompatActivity() {
         }
     }
 
+    private fun openNewBrowserTab(url: String) {
+        hideAddressSuggestions()
+        savePageSnapshot()
+        val target = normalizeTarget(url)
+        val tab = createTab(target)
+        startActivity(Intent(this, AppViewerActivity::class.java).apply {
+            putExtra("browser_mode", true)
+            putExtra("browser_private_mode", privateMode)
+            putExtra("browser_tab_id", tab.id)
+            putExtra("url", target)
+        })
+        overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+    }
+
     private fun openNewTab(forcePrivate: Boolean = privateMode) {
         savePageSnapshot()
         val tab = if (forcePrivate) PrivateBrowserTabStore.create(this, "https://duckduckgo.com/") else BrowserTabStore.create(this, "https://duckduckgo.com/")
@@ -835,6 +849,12 @@ class AppViewerActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun isLikelyVideoUrl(url: String): Boolean {
+        val path = url.substringBefore('?').substringBefore('#').lowercase(java.util.Locale.ROOT)
+        return listOf(".mp4", ".webm", ".m4v", ".mov", ".3gp", ".mkv", ".m3u8", ".mpd")
+            .any { path.endsWith(it) }
     }
 
     private fun showWebElementActions(url: String, kind: String) {

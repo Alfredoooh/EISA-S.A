@@ -67,7 +67,7 @@ class HistoryActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(14), dp(8), dp(14), dp(24))
         }
-        scroll.addView(historyList, ScrollView.LayoutParams(-1, -2))
+        scroll.addView(historyList, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
         render(historyList)

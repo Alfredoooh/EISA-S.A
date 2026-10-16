@@ -56,62 +56,43 @@ dependencies {
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'com.github.bumptech.glide:glide:4.16.0'
     implementation 'androidx.webkit:webkit:1.12.1'
-    implementation 'com.caverock:androidsvg-aar:1.4'
 }
 
 
-// Download only the official Ionicons SVG assets used by IconLoader. The icon list is pinned
-// to an upstream release to make builds deterministic; no Flaticon scraping or runtime requests.
-def ioniconsDirectory = file("src/main/assets/icons/ionicons")
-def ioniconsFiles = [
-    "menu-outline", "ellipsis-vertical-outline", "ellipsis-horizontal-outline", "arrow-back-outline", "arrow-forward-outline",
-    "arrow-up-outline", "arrow-down-outline", "chevron-down-outline", "open-outline", "add-outline", "add-circle-outline",
-    "search-outline", "home-outline", "home", "apps-outline", "apps", "compass-outline", "compass", "flame-outline",
-    "sparkles-outline", "create-outline", "settings-outline", "contrast-outline", "language-outline", "globe-outline",
-    "location-outline", "funnel-outline", "options-outline", "camera-outline", "folder-outline", "archive-outline",
-    "bookmark-outline", "bookmark", "heart-outline", "heart", "pie-chart-outline", "bar-chart-outline", "checkmark-outline",
-    "checkmark-circle-outline", "close-outline", "close-circle-outline", "link-outline", "share-social-outline", "refresh-outline",
-    "trash-outline", "document-text-outline", "reader-outline", "newspaper-outline", "person-outline", "person-circle-outline",
-    "speedometer-outline", "lock-closed-outline", "lock-open-outline", "image-outline", "attach-outline", "moon-outline", "sunny-outline",
-    "shield-checkmark-outline", "download-outline", "file-tray-full-outline", "expand-outline", "contract-outline", "arrow-undo-outline",
-    "arrow-redo-outline", "time-outline", "chatbubble-outline", "chatbubbles-outline", "rocket-outline", "notifications-outline",
-    "eye-outline", "eye-off-outline", "wifi-outline", "calendar-outline", "copy-outline",
-    "desktop-outline", "key-outline", "swap-vertical-outline", "mail-outline", "paper-plane-outline", "bluetooth-outline", "logo-google"
-]
-tasks.register("downloadIoniconsSvgs") {
-    inputs.property("ioniconsVersion", "8.0.13")
-    outputs.dir(ioniconsDirectory)
+// Download only the official Remix Icon font at build time. The app uses glyphs from
+// the font instead of packaged SVG/PNG interface icons, so vector quality is preserved.
+def remixFontFile = file("src/main/assets/fonts/remixicon.ttf")
+tasks.register("downloadRemixIconFont") {
+    outputs.file(remixFontFile)
     doLast {
-        ioniconsDirectory.mkdirs()
-        ioniconsFiles.each { iconName ->
-            File target = new File(ioniconsDirectory, "${iconName}.svg")
-            if (target.exists() && target.length() > 100L && target.text.contains("<svg")) return
-            target.delete()
-            def urls = [
-                "https://cdn.jsdelivr.net/npm/ionicons@8.0.13/dist/ionicons/svg/${iconName}.svg",
-                "https://raw.githubusercontent.com/ionic-team/ionicons/v8.0.13/src/svg/${iconName}.svg"
+        if (!remixFontFile.exists() || remixFontFile.length() < 10000L) {
+            remixFontFile.parentFile.mkdirs()
+            def candidates = [
+                "https://raw.githubusercontent.com/Remix-Design/RemixIcon/v4.9.1/fonts/remixicon.ttf",
+                "https://cdn.jsdelivr.net/gh/Remix-Design/RemixIcon@v4.9.1/fonts/remixicon.ttf"
             ]
-            Exception lastError = null
-            boolean ok = false
-            urls.each { urlText ->
-                if (!ok) {
+            Exception last = null
+            boolean downloaded = false
+            candidates.each { urlText ->
+                if (!downloaded) {
                     try {
-                        def conn = new URL(urlText).openConnection()
-                        conn.setConnectTimeout(15000)
-                        conn.setReadTimeout(30000)
-                        conn.setRequestProperty("User-Agent", "AppAo-Ionicons-SVG/1.0")
-                        String text = conn.getInputStream().getText("UTF-8")
-                        if (!text.contains("<svg") || text.length() < 80) throw new GradleException("Invalid SVG returned for ${iconName}")
-                        target.setText(text, "UTF-8")
-                        ok = true
+                        def connection = new URL(urlText).openConnection()
+                        connection.setConnectTimeout(15000)
+                        connection.setReadTimeout(30000)
+                        connection.setRequestProperty("User-Agent", "AppAo-Gradle/1.0")
+                        connection.getInputStream().withCloseable { input ->
+                            remixFontFile.withOutputStream { output -> output << input }
+                        }
+                        if (remixFontFile.length() < 10000L) throw new GradleException("Downloaded Remix Icon font is unexpectedly small")
+                        downloaded = true
                     } catch (Exception ex) {
-                        lastError = ex
-                        target.delete()
+                        last = ex
+                        remixFontFile.delete()
                     }
                 }
             }
-            if (!ok) throw new GradleException("Could not download Ionicons SVG '${iconName}' from the pinned release.", lastError)
+            if (!downloaded) throw new GradleException("Unable to download official Remix Icon v4.9.1 font. Check GitHub Actions network access.", last)
         }
     }
 }
-tasks.named("preBuild").configure { dependsOn(tasks.named("downloadIoniconsSvgs")) }
+tasks.named("preBuild").configure { dependsOn(tasks.named("downloadRemixIconFont")) }

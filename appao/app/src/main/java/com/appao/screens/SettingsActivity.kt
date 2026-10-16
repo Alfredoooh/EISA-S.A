@@ -23,8 +23,6 @@ class SettingsActivity : AppCompatActivity() {
         Row(R.id.rowData, "chart_pie", "Poupança de dados"),
         Row(R.id.rowAdBlock, "shield_check", "Bloqueador de anúncios"),
         Row(R.id.rowSiteDark, "moon", "Forçar tema escuro em sites"),
-        Row(R.id.rowAddressPosition, "swap-vertical-outline", "Posição da barra de endereço"),
-        Row(R.id.rowDesktopMode, "desktop-outline", "Modo desktop por predefinição"),
         Row(R.id.rowDownloads, "download", "Downloads"),
         Row(R.id.rowUsage, "chart_bars", "Atividade de uso"),
         Row(R.id.rowLoc, "location", "Localização"),
@@ -66,7 +64,7 @@ class SettingsActivity : AppCompatActivity() {
         IconLoader.applyIcon(findViewById(R.id.setBackIcon), "arrow_left", R.color.iconTint)
         findViewById<View>(R.id.setBack).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
         applyRowGroup(listOf(R.id.rowTheme, R.id.rowAccent, R.id.rowLang, R.id.rowData))
-        applyRowGroup(listOf(R.id.rowAdBlock, R.id.rowSiteDark, R.id.rowAddressPosition, R.id.rowDesktopMode, R.id.rowDownloads))
+        applyRowGroup(listOf(R.id.rowAdBlock, R.id.rowSiteDark, R.id.rowDownloads))
         applyRowGroup(listOf(R.id.rowUsage, R.id.rowLoc))
         applyRowGroup(listOf(R.id.rowAccount, R.id.rowTerms))
         rows.forEach { rowDef ->
@@ -77,42 +75,24 @@ class SettingsActivity : AppCompatActivity() {
                 IconLoader.applyIconThin(row.findViewById(R.id.rowIcon), rowDef.icon, R.color.iconTint)
             }
             row.findViewById<TextView>(R.id.rowTitle).text = rowDef.title
-            if (rowDef.id == R.id.rowAdBlock || rowDef.id == R.id.rowSiteDark || rowDef.id == R.id.rowDesktopMode) {
-                val toggle = row.findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.rowSwitch)
-                toggle.visibility = View.VISIBLE
-                row.findViewById<TextView>(R.id.rowValue).visibility = View.GONE
-                toggle.setOnCheckedChangeListener(null)
-                toggle.isChecked = when (rowDef.id) {
-                    R.id.rowAdBlock -> BrowserPreferences.adBlockEnabled(this)
-                    R.id.rowSiteDark -> BrowserPreferences.forceDarkEnabled(this)
-                    else -> BrowserPreferences.desktopSiteEnabled(this)
-                }
-                toggle.setOnCheckedChangeListener { _, checked ->
-                    when (rowDef.id) {
-                        R.id.rowAdBlock -> {
-                            BrowserPreferences.setAdBlockEnabled(this, checked)
-                            AppAoToast.show(this, if (checked) "Bloqueador de anúncios ativado" else "Bloqueador de anúncios desativado")
-                        }
-                        R.id.rowSiteDark -> {
-                            BrowserPreferences.setForceDarkEnabled(this, checked)
-                            AppAoToast.show(this, if (checked) "Tema escuro de sites ativado" else "Tema escuro de sites desativado")
-                        }
-                        else -> {
-                            BrowserPreferences.setDesktopSiteEnabled(this, checked)
-                            AppAoToast.show(this, if (checked) "Modo desktop definido como padrão" else "Modo móvel definido como padrão")
-                        }
-                    }
-                }
-            }
             row.setOnClickListener {
-                if (rowDef.id == R.id.rowAdBlock || rowDef.id == R.id.rowSiteDark || rowDef.id == R.id.rowDesktopMode) return@setOnClickListener
                 when (rowDef.id) {
                     R.id.rowTheme -> showThemePicker(row)
                     R.id.rowAccent -> showAccentPicker(row)
                     R.id.rowLang -> showLangPicker(row)
                     R.id.rowData -> openDataSaver()
-                    R.id.rowAdBlock, R.id.rowSiteDark, R.id.rowDesktopMode -> Unit
-                    R.id.rowAddressPosition -> showAddressPositionPicker(row)
+                    R.id.rowAdBlock -> {
+                        val enabled = !BrowserPreferences.adBlockEnabled(this)
+                        BrowserPreferences.setAdBlockEnabled(this, enabled)
+                        refreshValues()
+                        AppAoToast.show(this, if (enabled) "Bloqueador de anúncios ativado" else "Bloqueador de anúncios desativado")
+                    }
+                    R.id.rowSiteDark -> {
+                        val enabled = !BrowserPreferences.forceDarkEnabled(this)
+                        BrowserPreferences.setForceDarkEnabled(this, enabled)
+                        refreshValues()
+                        AppAoToast.show(this, if (enabled) "Tema escuro de sites ativado" else "Tema escuro de sites desativado")
+                    }
                     R.id.rowDownloads -> {
                         startActivity(Intent(this, BrowserDownloadsActivity::class.java))
                         overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
@@ -173,39 +153,13 @@ class SettingsActivity : AppCompatActivity() {
             visibility = View.VISIBLE
             text = if (dataSavingEnabled()) "Ligada" else "Desligada"
         }
-        findViewById<View>(R.id.rowAdBlock).apply {
-            findViewById<TextView>(R.id.rowValue).visibility = View.GONE
-            findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.rowSwitch).apply {
-                setOnCheckedChangeListener(null)
-                isChecked = BrowserPreferences.adBlockEnabled(this@SettingsActivity)
-                setOnCheckedChangeListener { _, checked ->
-                    BrowserPreferences.setAdBlockEnabled(this@SettingsActivity, checked)
-                    AppAoToast.show(this@SettingsActivity, if (checked) "Bloqueador de anúncios ativado" else "Bloqueador de anúncios desativado")
-                }
-            }
-        }
-        findViewById<View>(R.id.rowSiteDark).apply {
-            findViewById<TextView>(R.id.rowValue).visibility = View.GONE
-            findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.rowSwitch).apply {
-                setOnCheckedChangeListener(null)
-                isChecked = BrowserPreferences.forceDarkEnabled(this@SettingsActivity)
-                setOnCheckedChangeListener { _, checked ->
-                    BrowserPreferences.setForceDarkEnabled(this@SettingsActivity, checked)
-                    AppAoToast.show(this@SettingsActivity, if (checked) "Tema escuro de sites ativado" else "Tema escuro de sites desativado")
-                }
-            }
-        }
-        findViewById<View>(R.id.rowAddressPosition).findViewById<TextView>(R.id.rowValue).apply {
+        findViewById<View>(R.id.rowAdBlock).findViewById<TextView>(R.id.rowValue).apply {
             visibility = View.VISIBLE
-            text = if (BrowserPreferences.addressBarPosition(this@SettingsActivity) == "bottom") "Em baixo" else "No topo"
+            text = if (BrowserPreferences.adBlockEnabled(this@SettingsActivity)) "Ligado" else "Desligado"
         }
-        findViewById<View>(R.id.rowDesktopMode).findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.rowSwitch).apply {
-            setOnCheckedChangeListener(null)
-            isChecked = BrowserPreferences.desktopSiteEnabled(this@SettingsActivity)
-            setOnCheckedChangeListener { _, checked ->
-                BrowserPreferences.setDesktopSiteEnabled(this@SettingsActivity, checked)
-                AppAoToast.show(this@SettingsActivity, if (checked) "Modo desktop definido como padrão" else "Modo móvel definido como padrão")
-            }
+        findViewById<View>(R.id.rowSiteDark).findViewById<TextView>(R.id.rowValue).apply {
+            visibility = View.VISIBLE
+            text = if (BrowserPreferences.forceDarkEnabled(this@SettingsActivity)) "Ligado" else "Desligado"
         }
         findViewById<View>(R.id.rowDownloads).findViewById<TextView>(R.id.rowValue).apply {
             visibility = View.VISIBLE
@@ -221,19 +175,6 @@ class SettingsActivity : AppCompatActivity() {
         icon.background = android.graphics.drawable.GradientDrawable().apply {
             shape = android.graphics.drawable.GradientDrawable.OVAL
             setColor(swatch)
-        }
-    }
-
-    private fun showAddressPositionPicker(anchor: View) {
-        NativeSheetDialog.showSelection(
-            this,
-            "Posição da barra de endereço",
-            listOf("No topo", "Em baixo"),
-            if (BrowserPreferences.addressBarPosition(this) == "bottom") 1 else 0
-        ) { selected ->
-            BrowserPreferences.setAddressBarPosition(this, if (selected == 1) "bottom" else "top")
-            BrowserPreferences.setPopupPosition(this, "bottom")
-            refreshValues()
         }
     }
 

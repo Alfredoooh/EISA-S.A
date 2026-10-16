@@ -7,6 +7,7 @@
     <color name="text">#FFFFFF</color>
     <color name="dim">#B6B6B6</color>
     <color name="line">#2A2A2A</color>
+    <color name="divider">#2A2A2A</color>
     <color name="border">#343434</color>
 
     <color name="fluent0Light">#0F6CBD</color><color name="fluent0Dark">#479EF5</color>

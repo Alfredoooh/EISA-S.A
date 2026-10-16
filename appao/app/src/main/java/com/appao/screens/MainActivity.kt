@@ -1425,7 +1425,7 @@ class MainActivity : AppCompatActivity() {
             HomeSite("Definições", internal = "settings"),
             HomeSite("Mais", internal = "more")
         )
-        sites.forEachIndexed { index, site ->
+        sites.forEachIndexed { index, shortcut ->
             val tile = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
@@ -1433,12 +1433,12 @@ class MainActivity : AppCompatActivity() {
                 isClickable = true; isFocusable = true
                 setBackgroundResource(R.drawable.bg_transparent_pressed)
                 setOnClickListener {
-                    when (site.internal) {
+                    when (shortcut.internal) {
                         "downloads" -> startActivity(Intent(this@MainActivity, BrowserDownloadsActivity::class.java))
                         "history" -> startActivity(Intent(this@MainActivity, HistoryActivity::class.java))
                         "settings" -> startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
                         "more" -> showMoreQuickSites(this)
-                        else -> openNewBrowserTab(site.url)
+                        else -> openNewBrowserTab(shortcut.url)
                     }
                 }
             }
@@ -1447,10 +1447,10 @@ class MainActivity : AppCompatActivity() {
                 clipToOutline = true
             }
             val icon = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
-            if (site.url.isNotBlank()) {
-                Glide.with(this).load(BrowserTabStore.faviconFor(site.url)).circleCrop().placeholder(R.drawable.logo).error(R.drawable.logo).into(icon)
+            if (shortcut.url.isNotBlank()) {
+                Glide.with(this).load(BrowserTabStore.faviconFor(shortcut.url)).circleCrop().placeholder(R.drawable.logo).error(R.drawable.logo).into(icon)
             } else {
-                IconLoader.applyIcon(icon, when (site.internal) {
+                IconLoader.applyIcon(icon, when (shortcut.internal) {
                     "downloads" -> "download-outline"
                     "history" -> "history"
                     "settings" -> "settings"
@@ -1460,7 +1460,7 @@ class MainActivity : AppCompatActivity() {
             iconBox.addView(icon, FrameLayout.LayoutParams(-1, -1))
             tile.addView(iconBox, LinearLayout.LayoutParams(dp(38), dp(38)))
             tile.addView(TextView(this).apply {
-                text = site.label; textSize = 11f; maxLines = 1
+                text = shortcut.label; textSize = 11f; maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END; gravity = Gravity.CENTER
                 setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
                 setPadding(0, dp(5), 0, 0)

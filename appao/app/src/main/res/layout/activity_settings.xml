@@ -42,6 +42,8 @@
             <include layout="@layout/row_setting" android:id="@+id/rowData" android:layout_marginBottom="2dp"/>
             <TextView style="@style/SettingsLabel" android:text="NAVEGAÇÃO"/>
             <include layout="@layout/row_setting" android:id="@+id/rowAdBlock" android:layout_marginBottom="2dp"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowTracking" android:layout_marginBottom="2dp"/>
+            <include layout="@layout/row_setting" android:id="@+id/rowAdaptiveBarColor" android:layout_marginBottom="2dp"/>
             <include layout="@layout/row_setting" android:id="@+id/rowSiteDark" android:layout_marginBottom="2dp"/>
             <include layout="@layout/row_setting" android:id="@+id/rowAddressPosition" android:layout_marginBottom="2dp"/>
             <include layout="@layout/row_setting" android:id="@+id/rowDesktopMode" android:layout_marginBottom="2dp"/>

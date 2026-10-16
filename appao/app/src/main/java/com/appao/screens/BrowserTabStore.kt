@@ -109,3 +109,56 @@ object BrowserTabStore {
 
     private fun hostFor(url: String): String = runCatching { android.net.Uri.parse(url).host.orEmpty().removePrefix("www.") }.getOrDefault("")
 }
+
+
+/**
+ * Volatile private-tab metadata. It is intentionally memory-only and never written to BrowserTabStore
+ * or BrowsingHistoryStore. Android WebView cookie isolation is provider/process dependent and is not
+ * implied by this metadata store alone.
+ */
+object PrivateBrowserTabStore {
+    private const val MAX_TABS = 20
+    private val entries = mutableListOf<BrowserTab>()
+
+    @Synchronized fun tabs(): List<BrowserTab> = entries.sortedByDescending { it.updatedAt }.toList()
+
+    @Synchronized fun create(context: Context, url: String = "https://www.google.com/"): BrowserTab {
+        val tab = BrowserTab("private_" + java.util.UUID.randomUUID().toString().replace("-", "").take(12), url, "Separador privado", BrowserTabStore.faviconFor(url), "", System.currentTimeMillis())
+        entries.add(0, tab)
+        while (entries.size > MAX_TABS) entries.removeAt(entries.lastIndex)
+        return tab
+    }
+
+    @Synchronized fun updatePage(context: Context, id: String, url: String, title: String, snapshotPath: String? = null) {
+        val index = entries.indexOfFirst { it.id == id }
+        if (index < 0) return
+        val old = entries[index]
+        entries[index] = old.copy(
+            url = url.ifBlank { old.url },
+            title = title.ifBlank { "Separador privado" },
+            favicon = BrowserTabStore.faviconFor(url.ifBlank { old.url }),
+            snapshotPath = snapshotPath ?: old.snapshotPath,
+            updatedAt = System.currentTimeMillis()
+        )
+    }
+
+    @Synchronized fun remove(context: Context, id: String) {
+        val item = entries.firstOrNull { it.id == id }
+        item?.snapshotPath?.takeIf { it.isNotBlank() }?.let { runCatching { java.io.File(it).delete() } }
+        entries.removeAll { it.id == id }
+    }
+
+    @Synchronized fun clear(context: Context) {
+        entries.map { it.snapshotPath }.filter { it.isNotBlank() }.forEach { runCatching { java.io.File(it).delete() } }
+        entries.clear()
+    }
+
+    @Synchronized fun count(): Int = entries.size
+
+    fun saveSnapshot(context: Context, id: String, bitmap: Bitmap): String? = runCatching {
+        val dir = java.io.File(context.cacheDir, "private_browser_tabs").apply { mkdirs() }
+        val target = java.io.File(dir, "$id.jpg")
+        java.io.FileOutputStream(target).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 72, it) }
+        target.absolutePath
+    }.getOrNull()
+}

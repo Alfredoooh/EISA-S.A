@@ -142,7 +142,7 @@ object IconLoader {
     }
 
     private fun resolveSize(view: ImageView): Int {
-        val target = (22f * view.resources.displayMetrics.density + 0.5f).toInt().coerceAtLeast(1)
+        val target = (19f * view.resources.displayMetrics.density + 0.5f).toInt().coerceAtLeast(1)
         val lp = view.layoutParams
         val width = lp?.width?.takeIf { it > 0 } ?: view.width
         val height = lp?.height?.takeIf { it > 0 } ?: view.height

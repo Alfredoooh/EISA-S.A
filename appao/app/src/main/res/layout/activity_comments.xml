@@ -98,7 +98,7 @@
                 android:id="@+id/commentSend"
                 android:layout_width="36dp"
                 android:layout_height="36dp"
-                android:background="@drawable/bg_circle_pri"
+                android:background="@drawable/bg_transparent_pressed"
                 android:clickable="true"
                 android:focusable="true">
                 <ImageView

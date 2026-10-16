@@ -16,11 +16,24 @@ object BrowserPreferences {
     private const val KEY_ADDRESS_POSITION = "address_bar_position"
     private const val KEY_DESKTOP_SITE = "desktop_site_enabled"
     private const val KEY_POPUP_POSITION = "popup_position"
+    private const val KEY_TRACKING_PROTECTION = "tracking_protection_enabled"
+    private const val KEY_AD_BLOCKED_COUNT = "blocked_ads_count"
+    private const val KEY_TRACKER_BLOCKED_COUNT = "blocked_trackers_count"
+    private const val KEY_ADAPTIVE_BAR_COLOR = "adaptive_browser_bar_color"
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     fun adBlockEnabled(context: Context): Boolean = prefs(context).getBoolean(KEY_AD_BLOCK, true)
     fun setAdBlockEnabled(context: Context, enabled: Boolean) { prefs(context).edit().putBoolean(KEY_AD_BLOCK, enabled).apply() }
+    fun trackingProtectionEnabled(context: Context): Boolean = prefs(context).getBoolean(KEY_TRACKING_PROTECTION, true)
+    fun setTrackingProtectionEnabled(context: Context, enabled: Boolean) { prefs(context).edit().putBoolean(KEY_TRACKING_PROTECTION, enabled).apply() }
+    fun adaptiveBrowserBarColor(context: Context): Boolean = prefs(context).getBoolean(KEY_ADAPTIVE_BAR_COLOR, false)
+    fun setAdaptiveBrowserBarColor(context: Context, enabled: Boolean) { prefs(context).edit().putBoolean(KEY_ADAPTIVE_BAR_COLOR, enabled).apply() }
+    fun blockedAdCount(context: Context): Long = prefs(context).getLong(KEY_AD_BLOCKED_COUNT, 0L).coerceAtLeast(0L)
+    fun blockedTrackerCount(context: Context): Long = prefs(context).getLong(KEY_TRACKER_BLOCKED_COUNT, 0L).coerceAtLeast(0L)
+    fun blockedRequestCount(context: Context): Long = blockedAdCount(context) + blockedTrackerCount(context)
+    fun recordBlockedAd(context: Context) { synchronized(this) { prefs(context).edit().putLong(KEY_AD_BLOCKED_COUNT, blockedAdCount(context) + 1L).apply() } }
+    fun recordBlockedTracker(context: Context) { synchronized(this) { prefs(context).edit().putLong(KEY_TRACKER_BLOCKED_COUNT, blockedTrackerCount(context) + 1L).apply() } }
     fun forceDarkEnabled(context: Context): Boolean = prefs(context).getBoolean(KEY_FORCE_DARK, false)
     fun setForceDarkEnabled(context: Context, enabled: Boolean) { prefs(context).edit().putBoolean(KEY_FORCE_DARK, enabled).apply() }
     fun savePageHistory(context: Context): Boolean = prefs(context).getBoolean(KEY_SAVE_HISTORY, true)

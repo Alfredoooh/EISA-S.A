@@ -34,7 +34,7 @@ class CategoryManagerActivity : AppCompatActivity() {
         loadingLabel = findViewById(R.id.categoryLoading)
         hiddenIds += (prefs.getStringSet("feed_hidden_categories", emptySet()) ?: emptySet())
         IconLoader.applyIcon(findViewById(R.id.categoryBackIcon), "arrow_left", R.color.iconTint)
-        findViewById<View>(R.id.categoryBack).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
+        findViewById<View>(R.id.categoryBack).background = ContextCompat.getDrawable(this, R.drawable.bg_transparent_pressed)
         findViewById<View>(R.id.categoryBack).setOnClickListener { closeWithResult() }
 
         // Render the last known server taxonomy immediately, then refresh it quietly.

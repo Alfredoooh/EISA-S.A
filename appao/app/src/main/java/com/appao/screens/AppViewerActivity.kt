@@ -62,6 +62,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.materialswitch.MaterialSwitch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 import java.net.URLEncoder
 
@@ -73,12 +74,15 @@ class AppViewerActivity : AppCompatActivity() {
     private lateinit var favicon: ImageView
     private var rendererRecoveryAttempted = false
     private var tabId: String = ""
-    private var isSubmittingAddress = false
+    private var privateMode = false
+    private var addressSuggestionGeneration = 0L
     private var reusedWebView = false
     private lateinit var findBar: View
     private lateinit var findInput: EditText
     private var findMode = false
     private var browserBarHidden = false
+    private var browserBarMarginAnimator: android.animation.ValueAnimator? = null
+    private var zoomBar: View? = null
     private var addressSuggestionsPopup: PopupWindow? = null
     private val addressSuggestionHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var addressSuggestionRunnable: Runnable? = null
@@ -118,10 +122,11 @@ class AppViewerActivity : AppCompatActivity() {
         findBar = findViewById(R.id.browserFindBar)
         findInput = findViewById(R.id.browserFindInput)
 
+        privateMode = intent.getBooleanExtra("browser_private_mode", false)
         tabId = intent.getStringExtra("browser_tab_id").orEmpty()
         val incomingUrl = intent.getStringExtra("url")?.trim().orEmpty()
-        if (tabId.isBlank()) tabId = BrowserTabStore.create(this, normalizeTarget(incomingUrl.ifBlank { "https://duckduckgo.com/" })).id
-        val storedTab = BrowserTabStore.tabs(this).firstOrNull { it.id == tabId }
+        if (tabId.isBlank()) tabId = createTab(normalizeTarget(incomingUrl.ifBlank { "https://duckduckgo.com/" })).id
+        val storedTab = tabList().firstOrNull { it.id == tabId }
         val initialUrl = normalizeTarget(incomingUrl.ifBlank { storedTab?.url ?: "https://duckduckgo.com/" })
 
         val pooledWebView = BrowserWebViewPool.get(tabId)
@@ -147,9 +152,34 @@ class AppViewerActivity : AppCompatActivity() {
         IconLoader.applyIcon(findViewById(R.id.browserFireIcon), "flame", R.color.iconTint)
         IconLoader.applyIcon(findViewById(R.id.appViewerMoreIcon), "menu", R.color.iconTint)
         IconLoader.applyIcon(findViewById(R.id.browserFindCloseIcon), "close", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.browserAddressClearIcon), "close", R.color.iconTint)
+        findViewById<View>(R.id.browserAddressClear).setOnClickListener {
+            address.setText("")
+            address.requestFocus()
+            address.setSelection(0)
+            showAddressSuggestions("")
+            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(address, InputMethodManager.SHOW_IMPLICIT)
+        }
+        web.setOnLongClickListener {
+            val result = web.hitTestResult
+            val target = result?.extra?.trim().orEmpty()
+            if (target.isBlank() || !target.startsWith("http://", true) && !target.startsWith("https://", true)) return@setOnLongClickListener false
+            when (result.type) {
+                WebView.HitTestResult.IMAGE_TYPE, WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
+                    showWebElementActions(target, "image"); true
+                }
+                WebView.HitTestResult.VIDEO_TYPE, WebView.HitTestResult.SRC_VIDEO_TYPE -> {
+                    showWebElementActions(target, "video"); true
+                }
+                WebView.HitTestResult.ANCHOR_TYPE, WebView.HitTestResult.SRC_ANCHOR_TYPE -> {
+                    showWebElementActions(target, "link"); true
+                }
+                else -> false
+            }
+        }
 
         if (!reusedWebView) {
-            BrowserTabStore.updatePage(this, tabId, initialUrl, storedTab?.title ?: "Nova aba")
+            updateTabPage(tabId, initialUrl, storedTab?.title ?: if (privateMode) "Separador privado" else "Nova aba")
             web.settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true
@@ -210,7 +240,7 @@ class AppViewerActivity : AppCompatActivity() {
         loadFavicon(activeUrl)
         updateTabCounters()
         if (reusedWebView) {
-            BrowserTabStore.updatePage(this, tabId, activeUrl, web.title?.take(250).orEmpty().ifBlank { storedTab?.title ?: "Nova aba" })
+            updateTabPage(tabId, activeUrl, web.title?.take(250).orEmpty().ifBlank { storedTab?.title ?: if (privateMode) "Separador privado" else "Nova aba" })
         } else {
             web.loadUrl(initialUrl)
         }
@@ -228,15 +258,21 @@ class AppViewerActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView, url: String) {
                 if (!address.hasFocus()) address.setText(url)
                 val title = view.title?.take(250).orEmpty().ifBlank { hostFor(url).ifBlank { "Nova aba" } }
-                BrowsingHistoryStore.record(this@AppViewerActivity, url, title)
-                lifecycleScope.launch(Dispatchers.IO) { BrowserTabStore.updatePage(this@AppViewerActivity, tabId, url, title) }
+                if (!privateMode) BrowsingHistoryStore.record(this@AppViewerActivity, url, title)
+                lifecycleScope.launch(Dispatchers.IO) { updateTabPage(tabId, url, title) }
                 loadFavicon(url)
                 updateTabCounters()
+                refreshAdaptiveBarColor()
                 view.postDelayed({ savePageSnapshot() }, 320L)
             }
 
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 if (BrowserPreferences.adBlockEnabled(this@AppViewerActivity) && isKnownAdRequest(request.url)) {
+                    BrowserPreferences.recordBlockedAd(this@AppViewerActivity)
+                    return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+                }
+                if (BrowserPreferences.trackingProtectionEnabled(this@AppViewerActivity) && isKnownTrackerRequest(request.url)) {
+                    BrowserPreferences.recordBlockedTracker(this@AppViewerActivity)
                     return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
                 }
                 return super.shouldInterceptRequest(view, request)
@@ -287,7 +323,7 @@ class AppViewerActivity : AppCompatActivity() {
             }
 
             override fun onReceivedTitle(view: WebView?, title: String?) {
-                if (!title.isNullOrBlank()) BrowserTabStore.updatePage(this@AppViewerActivity, tabId, web.url.orEmpty(), title.take(250))
+                if (!title.isNullOrBlank()) updateTabPage(tabId, web.url.orEmpty(), title.take(250))
             }
             override fun onJsAlert(view: WebView, url: String, message: String, result: JsResult): Boolean {
                 NativeHtmlDialog.alert(this@AppViewerActivity, "", message) { result.confirm() }; return true
@@ -361,6 +397,7 @@ class AppViewerActivity : AppCompatActivity() {
         findViewById<View>(R.id.browserFire).visibility = if (active) View.GONE else View.VISIBLE
         findViewById<View>(R.id.browserTabsTop).visibility = if (active) View.GONE else View.VISIBLE
         findViewById<View>(R.id.appViewerMore).visibility = if (active) View.GONE else View.VISIBLE
+        findViewById<View>(R.id.browserAddressClear).visibility = if (active) View.VISIBLE else View.GONE
         findViewById<View>(R.id.browserAddressPill).animate().cancel()
         val pill = findViewById<View>(R.id.browserAddressPill)
         pill.animate().scaleX(1f).setDuration(240L).setInterpolator(Curves.IOS).start()
@@ -370,9 +407,23 @@ class AppViewerActivity : AppCompatActivity() {
 
     private fun showAddressSuggestions(query: String) {
         if (!address.hasFocus()) return
+        val trimmed = query.trim()
+        val generation = ++addressSuggestionGeneration
+        renderAddressSuggestions(trimmed, emptyList())
+        if (trimmed.isBlank()) return
+        lifecycleScope.launch {
+            val remote = withContext(Dispatchers.IO) { BrowserAutocomplete.googleSuggestions(trimmed, 7) }
+            if (generation != addressSuggestionGeneration || isFinishing || isDestroyed) return@launch
+            if (!address.hasFocus() || address.text?.toString()?.trim() != trimmed) return@launch
+            renderAddressSuggestions(trimmed, remote)
+        }
+    }
+
+    private fun renderAddressSuggestions(trimmed: String, remoteSuggestions: List<String>) {
+        if (!address.hasFocus()) return
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(8), dp(6), dp(8), dp(8))
+            setPadding(dp(4), dp(5), dp(4), dp(5))
             background = android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.RECTANGLE
                 cornerRadius = dp(22).toFloat()
@@ -380,16 +431,11 @@ class AppViewerActivity : AppCompatActivity() {
                 setStroke(dp(1), ContextCompat.getColor(this@AppViewerActivity, R.color.border))
             }
         }
-        val trimmed = query.trim()
         fun addSuggestion(title: String, detail: String, iconName: String, target: String) {
             val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                minimumHeight = dp(48)
-                setPadding(dp(10), dp(5), dp(10), dp(5))
-                isClickable = true
-                isFocusable = true
-                setBackgroundResource(R.drawable.bg_transparent_pressed)
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(46); setPadding(dp(12), dp(5), dp(12), dp(5))
+                isClickable = true; isFocusable = true; setBackgroundResource(R.drawable.bg_transparent_pressed)
                 setOnClickListener {
                     hideAddressSuggestions()
                     address.setText(if (target.isBlank()) trimmed else target)
@@ -397,7 +443,10 @@ class AppViewerActivity : AppCompatActivity() {
                     loadAddressFromInput()
                 }
             }
-            val icon = ImageView(this).apply { layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)); scaleType = ImageView.ScaleType.CENTER_INSIDE; IconLoader.applyIcon(this, iconName, R.color.iconTint) }
+            val icon = ImageView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(19), dp(19)); scaleType = ImageView.ScaleType.CENTER_INSIDE
+                IconLoader.applyIcon(this, iconName, R.color.iconTint)
+            }
             row.addView(icon)
             val words = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, 0, 0) }
             words.addView(TextView(this).apply { text = title; maxLines = 1; textSize = 14f; setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.text)) })
@@ -406,21 +455,23 @@ class AppViewerActivity : AppCompatActivity() {
             panel.addView(row)
         }
         if (trimmed.isNotBlank()) addSuggestion("Pesquisar “$trimmed”", BrowserPreferences.searchEngine(this), "search", trimmed)
-        val recent = BrowsingHistoryStore.all(this).filter {
+        remoteSuggestions.distinctBy { it.lowercase(java.util.Locale.ROOT) }.take(7).forEach {
+            addSuggestion(it, "Sugestão de pesquisa", "search", it)
+        }
+        val history = if (privateMode) emptyList() else BrowsingHistoryStore.all(this).filter {
             trimmed.isBlank() || it.title.contains(trimmed, true) || it.url.contains(trimmed, true)
-        }.take(if (trimmed.isBlank()) 5 else 4)
-        recent.forEach { addSuggestion(it.title.ifBlank { it.url }, it.url, "history", it.url) }
-        if (recent.isEmpty() && trimmed.isBlank()) addSuggestion("Nova pesquisa", "Escreve uma palavra ou endereço", "search", "")
-
-        val width = (resources.displayMetrics.widthPixels - dp(20)).coerceAtLeast(dp(240))
-        hideAddressSuggestions()
+        }.take(if (trimmed.isBlank()) 5 else 3)
+        history.forEach { addSuggestion(it.title.ifBlank { it.url }, it.url, "history", it.url) }
+        if (trimmed.isBlank() && history.isEmpty()) addSuggestion("Nova pesquisa", "Escreve uma palavra ou endereço", "search", "")
+        val anchor = findViewById<View>(R.id.browserAddressPill)
+        val width = anchor.width.takeIf { it > 0 }
+            ?: (resources.displayMetrics.widthPixels - dp(64)).coerceAtLeast(dp(240))
+        addressSuggestionsPopup?.dismiss()
         addressSuggestionsPopup = PopupWindow(panel, width, ViewGroup.LayoutParams.WRAP_CONTENT, false).apply {
-            isOutsideTouchable = true
-            isFocusable = false
-            elevation = dp(12).toFloat()
+            isOutsideTouchable = true; isFocusable = false; elevation = dp(12).toFloat()
             setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
             inputMethodMode = PopupWindow.INPUT_METHOD_NOT_NEEDED
-            showAsDropDown(findViewById(R.id.browserTopBar), -dp(2), dp(3))
+            showAsDropDown(anchor, 0, dp(3))
         }
     }
 
@@ -501,18 +552,45 @@ class AppViewerActivity : AppCompatActivity() {
     private fun setBrowserBarHidden(hidden: Boolean) {
         if (address.hasFocus() || findMode) return
         val topBar = findViewById<View>(R.id.browserTopBar)
-        if (topBar.visibility != View.VISIBLE) return
+        if (hidden && topBar.visibility != View.VISIBLE) return
         if (browserBarHidden == hidden) return
         browserBarHidden = hidden
         val bottom = BrowserPreferences.addressBarPosition(this).equals("bottom", true)
         val direction = if (bottom) 1f else -1f
         topBar.animate().cancel()
-        topBar.animate().translationY(if (hidden) direction * dp(62) else 0f)
-            .setDuration(280L).setInterpolator(Curves.IOS).start()
+        browserBarMarginAnimator?.cancel()
+        if (hidden) {
+            topBar.visibility = View.VISIBLE
+            topBar.animate()
+                .translationY(direction * dp(62))
+                .alpha(0f)
+                .setDuration(360L).setInterpolator(Curves.IOS)
+                .withEndAction { if (browserBarHidden) topBar.visibility = View.INVISIBLE }
+                .start()
+        }
         val webParams = web.layoutParams as? android.widget.FrameLayout.LayoutParams
-        webParams?.let {
-            if (bottom) it.bottomMargin = if (hidden) 0 else dp(58) else it.topMargin = if (hidden) 0 else dp(58)
-            web.layoutParams = it
+        webParams?.let { params ->
+            val start = if (bottom) params.bottomMargin else params.topMargin
+            val end = if (hidden) 0 else dp(58)
+            browserBarMarginAnimator = android.animation.ValueAnimator.ofInt(start, end).apply {
+                duration = 360L
+                interpolator = Curves.IOS
+                addUpdateListener { animator ->
+                    val margin = animator.animatedValue as Int
+                    if (bottom) params.bottomMargin = margin else params.topMargin = margin
+                    web.layoutParams = params
+                }
+                start()
+            }
+        }
+        if (hidden) {
+            topBar.postDelayed({ if (browserBarHidden) topBar.visibility = View.INVISIBLE }, 370L)
+        } else {
+            topBar.visibility = View.VISIBLE
+            topBar.alpha = 0f
+            topBar.translationY = direction * dp(62)
+            topBar.animate().alpha(1f).translationY(0f).setDuration(360L).setInterpolator(Curves.IOS)
+                .withEndAction { topBar.alpha = 1f }.start()
         }
     }
 
@@ -586,9 +664,11 @@ class AppViewerActivity : AppCompatActivity() {
 
     private fun closeCurrentTabAndGoHome() {
         hideAddressSuggestions()
-        BrowserTabStore.remove(this, tabId)
+        removeTab(tabId)
         BrowserWebViewPool.removeAndDestroy(tabId)
-        val intent = Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val intent = Intent(this, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra("appao_main_tab", "home")
         startActivity(intent)
         finish()
         overridePendingTransition(R.anim.publish_return_enter, R.anim.publish_return_exit)
@@ -597,12 +677,10 @@ class AppViewerActivity : AppCompatActivity() {
     private fun loadAddressFromInput() {
         val raw = address.text.toString().trim()
         if (raw.isBlank()) return
-        isSubmittingAddress = true
         val target = normalizeTarget(raw)
         address.clearFocus()
         (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(address.windowToken, 0)
         web.loadUrl(target)
-        isSubmittingAddress = false
     }
 
     private fun normalizeTarget(value: String): String {
@@ -617,6 +695,7 @@ class AppViewerActivity : AppCompatActivity() {
         savePageSnapshot()
         val launch = Intent(this, BrowserTabsActivity::class.java)
             .putExtra("source_tab_id", tabId)
+            .putExtra("browser_private_mode", privateMode)
         runCatching {
             val options = ActivityOptions.makeSceneTransitionAnimation(this, web, "browser_tab_preview")
             startActivity(launch, options.toBundle())
@@ -626,14 +705,25 @@ class AppViewerActivity : AppCompatActivity() {
         }
     }
 
-    private fun openNewTab() {
+    private fun openNewTab(forcePrivate: Boolean = privateMode) {
         savePageSnapshot()
-        val tab = BrowserTabStore.create(this, "https://duckduckgo.com/")
+        val tab = if (forcePrivate) PrivateBrowserTabStore.create(this, "https://duckduckgo.com/") else BrowserTabStore.create(this, "https://duckduckgo.com/")
         startActivity(Intent(this, AppViewerActivity::class.java).apply {
-            putExtra("browser_mode", true); putExtra("browser_tab_id", tab.id); putExtra("url", tab.url)
+            putExtra("browser_mode", true); putExtra("browser_private_mode", forcePrivate); putExtra("browser_tab_id", tab.id); putExtra("url", tab.url)
         })
         overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
     }
+
+    private fun tabList(): List<BrowserTab> = if (privateMode) PrivateBrowserTabStore.tabs() else BrowserTabStore.tabs(this)
+    private fun createTab(url: String): BrowserTab = if (privateMode) PrivateBrowserTabStore.create(this, url) else BrowserTabStore.create(this, url)
+    private fun updateTabPage(id: String, url: String, title: String, snapshotPath: String? = null) {
+        if (privateMode) PrivateBrowserTabStore.updatePage(this, id, url, title, snapshotPath)
+        else BrowserTabStore.updatePage(this, id, url, title, snapshotPath)
+    }
+    private fun removeTab(id: String) { if (privateMode) PrivateBrowserTabStore.remove(this, id) else BrowserTabStore.remove(this, id) }
+    private fun saveTabSnapshot(id: String, bitmap: Bitmap): String? = if (privateMode) PrivateBrowserTabStore.saveSnapshot(this, id, bitmap) else BrowserTabStore.saveSnapshot(this, id, bitmap)
+    private fun tabCount(): Int = if (privateMode) PrivateBrowserTabStore.count() else BrowserTabStore.count(this)
+
 
     private fun askAiAboutPage() {
         val query = web.url?.takeIf { it.isNotBlank() }?.let { "Ajuda-me a compreender esta página: $it" }.orEmpty()
@@ -654,11 +744,12 @@ class AppViewerActivity : AppCompatActivity() {
                 CookieManager.getInstance().flush()
                 val previousId = tabId
                 BrowserTabStore.clear(this)
+                PrivateBrowserTabStore.clear(this)
                 BrowsingHistoryStore.clear(this)
                 ConversationHistoryStore.clear(this)
                 runCatching { android.webkit.WebStorage.getInstance().deleteAllData() }
                 BrowserWebViewPool.clearExcept(previousId)
-                val fresh = BrowserTabStore.create(this, "https://www.google.com/")
+                val fresh = if (privateMode) PrivateBrowserTabStore.create(this, "https://www.google.com/") else BrowserTabStore.create(this, "https://www.google.com/")
                 BrowserWebViewPool.rekey(previousId, fresh.id, web, this)
                 tabId = fresh.id
                 updateTabCounters()
@@ -670,37 +761,50 @@ class AppViewerActivity : AppCompatActivity() {
     private fun showPageMenu(anchor: View) {
         val adsEnabled = BrowserPreferences.adBlockEnabled(this)
         val forceDarkEnabled = BrowserPreferences.forceDarkEnabled(this)
+        val desktopEnabled = BrowserPreferences.desktopSiteEnabled(this)
+        val trackingEnabled = BrowserPreferences.trackingProtectionEnabled(this)
+        val addressAtBottom = BrowserPreferences.addressBarPosition(this).equals("bottom", true)
         NativePopupMenu.show(anchor, listOf(
             NativePopupMenu.Item(1, "Recuar", iconName = "arrow_go_back", checked = false),
             NativePopupMenu.Item(2, "Avançar", iconName = "arrow_go_forward", checked = false),
             NativePopupMenu.Item(3, "Recarregar", iconName = "refresh"),
             NativePopupMenu.Item(4, "Novo separador", iconName = "plus"),
             NativePopupMenu.Item(5, "Todos os separadores", iconName = "apps"),
-            NativePopupMenu.Item(6, "Diminuir zoom", iconName = "zoom_out"),
-            NativePopupMenu.Item(7, "Aumentar zoom", iconName = "zoom_in"),
-            NativePopupMenu.Item(8, "Repor zoom", iconName = "contrast"),
+            NativePopupMenu.Item(6, "Zoom da página", iconName = "zoom_in"),
+            NativePopupMenu.Item(7, if (desktopEnabled) "Modo desktop: ligado" else "Modo desktop: desligado", iconName = "desktop", checked = desktopEnabled),
+            NativePopupMenu.Item(8, if (addressAtBottom) "Barra de endereço: em baixo" else "Barra de endereço: no topo", iconName = "options", checked = addressAtBottom),
             NativePopupMenu.Item(9, if (adsEnabled) "Bloqueador de anúncios: ligado" else "Bloqueador de anúncios: desligado", iconName = "shield_check", checked = adsEnabled),
             NativePopupMenu.Item(10, if (forceDarkEnabled) "Forçar tema escuro: ligado" else "Forçar tema escuro: desligado", iconName = "moon", checked = forceDarkEnabled),
             NativePopupMenu.Item(11, "Downloads", iconName = "download"),
             NativePopupMenu.Item(12, "Copiar ligação", iconName = "link"),
-            NativePopupMenu.Item(13, "Partilhar ligação", iconName = "share"),
+            NativePopupMenu.Item(13, "Partilhar página…", iconName = "share"),
             NativePopupMenu.Item(14, "Limpar dados de navegação", iconName = "delete_bin"),
-            NativePopupMenu.Item(15, "Pesquisar nesta página", iconName = "search")
+            NativePopupMenu.Item(15, "Pesquisar nesta página", iconName = "search"),
+            NativePopupMenu.Item(16, "Novo separador privado", iconName = "eye_off"),
+            NativePopupMenu.Item(17, "Permissões deste site", iconName = "shield_check"),
+            NativePopupMenu.Item(18, "Início", iconName = "home"),
+            NativePopupMenu.Item(19, if (trackingEnabled) "Bloquear rastreadores: ligado" else "Bloquear rastreadores: desligado", iconName = "shield_check", checked = trackingEnabled)
         ), alignLeft = false, placeAbove = true) { item ->
             val currentUrl = web.url?.takeIf { it.isNotBlank() } ?: "https://duckduckgo.com/"
             when (item.id) {
                 1 -> if (web.canGoBack()) web.goBack() else AppAoToast.show(this, "Não há página anterior")
                 2 -> if (web.canGoForward()) web.goForward() else AppAoToast.show(this, "Não há página seguinte")
                 3 -> web.reload()
-                4 -> openNewTab()
+                4 -> openNewTab(privateMode)
                 5 -> openTabs()
-                6 -> {
-                    if (!web.zoomOut()) web.settings.textZoom = (web.settings.textZoom - 10).coerceAtLeast(50)
-                }
+                6 -> showZoomBar()
                 7 -> {
-                    if (!web.zoomIn()) web.settings.textZoom = (web.settings.textZoom + 10).coerceAtMost(200)
+                    BrowserPreferences.setDesktopSiteEnabled(this, !desktopEnabled)
+                    applyBrowserPreferences()
+                    AppAoToast.show(this, if (!desktopEnabled) "Modo desktop ativado" else "Modo desktop desativado")
+                    web.reload()
                 }
-                8 -> { web.settings.textZoom = 100; web.setInitialScale(0); web.reload() }
+                8 -> {
+                    BrowserPreferences.setAddressBarPosition(this, if (addressAtBottom) "top" else "bottom")
+                    browserBarHidden = false
+                    findViewById<View>(R.id.browserTopBar).apply { animate().cancel(); translationY = 0f; alpha = 1f; visibility = View.VISIBLE }
+                    applyAddressBarPosition()
+                }
                 9 -> {
                     BrowserPreferences.setAdBlockEnabled(this, !adsEnabled)
                     AppAoToast.show(this, if (!adsEnabled) "Bloqueador de anúncios ativado" else "Bloqueador de anúncios desativado")
@@ -718,67 +822,152 @@ class AppViewerActivity : AppCompatActivity() {
                     clipboard.setPrimaryClip(ClipData.newPlainText("Ligação", currentUrl))
                     AppAoToast.show(this, "Ligação copiada")
                 }
-                13 -> runCatching {
-                    startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, currentUrl) }, "Partilhar ligação"))
-                }.onFailure { AppAoToast.show(this, "Não foi possível partilhar") }
+                13 -> showBrowserShareSheet()
                 14 -> clearBrowserData()
                 15 -> openFindInPage()
+                16 -> openNewTab(true)
+                17 -> showSitePermissions()
+                18 -> goToHomeKeepingTab()
+                19 -> {
+                    BrowserPreferences.setTrackingProtectionEnabled(this, !trackingEnabled)
+                    AppAoToast.show(this, if (!trackingEnabled) "Bloqueio de rastreamento ativado" else "Bloqueio de rastreamento desativado")
+                    web.reload()
+                }
             }
         }
     }
 
-    private fun showZoomSheet() {
-        val root = LinearLayout(this).apply {
+    private fun showWebElementActions(url: String, kind: String) {
+        val dialog = BottomSheetDialog(this)
+        val surface = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(22), dp(12), dp(22), dp(24))
+            setPadding(dp(18), dp(12), dp(18), dp(20))
             setBackgroundColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dialogSurface))
         }
-        root.addView(TextView(this).apply {
-            text = "Zoom da página"; textSize = 19f
-            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
-            setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.text))
-            setPadding(0, 0, 0, dp(5))
+        surface.addView(TextView(this).apply {
+            text = when (kind) { "image" -> "Imagem"; "video" -> "Vídeo"; else -> "Ligação" }
+            textSize = 18f; typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+            setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.text)); setPadding(dp(2), dp(5), dp(2), dp(12))
         })
-        val value = TextView(this).apply {
-            text = "${currentZoomPercent}%"; textSize = 15f; gravity = Gravity.CENTER
-            setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.text))
+        fun actionRow(title: String, iconName: String, callback: () -> Unit) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(48); setPadding(dp(8), dp(8), dp(8), dp(8))
+                background = ContextCompat.getDrawable(this@AppViewerActivity, R.drawable.bg_transparent_pressed)
+                isClickable = true; isFocusable = true
+                addView(ImageView(this@AppViewerActivity).apply { scaleType = ImageView.ScaleType.CENTER_INSIDE; IconLoader.applyIcon(this, iconName, R.color.iconTint) }, LinearLayout.LayoutParams(dp(19), dp(19)))
+                addView(TextView(this@AppViewerActivity).apply { text = title; textSize = 14f; setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.text)); setPadding(dp(12), 0, 0, 0) }, LinearLayout.LayoutParams(0, -2, 1f))
+                setOnClickListener { dialog.dismiss(); callback() }
+            }
+            surface.addView(row)
         }
-        root.addView(value, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(30)))
+        if (kind == "image") actionRow("Pré-visualizar imagem", "image") {
+            startActivity(Intent(this, ImageViewerActivity::class.java).putExtra("image", url))
+            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+        }
+        if (kind == "image" || kind == "video") actionRow(if (kind == "image") "Transferir imagem" else "Transferir vídeo", "download") { enqueueWebDownload(url) }
+        if (kind == "link") actionRow("Abrir ligação num separador", "open-outline") { openNewBrowserTab(url) }
+        actionRow("Copiar ligação", "copy") {
+            (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Ligação", url))
+            AppAoToast.show(this, "Ligação copiada")
+        }
+        actionRow("Partilhar", "share") {
+            runCatching { startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, url) }, "Partilhar ligação")) }
+        }
+        dialog.setContentView(surface)
+        dialog.show()
+    }
+
+    private fun enqueueWebDownload(url: String) {
+        runCatching {
+            val request = DownloadManager.Request(Uri.parse(url)).apply {
+                setTitle(URLUtil.guessFileName(url, null, null))
+                setDescription("A transferir com o AppAo")
+                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                setAllowedOverMetered(true); setAllowedOverRoaming(false)
+                CookieManager.getInstance().getCookie(url)?.takeIf { it.isNotBlank() }?.let { addRequestHeader("Cookie", it) }
+                setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, URLUtil.guessFileName(url, null, null))
+            }
+            (getSystemService(DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
+            AppAoToast.show(this, "Transferência iniciada")
+        }.onFailure { AppAoToast.show(this, "Não foi possível iniciar a transferência") }
+    }
+
+    /** Compact bottom control: the page zoom changes continuously while the thumb moves. */
+    private fun showZoomBar() {
+        val root = findViewById<android.widget.FrameLayout>(R.id.appViewerRoot)
+        zoomBar?.let { old -> (old.parent as? ViewGroup)?.removeView(old) }
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(8), dp(12), dp(8))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = dp(18).toFloat()
+                setColor(ContextCompat.getColor(this@AppViewerActivity, R.color.card2))
+                setStroke(dp(1), ContextCompat.getColor(this@AppViewerActivity, R.color.divider))
+            }
+            elevation = dp(8).toFloat()
+        }
+        val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        header.addView(TextView(this).apply {
+            text = "Zoom da página"; textSize = 13f
+            setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.text))
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val value = TextView(this).apply {
+            text = "${currentZoomPercent}%"; textSize = 12f
+            setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.text))
+            setPadding(dp(8), 0, dp(10), 0)
+        }
+        header.addView(value)
+        val close = ImageView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(22), dp(22))
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            contentDescription = "Fechar zoom"
+            IconLoader.applyIcon(this, "close", R.color.iconTint)
+            isClickable = true; isFocusable = true
+            setOnClickListener {
+                bar.animate().cancel()
+                bar.animate().alpha(0f).translationY(dp(12).toFloat()).setDuration(170L).setInterpolator(Curves.IOS)
+                    .withEndAction { (bar.parent as? ViewGroup)?.removeView(bar); if (zoomBar === bar) zoomBar = null }
+                    .start()
+            }
+        }
+        header.addView(close)
+        bar.addView(header)
         val seek = SeekBar(this).apply {
             max = 150
             progress = (currentZoomPercent - 50).coerceIn(0, 150)
             progressTintList = ColorStateList.valueOf(AccentColorManager.resolvedOr(this@AppViewerActivity, R.color.pri))
             thumbTintList = ColorStateList.valueOf(AccentColorManager.resolvedOr(this@AppViewerActivity, R.color.pri))
+            contentDescription = "Zoom de 50 a 200 por cento"
         }
-        root.addView(seek, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44)))
+        bar.addView(seek, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(32)))
         seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val target = progress + 50
                 value.text = "$target%"
-                if (fromUser) {
-                    val ratio = target.toFloat() / currentZoomPercent.coerceAtLeast(1)
-                    runCatching { web.zoomBy(ratio) }
-                    web.settings.textZoom = target
-                    currentZoomPercent = target
-                }
+                if (!fromUser) return
+                val old = currentZoomPercent.coerceAtLeast(1)
+                runCatching { web.zoomBy(target.toFloat() / old.toFloat()) }
+                currentZoomPercent = target
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
             override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
         })
-        root.addView(LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            addView(TextView(this@AppViewerActivity).apply { text = "50%"; textSize = 12f; setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dim)) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            addView(TextView(this@AppViewerActivity).apply { text = "200%"; textSize = 12f; gravity = Gravity.END; setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dim)) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        })
-        root.addView(TextView(this).apply {
-            text = "Repor para 100%"; textSize = 14f; gravity = Gravity.CENTER
-            setTextColor(AccentColorManager.resolvedOr(this@AppViewerActivity, R.color.pri))
-            setPadding(dp(10), dp(14), dp(10), dp(5))
-            isClickable = true; isFocusable = true
-            setOnClickListener { currentZoomPercent = 100; web.settings.textZoom = 100; runCatching { web.zoomBy(1f / web.scale.coerceAtLeast(0.01f)) }; seek.progress = 50; value.text = "100%" }
-        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        NativeSheetDialog.show(this, root)
+        val labelRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        labelRow.addView(TextView(this).apply { text = "50%"; textSize = 10.5f; setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dim)) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        labelRow.addView(TextView(this).apply { text = "200%"; textSize = 10.5f; gravity = Gravity.END; setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dim)) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        bar.addView(labelRow)
+        val params = android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM)
+        params.marginStart = dp(12); params.marginEnd = dp(12)
+        params.bottomMargin = dp(if (BrowserPreferences.addressBarPosition(this).equals("bottom", true)) 76 else 12)
+        params.topMargin = dp(12)
+        root.addView(bar, params)
+        zoomBar = bar
+        bar.alpha = 0f
+        bar.translationY = dp(12).toFloat()
+        bar.animate().alpha(1f).translationY(0f).setDuration(250L).setInterpolator(Curves.IOS).start()
     }
 
     private fun showSitePermissions() {
@@ -886,7 +1075,9 @@ class AppViewerActivity : AppCompatActivity() {
 
     private fun goToHomeKeepingTab() {
         hideAddressSuggestions()
-        val intent = Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val intent = Intent(this, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra("appao_main_tab", "home")
         startActivity(intent)
         finish()
         overridePendingTransition(R.anim.publish_return_enter, R.anim.publish_return_exit)
@@ -903,6 +1094,32 @@ class AppViewerActivity : AppCompatActivity() {
             "openx.net", "rubiconproject.com", "quantserve.com", "moatads.com"
         )
         return blockedHosts.any { host == it || host.endsWith(".$it") }
+    }
+
+    private fun isKnownTrackerRequest(uri: Uri): Boolean {
+        val host = uri.host?.lowercase(java.util.Locale.ROOT)?.removePrefix("www.") ?: return false
+        val trackers = listOf(
+            "google-analytics.com", "googletagmanager.com", "segment.io", "segment.com",
+            "mixpanel.com", "hotjar.com", "fullstory.com", "newrelic.com", "nr-data.net",
+            "clarity.ms", "bat.bing.com", "stats.g.doubleclick.net", "amplitude.com",
+            "quantserve.com", "scorecardresearch.com", "adobedtm.com", "krxd.net"
+        )
+        return trackers.any { host == it || host.endsWith(".$it") }
+    }
+
+    private fun refreshAdaptiveBarColor() {
+        val bar = findViewById<View>(R.id.browserTopBar)
+        if (!BrowserPreferences.adaptiveBrowserBarColor(this)) {
+            bar.setBackgroundColor(ContextCompat.getColor(this, R.color.bg))
+            return
+        }
+        val script = "(function(){var e=document.querySelector('meta[name=\\\"theme-color\\\"]');return e?e.content:''})()"
+        web.evaluateJavascript(script) { raw ->
+            if (isFinishing || isDestroyed || !BrowserPreferences.adaptiveBrowserBarColor(this)) return@evaluateJavascript
+            val value = raw?.trim()?.trim('"')?.takeIf { it.matches(Regex("#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?")) }
+            val color = value?.let { runCatching { android.graphics.Color.parseColor(it) }.getOrNull() }
+            bar.setBackgroundColor(color ?: ContextCompat.getColor(this, R.color.bg))
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -932,7 +1149,7 @@ class AppViewerActivity : AppCompatActivity() {
     }
 
     private fun updateTabCounters() {
-        val count = BrowserTabStore.count(this).coerceAtMost(99).toString()
+        val count = tabCount().coerceAtMost(99).toString()
         findViewById<TextView>(R.id.browserTabsCountTop).text = count
     }
 
@@ -948,8 +1165,8 @@ class AppViewerActivity : AppCompatActivity() {
             val canvas = Canvas(bitmap)
             canvas.scale(width.toFloat() / web.width, height.toFloat() / web.height)
             web.draw(canvas)
-            val path = BrowserTabStore.saveSnapshot(this, tabId, bitmap)
-            BrowserTabStore.updatePage(this, tabId, currentUrl, title, path)
+            val path = saveTabSnapshot(tabId, bitmap)
+            updateTabPage(tabId, currentUrl, title, path)
         }
         bitmap.recycle()
     }
@@ -968,6 +1185,7 @@ class AppViewerActivity : AppCompatActivity() {
             BrowserWebViewPool.setOwner(tabId, this)
             updateTabCounters()
             applyAddressBarPosition()
+            refreshAdaptiveBarColor()
         }
     }
 

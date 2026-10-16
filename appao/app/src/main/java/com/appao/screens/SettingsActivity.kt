@@ -18,10 +18,12 @@ class SettingsActivity : AppCompatActivity() {
 
     private val rows = listOf(
         Row(R.id.rowTheme, "contrast", "Tema"),
-        Row(R.id.rowAccent, "", "Cor de destaque"),
+        Row(R.id.rowAccent, "", "Cor primária do app"),
         Row(R.id.rowLang, "language", "Idioma"),
         Row(R.id.rowData, "chart_pie", "Poupança de dados"),
         Row(R.id.rowAdBlock, "shield_check", "Bloqueador de anúncios"),
+        Row(R.id.rowTracking, "shield_check", "Bloquear rastreadores"),
+        Row(R.id.rowAdaptiveBarColor, "contrast", "Barra adaptável à página"),
         Row(R.id.rowSiteDark, "moon", "Forçar tema escuro em sites"),
         Row(R.id.rowAddressPosition, "swap-vertical-outline", "Posição da barra de endereço"),
         Row(R.id.rowDesktopMode, "desktop-outline", "Modo desktop por predefinição"),
@@ -64,9 +66,9 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun renderRows() {
         IconLoader.applyIcon(findViewById(R.id.setBackIcon), "arrow_left", R.color.iconTint)
-        findViewById<View>(R.id.setBack).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
+        findViewById<View>(R.id.setBack).background = ContextCompat.getDrawable(this, R.drawable.bg_transparent_pressed)
         applyRowGroup(listOf(R.id.rowTheme, R.id.rowAccent, R.id.rowLang, R.id.rowData))
-        applyRowGroup(listOf(R.id.rowAdBlock, R.id.rowSiteDark, R.id.rowAddressPosition, R.id.rowDesktopMode, R.id.rowDownloads))
+        applyRowGroup(listOf(R.id.rowAdBlock, R.id.rowTracking, R.id.rowAdaptiveBarColor, R.id.rowSiteDark, R.id.rowAddressPosition, R.id.rowDesktopMode, R.id.rowDownloads))
         applyRowGroup(listOf(R.id.rowUsage, R.id.rowLoc))
         applyRowGroup(listOf(R.id.rowAccount, R.id.rowTerms))
         rows.forEach { rowDef ->
@@ -77,13 +79,15 @@ class SettingsActivity : AppCompatActivity() {
                 IconLoader.applyIconThin(row.findViewById(R.id.rowIcon), rowDef.icon, R.color.iconTint)
             }
             row.findViewById<TextView>(R.id.rowTitle).text = rowDef.title
-            if (rowDef.id == R.id.rowAdBlock || rowDef.id == R.id.rowSiteDark || rowDef.id == R.id.rowDesktopMode) {
+            if (rowDef.id == R.id.rowAdBlock || rowDef.id == R.id.rowTracking || rowDef.id == R.id.rowAdaptiveBarColor || rowDef.id == R.id.rowSiteDark || rowDef.id == R.id.rowDesktopMode) {
                 val toggle = row.findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.rowSwitch)
                 toggle.visibility = View.VISIBLE
                 row.findViewById<TextView>(R.id.rowValue).visibility = View.GONE
                 toggle.setOnCheckedChangeListener(null)
                 toggle.isChecked = when (rowDef.id) {
                     R.id.rowAdBlock -> BrowserPreferences.adBlockEnabled(this)
+                    R.id.rowTracking -> BrowserPreferences.trackingProtectionEnabled(this)
+                    R.id.rowAdaptiveBarColor -> BrowserPreferences.adaptiveBrowserBarColor(this)
                     R.id.rowSiteDark -> BrowserPreferences.forceDarkEnabled(this)
                     else -> BrowserPreferences.desktopSiteEnabled(this)
                 }
@@ -92,6 +96,14 @@ class SettingsActivity : AppCompatActivity() {
                         R.id.rowAdBlock -> {
                             BrowserPreferences.setAdBlockEnabled(this, checked)
                             AppAoToast.show(this, if (checked) "Bloqueador de anúncios ativado" else "Bloqueador de anúncios desativado")
+                        }
+                        R.id.rowTracking -> {
+                            BrowserPreferences.setTrackingProtectionEnabled(this, checked)
+                            AppAoToast.show(this, if (checked) "Proteção contra rastreadores ativada" else "Proteção contra rastreadores desativada")
+                        }
+                        R.id.rowAdaptiveBarColor -> {
+                            BrowserPreferences.setAdaptiveBrowserBarColor(this, checked)
+                            AppAoToast.show(this, if (checked) "A barra pode adaptar-se à cor da página" else "A barra usa a cor do tema")
                         }
                         R.id.rowSiteDark -> {
                             BrowserPreferences.setForceDarkEnabled(this, checked)
@@ -105,13 +117,13 @@ class SettingsActivity : AppCompatActivity() {
                 }
             }
             row.setOnClickListener {
-                if (rowDef.id == R.id.rowAdBlock || rowDef.id == R.id.rowSiteDark || rowDef.id == R.id.rowDesktopMode) return@setOnClickListener
+                if (rowDef.id == R.id.rowAdBlock || rowDef.id == R.id.rowTracking || rowDef.id == R.id.rowAdaptiveBarColor || rowDef.id == R.id.rowSiteDark || rowDef.id == R.id.rowDesktopMode) return@setOnClickListener
                 when (rowDef.id) {
                     R.id.rowTheme -> showThemePicker(row)
                     R.id.rowAccent -> showAccentPicker(row)
                     R.id.rowLang -> showLangPicker(row)
                     R.id.rowData -> openDataSaver()
-                    R.id.rowAdBlock, R.id.rowSiteDark, R.id.rowDesktopMode -> Unit
+                    R.id.rowAdBlock, R.id.rowTracking, R.id.rowAdaptiveBarColor, R.id.rowSiteDark, R.id.rowDesktopMode -> Unit
                     R.id.rowAddressPosition -> showAddressPositionPicker(row)
                     R.id.rowDownloads -> {
                         startActivity(Intent(this, BrowserDownloadsActivity::class.java))
@@ -147,6 +159,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun refreshValues() {
         root.setBackgroundColor(ContextCompat.getColor(this, R.color.bg))
+        refreshNewBrowserSwitches()
         val textColor = ContextCompat.getColor(this, R.color.text)
         val dim = ContextCompat.getColor(this, R.color.dim)
         findViewById<TextView>(R.id.setTitle).setTextColor(textColor)
@@ -426,6 +439,24 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun dataSavingEnabled(): Boolean =
         getSharedPreferences("appao", MODE_PRIVATE).getBoolean("data_saving", false)
+
+    private fun refreshNewBrowserSwitches() {
+        val tracking = findViewById<View>(R.id.rowTracking).findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.rowSwitch)
+        tracking.visibility = View.VISIBLE
+        findViewById<View>(R.id.rowTracking).findViewById<TextView>(R.id.rowValue).visibility = View.GONE
+        tracking.setOnCheckedChangeListener(null)
+        tracking.isChecked = BrowserPreferences.trackingProtectionEnabled(this)
+        tracking.setOnCheckedChangeListener { _, checked ->
+            BrowserPreferences.setTrackingProtectionEnabled(this, checked)
+            AppAoToast.show(this, if (checked) "Proteção contra rastreadores ativada" else "Proteção contra rastreadores desativada")
+        }
+        val adaptive = findViewById<View>(R.id.rowAdaptiveBarColor).findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.rowSwitch)
+        adaptive.visibility = View.VISIBLE
+        findViewById<View>(R.id.rowAdaptiveBarColor).findViewById<TextView>(R.id.rowValue).visibility = View.GONE
+        adaptive.setOnCheckedChangeListener(null)
+        adaptive.isChecked = BrowserPreferences.adaptiveBrowserBarColor(this)
+        adaptive.setOnCheckedChangeListener { _, checked -> BrowserPreferences.setAdaptiveBrowserBarColor(this, checked) }
+    }
 
     private fun openDataSaver() {
         startActivity(Intent(this, DataSaverActivity::class.java))

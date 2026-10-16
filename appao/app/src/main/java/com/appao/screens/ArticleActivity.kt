@@ -340,7 +340,7 @@ class ArticleActivity : AppCompatActivity() {
         body.setTextColor(ContextCompat.getColor(this, R.color.text))
         IconLoader.applyIcon(findViewById(R.id.aBackIcon), "arrow_left", R.color.iconTint)
         IconLoader.applyIcon(findViewById(R.id.aMoreIcon), "more_vert", R.color.iconTint)
-        acSend.background = AccentColorManager.primaryShape(this, android.graphics.drawable.GradientDrawable.OVAL)
+        acSend.background = AccentColorManager.primaryShape(this, android.graphics.drawable.GradientDrawable.RECTANGLE, 12f)
         IconLoader.applyIcon(findViewById(R.id.acSendIcon), "arrow_up", R.color.iconTint)
         findViewById<ImageView>(R.id.acSendIcon).setColorFilter(
             AccentColorManager.onPrimaryColor(this),
@@ -384,7 +384,7 @@ class ArticleActivity : AppCompatActivity() {
         val topbar = findViewById<View>(R.id.aTopBar)
         topbar.background = android.graphics.drawable.ColorDrawable(ContextCompat.getColor(this, R.color.bg))
         listOf(R.id.aBack, R.id.aMore).forEach { id ->
-            findViewById<View>(id).background = ContextCompat.getDrawable(this, R.drawable.bg_circle_card)
+            findViewById<View>(id).background = ContextCompat.getDrawable(this, R.drawable.bg_transparent_pressed)
         }
         listOf(R.id.aBackIcon, R.id.aMoreIcon).forEach { id ->
             findViewById<ImageView>(id).setColorFilter(

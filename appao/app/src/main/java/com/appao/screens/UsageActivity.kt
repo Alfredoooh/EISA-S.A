@@ -55,6 +55,8 @@ class UsageActivity : AppCompatActivity() {
         val totalMinutes = UsageTracker.totalMillis(this) / 60000L
         findViewById<TextView>(R.id.usageTotal).text =
             if (totalMinutes < 60) "$totalMinutes min" else "${totalMinutes / 60} h ${totalMinutes % 60} min"
+        findViewById<TextView>(R.id.usageBlockedAds).text = BrowserPreferences.blockedAdCount(this).toString()
+        findViewById<TextView>(R.id.usageBlockedTrackers).text = "${BrowserPreferences.blockedTrackerCount(this)} rastreadores bloqueados"
 
         IconLoader.applyIcon(findViewById(R.id.usagePieIcon), "chart_pie", R.color.iconTint)
         findViewById<UsageChartView>(R.id.usageBars).setBarData(week, labels)

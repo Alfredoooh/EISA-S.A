@@ -846,10 +846,11 @@ class SearchActivity : AppCompatActivity() {
     private fun updateSendState() {
         val active = input.text?.isNotBlank() == true
         send.background = if (active) {
-            AccentColorManager.primaryShape(this, android.graphics.drawable.GradientDrawable.OVAL)
+            AccentColorManager.primaryShape(this, android.graphics.drawable.GradientDrawable.RECTANGLE, 12f)
         } else {
             android.graphics.drawable.GradientDrawable().apply {
-                shape = android.graphics.drawable.GradientDrawable.OVAL
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = dp(12).toFloat()
                 setColor(ContextCompat.getColor(this@SearchActivity, R.color.card2))
             }
         }

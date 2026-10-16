@@ -59,7 +59,8 @@ class CommentsActivity : AppCompatActivity() {
         findViewById<View>(R.id.commentsBack).setOnClickListener { returnComments() }
         findViewById<View>(R.id.commentSend).background = AccentColorManager.primaryShape(
             this,
-            android.graphics.drawable.GradientDrawable.OVAL
+            android.graphics.drawable.GradientDrawable.RECTANGLE,
+            10f
         )
         findViewById<ImageView>(R.id.commentSendIcon).setColorFilter(
             AccentColorManager.onPrimaryColor(this),

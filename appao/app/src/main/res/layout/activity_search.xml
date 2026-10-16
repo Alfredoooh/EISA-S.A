@@ -84,7 +84,7 @@
             android:layout_height="68dp"
             android:layout_gravity="bottom|center_horizontal"
             android:layout_marginBottom="28dp"
-            android:background="@drawable/bg_circle_card"
+            android:background="@drawable/bg_transparent_pressed"
             android:clickable="true"
             android:focusable="true"
             android:contentDescription="Capturar fotografia">
@@ -113,7 +113,7 @@
             android:id="@+id/searchClose"
             android:layout_width="@dimen/icon_button_size"
             android:layout_height="@dimen/icon_button_size"
-            android:background="@drawable/bg_circle_card"
+            android:background="@drawable/bg_transparent_pressed"
             android:clickable="true"
             android:focusable="true">
             <ImageView
@@ -141,7 +141,7 @@
             android:id="@+id/searchMore"
             android:layout_width="@dimen/icon_button_size"
             android:layout_height="@dimen/icon_button_size"
-            android:background="@drawable/bg_circle_card"
+            android:background="@drawable/bg_transparent_pressed"
             android:clickable="true"
             android:focusable="true">
             <ImageView
@@ -339,7 +339,7 @@
                         android:layout_width="@dimen/icon_button_size"
                         android:layout_height="@dimen/icon_button_size"
                         android:clickable="true"
-                        android:focusable="true" android:background="@drawable/bg_circle_card">
+                        android:focusable="true" android:background="@drawable/bg_transparent_pressed">
                         <ImageView
                             android:id="@+id/searchAddIcon"
                             android:layout_width="@dimen/icon_button_icon_size"
@@ -354,7 +354,7 @@
                         android:layout_height="@dimen/icon_button_size"
                         android:layout_marginStart="8dp"
                         android:clickable="true"
-                        android:focusable="true" android:background="@drawable/bg_circle_card">
+                        android:focusable="true" android:background="@drawable/bg_transparent_pressed">
                         <ImageView
                             android:id="@+id/searchSliderIcon"
                             android:layout_width="@dimen/icon_button_icon_size"

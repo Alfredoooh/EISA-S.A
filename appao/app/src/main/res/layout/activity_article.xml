@@ -244,7 +244,7 @@
             android:layout_width="@dimen/icon_button_size"
             android:layout_height="@dimen/icon_button_size"
             android:layout_marginStart="8dp"
-            android:background="@drawable/bg_circle_card"
+            android:background="@drawable/bg_transparent_pressed"
             android:clickable="true"
             android:focusable="true">
             <ImageView
@@ -304,7 +304,7 @@
                 android:id="@+id/acSend"
                 android:layout_width="@dimen/icon_button_size"
                 android:layout_height="@dimen/icon_button_size"
-                android:background="@drawable/bg_circle_pri"
+                android:background="@drawable/bg_transparent_pressed"
                 android:visibility="gone">
                 <ImageView
                     android:id="@+id/acSendIcon"
@@ -320,7 +320,7 @@
             android:layout_width="@dimen/icon_button_size"
             android:layout_height="@dimen/icon_button_size"
             android:layout_marginStart="8dp"
-            android:background="@drawable/bg_circle_card"
+            android:background="@drawable/bg_transparent_pressed"
             android:clickable="true"
             android:focusable="true">
             <ImageView

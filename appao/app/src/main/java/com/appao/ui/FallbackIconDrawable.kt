@@ -16,7 +16,7 @@ class FallbackIconDrawable(
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 2.3f
+        strokeWidth = 1.8f
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
@@ -30,13 +30,13 @@ class FallbackIconDrawable(
 
         val cx = b.left + w / 2f
         val cy = b.top + h / 2f
-        val r = minOf(w, h) * 0.34f
+        val r = minOf(w, h) * 0.28f
 
         when (icon.lowercase()) {
             "menu" -> {
-                canvas.drawLine(cx - r, cy - 6f, cx + r, cy - 6f, paint)
+                canvas.drawLine(cx - r, cy - 4.5f, cx + r, cy - 4.5f, paint)
                 canvas.drawLine(cx - r, cy, cx + r, cy, paint)
-                canvas.drawLine(cx - r, cy + 6f, cx + r, cy + 6f, paint)
+                canvas.drawLine(cx - r, cy + 4.5f, cx + r, cy + 4.5f, paint)
             }
             "plus" -> {
                 canvas.drawLine(cx - r, cy, cx + r, cy, paint)

@@ -13,6 +13,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.bumptech.glide.Glide
 import androidx.core.view.WindowCompat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -114,8 +115,18 @@ class HistoryActivity : AppCompatActivity() {
                     overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
                 }
             }
-            val icon = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_INSIDE }
-            IconLoader.applyIcon(icon, "history", R.color.iconTint)
+            val icon = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
+            IconLoader.applyIcon(icon, "globe", R.color.iconTint)
+            val faviconFallback = icon.drawable
+            val faviconUrl = BrowserTabStore.faviconFor(entry.url)
+            if (faviconUrl.isNotBlank()) {
+                Glide.with(this)
+                    .load(faviconUrl)
+                    .fitCenter()
+                    .placeholder(faviconFallback)
+                    .error(faviconFallback)
+                    .into(icon)
+            }
             row.addView(icon, LinearLayout.LayoutParams(dp(19), dp(19)))
             val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, dp(4), 0) }
             column.addView(TextView(this).apply {

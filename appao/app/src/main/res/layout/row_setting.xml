@@ -15,8 +15,8 @@
 
     <ImageView
         android:id="@+id/rowIcon"
-        android:layout_width="22dp"
-        android:layout_height="22dp"
+        android:layout_width="19dp"
+        android:layout_height="19dp"
         android:scaleType="centerInside" />
 
     <TextView

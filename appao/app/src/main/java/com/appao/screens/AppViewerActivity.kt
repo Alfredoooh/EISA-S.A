@@ -941,7 +941,7 @@ class AppViewerActivity : AppCompatActivity() {
         }
         header.addView(value)
         val close = ImageView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(22), dp(22))
+            layoutParams = LinearLayout.LayoutParams(dp(19), dp(19))
             scaleType = ImageView.ScaleType.CENTER_INSIDE
             contentDescription = "Fechar zoom"
             IconLoader.applyIcon(this, "close", R.color.iconTint)
@@ -1072,7 +1072,7 @@ class AppViewerActivity : AppCompatActivity() {
                     } else shareWith(option.packageName, title, url)
                 }
             }
-            val icon = ImageView(this).apply { layoutParams = LinearLayout.LayoutParams(dp(24), dp(24)); scaleType = ImageView.ScaleType.CENTER_INSIDE; IconLoader.applyIcon(this, option.icon, R.color.iconTint) }
+            val icon = ImageView(this).apply { layoutParams = LinearLayout.LayoutParams(dp(19), dp(19)); scaleType = ImageView.ScaleType.CENTER_INSIDE; IconLoader.applyIcon(this, option.icon, R.color.iconTint) }
             cell.addView(icon)
             cell.addView(TextView(this).apply { text = option.label; textSize = 11f; gravity = Gravity.CENTER; maxLines = 2; setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.text)); setPadding(0, dp(6), 0, 0) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             grid.addView(cell, android.widget.GridLayout.LayoutParams().apply { width = 0; height = dp(96); columnSpec = android.widget.GridLayout.spec(index % 3, 1f); rowSpec = android.widget.GridLayout.spec(index / 3); setMargins(dp(2), dp(2), dp(2), dp(2)) })

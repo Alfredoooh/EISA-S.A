@@ -33,7 +33,7 @@
     <color name="dotGreen">#0B6A0B</color>
     <color name="pillBg">#FAFAFA</color>
     <color name="pillBorder">#EBEBEB</color>
-    <color name="iconTint">#111111</color>
+    <color name="iconTint">#454545</color>
     <color name="skeleton">#EDEDED</color>
     <color name="popupBg">#FFFFFF</color>
     <color name="popupBorder">#00000000</color>

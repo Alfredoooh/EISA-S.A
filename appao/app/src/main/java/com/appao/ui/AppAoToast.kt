@@ -62,12 +62,12 @@ object AppAoToast {
 
         snackbar.view.findViewById<Button>(com.google.android.material.R.id.snackbar_action)?.post {
             val action = snackbar.view.findViewById<Button>(com.google.android.material.R.id.snackbar_action)
-            val iconBitmap = IconLoader.iconBitmap(context, "close", dp(20))
+            val iconBitmap = IconLoader.iconBitmap(context, "close", dp(16))
             val baseIcon: Drawable = iconBitmap?.let { BitmapDrawable(context.resources, it) }
                 ?: ContextCompat.getDrawable(context, android.R.drawable.ic_menu_close_clear_cancel)!!
             val icon = DrawableCompat.wrap(baseIcon).mutate().apply {
                 DrawableCompat.setTint(this, ContextCompat.getColor(context, R.color.iconTint))
-                setBounds(0, 0, dp(20), dp(20))
+                setBounds(0, 0, dp(16), dp(16))
             }
             action.text = ""
             action.contentDescription = "Fechar"

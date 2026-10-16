@@ -86,7 +86,7 @@ class LibraryActivity : AppCompatActivity() {
         val empty = findViewById<View>(R.id.libEmpty)
         val emptyImage = findViewById<ImageView>(R.id.libEmptyImg)
 
-        IconLoader.applyIcon(emptyImage, "archive", R.color.iconTint)
+        emptyImage.setImageDrawable(EmptySavedIllustrationDrawable(this))
 
         if (items.isEmpty()) {
             empty.visibility = View.VISIBLE

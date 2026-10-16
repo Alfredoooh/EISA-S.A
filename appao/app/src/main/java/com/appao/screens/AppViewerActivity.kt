@@ -722,7 +722,7 @@ class AppViewerActivity : AppCompatActivity() {
                     startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, currentUrl) }, "Partilhar ligação"))
                 }.onFailure { AppAoToast.show(this, "Não foi possível partilhar") }
                 14 -> clearBrowserData()
-                15 -> findTextInPage()
+                15 -> openFindInPage()
             }
         }
     }

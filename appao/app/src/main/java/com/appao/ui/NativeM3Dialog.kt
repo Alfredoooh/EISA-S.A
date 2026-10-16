@@ -11,7 +11,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
  * Material 3 alert dialogs for ordinary dialog interactions.
  *
  * Bottom sheets are intentionally handled by NativeSheetDialog instead.
- * Theme/Language preference menus remain HtmlStylePopup.
+ * Anchored menus use NativePopupMenu and the Android PopupMenu widget.
  */
 object NativeM3Dialog {
 

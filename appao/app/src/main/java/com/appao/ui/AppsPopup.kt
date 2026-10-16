@@ -1,8 +1,7 @@
 package com.appao
 
-import android.graphics.Color
 import android.view.View
-import android.app.Dialog
+import android.widget.PopupMenu
 
 /** Native anchored quick-add menu opened from the fixed AI composer. */
 object AppsPopup {
@@ -16,7 +15,6 @@ object AppsPopup {
     )
 
     private const val THINK_INIT_KEY = "think_mode_toggle_initialized_v1"
-    private val ACTIVE_THINK_FALLBACK = Color.parseColor("#0F6CBD")
 
     fun isThinkEnabled(context: android.content.Context): Boolean {
         val prefs = context.getSharedPreferences("appao", android.content.Context.MODE_PRIVATE)
@@ -34,14 +32,8 @@ object AppsPopup {
         return active
     }
 
-    private fun activeThinkColor(context: android.content.Context): Int {
-        val selected = AccentColorManager.resolvedColor(context) ?: ACTIVE_THINK_FALLBACK
-        return if (selected == Color.BLACK || selected == Color.WHITE) ACTIVE_THINK_FALLBACK else selected
-    }
-
-    fun show(anchor: View, onPick: (String) -> Unit): Dialog {
+    fun show(anchor: View, onPick: (String) -> Unit): PopupMenu {
         val thinkActive = isThinkEnabled(anchor.context)
-        val thinkColor = activeThinkColor(anchor.context)
         return NativePopupMenu.show(
             anchor,
             OPTIONS.map { option ->
@@ -50,8 +42,7 @@ object AppsPopup {
                     option.id,
                     option.label,
                     iconName = option.iconName,
-                    checked = isThink && thinkActive,
-                    highlightColor = if (isThink && thinkActive) thinkColor else null
+                    checked = isThink && thinkActive
                 )
             }
         ) { item ->

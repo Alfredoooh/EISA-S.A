@@ -49,6 +49,7 @@
         <activity android:name=".ImageViewerActivity" android:exported="false" android:theme="@style/Theme.AppAo.ImageViewer" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
         <activity android:name=".AuthActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
         <activity android:name=".LibraryActivity" android:exported="false" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
+        <activity android:name=".MoreSitesActivity" android:exported="false" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
         <activity android:name=".HistoryActivity" android:exported="false" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
         <activity android:name=".ProfileCollectionActivity" android:exported="false" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
         <activity android:name=".SettingsActivity" android:exported="false" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />

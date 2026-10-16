@@ -110,6 +110,11 @@ object IconLoader {
         return runCatching { IonSvgDrawable(colorized, tint) }.getOrNull()
     }
 
+    fun menuDrawable(context: Context, name: String, tintRes: Int = R.color.iconTint): Drawable? {
+        val tint = ContextCompat.getColor(context, tintRes)
+        return drawable(context, name, tint)?.mutate()
+    }
+
     fun iconBitmap(context: Context, name: String, sizePx: Int, strokeScale: Float = 1f): Bitmap? {
         val size = sizePx.coerceAtLeast(1)
         val icon = drawable(context, name, ContextCompat.getColor(context, R.color.iconTint)) ?: return null

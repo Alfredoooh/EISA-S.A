@@ -583,12 +583,12 @@ class MainActivity : AppCompatActivity() {
 
         val params = homeAddressBar.layoutParams as? ViewGroup.MarginLayoutParams
         if (params != null) {
-            params.marginStart = dp(if (focused) 8 else 16)
-            params.marginEnd = dp(if (focused) 8 else 16)
+            params.marginStart = dp(16)
+            params.marginEnd = dp(16)
             params.height = dp(44)
             homeAddressBar.layoutParams = params
         }
-        homeAddressBar.translationZ = if (focused) dp(2).toFloat() else 0f
+        homeAddressBar.translationZ = 0f
 
         val nav = findViewById<View>(R.id.homeMainBottomNav)
         homeContentScroll.animate().cancel()
@@ -619,10 +619,10 @@ class MainActivity : AppCompatActivity() {
     private fun showSearchEnginePicker(anchor: View) {
         val current = BrowserPreferences.searchEngine(this)
         NativePopupMenu.show(anchor, listOf(
-            NativePopupMenu.Item(1, "Google", iconName = "search", checked = current == "Google"),
-            NativePopupMenu.Item(2, "Bing", iconName = "search", checked = current == "Bing"),
-            NativePopupMenu.Item(3, "DuckDuckGo", iconName = "search", checked = current == "DuckDuckGo"),
-            NativePopupMenu.Item(4, "Brave Search", iconName = "search", checked = current == "Brave")
+            NativePopupMenu.Item(1, "Google", checked = current == "Google", iconResId = R.drawable.asset_search_google),
+            NativePopupMenu.Item(2, "Bing", checked = current == "Bing", iconResId = R.drawable.asset_search_bing),
+            NativePopupMenu.Item(3, "DuckDuckGo", checked = current == "DuckDuckGo", iconResId = R.drawable.asset_search_duckduckgo),
+            NativePopupMenu.Item(4, "Brave Search", checked = current == "Brave", iconResId = R.drawable.asset_search_brave)
         ), alignLeft = true, placeAbove = false) { item ->
             val engine = when (item.id) { 2 -> "Bing"; 3 -> "DuckDuckGo"; 4 -> "Brave"; else -> "Google" }
             BrowserPreferences.setSearchEngine(this, engine)
@@ -634,13 +634,14 @@ class MainActivity : AppCompatActivity() {
     private fun updateSearchEngineIcon() {
         if (!::homeSearchEngineIcon.isInitialized) return
         val engine = BrowserPreferences.searchEngine(this)
-        val icon = when (engine.lowercase(Locale.ROOT)) {
-            "google" -> "logo-google"
-            "bing" -> "globe-outline"
-            "brave" -> "shield-checkmark-outline"
-            else -> "search-outline"
+        val iconRes = when (engine.lowercase(Locale.ROOT)) {
+            "bing" -> R.drawable.asset_search_bing
+            "duckduckgo" -> R.drawable.asset_search_duckduckgo
+            "brave" -> R.drawable.asset_search_brave
+            else -> R.drawable.asset_search_google
         }
-        IconLoader.applyIcon(homeSearchEngineIcon, icon, R.color.iconTint)
+        homeSearchEngineIcon.setImageResource(iconRes)
+        homeSearchEngineIcon.clearColorFilter()
         homeSearchEngineIcon.contentDescription = "Motor de pesquisa: $engine"
     }
 
@@ -1053,21 +1054,21 @@ class MainActivity : AppCompatActivity() {
         loadNews(force && cached.isEmpty())
     }
 
-    private data class HomeSite(val label: String, val url: String = "", val internal: String = "")
+    private data class HomeSite(val label: String, val url: String = "", val internal: String = "", val iconRes: Int? = null)
 
     private fun populateHomeQuickSites() {
         if (!::homeQuickSites.isInitialized) return
         homeQuickSites.removeAllViews()
         homeQuickSites.columnCount = 5
         val sites = listOf(
-            HomeSite("Google", "https://www.google.com"),
-            HomeSite("YouTube", "https://m.youtube.com"),
-            HomeSite("Facebook", "https://m.facebook.com"),
+            HomeSite("Google", "https://www.google.com", iconRes = R.drawable.asset_search_google),
+            HomeSite("YouTube", "https://m.youtube.com", iconRes = R.drawable.asset_social_youtube),
+            HomeSite("Facebook", "https://m.facebook.com", iconRes = R.drawable.asset_social_facebook),
             HomeSite("Wikipedia", "https://www.wikipedia.org"),
-            HomeSite("X", "https://x.com"),
-            HomeSite("GitHub", "https://github.com"),
-            HomeSite("LinkedIn", "https://www.linkedin.com"),
-            HomeSite("Google News", "https://news.google.com"),
+            HomeSite("X", "https://x.com", iconRes = R.drawable.asset_social_x),
+            HomeSite("GitHub", "https://github.com", iconRes = R.drawable.asset_social_github),
+            HomeSite("LinkedIn", "https://www.linkedin.com", iconRes = R.drawable.asset_social_linkedin),
+            HomeSite("BeSoccer", "https://www.besoccer.com"),
             HomeSite("Downloads", internal = "downloads"),
             HomeSite("Mais", internal = "more")
         )
@@ -1082,7 +1083,7 @@ class MainActivity : AppCompatActivity() {
                 setOnClickListener {
                     when (quickEntry.internal) {
                         "downloads" -> startActivity(Intent(this@MainActivity, BrowserDownloadsActivity::class.java))
-                        "more" -> showMoreQuickSites(this)
+                        "more" -> openMoreSites()
                         else -> openNewBrowserTab(quickEntry.url)
                     }
                 }
@@ -1091,12 +1092,16 @@ class MainActivity : AppCompatActivity() {
                 background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_circle_card)
                 clipToOutline = true
             }
-            val icon = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
-            if (quickEntry.url.isNotBlank()) {
-                val favicon = BrowserTabStore.faviconFor(quickEntry.url)
-                Glide.with(this).load(favicon).circleCrop().placeholder(R.drawable.logo).error(R.drawable.logo).into(icon)
+            val icon = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
+            if (quickEntry.iconRes != null) {
+                icon.setImageResource(quickEntry.iconRes)
+            } else if (quickEntry.url.isNotBlank()) {
+                // Sites with no bundled PNG download their real favicon from the favicon endpoint.
+                Glide.with(this).load(BrowserTabStore.faviconFor(quickEntry.url)).circleCrop().placeholder(R.drawable.logo).error(R.drawable.logo).into(icon)
             } else {
-                IconLoader.applyIcon(icon, if (quickEntry.internal == "downloads") "download" else "plus", R.color.iconTint)
+                val png = if (quickEntry.internal == "downloads") R.drawable.asset_quick_download else R.drawable.asset_quick_more_sites
+                icon.setImageResource(png)
+                icon.setColorFilter(ContextCompat.getColor(this@MainActivity, R.color.iconTint), android.graphics.PorterDuff.Mode.SRC_IN)
             }
             iconBox.addView(icon, FrameLayout.LayoutParams(-1, -1))
             tile.addView(iconBox, LinearLayout.LayoutParams(dp(44), dp(44)))
@@ -1117,20 +1122,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showMoreQuickSites(anchor: View) {
-        NativePopupMenu.show(anchor, listOf(
-            NativePopupMenu.Item(1, "Reddit", iconName = "chat"),
-            NativePopupMenu.Item(2, "BBC News", iconName = "newspaper"),
-            NativePopupMenu.Item(3, "Reuters", iconName = "newspaper"),
-            NativePopupMenu.Item(4, "Downloads", iconName = "download")
-        ), alignLeft = false, placeAbove = true) { item ->
-            when (item.id) {
-                1 -> openNewBrowserTab("https://www.reddit.com")
-                2 -> openNewBrowserTab("https://www.bbc.com/news")
-                3 -> openNewBrowserTab("https://www.reuters.com")
-                4 -> startActivity(Intent(this, BrowserDownloadsActivity::class.java))
-            }
-        }
+    private fun openMoreSites() {
+        startActivity(Intent(this, MoreSitesActivity::class.java))
     }
 
     private fun loadHomeNewsSections(sourceCategories: List<NewsCategory>) {
@@ -1433,14 +1426,14 @@ class MainActivity : AppCompatActivity() {
         appsGrid.removeAllViews()
         appsGrid.columnCount = 5
         val sites = listOf(
-            HomeSite("Google", "https://www.google.com"),
-            HomeSite("YouTube", "https://m.youtube.com"),
-            HomeSite("Facebook", "https://m.facebook.com"),
+            HomeSite("Google", "https://www.google.com", iconRes = R.drawable.asset_search_google),
+            HomeSite("YouTube", "https://m.youtube.com", iconRes = R.drawable.asset_social_youtube),
+            HomeSite("Facebook", "https://m.facebook.com", iconRes = R.drawable.asset_social_facebook),
             HomeSite("Wikipedia", "https://www.wikipedia.org"),
-            HomeSite("X", "https://x.com"),
-            HomeSite("GitHub", "https://github.com"),
-            HomeSite("LinkedIn", "https://www.linkedin.com"),
-            HomeSite("Google News", "https://news.google.com"),
+            HomeSite("X", "https://x.com", iconRes = R.drawable.asset_social_x),
+            HomeSite("GitHub", "https://github.com", iconRes = R.drawable.asset_social_github),
+            HomeSite("LinkedIn", "https://www.linkedin.com", iconRes = R.drawable.asset_social_linkedin),
+            HomeSite("BeSoccer", "https://www.besoccer.com"),
             HomeSite("Downloads", internal = "downloads"),
             HomeSite("Mais", internal = "more")
         )
@@ -1454,7 +1447,7 @@ class MainActivity : AppCompatActivity() {
                 setOnClickListener {
                     when (shortcut.internal) {
                         "downloads" -> startActivity(Intent(this@MainActivity, BrowserDownloadsActivity::class.java))
-                        "more" -> showMoreQuickSites(this)
+                        "more" -> openMoreSites()
                         else -> openNewBrowserTab(shortcut.url)
                     }
                 }
@@ -1463,14 +1456,15 @@ class MainActivity : AppCompatActivity() {
                 background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_circle_card)
                 clipToOutline = true
             }
-            val icon = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
-            if (shortcut.url.isNotBlank()) {
+            val icon = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
+            if (shortcut.iconRes != null) {
+                icon.setImageResource(shortcut.iconRes)
+            } else if (shortcut.url.isNotBlank()) {
                 Glide.with(this).load(BrowserTabStore.faviconFor(shortcut.url)).circleCrop().placeholder(R.drawable.logo).error(R.drawable.logo).into(icon)
             } else {
-                IconLoader.applyIcon(icon, when (shortcut.internal) {
-                    "downloads" -> "download-outline"
-                    else -> "plus"
-                }, R.color.iconTint)
+                val png = if (shortcut.internal == "downloads") R.drawable.asset_quick_download else R.drawable.asset_quick_more_sites
+                icon.setImageResource(png)
+                icon.setColorFilter(ContextCompat.getColor(this@MainActivity, R.color.iconTint), android.graphics.PorterDuff.Mode.SRC_IN)
             }
             iconBox.addView(icon, FrameLayout.LayoutParams(-1, -1))
             tile.addView(iconBox, LinearLayout.LayoutParams(dp(32), dp(32)))

@@ -34,10 +34,11 @@ class DrawerHostLayout @JvmOverloads constructor(
 
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
 
-    // Horizontal page swipes are app-level navigation gestures. Child lists and
-    // horizontal tab strips must not permanently disallow interception.
+    // Let nested horizontal content (category chips, carousels, text fields) own
+    // horizontal gestures. This host handles pull-to-refresh only; the legacy
+    // drawer/side-panel swipe gesture is intentionally disabled.
     override fun requestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {
-        super.requestDisallowInterceptTouchEvent(false)
+        super.requestDisallowInterceptTouchEvent(disallowIntercept)
     }
 
     private enum class GestureMode {
@@ -93,36 +94,11 @@ class DrawerHostLayout @JvmOverloads constructor(
                         return false
                     }
 
-                    mode = when {
-                        listener?.isDrawerOpen() == true -> {
-                            if (dx > 0f) GestureMode.RIGHT_CLOSE else GestureMode.NONE
-                        }
-                        listener?.isSidePanelOpen() == true -> {
-                            if (dx < 0f) GestureMode.LEFT_PANEL_CLOSE else GestureMode.NONE
-                        }
-                        listener?.isDrawerOpen() == true || listener?.isSidePanelOpen() == true -> GestureMode.NONE
-                        dx < 0f -> GestureMode.RIGHT_OPEN
-                        dx > 0f -> GestureMode.LEFT_PANEL_OPEN
-                        else -> GestureMode.NONE
-                    }
-
-                    when (mode) {
-                        GestureMode.RIGHT_OPEN,
-                        GestureMode.RIGHT_CLOSE -> {
-                            intercepted = true
-                            listener?.onDrawerGestureStart(mode == GestureMode.RIGHT_OPEN)
-                        }
-                        GestureMode.LEFT_PANEL_OPEN,
-                        GestureMode.LEFT_PANEL_CLOSE -> {
-                            intercepted = true
-                            listener?.onSidePanelGestureStart(mode == GestureMode.LEFT_PANEL_OPEN)
-                        }
-                        GestureMode.PULL_REFRESH,
-                        GestureMode.NONE -> {
-                            tracking = false
-                            return false
-                        }
-                    }
+                    // Never intercept a horizontal movement to reveal the old drawer.
+                    // Native child scrolling and normal navigation now own these gestures.
+                    tracking = false
+                    mode = GestureMode.NONE
+                    return false
                 }
 
                 when (mode) {

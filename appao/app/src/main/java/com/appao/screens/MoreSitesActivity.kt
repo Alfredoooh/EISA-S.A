@@ -147,7 +147,7 @@ class MoreSitesActivity : AppCompatActivity() {
         root.addView(View(this).apply { setBackgroundColor(ContextCompat.getColor(this@MoreSitesActivity, R.color.line)) }, LinearLayout.LayoutParams(-1, dp(1)))
 
         val scroll = ScrollView(this).apply {
-            fillViewport = true
+            isFillViewport = true
             isVerticalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
         }
@@ -188,7 +188,7 @@ class MoreSitesActivity : AppCompatActivity() {
                 })
             }
         }
-        scroll.addView(content, ScrollView.LayoutParams(-1, -2))
+        scroll.addView(content, ViewGroup.LayoutParams(-1, -2))
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
     }

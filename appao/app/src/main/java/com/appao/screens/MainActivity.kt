@@ -619,9 +619,9 @@ class MainActivity : AppCompatActivity() {
     private fun showSearchEnginePicker(anchor: View) {
         val current = BrowserPreferences.searchEngine(this)
         NativePopupMenu.show(anchor, listOf(
-            NativePopupMenu.Item(1, "Google", checked = current == "Google", iconResId = R.drawable.asset_search_google),
-            NativePopupMenu.Item(2, "Bing", checked = current == "Bing", iconResId = R.drawable.asset_search_bing),
-            NativePopupMenu.Item(3, "DuckDuckGo", checked = current == "DuckDuckGo", iconResId = R.drawable.asset_search_duckduckgo),
+            NativePopupMenu.Item(1, "Google", checked = current == "Google", iconResId = R.drawable.site_icon_google),
+            NativePopupMenu.Item(2, "Bing", checked = current == "Bing", iconResId = R.drawable.site_icon_bing),
+            NativePopupMenu.Item(3, "DuckDuckGo", checked = current == "DuckDuckGo", iconResId = R.drawable.site_icon_duckduckgo),
             NativePopupMenu.Item(4, "Brave Search", checked = current == "Brave", iconResId = R.drawable.asset_search_brave)
         ), alignLeft = true, placeAbove = false) { item ->
             val engine = when (item.id) { 2 -> "Bing"; 3 -> "DuckDuckGo"; 4 -> "Brave"; else -> "Google" }
@@ -635,10 +635,10 @@ class MainActivity : AppCompatActivity() {
         if (!::homeSearchEngineIcon.isInitialized) return
         val engine = BrowserPreferences.searchEngine(this)
         val iconRes = when (engine.lowercase(Locale.ROOT)) {
-            "bing" -> R.drawable.asset_search_bing
-            "duckduckgo" -> R.drawable.asset_search_duckduckgo
+            "bing" -> R.drawable.site_icon_bing
+            "duckduckgo" -> R.drawable.site_icon_duckduckgo
             "brave" -> R.drawable.asset_search_brave
-            else -> R.drawable.asset_search_google
+            else -> R.drawable.site_icon_google
         }
         homeSearchEngineIcon.setImageResource(iconRes)
         homeSearchEngineIcon.clearColorFilter()
@@ -1061,14 +1061,14 @@ class MainActivity : AppCompatActivity() {
         homeQuickSites.removeAllViews()
         homeQuickSites.columnCount = 5
         val sites = listOf(
-            HomeSite("Google", "https://www.google.com", iconRes = R.drawable.asset_search_google),
-            HomeSite("YouTube", "https://m.youtube.com", iconRes = R.drawable.asset_social_youtube),
+            HomeSite("Google", "https://www.google.com", iconRes = R.drawable.site_icon_google),
+            HomeSite("YouTube", "https://m.youtube.com", iconRes = R.drawable.site_icon_youtube),
             HomeSite("Facebook", "https://m.facebook.com", iconRes = R.drawable.asset_social_facebook),
-            HomeSite("Wikipedia", "https://www.wikipedia.org"),
-            HomeSite("X", "https://x.com", iconRes = R.drawable.asset_social_x),
-            HomeSite("GitHub", "https://github.com", iconRes = R.drawable.asset_social_github),
+            HomeSite("Wikipedia", "https://www.wikipedia.org", iconRes = R.drawable.site_icon_wikipedia),
+            HomeSite("X", "https://x.com", iconRes = R.drawable.site_icon_x),
+            HomeSite("GitHub", "https://github.com", iconRes = R.drawable.site_icon_github),
             HomeSite("LinkedIn", "https://www.linkedin.com", iconRes = R.drawable.asset_social_linkedin),
-            HomeSite("BeSoccer", "https://www.besoccer.com"),
+            HomeSite("BeSoccer", "https://www.besoccer.com", iconRes = R.drawable.site_icon_besoccer),
             HomeSite("Downloads", internal = "downloads"),
             HomeSite("Mais", internal = "more")
         )
@@ -1426,14 +1426,14 @@ class MainActivity : AppCompatActivity() {
         appsGrid.removeAllViews()
         appsGrid.columnCount = 5
         val sites = listOf(
-            HomeSite("Google", "https://www.google.com", iconRes = R.drawable.asset_search_google),
-            HomeSite("YouTube", "https://m.youtube.com", iconRes = R.drawable.asset_social_youtube),
+            HomeSite("Google", "https://www.google.com", iconRes = R.drawable.site_icon_google),
+            HomeSite("YouTube", "https://m.youtube.com", iconRes = R.drawable.site_icon_youtube),
             HomeSite("Facebook", "https://m.facebook.com", iconRes = R.drawable.asset_social_facebook),
-            HomeSite("Wikipedia", "https://www.wikipedia.org"),
-            HomeSite("X", "https://x.com", iconRes = R.drawable.asset_social_x),
-            HomeSite("GitHub", "https://github.com", iconRes = R.drawable.asset_social_github),
+            HomeSite("Wikipedia", "https://www.wikipedia.org", iconRes = R.drawable.site_icon_wikipedia),
+            HomeSite("X", "https://x.com", iconRes = R.drawable.site_icon_x),
+            HomeSite("GitHub", "https://github.com", iconRes = R.drawable.site_icon_github),
             HomeSite("LinkedIn", "https://www.linkedin.com", iconRes = R.drawable.asset_social_linkedin),
-            HomeSite("BeSoccer", "https://www.besoccer.com"),
+            HomeSite("BeSoccer", "https://www.besoccer.com", iconRes = R.drawable.site_icon_besoccer),
             HomeSite("Downloads", internal = "downloads"),
             HomeSite("Mais", internal = "more")
         )

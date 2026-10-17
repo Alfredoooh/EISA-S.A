@@ -1,0 +1,556 @@
+{
+  "format": "WebP",
+  "resource_directory": "res/drawable-nodpi",
+  "note": "Images with an identified site name and URL are wired into MoreSitesActivity and/or the home shortcuts. Unidentified marks and the pause glyph are packaged but are not assigned invented sites.",
+  "icons": [
+    {
+      "category": "01_Pesquisa_e_navegadores",
+      "file": "arc_browser.webp",
+      "android_resource": "site_icon_arc_browser",
+      "name": "Arc Browser",
+      "url": "https://arc.net/",
+      "identified": true,
+      "bytes": 1370
+    },
+    {
+      "category": "01_Pesquisa_e_navegadores",
+      "file": "bing.webp",
+      "android_resource": "site_icon_bing",
+      "name": "Bing",
+      "url": "https://www.bing.com/",
+      "identified": true,
+      "bytes": 3858
+    },
+    {
+      "category": "01_Pesquisa_e_navegadores",
+      "file": "duckduckgo.webp",
+      "android_resource": "site_icon_duckduckgo",
+      "name": "DuckDuckGo",
+      "url": "https://duckduckgo.com/",
+      "identified": true,
+      "bytes": 4024
+    },
+    {
+      "category": "01_Pesquisa_e_navegadores",
+      "file": "google.webp",
+      "android_resource": "site_icon_google",
+      "name": "Google",
+      "url": "https://www.google.com/",
+      "identified": true,
+      "bytes": 1500
+    },
+    {
+      "category": "01_Pesquisa_e_navegadores",
+      "file": "opera_browser.webp",
+      "android_resource": "site_icon_opera_browser",
+      "name": "Opera",
+      "url": "https://www.opera.com/",
+      "identified": true,
+      "bytes": 1202
+    },
+    {
+      "category": "02_IA_e_criacao",
+      "file": "mistral_ai.webp",
+      "android_resource": "site_icon_mistral_ai",
+      "name": "Mistral AI",
+      "url": "https://mistral.ai/",
+      "identified": true,
+      "bytes": 1896
+    },
+    {
+      "category": "02_IA_e_criacao",
+      "file": "openai_chatgpt.webp",
+      "android_resource": "site_icon_openai_chatgpt",
+      "name": "OpenAI / ChatGPT",
+      "url": "https://chatgpt.com/",
+      "identified": true,
+      "bytes": 5140
+    },
+    {
+      "category": "02_IA_e_criacao",
+      "file": "perplexity.webp",
+      "android_resource": "site_icon_perplexity",
+      "name": "Perplexity",
+      "url": "https://www.perplexity.ai/",
+      "identified": true,
+      "bytes": 3870
+    },
+    {
+      "category": "02_IA_e_criacao",
+      "file": "suno.webp",
+      "android_resource": "site_icon_suno",
+      "name": "Suno",
+      "url": "https://suno.com/",
+      "identified": true,
+      "bytes": 6578
+    },
+    {
+      "category": "03_Redes_sociais_e_comunidades",
+      "file": "instagram.webp",
+      "android_resource": "site_icon_instagram",
+      "name": "Instagram",
+      "url": "https://www.instagram.com/",
+      "identified": true,
+      "bytes": 1914
+    },
+    {
+      "category": "03_Redes_sociais_e_comunidades",
+      "file": "reddit.webp",
+      "android_resource": "site_icon_reddit",
+      "name": "Reddit",
+      "url": "https://www.reddit.com/",
+      "identified": true,
+      "bytes": 2062
+    },
+    {
+      "category": "03_Redes_sociais_e_comunidades",
+      "file": "tiktok.webp",
+      "android_resource": "site_icon_tiktok",
+      "name": "TikTok",
+      "url": "https://www.tiktok.com/",
+      "identified": true,
+      "bytes": 1546
+    },
+    {
+      "category": "03_Redes_sociais_e_comunidades",
+      "file": "x.webp",
+      "android_resource": "site_icon_x",
+      "name": "X",
+      "url": "https://x.com/",
+      "identified": true,
+      "bytes": 1444
+    },
+    {
+      "category": "04_Design_e_produtividade",
+      "file": "adobe.webp",
+      "android_resource": "site_icon_adobe",
+      "name": "Adobe",
+      "url": "https://www.adobe.com/",
+      "identified": true,
+      "bytes": 1162
+    },
+    {
+      "category": "04_Design_e_produtividade",
+      "file": "canva.webp",
+      "android_resource": "site_icon_canva",
+      "name": "Canva",
+      "url": "https://www.canva.com/",
+      "identified": true,
+      "bytes": 1810
+    },
+    {
+      "category": "04_Design_e_produtividade",
+      "file": "dropbox.webp",
+      "android_resource": "site_icon_dropbox",
+      "name": "Dropbox",
+      "url": "https://www.dropbox.com/",
+      "identified": true,
+      "bytes": 5328
+    },
+    {
+      "category": "04_Design_e_produtividade",
+      "file": "figma.webp",
+      "android_resource": "site_icon_figma",
+      "name": "Figma",
+      "url": "https://www.figma.com/",
+      "identified": true,
+      "bytes": 2842
+    },
+    {
+      "category": "04_Design_e_produtividade",
+      "file": "gmail.webp",
+      "android_resource": "site_icon_gmail",
+      "name": "Gmail",
+      "url": "https://mail.google.com/",
+      "identified": true,
+      "bytes": 1356
+    },
+    {
+      "category": "04_Design_e_produtividade",
+      "file": "hubspot.webp",
+      "android_resource": "site_icon_hubspot",
+      "name": "HubSpot",
+      "url": "https://www.hubspot.com/",
+      "identified": true,
+      "bytes": 1808
+    },
+    {
+      "category": "04_Design_e_produtividade",
+      "file": "make.webp",
+      "android_resource": "site_icon_make",
+      "name": "Make",
+      "url": "https://www.make.com/",
+      "identified": true,
+      "bytes": 1684
+    },
+    {
+      "category": "04_Design_e_produtividade",
+      "file": "miro.webp",
+      "android_resource": "site_icon_miro",
+      "name": "Miro",
+      "url": "https://miro.com/",
+      "identified": true,
+      "bytes": 1872
+    },
+    {
+      "category": "04_Design_e_produtividade",
+      "file": "notion.webp",
+      "android_resource": "site_icon_notion",
+      "name": "Notion",
+      "url": "https://www.notion.so/",
+      "identified": true,
+      "bytes": 4470
+    },
+    {
+      "category": "04_Design_e_produtividade",
+      "file": "zapier.webp",
+      "android_resource": "site_icon_zapier",
+      "name": "Zapier",
+      "url": "https://zapier.com/",
+      "identified": true,
+      "bytes": 1750
+    },
+    {
+      "category": "04_Design_e_produtividade",
+      "file": "zoom.webp",
+      "android_resource": "site_icon_zoom",
+      "name": "Zoom",
+      "url": "https://zoom.us/",
+      "identified": true,
+      "bytes": 2616
+    },
+    {
+      "category": "05_Tecnologia_e_desenvolvimento",
+      "file": "apple.webp",
+      "android_resource": "site_icon_apple",
+      "name": "Apple",
+      "url": "https://www.apple.com/",
+      "identified": true,
+      "bytes": 802
+    },
+    {
+      "category": "05_Tecnologia_e_desenvolvimento",
+      "file": "atlassian.webp",
+      "android_resource": "site_icon_atlassian",
+      "name": "Atlassian",
+      "url": "https://www.atlassian.com/",
+      "identified": true,
+      "bytes": 2578
+    },
+    {
+      "category": "05_Tecnologia_e_desenvolvimento",
+      "file": "cloudflare.webp",
+      "android_resource": "site_icon_cloudflare",
+      "name": "Cloudflare",
+      "url": "https://www.cloudflare.com/",
+      "identified": true,
+      "bytes": 3046
+    },
+    {
+      "category": "05_Tecnologia_e_desenvolvimento",
+      "file": "github.webp",
+      "android_resource": "site_icon_github",
+      "name": "GitHub",
+      "url": "https://github.com/",
+      "identified": true,
+      "bytes": 4416
+    },
+    {
+      "category": "05_Tecnologia_e_desenvolvimento",
+      "file": "gitlab.webp",
+      "android_resource": "site_icon_gitlab",
+      "name": "GitLab",
+      "url": "https://gitlab.com/",
+      "identified": true,
+      "bytes": 3586
+    },
+    {
+      "category": "05_Tecnologia_e_desenvolvimento",
+      "file": "microsoft.webp",
+      "android_resource": "site_icon_microsoft",
+      "name": "Microsoft",
+      "url": "https://www.microsoft.com/",
+      "identified": true,
+      "bytes": 914
+    },
+    {
+      "category": "06_Video_audio_e_streaming",
+      "file": "netflix.webp",
+      "android_resource": "site_icon_netflix",
+      "name": "Netflix",
+      "url": "https://www.netflix.com/",
+      "identified": true,
+      "bytes": 4888
+    },
+    {
+      "category": "06_Video_audio_e_streaming",
+      "file": "spotify.webp",
+      "android_resource": "site_icon_spotify",
+      "name": "Spotify",
+      "url": "https://open.spotify.com/",
+      "identified": true,
+      "bytes": 11070
+    },
+    {
+      "category": "06_Video_audio_e_streaming",
+      "file": "youtube.webp",
+      "android_resource": "site_icon_youtube",
+      "name": "YouTube",
+      "url": "https://www.youtube.com/",
+      "identified": true,
+      "bytes": 1066
+    },
+    {
+      "category": "07_Compras_e_servicos",
+      "file": "airbnb.webp",
+      "android_resource": "site_icon_airbnb",
+      "name": "Airbnb",
+      "url": "https://www.airbnb.com/",
+      "identified": true,
+      "bytes": 10720
+    },
+    {
+      "category": "07_Compras_e_servicos",
+      "file": "alibaba.webp",
+      "android_resource": "site_icon_alibaba",
+      "name": "Alibaba",
+      "url": "https://www.alibaba.com/",
+      "identified": true,
+      "bytes": 5644
+    },
+    {
+      "category": "07_Compras_e_servicos",
+      "file": "amazon.webp",
+      "android_resource": "site_icon_amazon",
+      "name": "Amazon",
+      "url": "https://www.amazon.com/",
+      "identified": true,
+      "bytes": 4902
+    },
+    {
+      "category": "07_Compras_e_servicos",
+      "file": "flipkart.webp",
+      "android_resource": "site_icon_flipkart",
+      "name": "Flipkart",
+      "url": "https://www.flipkart.com/",
+      "identified": true,
+      "bytes": 1464
+    },
+    {
+      "category": "08_Noticias_e_referencia",
+      "file": "bbc.webp",
+      "android_resource": "site_icon_bbc",
+      "name": "BBC",
+      "url": "https://www.bbc.com/",
+      "identified": true,
+      "bytes": 822
+    },
+    {
+      "category": "08_Noticias_e_referencia",
+      "file": "medium.webp",
+      "android_resource": "site_icon_medium",
+      "name": "Medium",
+      "url": "https://medium.com/",
+      "identified": true,
+      "bytes": 6192
+    },
+    {
+      "category": "08_Noticias_e_referencia",
+      "file": "wikipedia.webp",
+      "android_resource": "site_icon_wikipedia",
+      "name": "Wikipedia",
+      "url": "https://www.wikipedia.org/",
+      "identified": true,
+      "bytes": 1486
+    },
+    {
+      "category": "09_Jogos_e_plataformas",
+      "file": "besoccer.webp",
+      "android_resource": "site_icon_besoccer",
+      "name": "BeSoccer",
+      "url": "https://www.besoccer.com/",
+      "identified": true,
+      "bytes": 1764
+    },
+    {
+      "category": "09_Jogos_e_plataformas",
+      "file": "fc_barcelona.webp",
+      "android_resource": "site_icon_fc_barcelona",
+      "name": "FC Barcelona",
+      "url": "https://www.fcbarcelona.com/",
+      "identified": true,
+      "bytes": 2994
+    },
+    {
+      "category": "09_Jogos_e_plataformas",
+      "file": "poki.webp",
+      "android_resource": "site_icon_poki",
+      "name": "Poki",
+      "url": "https://poki.com/",
+      "identified": true,
+      "bytes": 1184
+    },
+    {
+      "category": "09_Jogos_e_plataformas",
+      "file": "real_madrid.webp",
+      "android_resource": "site_icon_real_madrid",
+      "name": "Real Madrid",
+      "url": "https://www.realmadrid.com/",
+      "identified": true,
+      "bytes": 3810
+    },
+    {
+      "category": "09_Jogos_e_plataformas",
+      "file": "roblox.webp",
+      "android_resource": "site_icon_roblox",
+      "name": "Roblox",
+      "url": "https://www.roblox.com/",
+      "identified": true,
+      "bytes": 1060
+    },
+    {
+      "category": "09_Jogos_e_plataformas",
+      "file": "xbox.webp",
+      "android_resource": "site_icon_xbox",
+      "name": "Xbox",
+      "url": "https://www.xbox.com/",
+      "identified": true,
+      "bytes": 4008
+    },
+    {
+      "category": "10_Controles_e_ui",
+      "file": "pausa.webp",
+      "android_resource": "site_icon_pausa",
+      "name": null,
+      "url": null,
+      "identified": false,
+      "bytes": 692
+    },
+    {
+      "category": "99_Marcas_por_identificar",
+      "file": "exclamacao_roxa.webp",
+      "android_resource": "site_icon_exclamacao_roxa",
+      "name": null,
+      "url": null,
+      "identified": false,
+      "bytes": 1038
+    },
+    {
+      "category": "99_Marcas_por_identificar",
+      "file": "marca_barras_roxas.webp",
+      "android_resource": "site_icon_marca_barras_roxas",
+      "name": null,
+      "url": null,
+      "identified": false,
+      "bytes": 1450
+    },
+    {
+      "category": "99_Marcas_por_identificar",
+      "file": "marca_cometa_roxo.webp",
+      "android_resource": "site_icon_marca_cometa_roxo",
+      "name": null,
+      "url": null,
+      "identified": false,
+      "bytes": 898
+    },
+    {
+      "category": "99_Marcas_por_identificar",
+      "file": "marca_geometrica_metalica.webp",
+      "android_resource": "site_icon_marca_geometrica_metalica",
+      "name": null,
+      "url": null,
+      "identified": false,
+      "bytes": 886
+    },
+    {
+      "category": "99_Marcas_por_identificar",
+      "file": "monograma_d_geometrico.webp",
+      "android_resource": "site_icon_monograma_d_geometrico",
+      "name": null,
+      "url": null,
+      "identified": false,
+      "bytes": 876
+    },
+    {
+      "category": "99_Marcas_por_identificar",
+      "file": "monograma_geometrico_f.webp",
+      "android_resource": "site_icon_monograma_geometrico_f",
+      "name": null,
+      "url": null,
+      "identified": false,
+      "bytes": 654
+    },
+    {
+      "category": "99_Marcas_por_identificar",
+      "file": "monograma_paralelogramo.webp",
+      "android_resource": "site_icon_monograma_paralelogramo",
+      "name": null,
+      "url": null,
+      "identified": false,
+      "bytes": 604
+    },
+    {
+      "category": "99_Marcas_por_identificar",
+      "file": "monograma_pixel_laranja.webp",
+      "android_resource": "site_icon_monograma_pixel_laranja",
+      "name": null,
+      "url": null,
+      "identified": false,
+      "bytes": 1490
+    },
+    {
+      "category": "99_Marcas_por_identificar",
+      "file": "monograma_r_preto.webp",
+      "android_resource": "site_icon_monograma_r_preto",
+      "name": null,
+      "url": null,
+      "identified": false,
+      "bytes": 1032
+    },
+    {
+      "category": "99_Marcas_por_identificar",
+      "file": "monograma_u_fundo_amarelo.webp",
+      "android_resource": "site_icon_monograma_u_fundo_amarelo",
+      "name": null,
+      "url": null,
+      "identified": false,
+      "bytes": 1930
+    },
+    {
+      "category": "99_Marcas_por_identificar",
+      "file": "raios_brancos_fundo_azul.webp",
+      "android_resource": "site_icon_raios_brancos_fundo_azul",
+      "name": null,
+      "url": null,
+      "identified": false,
+      "bytes": 6800
+    },
+    {
+      "category": "99_Marcas_por_identificar",
+      "file": "redemoinho_azul.webp",
+      "android_resource": "site_icon_redemoinho_azul",
+      "name": null,
+      "url": null,
+      "identified": false,
+      "bytes": 4970
+    },
+    {
+      "category": "99_Marcas_por_identificar",
+      "file": "simbolo_geometrico_branco.webp",
+      "android_resource": "site_icon_simbolo_geometrico_branco",
+      "name": null,
+      "url": null,
+      "identified": false,
+      "bytes": 2826
+    },
+    {
+      "category": "99_Marcas_por_identificar",
+      "file": "simbolo_orbital_preto.webp",
+      "android_resource": "site_icon_simbolo_orbital_preto",
+      "name": null,
+      "url": null,
+      "identified": false,
+      "bytes": 2576
+    }
+  ]
+}

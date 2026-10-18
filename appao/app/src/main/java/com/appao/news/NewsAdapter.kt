@@ -198,6 +198,20 @@ class NewsAdapter(
         }
     }
 
+    /** Updates only the one card whose saved-state changed, instead of rebinding
+     *  every visible item (which caused images/actions to visibly flash/reload). */
+    fun notifyArticleChanged(item: NewsItem) {
+        val index = rows.indexOfFirst { row ->
+            when (row) {
+                is RenderRow.Image -> row.item.id == item.id
+                is RenderRow.TextSingle -> row.item.id == item.id
+                is RenderRow.TextGroup -> row.items.any { it.id == item.id }
+                else -> false
+            }
+        }
+        if (index >= 0) notifyItemChanged(index)
+    }
+
     private fun bindImage(holder: ImageVH, item: NewsItem) {
         holder.itemView.transitionName = null
         holder.itemView.tag = item.id

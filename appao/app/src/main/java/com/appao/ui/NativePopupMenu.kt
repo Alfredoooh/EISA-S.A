@@ -32,9 +32,9 @@ object NativePopupMenu {
             runCatching { AccentColorManager.resolvedOr(context, R.color.pri) }.getOrDefault(it)
         }
         items.forEachIndexed { index, item ->
-            // Unique groups allow Android's own menu implementation to draw its
-            // standard thin divider between menu rows on API 28+.
-            val menuItem = popup.menu.add(index + 1, item.id, index, item.title)
+            // All items share group 0 so Android does not draw a divider between
+            // every single row (which made each item look like an isolated block).
+            val menuItem = popup.menu.add(0, item.id, index, item.title)
             val baseIcon = item.iconResId?.let { ContextCompat.getDrawable(context, it)?.mutate() }
                 ?: item.iconName?.let { IconLoader.menuDrawable(context, it) }
             val icon = if (usesSelectionIndicator && item.checked) {
@@ -48,7 +48,7 @@ object NativePopupMenu {
                 menuItem.icon = icon
             }
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) popup.menu.setGroupDividerEnabled(true)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) popup.menu.setGroupDividerEnabled(false)
 
         // Android hides menu icons in PopupMenu by default. Ask the platform
         // helper to reveal the supplied 19dp icons when that implementation exists.

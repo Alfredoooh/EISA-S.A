@@ -81,6 +81,7 @@ class SettingsActivity : AppCompatActivity() {
             row.findViewById<TextView>(R.id.rowTitle).text = rowDef.title
             if (rowDef.id == R.id.rowAdBlock || rowDef.id == R.id.rowTracking || rowDef.id == R.id.rowAdaptiveBarColor || rowDef.id == R.id.rowSiteDark || rowDef.id == R.id.rowDesktopMode) {
                 val toggle = row.findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.rowSwitch)
+                styleRowSwitch(toggle)
                 toggle.visibility = View.VISIBLE
                 row.findViewById<TextView>(R.id.rowValue).visibility = View.GONE
                 toggle.setOnCheckedChangeListener(null)
@@ -189,6 +190,7 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<View>(R.id.rowAdBlock).apply {
             findViewById<TextView>(R.id.rowValue).visibility = View.GONE
             findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.rowSwitch).apply {
+                styleRowSwitch(this)
                 setOnCheckedChangeListener(null)
                 isChecked = BrowserPreferences.adBlockEnabled(this@SettingsActivity)
                 setOnCheckedChangeListener { _, checked ->
@@ -200,6 +202,7 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<View>(R.id.rowSiteDark).apply {
             findViewById<TextView>(R.id.rowValue).visibility = View.GONE
             findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.rowSwitch).apply {
+                styleRowSwitch(this)
                 setOnCheckedChangeListener(null)
                 isChecked = BrowserPreferences.forceDarkEnabled(this@SettingsActivity)
                 setOnCheckedChangeListener { _, checked ->
@@ -213,6 +216,7 @@ class SettingsActivity : AppCompatActivity() {
             text = if (BrowserPreferences.addressBarPosition(this@SettingsActivity) == "bottom") "Em baixo" else "No topo"
         }
         findViewById<View>(R.id.rowDesktopMode).findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.rowSwitch).apply {
+            styleRowSwitch(this)
             setOnCheckedChangeListener(null)
             isChecked = BrowserPreferences.desktopSiteEnabled(this@SettingsActivity)
             setOnCheckedChangeListener { _, checked ->
@@ -235,6 +239,27 @@ class SettingsActivity : AppCompatActivity() {
             shape = android.graphics.drawable.GradientDrawable.OVAL
             setColor(swatch)
         }
+    }
+
+    /** Matches the switch style used in Categories and Data Saver so every toggle in the app looks the same. */
+    private fun styleRowSwitch(switch: com.google.android.material.materialswitch.MaterialSwitch) {
+        val checkedState = intArrayOf(android.R.attr.state_checked)
+        val defaultState = intArrayOf()
+        val accentColor = AccentColorManager.resolvedOr(this, R.color.pri)
+        switch.thumbTintList = android.content.res.ColorStateList(
+            arrayOf(checkedState, defaultState),
+            intArrayOf(
+                AccentColorManager.onPrimaryColor(this),
+                ContextCompat.getColor(this, R.color.dim)
+            )
+        )
+        switch.trackTintList = android.content.res.ColorStateList(
+            arrayOf(checkedState, defaultState),
+            intArrayOf(
+                androidx.core.graphics.ColorUtils.setAlphaComponent(accentColor, 150),
+                ContextCompat.getColor(this, R.color.card2)
+            )
+        )
     }
 
     private fun showAddressPositionPicker(anchor: View) {
@@ -442,6 +467,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun refreshNewBrowserSwitches() {
         val tracking = findViewById<View>(R.id.rowTracking).findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.rowSwitch)
+        styleRowSwitch(tracking)
         tracking.visibility = View.VISIBLE
         findViewById<View>(R.id.rowTracking).findViewById<TextView>(R.id.rowValue).visibility = View.GONE
         tracking.setOnCheckedChangeListener(null)
@@ -451,6 +477,7 @@ class SettingsActivity : AppCompatActivity() {
             AppAoToast.show(this, if (checked) "Proteção contra rastreadores ativada" else "Proteção contra rastreadores desativada")
         }
         val adaptive = findViewById<View>(R.id.rowAdaptiveBarColor).findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.rowSwitch)
+        styleRowSwitch(adaptive)
         adaptive.visibility = View.VISIBLE
         findViewById<View>(R.id.rowAdaptiveBarColor).findViewById<TextView>(R.id.rowValue).visibility = View.GONE
         adaptive.setOnCheckedChangeListener(null)

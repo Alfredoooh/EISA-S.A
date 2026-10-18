@@ -211,6 +211,10 @@ class MoreSitesActivity : AppCompatActivity() {
                 })
             }
         }
+        val iconBox = FrameLayout(this).apply {
+            background = ContextCompat.getDrawable(this@MoreSitesActivity, R.drawable.bg_circle_card)
+            clipToOutline = true
+        }
         val icon = ImageView(this).apply {
             scaleType = ImageView.ScaleType.FIT_CENTER
             contentDescription = "Ícone de ${entry.name}"
@@ -225,7 +229,8 @@ class MoreSitesActivity : AppCompatActivity() {
                     .into(this)
             }
         }
-        tile.addView(icon, LinearLayout.LayoutParams(dp(30), dp(30)))
+        iconBox.addView(icon, FrameLayout.LayoutParams(-1, -1))
+        tile.addView(iconBox, LinearLayout.LayoutParams(dp(44), dp(44)))
         tile.addView(TextView(this).apply {
             text = entry.name
             textSize = 11.5f

@@ -741,7 +741,7 @@ class MainActivity : AppCompatActivity() {
             isSaved = { item -> isArticleSaved(item) },
             onToggleSaved = { item ->
                 toggleArticleSaved(item)
-                if (::adapter.isInitialized) adapter.notifyDataSetChanged()
+                if (::adapter.isInitialized) adapter.notifyArticleChanged(item)
             }
         )
         recycler.layoutManager = LinearLayoutManager(this)
@@ -758,7 +758,7 @@ class MainActivity : AppCompatActivity() {
             override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
                 if (dy != 0) updateFeedBarsFromScroll(dy)
                 val offset = rv.computeVerticalScrollOffset()
-                if (offset > dp(44) || offset <= dp(4)) {
+                if (offset <= dp(4) || offset > dp(44)) {
                     updateQuickSitesCollapse(offset > dp(44))
                 }
                 if (!feedAppsMode && !rv.canScrollVertically(1) && !loading && !exhausted) loadMore()
@@ -779,9 +779,9 @@ class MainActivity : AppCompatActivity() {
     private fun updateQuickSitesCollapse(collapse: Boolean) {
         if (!::homeQuickSites.isInitialized || !::homeQuickDivider.isInitialized) return
         if (quickSitesCollapsed == collapse) return
-        // A altura de referência é sempre recalculada a partir do estado real
-        // (nunca fica "presa" num valor antigo/errado mesmo que uma animação
-        // anterior tenha sido cancelada a meio).
+        // Recalculated every time it's expanded, from the real measured view —
+        // never stays stuck on a stale/wrong value from a cancelled animation,
+        // which was why some sites used to "disappear" and never come back.
         if (!quickSitesCollapsed) {
             val measuredHeight = homeQuickSites.height
             if (measuredHeight > 0) quickSitesExpandedHeight = measuredHeight
@@ -2587,7 +2587,7 @@ class MainActivity : AppCompatActivity() {
                 }.onFailure { AppAoToast.show(this, "Não foi possível partilhar") }
                 2 -> {
                     toggleArticleSaved(item)
-                    adapter.notifyDataSetChanged()
+                    adapter.notifyArticleChanged(item)
                 }
                 3 -> openNewBrowserTab(item.link)
             }

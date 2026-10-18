@@ -13,12 +13,6 @@ import androidx.core.content.ContextCompat
 import com.caverock.androidsvg.SVG
 import java.util.Locale
 
-/**
- * Native SVG icon renderer backed by the official Ionicons SVG pack.
- * The Gradle preBuild task downloads only the SVGs referenced below from the
- * pinned Ionicons release; no font glyphs, runtime network access, or raster
- * icon files are required.
- */
 object IconLoader {
     private val sourceCache = LruCache<String, String>(96)
     private val aliases: Map<String, String> = mapOf(
@@ -96,7 +90,6 @@ object IconLoader {
         val drawableId = context.resources.getIdentifier(drawableName, "drawable", context.packageName)
         if (drawableId != 0) {
             val supplied = ContextCompat.getDrawable(context, drawableId)?.mutate() ?: return null
-            // Brand/search-provider artwork retains its original colors; interface glyphs use the active theme tint.
             val preserveColor = iconFile.startsWith("brand-") || iconFile.startsWith("search-") || iconFile == "logo-google" || iconFile == "heart" || iconFile == "compass"
             if (!preserveColor) supplied.setTint(tint)
             return supplied
@@ -140,21 +133,22 @@ object IconLoader {
     }
 
     fun applyIconThin(view: ImageView, name: String, tintRes: Int = 0) {
-        // Outline SVGs already provide the thin visual weight; keep the same optical size everywhere.
         applyIcon(view, name, tintRes)
         view.scaleX = 1f
         view.scaleY = 1f
     }
 
     private fun resolveSize(view: ImageView): Int {
-        val target = (16f * view.resources.displayMetrics.density + 0.5f).toInt().coerceAtLeast(1)
+        // Fill the ImageView's own declared size (e.g. 19dp containers across
+        // Settings, Profile, Categories, browser toolbar) instead of being
+        // force-capped at a fixed 16dp regardless of the container size.
+        val fallback = (19f * view.resources.displayMetrics.density + 0.5f).toInt().coerceAtLeast(1)
         val lp = view.layoutParams
         val width = lp?.width?.takeIf { it > 0 } ?: view.width
         val height = lp?.height?.takeIf { it > 0 } ?: view.height
         val available = listOf(width, height).filter { it > 0 }.minOrNull()
-        return if (available == null) target else minOf(target, available)
+        return available ?: fallback
     }
-
 
     private class IonSvgDrawable(private val source: String, private val tint: Int) : Drawable() {
         private val svg: SVG = SVG.getFromString(source)
@@ -166,10 +160,6 @@ object IconLoader {
             if (b.width() <= 0 || b.height() <= 0) return
             val checkpoint = canvas.save()
             if (drawableAlpha < 255) canvas.saveLayerAlpha(b.left.toFloat(), b.top.toFloat(), b.right.toFloat(), b.bottom.toFloat(), drawableAlpha)
-            val oldFilter = filter
-            if (oldFilter != null) {
-                // SVG is already tint-coloured. The custom filter is retained for Drawable API correctness.
-            }
             svg.renderToCanvas(canvas, RectF(b.left.toFloat(), b.top.toFloat(), b.right.toFloat(), b.bottom.toFloat()))
             canvas.restoreToCount(checkpoint)
         }

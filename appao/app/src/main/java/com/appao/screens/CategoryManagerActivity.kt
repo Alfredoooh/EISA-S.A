@@ -103,8 +103,7 @@ class CategoryManagerActivity : AppCompatActivity() {
             row.addView(toggle, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             row.setOnClickListener { toggle.isChecked = !toggle.isChecked }
             categoryList.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                if (index > 0) topMargin = dp(2)
-                bottomMargin = dp(2)
+                bottomMargin = if (index == categories.lastIndex) 0 else dp(1)
             })
         }
     }

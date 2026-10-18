@@ -58,10 +58,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var homeHeader: View
     private lateinit var homeContentScroll: View
     private lateinit var homeQuickSites: GridLayout
+    private lateinit var homeQuickSitesClip: FrameLayout
     private lateinit var homeQuickDivider: View
-    private var quickSitesCollapsed = false
+    // The quick-sites area consumes scroll distance before the news list itself moves,
+    // just like a native collapsing app bar. This value is independent of RecyclerView's
+    // reported scroll offset, which changes when the viewport is resized.
+    private var quickSitesCollapseOffset = 0
     private var quickSitesExpandedHeight = 0
-    private var quickSitesCollapseAnimator: ValueAnimator? = null
+    private var quickSitesCompensatingScroll = false
     private lateinit var homeNewsSections: LinearLayout
     private lateinit var homeEmptyNews: View
     private lateinit var homeCategoryToggles: LinearLayout
@@ -177,6 +181,7 @@ class MainActivity : AppCompatActivity() {
         homeHeader = findViewById(R.id.homeHeader)
         homeContentScroll = findViewById(R.id.homeContentScroll)
         homeQuickSites = findViewById(R.id.homeQuickSites)
+        homeQuickSitesClip = findViewById(R.id.homeQuickSitesClip)
         homeQuickDivider = findViewById(R.id.homeQuickDivider)
         homeNewsSections = findViewById(R.id.homeNewsSections)
         homeEmptyNews = findViewById(R.id.homeEmptyNews)
@@ -748,7 +753,10 @@ class MainActivity : AppCompatActivity() {
         recycler.adapter = adapter
         recycler.itemAnimator = null
         homeQuickSites.post {
-            if (quickSitesExpandedHeight <= 0) quickSitesExpandedHeight = homeQuickSites.height.takeIf { it > 0 } ?: dp(166)
+            val measuredHeight = homeQuickSitesClip.height.takeIf { it > 0 } ?: homeQuickSites.height
+            if (measuredHeight > 0 && quickSitesExpandedHeight <= 0) {
+                quickSitesExpandedHeight = measuredHeight
+            }
         }
         recycler.setHasFixedSize(false)
         recycler.setItemViewCacheSize(5)
@@ -756,10 +764,16 @@ class MainActivity : AppCompatActivity() {
 
         recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
-                if (dy != 0) updateFeedBarsFromScroll(dy)
-                val offset = rv.computeVerticalScrollOffset()
-                if (offset <= dp(4) || offset > dp(44)) {
-                    updateQuickSitesCollapse(offset > dp(44))
+                // The counter-scroll below returns the portion consumed by the collapsing
+                // header. Ignore that nested callback so it cannot reverse the animation.
+                if (quickSitesCompensatingScroll) {
+                    quickSitesCompensatingScroll = false
+                    return
+                }
+
+                if (dy != 0) {
+                    updateFeedBarsFromScroll(dy)
+                    consumeQuickSitesScroll(rv, dy)
                 }
                 if (!feedAppsMode && !rv.canScrollVertically(1) && !loading && !exhausted) loadMore()
             }
@@ -775,47 +789,109 @@ class MainActivity : AppCompatActivity() {
         recycler.translationY = 0f
     }
 
-    /** Quick links collapse as the Home feed scrolls; category toggles remain pinned. */
-    private fun updateQuickSitesCollapse(collapse: Boolean) {
-        if (!::homeQuickSites.isInitialized || !::homeQuickDivider.isInitialized) return
-        if (quickSitesCollapsed == collapse) return
-        // Recalculated every time it's expanded, from the real measured view —
-        // never stays stuck on a stale/wrong value from a cancelled animation,
-        // which was why some sites used to "disappear" and never come back.
-        if (!quickSitesCollapsed) {
-            val measuredHeight = homeQuickSites.height
-            if (measuredHeight > 0) quickSitesExpandedHeight = measuredHeight
+    /**
+     * Consume the portion of a vertical scroll that belongs to the quick-sites header.
+     * Unlike a time-based height animator, this follows the user's finger/fling one-to-one,
+     * so it cannot repeatedly cancel and restart when RecyclerView relays out.
+     */
+    private fun consumeQuickSitesScroll(rv: RecyclerView, dy: Int) {
+        if (dy == 0 || !::homeQuickSites.isInitialized ||
+            !::homeQuickSitesClip.isInitialized || !::homeQuickDivider.isInitialized) return
+
+        if (quickSitesExpandedHeight <= 0) {
+            val measuredHeight = homeQuickSitesClip.height.takeIf { it > 0 } ?: homeQuickSites.height
+            if (measuredHeight <= 0) return
+            quickSitesExpandedHeight = measuredHeight
         }
-        if (quickSitesExpandedHeight <= 0) quickSitesExpandedHeight = dp(166)
-        val dividerParams = homeQuickDivider.layoutParams as? ViewGroup.MarginLayoutParams ?: return
-        val currentHeight = (homeQuickSites.layoutParams.height.takeIf { it >= 0 } ?: homeQuickSites.height)
-        val targetHeight = if (collapse) 0 else quickSitesExpandedHeight
-        quickSitesCollapsed = collapse
-        quickSitesCollapseAnimator?.cancel()
+
+        val maximum = quickSitesExpandedHeight.coerceAtLeast(0)
+        if (maximum == 0) return
+
+        val previousOffset = quickSitesCollapseOffset.coerceIn(0, maximum)
+        val nextOffset = (previousOffset + dy).coerceIn(0, maximum)
+        val consumedByHeader = nextOffset - previousOffset
+        if (consumedByHeader == 0) return
+
+        quickSitesCollapseOffset = nextOffset
+        applyQuickSitesCollapseLayout()
+
+        // RecyclerView has already moved by dy before onScrolled is called. Reversing only
+        // the distance consumed by the header keeps article motion at the exact finger speed;
+        // the list starts moving freely only after the header is fully collapsed (and vice versa).
+        quickSitesCompensatingScroll = true
+        rv.scrollBy(0, -consumedByHeader)
+        // Normally scrollBy dispatches onScrolled synchronously. This fallback also clears the
+        // guard if the layout manager has no remaining distance to consume.
+        rv.post { quickSitesCompensatingScroll = false }
+    }
+
+    /** Apply a collapse offset without running a competing ValueAnimator or fading whole rows. */
+    private fun applyQuickSitesCollapseLayout() {
+        if (!::homeQuickSites.isInitialized || !::homeQuickSitesClip.isInitialized ||
+            !::homeQuickDivider.isInitialized) return
+        val maximum = quickSitesExpandedHeight
+        if (maximum <= 0) return
+
+        val offset = quickSitesCollapseOffset.coerceIn(0, maximum)
+        val remainingHeight = (maximum - offset).coerceAtLeast(0)
+        val progress = offset.toFloat() / maximum.toFloat()
+
+        // Shrink a clipping viewport while translating the full grid upward inside it.
+        // This makes the upper row leave first, as it would in a native collapsing app bar,
+        // instead of clipping sites from the bottom or squeezing individual rows.
+        homeQuickSitesClip.visibility = View.VISIBLE
+        homeQuickSitesClip.clipChildren = true
+        homeQuickSitesClip.clipToPadding = true
+        val clipParams = homeQuickSitesClip.layoutParams
+        if (clipParams.height != remainingHeight) {
+            clipParams.height = remainingHeight
+            homeQuickSitesClip.layoutParams = clipParams
+        }
+
         homeQuickSites.visibility = View.VISIBLE
-        homeQuickDivider.visibility = View.VISIBLE
-        val startHeight = currentHeight.coerceAtLeast(0)
-        val startTop = dividerParams.topMargin
-        val startBottom = dividerParams.bottomMargin
-        val endTop = if (collapse) 0 else dp(5)
-        val endBottom = if (collapse) 0 else dp(4)
-        quickSitesCollapseAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 155L
-            interpolator = Curves.IOS
-            addUpdateListener { animator ->
-                val f = animator.animatedValue as Float
-                val height = (startHeight + (targetHeight - startHeight) * f).toInt().coerceAtLeast(0)
-                homeQuickSites.layoutParams = homeQuickSites.layoutParams.apply { this.height = height }
-                homeQuickSites.alpha = if (collapse) 1f - f else f
-                val lp = homeQuickDivider.layoutParams as ViewGroup.MarginLayoutParams
-                lp.height = if (collapse) (dp(1) * (1f - f)).toInt() else (dp(1) * f).toInt().coerceAtLeast(0)
-                lp.topMargin = (startTop + (endTop - startTop) * f).toInt()
-                lp.bottomMargin = (startBottom + (endBottom - startBottom) * f).toInt()
-                homeQuickDivider.layoutParams = lp
-                homeQuickDivider.alpha = 1f - f * 0.5f
-            }
-            start()
+        homeQuickSites.clipChildren = true
+        homeQuickSites.clipToPadding = true
+        homeQuickSites.alpha = 1f
+        val sitesParams = homeQuickSites.layoutParams
+        if (sitesParams.height != maximum) {
+            sitesParams.height = maximum
+            homeQuickSites.layoutParams = sitesParams
         }
+        homeQuickSites.translationY = -offset.toFloat()
+
+        homeQuickDivider.visibility = View.VISIBLE
+        val dividerParams = homeQuickDivider.layoutParams as? ViewGroup.MarginLayoutParams ?: return
+        val dividerHeight = if (remainingHeight == 0) 0 else dp(1)
+        val topMargin = (dp(5) * (1f - progress)).toInt().coerceAtLeast(0)
+        val bottomMargin = (dp(4) * (1f - progress)).toInt().coerceAtLeast(0)
+        var dividerChanged = false
+        if (dividerParams.height != dividerHeight) {
+            dividerParams.height = dividerHeight
+            dividerChanged = true
+        }
+        if (dividerParams.topMargin != topMargin) {
+            dividerParams.topMargin = topMargin
+            dividerChanged = true
+        }
+        if (dividerParams.bottomMargin != bottomMargin) {
+            dividerParams.bottomMargin = bottomMargin
+            dividerChanged = true
+        }
+        if (dividerChanged) homeQuickDivider.layoutParams = dividerParams
+        homeQuickDivider.alpha = (1f - progress).coerceIn(0f, 1f)
+    }
+
+    /** Force a stable endpoint when the selected category resets the feed to the top. */
+    private fun updateQuickSitesCollapse(collapse: Boolean) {
+        if (!::homeQuickSites.isInitialized || !::homeQuickSitesClip.isInitialized ||
+            !::homeQuickDivider.isInitialized) return
+        if (quickSitesExpandedHeight <= 0) {
+            quickSitesExpandedHeight = homeQuickSitesClip.height.takeIf { it > 0 }
+                ?: homeQuickSites.height.takeIf { it > 0 } ?: return
+        }
+        quickSitesCollapseOffset = if (collapse) quickSitesExpandedHeight else 0
+        quickSitesCompensatingScroll = false
+        applyQuickSitesCollapseLayout()
     }
 
     private fun setupFeedHeader() {

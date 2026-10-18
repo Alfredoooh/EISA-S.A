@@ -339,7 +339,7 @@ class MainActivity : AppCompatActivity() {
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.homeMainBottomNav)) { view, insets ->
             val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
             view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, dp(2) + systemBottom)
-            view.layoutParams = view.layoutParams.apply { height = dp(64) + systemBottom }
+            view.layoutParams = view.layoutParams.apply { height = dp(58) + systemBottom }
             insets
         }
 
@@ -361,7 +361,7 @@ class MainActivity : AppCompatActivity() {
             val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
             val params = view.layoutParams as? ViewGroup.MarginLayoutParams
             if (params != null) {
-                params.bottomMargin = dp(64) + systemBottom
+                params.bottomMargin = dp(58) + systemBottom
                 view.layoutParams = params
             }
             insets
@@ -383,7 +383,7 @@ class MainActivity : AppCompatActivity() {
         ViewCompat.setOnApplyWindowInsetsListener(feedBottom) { view, insets ->
             val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
             view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, systemBottom)
-            view.layoutParams = view.layoutParams.apply { height = dp(64) + systemBottom }
+            view.layoutParams = view.layoutParams.apply { height = dp(58) + systemBottom }
             recycler.updatePadding(bottom = dp(10) + systemBottom)
             insets
         }
@@ -485,7 +485,7 @@ class MainActivity : AppCompatActivity() {
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.homeMainBottomNav)) { view, insets ->
             val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
             view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, dp(2) + systemBottom)
-            view.layoutParams = view.layoutParams.apply { height = dp(64) + systemBottom }
+            view.layoutParams = view.layoutParams.apply { height = dp(58) + systemBottom }
             insets
         }
         updateMainTabSelection(activeMainTab)
@@ -673,13 +673,20 @@ class MainActivity : AppCompatActivity() {
         if (suggestions.isEmpty()) suggestions += HomeSuggestion("Escreve para pesquisar na Web", BrowserPreferences.searchUrl(this, trimmed), "search")
 
         homeSearchSuggestionsList.removeAllViews()
-        suggestions.distinctBy { it.label to it.target }.take(10).forEach { suggestion ->
+        val finalSuggestions = suggestions.distinctBy { it.label to it.target }.take(10)
+        finalSuggestions.forEachIndexed { index, suggestion ->
+            val groupDrawable = when {
+                finalSuggestions.size == 1 -> R.drawable.bg_settings_single
+                index == 0 -> R.drawable.bg_settings_top
+                index == finalSuggestions.lastIndex -> R.drawable.bg_settings_bottom
+                else -> R.drawable.bg_settings_middle
+            }
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 minimumHeight = dp(50)
                 setPadding(dp(14), dp(8), dp(14), dp(8))
-                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_settings_single)
+                background = ContextCompat.getDrawable(this@MainActivity, groupDrawable)
                 isClickable = true
                 isFocusable = true
                 contentDescription = suggestion.label
@@ -699,13 +706,14 @@ class MainActivity : AppCompatActivity() {
             row.addView(TextView(this).apply {
                 text = suggestion.label
                 textSize = 14f
-                maxLines = 2
+                maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
                 setPadding(dp(12), 0, 0, 0)
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            val rowBottomMargin = if (index == finalSuggestions.lastIndex) 0 else dp(1)
             homeSearchSuggestionsList.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                bottomMargin = dp(6)
+                bottomMargin = rowBottomMargin
             })
         }
         homeSearchSuggestionsContainer.visibility = View.VISIBLE
@@ -749,7 +757,10 @@ class MainActivity : AppCompatActivity() {
         recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
                 if (dy != 0) updateFeedBarsFromScroll(dy)
-                updateQuickSitesCollapse(rv.computeVerticalScrollOffset() > dp(28))
+                val offset = rv.computeVerticalScrollOffset()
+                if (offset > dp(44) || offset <= dp(4)) {
+                    updateQuickSitesCollapse(offset > dp(44))
+                }
                 if (!feedAppsMode && !rv.canScrollVertically(1) && !loading && !exhausted) loadMore()
             }
         })
@@ -768,13 +779,17 @@ class MainActivity : AppCompatActivity() {
     private fun updateQuickSitesCollapse(collapse: Boolean) {
         if (!::homeQuickSites.isInitialized || !::homeQuickDivider.isInitialized) return
         if (quickSitesCollapsed == collapse) return
-        if (quickSitesExpandedHeight <= 0) {
-            quickSitesExpandedHeight = homeQuickSites.height.takeIf { it > 0 } ?: dp(166)
+        // A altura de referência é sempre recalculada a partir do estado real
+        // (nunca fica "presa" num valor antigo/errado mesmo que uma animação
+        // anterior tenha sido cancelada a meio).
+        if (!quickSitesCollapsed) {
+            val measuredHeight = homeQuickSites.height
+            if (measuredHeight > 0) quickSitesExpandedHeight = measuredHeight
         }
+        if (quickSitesExpandedHeight <= 0) quickSitesExpandedHeight = dp(166)
         val dividerParams = homeQuickDivider.layoutParams as? ViewGroup.MarginLayoutParams ?: return
         val currentHeight = (homeQuickSites.layoutParams.height.takeIf { it >= 0 } ?: homeQuickSites.height)
         val targetHeight = if (collapse) 0 else quickSitesExpandedHeight
-        if (currentHeight == targetHeight && quickSitesCollapsed == collapse) return
         quickSitesCollapsed = collapse
         quickSitesCollapseAnimator?.cancel()
         homeQuickSites.visibility = View.VISIBLE
@@ -1517,7 +1532,7 @@ class MainActivity : AppCompatActivity() {
     private fun setupProfilePanel() {
         if (!::profileRows.isInitialized) return
         profileRows.removeAllViews()
-        data class ProfileRow(val label: String, val icon: String, val action: () -> Unit)
+        data class ProfileRow(val label: String, val icon: String, val isSwitch: Boolean = false, val switchChecked: Boolean = false, val action: () -> Unit)
         fun makeRow(row: ProfileRow, backgroundId: Int): View = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -1535,15 +1550,39 @@ class MainActivity : AppCompatActivity() {
                 typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
                 setPadding(dp(12), 0, 0, 0)
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            addView(ImageView(this@MainActivity).apply {
-                scaleType = ImageView.ScaleType.CENTER_INSIDE
-                IconLoader.applyIcon(this, "arrow_right", R.color.dim)
-            }, LinearLayout.LayoutParams(dp(15), dp(15)))
+            if (row.isSwitch) {
+                addView(com.google.android.material.materialswitch.MaterialSwitch(this@MainActivity).apply {
+                    isClickable = false
+                    isFocusable = false
+                    isChecked = row.switchChecked
+                    val checked = intArrayOf(android.R.attr.state_checked)
+                    val unchecked = intArrayOf(-android.R.attr.state_checked)
+                    val primary = AccentColorManager.resolvedOr(this@MainActivity, R.color.pri)
+                    val onPrimary = AccentColorManager.onPrimaryColor(this@MainActivity)
+                    val offThumb = ContextCompat.getColor(this@MainActivity, R.color.dim)
+                    val offTrack = ContextCompat.getColor(this@MainActivity, R.color.card2)
+                    val onTrack = androidx.core.graphics.ColorUtils.setAlphaComponent(primary, 150)
+                    thumbTintList = android.content.res.ColorStateList(arrayOf(checked, unchecked), intArrayOf(onPrimary, offThumb))
+                    trackTintList = android.content.res.ColorStateList(arrayOf(checked, unchecked), intArrayOf(onTrack, offTrack))
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            } else {
+                addView(ImageView(this@MainActivity).apply {
+                    scaleType = ImageView.ScaleType.CENTER_INSIDE
+                    IconLoader.applyIcon(this, "arrow_right", R.color.dim)
+                }, LinearLayout.LayoutParams(dp(15), dp(15)))
+            }
             setOnClickListener { row.action() }
         }
         fun addGroup(rows: List<ProfileRow>) {
             rows.forEachIndexed { index, row ->
-                profileRows.addView(makeRow(row, R.drawable.bg_settings_single), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(5) })
+                val backgroundId = when {
+                    rows.size == 1 -> R.drawable.bg_settings_single
+                    index == 0 -> R.drawable.bg_settings_top
+                    index == rows.lastIndex -> R.drawable.bg_settings_bottom
+                    else -> R.drawable.bg_settings_middle
+                }
+                val margin = if (index == rows.lastIndex) 0 else dp(1)
+                profileRows.addView(makeRow(row, backgroundId), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = margin })
             }
             profileRows.addView(View(this).apply { setBackgroundColor(android.graphics.Color.TRANSPARENT) }, LinearLayout.LayoutParams(-1, dp(9)))
         }
@@ -1552,7 +1591,7 @@ class MainActivity : AppCompatActivity() {
             ProfileRow("Histórico", "history") { startActivity(Intent(this, HistoryActivity::class.java)); overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit) },
             ProfileRow("A seguir", "person") { startActivity(Intent(this, ProfileCollectionActivity::class.java).putExtra("collection_title", "A seguir")); overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit) },
             ProfileRow("Curtidas", "heart_filled") { startActivity(Intent(this, ProfileCollectionActivity::class.java).putExtra("collection_title", "Curtidas")); overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit) },
-            ProfileRow(if (ThemeManager.resolvedDark(this)) "Modo claro" else "Modo escuro", if (ThemeManager.resolvedDark(this)) "sun" else "moon") {
+            ProfileRow("Modo escuro", "moon", isSwitch = true, switchChecked = ThemeManager.resolvedDark(this)) {
                 ThemeManager.applyImmediately(this, if (ThemeManager.resolvedDark(this)) "light" else "dark")
                 profileRows.post { setupProfilePanel() }
             }

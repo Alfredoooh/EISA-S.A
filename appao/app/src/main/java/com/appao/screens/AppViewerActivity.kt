@@ -149,8 +149,7 @@ class AppViewerActivity : AppCompatActivity() {
         web.transitionName = intent.getStringExtra("transition_name") ?: "browser_tab_preview"
         applyProgressAccent()
 
-        IconLoader.applyIcon(findViewById(R.id.browserFireIcon), "flame", R.color.iconTint)
-        IconLoader.applyIcon(findViewById(R.id.appViewerMoreIcon), "menu", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.appViewerMoreIcon), "more_vert", R.color.iconTint)
         IconLoader.applyIcon(findViewById(R.id.browserFindCloseIcon), "close", R.color.iconTint)
         IconLoader.applyIcon(findViewById(R.id.browserAddressClearIcon), "close", R.color.iconTint)
         findViewById<View>(R.id.browserAddressClear).setOnClickListener {
@@ -210,7 +209,6 @@ class AppViewerActivity : AppCompatActivity() {
         configureFindInPage()
 
         findViewById<View>(R.id.browserAddressPill).setOnClickListener { address.requestFocus() }
-        findViewById<View>(R.id.browserFire).setOnClickListener { clearBrowserData() }
         findViewById<View>(R.id.browserTabsTop).setOnClickListener { openTabs() }
         findViewById<View>(R.id.appViewerMore).setOnClickListener { showPageMenu(it) }
 
@@ -394,7 +392,6 @@ class AppViewerActivity : AppCompatActivity() {
     }
 
     private fun setAddressSearchMode(active: Boolean) {
-        findViewById<View>(R.id.browserFire).visibility = if (active) View.GONE else View.VISIBLE
         findViewById<View>(R.id.browserTabsTop).visibility = if (active) View.GONE else View.VISIBLE
         findViewById<View>(R.id.appViewerMore).visibility = if (active) View.GONE else View.VISIBLE
         findViewById<View>(R.id.browserAddressClear).visibility = if (active) View.VISIBLE else View.GONE
@@ -778,6 +775,10 @@ class AppViewerActivity : AppCompatActivity() {
         val desktopEnabled = BrowserPreferences.desktopSiteEnabled(this)
         val trackingEnabled = BrowserPreferences.trackingProtectionEnabled(this)
         val addressAtBottom = BrowserPreferences.addressBarPosition(this).equals("bottom", true)
+
+        fun truncateLabel(text: String, max: Int = 28): String =
+            if (text.length > max) text.take(max).trimEnd() + "…" else text
+
         NativePopupMenu.show(anchor, listOf(
             NativePopupMenu.Item(1, "Recuar", iconName = "arrow_go_back", checked = false),
             NativePopupMenu.Item(2, "Avançar", iconName = "arrow_go_forward", checked = false),
@@ -785,19 +786,19 @@ class AppViewerActivity : AppCompatActivity() {
             NativePopupMenu.Item(4, "Novo separador", iconName = "plus"),
             NativePopupMenu.Item(5, "Todos os separadores", iconName = "apps"),
             NativePopupMenu.Item(6, "Zoom da página", iconName = "zoom_in"),
-            NativePopupMenu.Item(7, if (desktopEnabled) "Modo desktop: ligado" else "Modo desktop: desligado", iconName = "desktop", checked = desktopEnabled),
-            NativePopupMenu.Item(8, if (addressAtBottom) "Barra de endereço: em baixo" else "Barra de endereço: no topo", iconName = "options", checked = addressAtBottom),
-            NativePopupMenu.Item(9, if (adsEnabled) "Bloqueador de anúncios: ligado" else "Bloqueador de anúncios: desligado", iconName = "shield_check", checked = adsEnabled),
-            NativePopupMenu.Item(10, if (forceDarkEnabled) "Forçar tema escuro: ligado" else "Forçar tema escuro: desligado", iconName = "moon", checked = forceDarkEnabled),
+            NativePopupMenu.Item(7, truncateLabel(if (desktopEnabled) "Modo desktop: ligado" else "Modo desktop: desligado"), iconName = "desktop", checked = desktopEnabled),
+            NativePopupMenu.Item(8, truncateLabel(if (addressAtBottom) "Barra de endereço: em baixo" else "Barra de endereço: no topo"), iconName = "options", checked = addressAtBottom),
+            NativePopupMenu.Item(9, truncateLabel(if (adsEnabled) "Bloqueador de anúncios: ligado" else "Bloqueador de anúncios: desligado"), iconName = "shield_check", checked = adsEnabled),
+            NativePopupMenu.Item(10, truncateLabel(if (forceDarkEnabled) "Forçar tema escuro: ligado" else "Forçar tema escuro: desligado"), iconName = "moon", checked = forceDarkEnabled),
             NativePopupMenu.Item(11, "Downloads", iconName = "download"),
             NativePopupMenu.Item(12, "Copiar ligação", iconName = "link"),
             NativePopupMenu.Item(13, "Partilhar página…", iconName = "share"),
-            NativePopupMenu.Item(14, "Limpar dados de navegação", iconName = "delete_bin"),
+            NativePopupMenu.Item(14, "Limpar dados de navegação", iconName = "flame"),
             NativePopupMenu.Item(15, "Pesquisar nesta página", iconName = "search"),
             NativePopupMenu.Item(16, "Novo separador privado", iconName = "eye_off"),
             NativePopupMenu.Item(17, "Permissões deste site", iconName = "shield_check"),
             NativePopupMenu.Item(18, "Início", iconName = "home"),
-            NativePopupMenu.Item(19, if (trackingEnabled) "Bloquear rastreadores: ligado" else "Bloquear rastreadores: desligado", iconName = "shield_check", checked = trackingEnabled)
+            NativePopupMenu.Item(19, truncateLabel(if (trackingEnabled) "Bloquear rastreadores: ligado" else "Bloquear rastreadores: desligado"), iconName = "shield_check", checked = trackingEnabled)
         ), alignLeft = false, placeAbove = true) { item ->
             val currentUrl = web.url?.takeIf { it.isNotBlank() } ?: "https://duckduckgo.com/"
             when (item.id) {

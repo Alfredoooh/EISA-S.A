@@ -27,27 +27,31 @@ object NativePopupMenu {
     ): PopupMenu {
         val context = anchor.context
         val popup = PopupMenu(context, anchor, if (alignLeft) Gravity.START else Gravity.END)
+        val usesSelectionIndicator = items.any { it.checked }
+        val primaryColor = ContextCompat.getColor(context, R.color.pri).let {
+            runCatching { AccentColorManager.resolvedOr(context, R.color.pri) }.getOrDefault(it)
+        }
         items.forEachIndexed { index, item ->
             // Unique groups allow Android's own menu implementation to draw its
             // standard thin divider between menu rows on API 28+.
             val menuItem = popup.menu.add(index + 1, item.id, index, item.title)
-            if (item.checked) {
-                menuItem.isCheckable = true
-                menuItem.isChecked = true
-            }
-            val icon = item.iconResId?.let { ContextCompat.getDrawable(context, it)?.mutate() }
+            val baseIcon = item.iconResId?.let { ContextCompat.getDrawable(context, it)?.mutate() }
                 ?: item.iconName?.let { IconLoader.menuDrawable(context, it) }
+            val icon = if (usesSelectionIndicator && item.checked) {
+                IconLoader.menuDrawable(context, "check_circle")?.mutate()?.apply { setTint(primaryColor) }
+                    ?: baseIcon
+            } else baseIcon
             if (icon != null) {
-                val size = (16f * context.resources.displayMetrics.density + 0.5f).toInt().coerceAtLeast(1)
+                val size = (19f * context.resources.displayMetrics.density + 0.5f).toInt().coerceAtLeast(1)
                 icon.setBounds(0, 0, size, size)
-                if (item.iconResId == null && item.iconColor != null) icon.setTint(item.iconColor)
+                if (!(usesSelectionIndicator && item.checked) && item.iconResId == null && item.iconColor != null) icon.setTint(item.iconColor)
                 menuItem.icon = icon
             }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) popup.menu.setGroupDividerEnabled(true)
 
         // Android hides menu icons in PopupMenu by default. Ask the platform
-        // helper to reveal the supplied 16dp icons when that implementation exists.
+        // helper to reveal the supplied 19dp icons when that implementation exists.
         runCatching {
             val field = PopupMenu::class.java.getDeclaredField("mPopup")
             field.isAccessible = true

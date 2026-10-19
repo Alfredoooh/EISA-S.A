@@ -7,6 +7,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.WindowCompat
 import com.google.android.material.materialswitch.MaterialSwitch
+import com.appao.ui.IconLoader
 
 class DataSaverActivity : AppCompatActivity() {
 

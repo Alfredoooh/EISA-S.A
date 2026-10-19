@@ -48,6 +48,8 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import android.view.animation.PathInterpolator
 import java.io.File
+import com.appao.ui.IconLoader
+import com.appao.ui.NativePopupMenu
 
 /** Internal native search surface. It uses the exact same composer geometry as the main page. */
 class SearchActivity : AppCompatActivity() {

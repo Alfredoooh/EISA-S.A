@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import org.json.JSONArray
 import org.json.JSONObject
+import com.appao.ui.IconLoader
 
 /** Dedicated comments screen. Comments are currently kept locally for the open article session. */
 class CommentsActivity : AppCompatActivity() {

@@ -126,7 +126,7 @@ object NativePopupMenu {
             isFillViewport = false
             clipToPadding = false
             overScrollMode = View.OVER_SCROLL_NEVER
-            addView(card, ScrollView.LayoutParams(width, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(card, ViewGroup.LayoutParams(width, ViewGroup.LayoutParams.WRAP_CONTENT))
             background = ColorDrawable(Color.TRANSPARENT)
         }
         val popup = PopupWindow(scroller, width, height, true).apply {

@@ -38,6 +38,10 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.max
+import com.appao.screens.AppViewerActivity
+import com.appao.screens.BrowserTabStore
+import com.appao.ui.IconLoader
+import com.appao.ui.NativePopupMenu
 
 /** Native article page. Only the hero/text card participates in the transform. */
 class ArticleActivity : AppCompatActivity() {

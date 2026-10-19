@@ -16,6 +16,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.appao.ui.IconLoader
 
 /** Full-screen category selector populated only from the server taxonomy. */
 class CategoryManagerActivity : AppCompatActivity() {

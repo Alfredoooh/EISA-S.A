@@ -2,6 +2,7 @@ package com.appao
 
 import android.view.View
 import android.widget.PopupMenu
+import com.appao.ui.NativePopupMenu
 
 /** Native anchored quick-add menu opened from the fixed AI composer. */
 object AppsPopup {

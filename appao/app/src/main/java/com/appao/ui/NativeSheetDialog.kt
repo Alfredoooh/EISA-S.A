@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.shape.MaterialShapeDrawable
+import com.appao.ui.IconLoader
 
 /**
  * Real Material 3 modal bottom sheet.

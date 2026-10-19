@@ -6,6 +6,7 @@ import android.view.ViewConfiguration
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.appcompat.app.AppCompatActivity
+import com.appao.ui.IconLoader
 
 class SidePanelActivity : AppCompatActivity() {
 

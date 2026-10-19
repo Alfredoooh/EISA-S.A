@@ -50,6 +50,14 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Locale
 import kotlin.math.abs
+import com.appao.screens.AppViewerActivity
+import com.appao.screens.BrowserDownloadsActivity
+import com.appao.screens.BrowserTabStore
+import com.appao.screens.BrowserTabsActivity
+import com.appao.screens.BrowserWebViewPool
+import com.appao.screens.HistorySettingsActivity
+import com.appao.ui.IconLoader
+import com.appao.ui.NativePopupMenu
 
 class MainActivity : AppCompatActivity() {
 
@@ -1190,8 +1198,8 @@ class MainActivity : AppCompatActivity() {
                 // Sites with no bundled PNG download their real favicon from the favicon endpoint.
                 Glide.with(this).load(BrowserTabStore.faviconFor(quickEntry.url)).circleCrop().placeholder(R.drawable.logo).error(R.drawable.logo).into(icon)
             } else {
-                val png = if (quickEntry.internal == "downloads") R.drawable.asset_quick_download else R.drawable.asset_quick_more_sites
-                icon.setImageResource(png)
+                val materialIcon = if (quickEntry.internal == "downloads") R.drawable.ic_download_outline else R.drawable.ic_compass_outline
+                icon.setImageResource(materialIcon)
                 icon.setColorFilter(ContextCompat.getColor(this@MainActivity, R.color.iconTint), android.graphics.PorterDuff.Mode.SRC_IN)
             }
             iconBox.addView(icon, FrameLayout.LayoutParams(-1, -1))
@@ -1553,8 +1561,8 @@ class MainActivity : AppCompatActivity() {
             } else if (shortcut.url.isNotBlank()) {
                 Glide.with(this).load(BrowserTabStore.faviconFor(shortcut.url)).circleCrop().placeholder(R.drawable.logo).error(R.drawable.logo).into(icon)
             } else {
-                val png = if (shortcut.internal == "downloads") R.drawable.asset_quick_download else R.drawable.asset_quick_more_sites
-                icon.setImageResource(png)
+                val materialIcon = if (shortcut.internal == "downloads") R.drawable.ic_download_outline else R.drawable.ic_compass_outline
+                icon.setImageResource(materialIcon)
                 icon.setColorFilter(ContextCompat.getColor(this@MainActivity, R.color.iconTint), android.graphics.PorterDuff.Mode.SRC_IN)
             }
             iconBox.addView(icon, FrameLayout.LayoutParams(-1, -1))

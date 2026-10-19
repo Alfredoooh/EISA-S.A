@@ -55,6 +55,20 @@ jobs:
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           echo "APP_MODULE_DIR=$APP_MODULE_DIR" >> "$GITHUB_ENV"
 
+      - name: Download official Material Symbols Rounded icons
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          python3 tools/download_material_symbols_rounded.py
+          python3 - <<'PYVERIFY'
+          from pathlib import Path
+          folder = Path("app/src/main/assets/icons/material-symbols-rounded")
+          files = list(folder.glob("*.svg"))
+          if len(files) < 20:
+              raise SystemExit(f"ERROR: Expected the rounded Material SVG set; only {len(files)} icons were downloaded.")
+          print(f"Material Symbols Rounded ready: {len(files)} SVG icons")
+          PYVERIFY
+
       - name: Generate official Gradle Wrapper
         run: |
           set -euo pipefail

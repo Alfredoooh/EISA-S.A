@@ -17,6 +17,9 @@ import com.bumptech.glide.Glide
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import com.appao.screens.AppViewerActivity
+import com.appao.screens.BrowserTabStore
+import com.appao.ui.IconLoader
 
 class UsageActivity : AppCompatActivity() {
 

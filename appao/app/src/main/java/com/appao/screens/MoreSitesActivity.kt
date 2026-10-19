@@ -15,6 +15,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.bumptech.glide.Glide
+import com.appao.screens.AppViewerActivity
+import com.appao.screens.BrowserTabStore
+import com.appao.ui.IconLoader
 
 /** Popular web sites grouped by category, opened in AppAo's persistent browser tabs. */
 class MoreSitesActivity : AppCompatActivity() {

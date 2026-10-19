@@ -7,6 +7,7 @@ import com.bumptech.glide.Glide
 import java.io.File
 import java.io.FileOutputStream
 import java.io.PrintWriter
+import com.appao.ui.IconLoader
 
 class AppAoApp : Application() {
 

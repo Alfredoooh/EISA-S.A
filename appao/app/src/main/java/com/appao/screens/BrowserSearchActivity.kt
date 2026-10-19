@@ -115,7 +115,7 @@ class BrowserSearchActivity : AppCompatActivity() {
         input = EditText(this).apply {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
             background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
-            singleLine = true
+            setSingleLine(true)
             imeOptions = EditorInfo.IME_ACTION_GO
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_AUTO_CORRECT
             setTextColor(ContextCompat.getColor(this@BrowserSearchActivity, R.color.text))
@@ -154,7 +154,7 @@ class BrowserSearchActivity : AppCompatActivity() {
             setPadding(dp(8), dp(3), dp(8), dp(18))
         }
         rows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        scroll.addView(rows, ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        scroll.addView(rows, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         return root
     }

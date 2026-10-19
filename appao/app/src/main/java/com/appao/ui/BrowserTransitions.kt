@@ -1,5 +1,6 @@
-package com.appao
+package com.appao.ui
 
+import com.appao.R
 import android.app.Activity
 import android.graphics.Color
 import android.view.Window

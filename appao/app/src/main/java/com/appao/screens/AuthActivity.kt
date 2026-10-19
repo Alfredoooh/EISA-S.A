@@ -11,6 +11,8 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import com.appao.ui.IconLoader
+import com.appao.ui.NativePopupMenu
 
 /** Native login/register screen following the supplied HTML form geometry. */
 class AuthActivity : AppCompatActivity() {

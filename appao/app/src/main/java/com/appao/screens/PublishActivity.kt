@@ -7,6 +7,7 @@ import android.widget.EditText
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.appao.ui.IconLoader
 
 class PublishActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

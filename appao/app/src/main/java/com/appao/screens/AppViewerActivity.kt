@@ -85,6 +85,8 @@ import java.net.URLEncoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.appao.Curves
+import com.appao.SearchActivity
 
 
 /** Full in-app WebView browser with persistent tabs, address bar, native browser menu and downloads. */

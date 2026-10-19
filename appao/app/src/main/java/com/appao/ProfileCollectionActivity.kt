@@ -10,6 +10,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import com.appao.ui.IconLoader
 
 /** Placeholder collections are explicitly empty until the app has real follow/like data sources. */
 class ProfileCollectionActivity : AppCompatActivity() {

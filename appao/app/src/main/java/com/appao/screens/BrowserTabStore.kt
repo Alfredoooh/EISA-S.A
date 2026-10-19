@@ -78,7 +78,8 @@ object BrowserTabStore {
 
     fun saveSnapshot(context: Context, id: String, bitmap: Bitmap): String? = runCatching {
         val dir = File(context.filesDir, "browser_tabs").apply { mkdirs() }
-        val target = File(dir, "$id.jpg")
+        // A new path per capture prevents Glide's file-path cache from reusing a previous page image.
+        val target = File(dir, "$id-${System.currentTimeMillis()}.jpg")
         FileOutputStream(target).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 76, it) }
         target.absolutePath
     }.getOrNull()
@@ -157,7 +158,8 @@ object PrivateBrowserTabStore {
 
     fun saveSnapshot(context: Context, id: String, bitmap: Bitmap): String? = runCatching {
         val dir = java.io.File(context.cacheDir, "private_browser_tabs").apply { mkdirs() }
-        val target = java.io.File(dir, "$id.jpg")
+        // A unique filename invalidates thumbnails immediately when the same tab navigates.
+        val target = java.io.File(dir, "$id-${System.currentTimeMillis()}.jpg")
         java.io.FileOutputStream(target).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 72, it) }
         target.absolutePath
     }.getOrNull()

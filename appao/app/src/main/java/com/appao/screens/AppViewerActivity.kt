@@ -17,6 +17,10 @@ import android.os.Bundle
 import android.os.Build
 import android.os.Environment
 import android.view.Gravity
+import android.view.ActionMode
+import android.view.Menu
+import android.view.MenuItem
+import android.view.MotionEvent
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
@@ -56,6 +60,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -81,9 +86,13 @@ class AppViewerActivity : AppCompatActivity() {
     private lateinit var findInput: EditText
     private var findMode = false
     private var browserBarHidden = false
-    private var browserBarMarginAnimator: android.animation.ValueAnimator? = null
     private var zoomBar: View? = null
     private var addressSuggestionsPopup: PopupWindow? = null
+    private var elementActionsPopup: PopupWindow? = null
+    private var lastTouchRawX = 0f
+    private var lastTouchRawY = 0f
+    private val REQUEST_BROWSER_SEARCH = 7415
+    private val ACTION_USE_SELECTED_TEXT = 0xA001
     private val addressSuggestionHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var addressSuggestionRunnable: Runnable? = null
     private var pendingWebPermissionRequest: PermissionRequest? = null
@@ -111,6 +120,7 @@ class AppViewerActivity : AppCompatActivity() {
             }
         }
         WindowCompat.setDecorFitsSystemWindows(window, true)
+        BrowserTransitions.configure(this)
         setContentView(R.layout.activity_app_viewer)
         SystemBarHelper.sync(this)
 
@@ -152,12 +162,13 @@ class AppViewerActivity : AppCompatActivity() {
         IconLoader.applyIcon(findViewById(R.id.appViewerMoreIcon), "more_vert", R.color.iconTint)
         IconLoader.applyIcon(findViewById(R.id.browserFindCloseIcon), "close", R.color.iconTint)
         IconLoader.applyIcon(findViewById(R.id.browserAddressClearIcon), "close", R.color.iconTint)
-        findViewById<View>(R.id.browserAddressClear).setOnClickListener {
-            address.setText("")
-            address.requestFocus()
-            address.setSelection(0)
-            showAddressSuggestions("")
-            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(address, InputMethodManager.SHOW_IMPLICIT)
+        findViewById<View>(R.id.browserAddressClear).visibility = View.GONE
+        web.setOnTouchListener { _, event ->
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                lastTouchRawX = event.rawX
+                lastTouchRawY = event.rawY
+            }
+            false
         }
         web.setOnLongClickListener {
             val result = web.hitTestResult
@@ -166,13 +177,13 @@ class AppViewerActivity : AppCompatActivity() {
             val isVideoUrl = isLikelyVideoUrl(target)
             when (result.type) {
                 WebView.HitTestResult.IMAGE_TYPE, WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
-                    showWebElementActions(target, "image"); true
+                    showWebElementActions(target, "image", lastTouchRawX, lastTouchRawY); true
                 }
                 WebView.HitTestResult.ANCHOR_TYPE, WebView.HitTestResult.SRC_ANCHOR_TYPE -> {
-                    showWebElementActions(target, if (isVideoUrl) "video" else "link"); true
+                    showWebElementActions(target, if (isVideoUrl) "video" else "link", lastTouchRawX, lastTouchRawY); true
                 }
                 else -> if (isVideoUrl) {
-                    showWebElementActions(target, "video"); true
+                    showWebElementActions(target, "video", lastTouchRawX, lastTouchRawY); true
                 } else false
             }
         }
@@ -208,7 +219,12 @@ class AppViewerActivity : AppCompatActivity() {
         configureAddressInput()
         configureFindInPage()
 
-        findViewById<View>(R.id.browserAddressPill).setOnClickListener { address.requestFocus() }
+        findViewById<View>(R.id.browserAddressPill).setOnClickListener { openBrowserSearch() }
+        address.isFocusable = false
+        address.isFocusableInTouchMode = false
+        address.isCursorVisible = false
+        address.showSoftInputOnFocus = false
+        address.setOnClickListener { openBrowserSearch() }
         findViewById<View>(R.id.browserTabsTop).setOnClickListener { openTabs() }
         findViewById<View>(R.id.appViewerMore).setOnClickListener { showPageMenu(it) }
 
@@ -241,6 +257,33 @@ class AppViewerActivity : AppCompatActivity() {
             updateTabPage(tabId, activeUrl, web.title?.take(250).orEmpty().ifBlank { storedTab?.title ?: if (privateMode) "Separador privado" else "Nova aba" })
         } else {
             web.loadUrl(initialUrl)
+        }
+    }
+
+    override fun onActionModeStarted(mode: ActionMode) {
+        super.onActionModeStarted(mode)
+        if (!::web.isInitialized) return
+        val item = mode.menu.findItem(ACTION_USE_SELECTED_TEXT) ?: mode.menu.add(
+            Menu.NONE,
+            ACTION_USE_SELECTED_TEXT,
+            Menu.NONE,
+            "Usar texto na barra de endereço"
+        ).apply { setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER) }
+        item.setOnMenuItemClickListener {
+            pullSelectedTextIntoSearch()
+            mode.finish()
+            true
+        }
+    }
+
+    private fun pullSelectedTextIntoSearch() {
+        if (!::web.isInitialized) return
+        web.evaluateJavascript("(function(){return String(window.getSelection ? window.getSelection().toString() : '').trim()})()") { encoded ->
+            val selected = runCatching { org.json.JSONTokener(encoded ?: "\"\"").nextValue() as? String }.getOrNull().orEmpty().trim()
+            if (selected.isBlank() || isFinishing || isDestroyed) return@evaluateJavascript
+            address.setText(selected)
+            address.setSelection(address.text?.length ?: 0)
+            openBrowserSearch(selected)
         }
     }
 
@@ -366,110 +409,13 @@ class AppViewerActivity : AppCompatActivity() {
     }
 
     private fun configureAddressInput() {
-        address.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_SEARCH) { loadAddressFromInput(); true } else false
-        }
-        address.setOnFocusChangeListener { _, focused ->
-            setAddressSearchMode(focused)
-            if (focused) {
-                address.post { address.selectAll() }
-                showAddressSuggestions(address.text?.toString().orEmpty())
-            } else {
-                addressSuggestionHandler.postDelayed({ hideAddressSuggestions() }, 120L)
-            }
-        }
-        address.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                if (!address.hasFocus()) return
-                addressSuggestionRunnable?.let(addressSuggestionHandler::removeCallbacks)
-                val query = s?.toString().orEmpty()
-                addressSuggestionRunnable = Runnable { showAddressSuggestions(query) }
-                addressSuggestionRunnable?.let { addressSuggestionHandler.postDelayed(it, 100L) }
-            }
-            override fun afterTextChanged(s: Editable?) = Unit
-        })
-    }
-
-    private fun setAddressSearchMode(active: Boolean) {
-        findViewById<View>(R.id.browserTabsTop).visibility = if (active) View.GONE else View.VISIBLE
-        findViewById<View>(R.id.appViewerMore).visibility = if (active) View.GONE else View.VISIBLE
-        findViewById<View>(R.id.browserAddressClear).visibility = if (active) View.VISIBLE else View.GONE
-        findViewById<View>(R.id.browserAddressPill).animate().cancel()
-        val pill = findViewById<View>(R.id.browserAddressPill)
-        pill.animate().scaleX(1f).setDuration(240L).setInterpolator(Curves.IOS).start()
-        if (active) setBrowserBarHidden(false)
-        if (!active) hideAddressSuggestions()
-    }
-
-    private fun showAddressSuggestions(query: String) {
-        if (!address.hasFocus()) return
-        val trimmed = query.trim()
-        val generation = ++addressSuggestionGeneration
-        renderAddressSuggestions(trimmed, emptyList())
-        if (trimmed.isBlank()) return
-        lifecycleScope.launch {
-            val remote = withContext(Dispatchers.IO) { BrowserAutocomplete.googleSuggestions(trimmed, 7) }
-            if (generation != addressSuggestionGeneration || isFinishing || isDestroyed) return@launch
-            if (!address.hasFocus() || address.text?.toString()?.trim() != trimmed) return@launch
-            renderAddressSuggestions(trimmed, remote)
-        }
-    }
-
-    private fun renderAddressSuggestions(trimmed: String, remoteSuggestions: List<String>) {
-        if (!address.hasFocus()) return
-        val panel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(4), dp(5), dp(4), dp(5))
-            background = android.graphics.drawable.GradientDrawable().apply {
-                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                cornerRadius = dp(22).toFloat()
-                setColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dialogSurface))
-                setStroke(dp(1), ContextCompat.getColor(this@AppViewerActivity, R.color.border))
-            }
-        }
-        fun addSuggestion(title: String, detail: String, iconName: String, target: String) {
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                minimumHeight = dp(46); setPadding(dp(12), dp(5), dp(12), dp(5))
-                isClickable = true; isFocusable = true; setBackgroundResource(R.drawable.bg_transparent_pressed)
-                setOnClickListener {
-                    hideAddressSuggestions()
-                    address.setText(if (target.isBlank()) trimmed else target)
-                    address.setSelection(address.text.length)
-                    loadAddressFromInput()
-                }
-            }
-            val icon = ImageView(this).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(19), dp(19)); scaleType = ImageView.ScaleType.CENTER_INSIDE
-                IconLoader.applyIcon(this, iconName, R.color.iconTint)
-            }
-            row.addView(icon)
-            val words = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, 0, 0) }
-            words.addView(TextView(this).apply { text = title; maxLines = 1; textSize = 14f; setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.text)) })
-            if (detail.isNotBlank()) words.addView(TextView(this).apply { text = detail; maxLines = 1; textSize = 11.5f; setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dim)) })
-            row.addView(words, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            panel.addView(row)
-        }
-        if (trimmed.isNotBlank()) addSuggestion("Pesquisar “$trimmed”", BrowserPreferences.searchEngine(this), "search", trimmed)
-        remoteSuggestions.distinctBy { it.lowercase(java.util.Locale.ROOT) }.take(7).forEach {
-            addSuggestion(it, "Sugestão de pesquisa", "search", it)
-        }
-        val history = if (privateMode) emptyList() else BrowsingHistoryStore.all(this).filter {
-            trimmed.isBlank() || it.title.contains(trimmed, true) || it.url.contains(trimmed, true)
-        }.take(if (trimmed.isBlank()) 5 else 3)
-        history.forEach { addSuggestion(it.title.ifBlank { it.url }, it.url, "history", it.url) }
-        if (trimmed.isBlank() && history.isEmpty()) addSuggestion("Nova pesquisa", "Escreve uma palavra ou endereço", "search", "")
-        val anchor = findViewById<View>(R.id.browserAddressPill)
-        val width = anchor.width.takeIf { it > 0 }
-            ?: (resources.displayMetrics.widthPixels - dp(64)).coerceAtLeast(dp(240))
-        addressSuggestionsPopup?.dismiss()
-        addressSuggestionsPopup = PopupWindow(panel, width, ViewGroup.LayoutParams.WRAP_CONTENT, false).apply {
-            isOutsideTouchable = true; isFocusable = false; elevation = dp(12).toFloat()
-            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
-            inputMethodMode = PopupWindow.INPUT_METHOD_NOT_NEEDED
-            showAsDropDown(anchor, 0, dp(3))
-        }
+        // The address pill is a launcher, not an inline editable field. Search suggestions live
+        // in BrowserSearchActivity so system back always returns directly to the current page.
+        address.isFocusable = false
+        address.isFocusableInTouchMode = false
+        address.isCursorVisible = false
+        address.showSoftInputOnFocus = false
+        address.setOnClickListener { openBrowserSearch() }
     }
 
     private fun hideAddressSuggestions() {
@@ -524,71 +470,61 @@ class AppViewerActivity : AppCompatActivity() {
         val topBar = findViewById<View>(R.id.browserTopBar)
         val bottom = BrowserPreferences.addressBarPosition(this).equals("bottom", true)
         fun place(view: View) {
-            val params = (view.layoutParams as? android.widget.FrameLayout.LayoutParams) ?: android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58))
+            val params = (view.layoutParams as? android.widget.FrameLayout.LayoutParams)
+                ?: android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58))
             params.gravity = if (bottom) Gravity.BOTTOM else Gravity.TOP
-            params.topMargin = if (bottom) 0 else 0
+            params.topMargin = 0
             params.bottomMargin = 0
             view.layoutParams = params
         }
         place(topBar)
         place(findBar)
+
+        // The WebView always keeps the same bounds. Moving its margins during a collapse caused
+        // re-layout/scroll feedback, which looked like jitter and occasionally jumped the page.
         val webParams = web.layoutParams as? android.widget.FrameLayout.LayoutParams
         webParams?.let {
-            it.topMargin = if (!bottom && !browserBarHidden) dp(58) else 0
-            it.bottomMargin = if (bottom && !browserBarHidden) dp(58) else 0
+            it.topMargin = 0
+            it.bottomMargin = 0
             web.layoutParams = it
         }
         val progressParams = progress.layoutParams as? android.widget.FrameLayout.LayoutParams
         progressParams?.let {
-            it.gravity = Gravity.TOP or Gravity.START
-            it.topMargin = if (bottom) 0 else dp(58)
+            it.gravity = if (bottom) Gravity.BOTTOM or Gravity.START else Gravity.TOP or Gravity.START
+            it.topMargin = if (!bottom && !browserBarHidden) dp(58) else 0
+            it.bottomMargin = if (bottom && !browserBarHidden) dp(58) else 0
             progress.layoutParams = it
         }
     }
 
     private fun setBrowserBarHidden(hidden: Boolean) {
-        if (address.hasFocus() || findMode) return
+        if (address.hasFocus() || findMode || isFinishing || isDestroyed) return
         val topBar = findViewById<View>(R.id.browserTopBar)
-        if (hidden && topBar.visibility != View.VISIBLE) return
         if (browserBarHidden == hidden) return
         browserBarHidden = hidden
         val bottom = BrowserPreferences.addressBarPosition(this).equals("bottom", true)
         val direction = if (bottom) 1f else -1f
         topBar.animate().cancel()
-        browserBarMarginAnimator?.cancel()
         if (hidden) {
             topBar.visibility = View.VISIBLE
             topBar.animate()
-                .translationY(direction * dp(62))
+                .translationY(direction * dp(60))
                 .alpha(0f)
-                .setDuration(360L).setInterpolator(Curves.IOS)
+                .setDuration(170L)
+                .setInterpolator(Curves.IOS)
                 .withEndAction { if (browserBarHidden) topBar.visibility = View.INVISIBLE }
                 .start()
-        }
-        val webParams = web.layoutParams as? android.widget.FrameLayout.LayoutParams
-        webParams?.let { params ->
-            val start = if (bottom) params.bottomMargin else params.topMargin
-            val end = if (hidden) 0 else dp(58)
-            browserBarMarginAnimator = android.animation.ValueAnimator.ofInt(start, end).apply {
-                duration = 360L
-                interpolator = Curves.IOS
-                addUpdateListener { animator ->
-                    val margin = animator.animatedValue as Int
-                    if (bottom) params.bottomMargin = margin else params.topMargin = margin
-                    web.layoutParams = params
-                }
-                start()
-            }
-        }
-        if (hidden) {
-            topBar.postDelayed({ if (browserBarHidden) topBar.visibility = View.INVISIBLE }, 370L)
         } else {
             topBar.visibility = View.VISIBLE
             topBar.alpha = 0f
-            topBar.translationY = direction * dp(62)
-            topBar.animate().alpha(1f).translationY(0f).setDuration(360L).setInterpolator(Curves.IOS)
-                .withEndAction { topBar.alpha = 1f }.start()
+            topBar.translationY = direction * dp(60)
+            topBar.animate().alpha(1f).translationY(0f)
+                .setDuration(170L)
+                .setInterpolator(Curves.IOS)
+                .withEndAction { topBar.alpha = 1f; topBar.translationY = 0f }
+                .start()
         }
+        applyAddressBarPosition()
     }
 
     private fun handleWebPermissionRequest(request: PermissionRequest) {
@@ -671,11 +607,35 @@ class AppViewerActivity : AppCompatActivity() {
         overridePendingTransition(R.anim.publish_return_enter, R.anim.publish_return_exit)
     }
 
-    private fun loadAddressFromInput() {
-        val raw = address.text.toString().trim()
+    private fun openBrowserSearch(initialQuery: String = web.url.orEmpty()) {
+        if (isFinishing || isDestroyed) return
+        val launch = Intent(this, BrowserSearchActivity::class.java).apply {
+            putExtra(BrowserSearchActivity.EXTRA_INITIAL_QUERY, initialQuery)
+            putExtra("browser_private_mode", privateMode)
+        }
+        startActivityForResult(launch, REQUEST_BROWSER_SEARCH)
+        overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
+    }
+
+    @Deprecated("Deprecated by Android, retained for compatibility with this project's existing Activity setup")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != REQUEST_BROWSER_SEARCH || resultCode != Activity.RESULT_OK) return
+        val target = data?.getStringExtra(BrowserSearchActivity.EXTRA_RESULT_VALUE)?.trim().orEmpty()
+        if (target.isBlank()) return
+        address.setText(target)
+        loadAddressValue(target)
+    }
+
+    private fun loadAddressFromInput() = loadAddressValue(address.text?.toString().orEmpty())
+
+    private fun loadAddressValue(rawValue: String) {
+        val raw = rawValue.trim()
         if (raw.isBlank()) return
         val target = normalizeTarget(raw)
+        address.setText(target)
         address.clearFocus()
+        hideAddressSuggestions()
         (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(address.windowToken, 0)
         web.loadUrl(target)
     }
@@ -698,7 +658,7 @@ class AppViewerActivity : AppCompatActivity() {
             startActivity(launch, options.toBundle())
         }.onFailure {
             startActivity(launch)
-            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+            overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
         }
     }
 
@@ -858,45 +818,95 @@ class AppViewerActivity : AppCompatActivity() {
             .any { path.endsWith(it) }
     }
 
-    private fun showWebElementActions(url: String, kind: String) {
-        val dialog = BottomSheetDialog(this)
-        val surface = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(12), dp(18), dp(20))
-            setBackgroundColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dialogSurface))
-        }
-        surface.addView(TextView(this).apply {
-            text = when (kind) { "image" -> "Imagem"; "video" -> "Vídeo"; else -> "Ligação" }
-            textSize = 18f; typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
-            setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.text)); setPadding(dp(2), dp(5), dp(2), dp(12))
-        })
-        fun actionRow(title: String, iconName: String, callback: () -> Unit) {
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                minimumHeight = dp(48); setPadding(dp(8), dp(8), dp(8), dp(8))
-                background = ContextCompat.getDrawable(this@AppViewerActivity, R.drawable.bg_transparent_pressed)
-                isClickable = true; isFocusable = true
-                addView(ImageView(this@AppViewerActivity).apply { scaleType = ImageView.ScaleType.CENTER_INSIDE; IconLoader.applyIcon(this, iconName, R.color.iconTint) }, LinearLayout.LayoutParams(dp(19), dp(19)))
-                addView(TextView(this@AppViewerActivity).apply { text = title; textSize = 14f; setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.text)); setPadding(dp(12), 0, 0, 0) }, LinearLayout.LayoutParams(0, -2, 1f))
-                setOnClickListener { dialog.dismiss(); callback() }
-            }
-            surface.addView(row)
-        }
-        if (kind == "image") actionRow("Pré-visualizar imagem", "image") {
+    private data class ElementAction(val title: String, val icon: String, val callback: () -> Unit)
+
+    private fun showWebElementActions(url: String, kind: String, rawX: Float, rawY: Float) {
+        elementActionsPopup?.dismiss()
+        val pageTitle = when (kind) { "image" -> "Imagem"; "video" -> "Vídeo"; else -> "Ligação" }
+        val actions = mutableListOf<ElementAction>()
+        if (kind == "image") actions += ElementAction("Pré-visualizar imagem", "image") {
             startActivity(Intent(this, ImageViewerActivity::class.java).putExtra("image", url))
-            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+            overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
         }
-        if (kind == "image" || kind == "video") actionRow(if (kind == "image") "Transferir imagem" else "Transferir vídeo", "download") { enqueueWebDownload(url) }
-        if (kind == "link") actionRow("Abrir ligação num separador", "open-outline") { openNewBrowserTab(url) }
-        actionRow("Copiar ligação", "copy") {
+        if (kind == "image" || kind == "video") actions += ElementAction(if (kind == "image") "Transferir imagem" else "Transferir vídeo", "download") { enqueueWebDownload(url) }
+        if (kind == "link" || kind == "video") actions += ElementAction("Abrir num separador", "open-outline") { openNewBrowserTab(url) }
+        actions += ElementAction("Copiar ligação", "copy") {
             (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Ligação", url))
             AppAoToast.show(this, "Ligação copiada")
         }
-        actionRow("Partilhar", "share") {
+        actions += ElementAction("Partilhar", "share") {
             runCatching { startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, url) }, "Partilhar ligação")) }
         }
-        dialog.setContentView(surface)
-        dialog.show()
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = dp(16).toFloat()
+                setColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dialogSurface))
+                setStroke(dp(1), ContextCompat.getColor(this@AppViewerActivity, R.color.border))
+            }
+            elevation = dp(12).toFloat()
+            clipToOutline = true
+        }
+        root.addView(TextView(this).apply {
+            text = pageTitle
+            textSize = 11.5f
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+            setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dim))
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(10), 0, dp(8), 0)
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(30)))
+        lateinit var popup: PopupWindow
+        actions.forEach { action ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(40)
+                setPadding(dp(10), dp(4), dp(10), dp(4))
+                isClickable = true
+                isFocusable = true
+                foreground = ContextCompat.getDrawable(this@AppViewerActivity, R.drawable.bg_transparent_pressed)
+            }
+            row.addView(ImageView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(18), dp(18))
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                IconLoader.applyIcon(this, action.icon, R.color.iconTint)
+            })
+            row.addView(TextView(this).apply {
+                text = action.title
+                textSize = 13.5f
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.text))
+                setPadding(dp(11), 0, 0, 0)
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            row.setOnClickListener { popup.dismiss(); action.callback() }
+            root.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40)))
+        }
+        val width = minOf(dp(246), (resources.displayMetrics.widthPixels - dp(20)).coerceAtLeast(dp(200)))
+        root.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+        val height = root.measuredHeight.coerceAtMost(resources.displayMetrics.heightPixels - dp(120))
+        popup = PopupWindow(root, width, height, true).apply {
+            isOutsideTouchable = true
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+            elevation = dp(12).toFloat()
+        }
+        val container = findViewById<android.widget.FrameLayout>(R.id.appViewerRoot)
+        val rootLocation = IntArray(2)
+        container.getLocationOnScreen(rootLocation)
+        val localX = (rawX - rootLocation[0]).toInt()
+        val localY = (rawY - rootLocation[1]).toInt()
+        val x = (localX + dp(10)).coerceIn(dp(8), (container.width - width - dp(8)).coerceAtLeast(dp(8)))
+        val y = if (localY + height + dp(18) > container.height) {
+            (localY - height - dp(8)).coerceAtLeast(dp(8))
+        } else {
+            (localY + dp(12)).coerceAtMost((container.height - height - dp(8)).coerceAtLeast(dp(8)))
+        }
+        elementActionsPopup = popup
+        popup.showAtLocation(container, Gravity.TOP or Gravity.START, x, y)
+        popup.setOnDismissListener { if (elementActionsPopup === popup) elementActionsPopup = null }
     }
 
     private fun enqueueWebDownload(url: String) {
@@ -1129,18 +1139,134 @@ class AppViewerActivity : AppCompatActivity() {
     }
 
     private fun refreshAdaptiveBarColor() {
-        val bar = findViewById<View>(R.id.browserTopBar)
-        if (!BrowserPreferences.adaptiveBrowserBarColor(this)) {
-            bar.setBackgroundColor(ContextCompat.getColor(this, R.color.bg))
+        if (!::web.isInitialized || isFinishing || isDestroyed) return
+        val adaptive = BrowserPreferences.adaptiveBrowserBarColor(this)
+        if (!adaptive) {
+            applyAdaptiveChrome(ContextCompat.getColor(this, R.color.bg), false)
             return
         }
-        val script = "(function(){var e=document.querySelector('meta[name=\\\"theme-color\\\"]');return e?e.content:''})()"
+        val pageUrl = web.url.orEmpty()
+        applyAdaptiveChrome(sampleVisiblePageColor() ?: ContextCompat.getColor(this, R.color.bg), true)
+        val script = """
+            (function(){
+              function norm(c){
+                if(!c)return '';
+                c=String(c).trim();
+                var h=c.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+                if(h){var v=h[1]; if(v.length===3)v=v[0]+v[0]+v[1]+v[1]+v[2]+v[2]; return '#'+v;}
+                var m=c.match(/^rgba?\(([^)]+)\)$/i);
+                if(m){var p=m[1].split(/[,\s\/]+/).filter(Boolean); if(p.length>=3 && (p.length<4 || parseFloat(p[3])>0.01)){
+                  var out='#'; for(var i=0;i<3;i++){var n=Math.max(0,Math.min(255,Math.round(parseFloat(p[i])))); out+=('0'+n.toString(16)).slice(-2);} return out;
+                }}
+                return '';
+              }
+              var meta=document.querySelector('meta[name=\"theme-color\" i]');
+              var color=norm(meta && meta.content); if(color)return color;
+              var nodes=[document.body,document.documentElement,document.querySelector('header'),document.querySelector('nav')];
+              for(var j=0;j<nodes.length;j++){if(!nodes[j])continue; var c=norm(getComputedStyle(nodes[j]).backgroundColor); if(c)return c;}
+              return '';
+            })()
+        """.trimIndent()
         web.evaluateJavascript(script) { raw ->
-            if (isFinishing || isDestroyed || !BrowserPreferences.adaptiveBrowserBarColor(this)) return@evaluateJavascript
-            val value = raw?.trim()?.trim('"')?.takeIf { it.matches(Regex("#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?")) }
-            val color = value?.let { runCatching { android.graphics.Color.parseColor(it) }.getOrNull() }
-            bar.setBackgroundColor(color ?: ContextCompat.getColor(this, R.color.bg))
+            if (isFinishing || isDestroyed || web.url.orEmpty() != pageUrl || !BrowserPreferences.adaptiveBrowserBarColor(this)) return@evaluateJavascript
+            val value = runCatching { org.json.JSONTokener(raw ?: "\"\"").nextValue() as? String }.getOrNull().orEmpty()
+            val color = parseAdaptiveColor(value) ?: sampleVisiblePageColor() ?: ContextCompat.getColor(this, R.color.bg)
+            applyAdaptiveChrome(color, true)
         }
+    }
+
+    private fun parseAdaptiveColor(value: String): Int? = runCatching {
+        val normalized = value.trim()
+        if (!normalized.matches(Regex("#[0-9a-fA-F]{6}"))) null else android.graphics.Color.parseColor(normalized)
+    }.getOrNull()
+
+    private fun sampleVisiblePageColor(): Int? {
+        if (!::web.isInitialized || web.width <= 0 || web.height <= 0) return null
+        val sampleWidth = 36
+        val sampleHeight = 28
+        val bitmap = runCatching { Bitmap.createBitmap(sampleWidth, sampleHeight, Bitmap.Config.ARGB_8888) }.getOrNull() ?: return null
+        return try {
+            val canvas = Canvas(bitmap)
+            canvas.scale(sampleWidth.toFloat() / web.width, sampleHeight.toFloat() / web.height)
+            web.draw(canvas)
+            val counts = HashMap<Int, Int>()
+            for (y in 0 until sampleHeight) for (x in 0 until sampleWidth) {
+                val pixel = bitmap.getPixel(x, y)
+                if (android.graphics.Color.alpha(pixel) < 200) continue
+                val r = (android.graphics.Color.red(pixel) shr 4) * 16 + 8
+                val g = (android.graphics.Color.green(pixel) shr 4) * 16 + 8
+                val b = (android.graphics.Color.blue(pixel) shr 4) * 16 + 8
+                val bucket = android.graphics.Color.rgb(r.coerceAtMost(255), g.coerceAtMost(255), b.coerceAtMost(255))
+                counts[bucket] = (counts[bucket] ?: 0) + 1
+            }
+            counts.maxByOrNull { it.value }?.key
+        } catch (_: Exception) {
+            null
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    private fun applyAdaptiveChrome(color: Int, adaptive: Boolean) {
+        val bar = findViewById<View>(R.id.browserTopBar)
+        val pill = findViewById<View>(R.id.browserAddressPill)
+        bar.setBackgroundColor(color)
+        window.statusBarColor = color
+
+        val luminance = (0.2126 * android.graphics.Color.red(color) + 0.7152 * android.graphics.Color.green(color) + 0.0722 * android.graphics.Color.blue(color)) / 255.0
+        val lightBackground = luminance >= 0.56
+        val contrast = if (lightBackground) android.graphics.Color.BLACK else android.graphics.Color.WHITE
+        WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = lightBackground
+
+        if (adaptive) {
+            val inputColor = blendColors(color, if (lightBackground) android.graphics.Color.BLACK else android.graphics.Color.WHITE, 0.12f)
+            pill.background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = dp(26).toFloat()
+                setColor(inputColor)
+                setStroke(dp(1), blendColors(color, contrast, 0.17f))
+            }
+            address.setTextColor(contrast)
+            address.setHintTextColor(blendColors(contrast, color, 0.48f))
+            findViewById<TextView>(R.id.browserTabsCountTop).apply {
+                setTextColor(contrast)
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                    cornerRadius = dp(7).toFloat()
+                    setColor(inputColor)
+                    setStroke(dp(1), blendColors(color, contrast, 0.78f))
+                }
+            }
+            findViewById<ImageView>(R.id.appViewerMoreIcon).setColorFilter(contrast)
+            findViewById<ImageView>(R.id.browserAddressClearIcon).setColorFilter(contrast)
+            findViewById<ImageView>(R.id.browserFindCloseIcon).setColorFilter(contrast)
+        } else {
+            pill.setBackgroundResource(R.drawable.bg_toolbar_actions)
+            address.setTextColor(ContextCompat.getColor(this, R.color.text))
+            address.setHintTextColor(ContextCompat.getColor(this, R.color.dim))
+            findViewById<TextView>(R.id.browserTabsCountTop).apply {
+                setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.text))
+                setBackgroundResource(R.drawable.bg_browser_tab_counter)
+            }
+            findViewById<ImageView>(R.id.appViewerMoreIcon).clearColorFilter()
+            findViewById<ImageView>(R.id.browserAddressClearIcon).clearColorFilter()
+            findViewById<ImageView>(R.id.browserFindCloseIcon).clearColorFilter()
+            WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars =
+                ContextCompat.getColor(this, R.color.bg).let { defaultColor ->
+                    val y = (0.2126 * android.graphics.Color.red(defaultColor) + 0.7152 * android.graphics.Color.green(defaultColor) + 0.0722 * android.graphics.Color.blue(defaultColor)) / 255.0
+                    y >= 0.56
+                }
+        }
+    }
+
+    private fun blendColors(base: Int, overlay: Int, amount: Float): Int {
+        val a = amount.coerceIn(0f, 1f)
+        fun c(first: Int, second: Int) = (first * (1f - a) + second * a).toInt().coerceIn(0, 255)
+        return android.graphics.Color.rgb(
+            c(android.graphics.Color.red(base), android.graphics.Color.red(overlay)),
+            c(android.graphics.Color.green(base), android.graphics.Color.green(overlay)),
+            c(android.graphics.Color.blue(base), android.graphics.Color.blue(overlay))
+        )
     }
 
     @Suppress("DEPRECATION")
@@ -1186,8 +1312,12 @@ class AppViewerActivity : AppCompatActivity() {
             val canvas = Canvas(bitmap)
             canvas.scale(width.toFloat() / web.width, height.toFloat() / web.height)
             web.draw(canvas)
+            val previousPath = tabList().firstOrNull { it.id == tabId }?.snapshotPath.orEmpty()
             val path = saveTabSnapshot(tabId, bitmap)
-            updateTabPage(tabId, currentUrl, title, path)
+            if (!path.isNullOrBlank()) {
+                updateTabPage(tabId, currentUrl, title, path)
+                if (previousPath.isNotBlank() && previousPath != path) runCatching { java.io.File(previousPath).delete() }
+            }
         }
         bitmap.recycle()
     }
@@ -1217,6 +1347,8 @@ class AppViewerActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         hideAddressSuggestions()
+        elementActionsPopup?.dismiss()
+        elementActionsPopup = null
         fileChooserCallback?.onReceiveValue(null)
         fileChooserCallback = null
         if (::web.isInitialized && BrowserWebViewPool.contains(tabId) && BrowserWebViewPool.isOwner(tabId, this)) {

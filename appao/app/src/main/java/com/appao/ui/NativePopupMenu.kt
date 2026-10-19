@@ -1,12 +1,20 @@
 package com.appao
 
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.view.Gravity
 import android.view.View
-import android.widget.PopupMenu
+import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.PopupWindow
+import android.widget.ScrollView
+import android.widget.TextView
 import androidx.core.content.ContextCompat
 
-/** One shared Android PopupMenu implementation for consistent native menus. */
+/** Compact, scrollable popup used by the browser. Rows keep the same restrained dimensions on every screen. */
 object NativePopupMenu {
     data class Item(
         val id: Int,
@@ -17,53 +25,125 @@ object NativePopupMenu {
         val iconResId: Int? = null
     )
 
-    @Suppress("UNUSED_PARAMETER")
     fun show(
         anchor: View,
         items: List<Item>,
         alignLeft: Boolean = false,
         placeAbove: Boolean = true,
         onClick: (Item) -> Unit
-    ): PopupMenu {
+    ): PopupWindow {
         val context = anchor.context
-        val popup = PopupMenu(context, anchor, if (alignLeft) Gravity.START else Gravity.END)
-        val usesSelectionIndicator = items.any { it.checked }
-        val primaryColor = ContextCompat.getColor(context, R.color.pri).let {
-            runCatching { AccentColorManager.resolvedOr(context, R.color.pri) }.getOrDefault(it)
-        }
-        items.forEachIndexed { index, item ->
-            // All items share group 0 so Android does not draw a divider between
-            // every single row (which made each item look like an isolated block).
-            val menuItem = popup.menu.add(0, item.id, index, item.title)
-            val baseIcon = item.iconResId?.let { ContextCompat.getDrawable(context, it)?.mutate() }
-                ?: item.iconName?.let { IconLoader.menuDrawable(context, it) }
-            val icon = if (usesSelectionIndicator && item.checked) {
-                IconLoader.menuDrawable(context, "check_circle")?.mutate()?.apply { setTint(primaryColor) }
-                    ?: baseIcon
-            } else baseIcon
-            if (icon != null) {
-                val size = (19f * context.resources.displayMetrics.density + 0.5f).toInt().coerceAtLeast(1)
-                icon.setBounds(0, 0, size, size)
-                if (!(usesSelectionIndicator && item.checked) && item.iconResId == null && item.iconColor != null) icon.setTint(item.iconColor)
-                menuItem.icon = icon
-            }
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) popup.menu.setGroupDividerEnabled(false)
+        val density = context.resources.displayMetrics.density
+        fun dp(value: Int) = (value * density + 0.5f).toInt()
 
-        // Android hides menu icons in PopupMenu by default. Ask the platform
-        // helper to reveal the supplied 19dp icons when that implementation exists.
-        runCatching {
-            val field = PopupMenu::class.java.getDeclaredField("mPopup")
-            field.isAccessible = true
-            val helper = field.get(popup)
-            helper.javaClass.getMethod("setForceShowIcon", Boolean::class.javaPrimitiveType)
-                .invoke(helper, true)
+        val surface = ContextCompat.getColor(context, R.color.dialogSurface)
+        val border = ContextCompat.getColor(context, R.color.border)
+        val textColor = ContextCompat.getColor(context, R.color.text)
+        val iconColor = ContextCompat.getColor(context, R.color.iconTint)
+        val primaryColor = runCatching {
+            AccentColorManager.resolvedOr(context, R.color.pri)
+        }.getOrDefault(ContextCompat.getColor(context, R.color.pri))
+
+        var popupWindow: PopupWindow? = null
+        val card = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(16).toFloat()
+                setColor(surface)
+                setStroke(dp(1), border)
+            }
+            clipToOutline = true
         }
-        popup.setOnMenuItemClickListener { selected ->
-            items.firstOrNull { it.id == selected.itemId }?.let(onClick)
-            true
+        items.forEach { item ->
+            val row = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(40)
+                setPadding(dp(10), dp(4), dp(10), dp(4))
+                isClickable = true
+                isFocusable = true
+                foreground = ContextCompat.getDrawable(context, R.drawable.bg_transparent_pressed)
+            }
+            val icon = ImageView(context).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(18), dp(18))
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                val source = if (item.iconResId != null) {
+                    ContextCompat.getDrawable(context, item.iconResId)?.mutate()
+                } else {
+                    IconLoader.menuDrawable(context, item.iconName ?: "circle")?.mutate()
+                }
+                if (source != null) {
+                    source.setTint(item.iconColor ?: iconColor)
+                    setImageDrawable(source)
+                } else {
+                    visibility = View.INVISIBLE
+                }
+            }
+            row.addView(icon)
+            val label = TextView(context).apply {
+                text = item.title
+                textSize = 13.5f
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                setTextColor(textColor)
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(11), 0, dp(6), 0)
+            }
+            row.addView(label, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            if (item.checked) {
+                val check = ImageView(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(dp(16), dp(16))
+                    scaleType = ImageView.ScaleType.CENTER_INSIDE
+                    val drawable = IconLoader.menuDrawable(context, "check")?.mutate()
+                    drawable?.setTint(primaryColor)
+                    setImageDrawable(drawable)
+                }
+                row.addView(check)
+            }
+            row.setOnClickListener {
+                popupWindow?.dismiss()
+                onClick(item)
+            }
+            card.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40)))
         }
-        popup.show()
+
+        val width = minOf(dp(306), (context.resources.displayMetrics.widthPixels - dp(20)).coerceAtLeast(dp(220)))
+        val maxHeight = minOf(
+            dp(430),
+            (context.resources.displayMetrics.heightPixels - dp(112)).coerceAtLeast(dp(180))
+        )
+        card.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        val height = card.measuredHeight.coerceAtMost(maxHeight).coerceAtLeast(dp(42))
+        val scroller = ScrollView(context).apply {
+            isFillViewport = false
+            clipToPadding = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            addView(card, ScrollView.LayoutParams(width, ViewGroup.LayoutParams.WRAP_CONTENT))
+            background = ColorDrawable(Color.TRANSPARENT)
+        }
+        val popup = PopupWindow(scroller, width, height, true).apply {
+            isOutsideTouchable = true
+            elevation = dp(12).toFloat()
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) overlapAnchor = false
+        }
+        popupWindow = popup
+
+        val location = IntArray(2)
+        anchor.getLocationOnScreen(location)
+        val screenHeight = context.resources.displayMetrics.heightPixels
+        val belowSpace = screenHeight - (location[1] + anchor.height)
+        val aboveSpace = location[1]
+        val openAbove = (placeAbove && aboveSpace >= minOf(height, dp(180))) || belowSpace < height && aboveSpace > belowSpace
+        val xOffset = if (alignLeft) 0 else anchor.width - width
+        val yOffset = if (openAbove) -height - anchor.height else 0
+        popup.showAsDropDown(anchor, xOffset, yOffset)
         return popup
     }
+
 }

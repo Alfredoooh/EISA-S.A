@@ -14,7 +14,8 @@
         android:gravity="center_vertical"
         android:paddingStart="8dp"
         android:paddingEnd="8dp"
-        android:background="@color/bg">
+        android:background="@color/bg"
+        android:elevation="8dp">
 
         <LinearLayout
             android:id="@+id/browserAddressPill"
@@ -111,6 +112,7 @@
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
         android:background="@color/bg"
+        android:elevation="8dp"
         android:visibility="gone">
         <EditText
             android:id="@+id/browserFindInput"
@@ -148,8 +150,9 @@
         android:id="@+id/webView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="58dp"
+        android:layout_marginTop="0dp"
         android:layout_marginBottom="0dp"
+        android:elevation="0dp"
         android:background="@color/bg"
         android:transitionName="browser_tab_preview" />
 

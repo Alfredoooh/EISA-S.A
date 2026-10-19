@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.ColorFilter
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
@@ -159,8 +160,19 @@ object IconLoader {
             val b = bounds
             if (b.width() <= 0 || b.height() <= 0) return
             val checkpoint = canvas.save()
-            if (drawableAlpha < 255) canvas.saveLayerAlpha(b.left.toFloat(), b.top.toFloat(), b.right.toFloat(), b.bottom.toFloat(), drawableAlpha)
-            svg.renderToCanvas(canvas, RectF(b.left.toFloat(), b.top.toFloat(), b.right.toFloat(), b.bottom.toFloat()))
+            if (filter != null || drawableAlpha < 255) {
+                // Render to a layer so drawable/image-view tint is actually applied to SVG paths.
+                // Without this layer, Android color filters were silently ignored by toolbar icons.
+                val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    colorFilter = filter
+                    alpha = drawableAlpha
+                }
+                val layer = canvas.saveLayer(b.left.toFloat(), b.top.toFloat(), b.right.toFloat(), b.bottom.toFloat(), paint)
+                svg.renderToCanvas(canvas, RectF(b.left.toFloat(), b.top.toFloat(), b.right.toFloat(), b.bottom.toFloat()))
+                canvas.restoreToCount(layer)
+            } else {
+                svg.renderToCanvas(canvas, RectF(b.left.toFloat(), b.top.toFloat(), b.right.toFloat(), b.bottom.toFloat()))
+            }
             canvas.restoreToCount(checkpoint)
         }
 

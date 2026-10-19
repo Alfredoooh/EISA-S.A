@@ -30,10 +30,12 @@ class BrowserTabsActivity : AppCompatActivity() {
     private var sourcePrivateMode: Boolean = false
     private var privateMode: Boolean = false
     private var homeSnapshotPath: String = ""
+    private var firstResume = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, true)
+        BrowserTransitions.configure(this)
         SystemBarHelper.sync(this)
         sourceTabId = intent.getStringExtra("source_tab_id").orEmpty()
         sourcePrivateMode = intent.getBooleanExtra("browser_private_mode", false)
@@ -64,17 +66,18 @@ class BrowserTabsActivity : AppCompatActivity() {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(13).toFloat()
                 setColor(ContextCompat.getColor(this@BrowserTabsActivity, R.color.card2))
+                setStroke(dp(1), ContextCompat.getColor(this@BrowserTabsActivity, R.color.border))
             }
             setPadding(dp(3), dp(3), dp(3), dp(3))
         }
         normalModeTab = TextView(this).apply {
             text = "Separadores"; gravity = Gravity.CENTER; textSize = 12.5f
-            setPadding(dp(10), 0, dp(10), 0); isClickable = true; isFocusable = true
+            setPadding(dp(8), 0, dp(8), 0); isClickable = true; isFocusable = true
             setOnClickListener { switchMode(false) }
         }
         privateModeTab = TextView(this).apply {
             text = "Privados"; gravity = Gravity.CENTER; textSize = 12.5f
-            setPadding(dp(10), 0, dp(10), 0); isClickable = true; isFocusable = true
+            setPadding(dp(8), 0, dp(8), 0); isClickable = true; isFocusable = true
             setOnClickListener { switchMode(true) }
         }
         segment.addView(normalModeTab, LinearLayout.LayoutParams(0, dp(34), 1f))
@@ -87,7 +90,7 @@ class BrowserTabsActivity : AppCompatActivity() {
                     .putExtra("appao_main_tab", "home")
                 startActivity(launch)
                 finish()
-                overridePendingTransition(R.anim.publish_return_enter, R.anim.publish_return_exit)
+                overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
             }
         }, LinearLayout.LayoutParams(dp(40), dp(44)))
         root.addView(top)
@@ -127,6 +130,10 @@ class BrowserTabsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (firstResume) {
+            firstResume = false
+            return
+        }
         if (::adapter.isInitialized) refreshTabs()
     }
 
@@ -138,15 +145,27 @@ class BrowserTabsActivity : AppCompatActivity() {
     }
 
     private fun refreshSegment() {
-        val selected = ContextCompat.getColor(this, R.color.text)
-        val inactive = ContextCompat.getColor(this, R.color.dim)
-        val selectedBg = ContextCompat.getDrawable(this, R.drawable.bg_auth_indicator)
-        normalModeTab.background = if (!privateMode) selectedBg?.constantState?.newDrawable()?.mutate() else null
-        privateModeTab.background = if (privateMode) selectedBg?.constantState?.newDrawable()?.mutate() else null
-        normalModeTab.setTextColor(if (!privateMode) selected else inactive)
-        privateModeTab.setTextColor(if (privateMode) selected else inactive)
-        normalModeTab.typeface = android.graphics.Typeface.create("sans-serif-medium", if (!privateMode) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
-        privateModeTab.typeface = android.graphics.Typeface.create("sans-serif-medium", if (privateMode) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+        val selectedText = ContextCompat.getColor(this, R.color.text)
+        val inactiveText = ContextCompat.getColor(this, R.color.dim)
+        val selectedSurface = ContextCompat.getColor(this, R.color.card)
+        fun selectedBackground(selected: Boolean) = if (selected) GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(10).toFloat()
+            setColor(selectedSurface)
+            setStroke(dp(1), ContextCompat.getColor(this@BrowserTabsActivity, R.color.border))
+        } else null
+        normalModeTab.background = selectedBackground(!privateMode)
+        privateModeTab.background = selectedBackground(privateMode)
+        normalModeTab.setTextColor(if (!privateMode) selectedText else inactiveText)
+        normalModeTab.typeface = android.graphics.Typeface.create(
+            "sans-serif-medium",
+            if (!privateMode) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL
+        )
+        privateModeTab.setTextColor(if (privateMode) selectedText else inactiveText)
+        privateModeTab.typeface = android.graphics.Typeface.create(
+            "sans-serif-medium",
+            if (privateMode) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL
+        )
     }
 
     private fun refreshTabs() {
@@ -168,30 +187,30 @@ class BrowserTabsActivity : AppCompatActivity() {
             putExtra("url", tab.url)
         }
         startActivity(launch)
-        finishWithMotion()
+        finish()
+        overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
     }
 
-    private fun openTab(tab: BrowserTab, preview: View?) {
-        val transitionName = preview?.transitionName?.takeIf { it.isNotBlank() } ?: "browser_tab_preview_${tab.id}"
+    private fun openTab(tab: BrowserTab, preview: View?, targetPrivateMode: Boolean = privateMode) {
         if (tab.id == "__home__") {
-            val launch = Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra("appao_main_tab", "home")
+            val launch = Intent(this, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 .putExtra("appao_main_tab", "home")
-            val transitioned = preview != null && runCatching {
-                startActivity(launch, ActivityOptions.makeSceneTransitionAnimation(this, preview, "browser_tab_preview").toBundle())
-            }.isSuccess
-            if (!transitioned) startActivity(launch)
+            startActivity(launch)
             finish()
-            if (!transitioned) overridePendingTransition(R.anim.publish_return_enter, R.anim.publish_return_exit)
+            overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
             return
         }
-        if (tab.id == sourceTabId && privateMode == sourcePrivateMode) {
-            // Close overview only; the real WebView remains in the underlying Activity.
-            finishWithMotion()
+        if (tab.id == sourceTabId && targetPrivateMode == sourcePrivateMode) {
+            // Returning to the already-live page reverses the shared container transform.
+            finishAfterTransition()
             return
         }
+
+        val transitionName = preview?.transitionName?.takeIf { it.isNotBlank() } ?: "browser_tab_preview_${tab.id}"
         val launch = Intent(this, AppViewerActivity::class.java).apply {
             putExtra("browser_mode", true)
-            putExtra("browser_private_mode", privateMode)
+            putExtra("browser_private_mode", targetPrivateMode)
             putExtra("browser_tab_id", tab.id)
             putExtra("url", tab.url)
             putExtra("transition_name", transitionName)
@@ -203,7 +222,41 @@ class BrowserTabsActivity : AppCompatActivity() {
             finishAfterTransition()
         } else {
             startActivity(launch)
-            finishWithMotion()
+            finish()
+            overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
+        }
+    }
+
+    private fun showTabOptions(anchor: View, tab: BrowserTab, preview: View) {
+        val items = if (tab.id == "__home__") listOf(
+            NativePopupMenu.Item(1, "Abrir Início", iconName = "home"),
+            NativePopupMenu.Item(2, "Novo separador", iconName = "plus")
+        ) else listOf(
+            NativePopupMenu.Item(1, "Abrir separador", iconName = "open-outline"),
+            NativePopupMenu.Item(2, "Duplicar separador", iconName = "copy"),
+            NativePopupMenu.Item(3, if (privateMode) "Tornar normal" else "Tornar privado", iconName = if (privateMode) "globe" else "eye_off"),
+            NativePopupMenu.Item(4, "Eliminar separador", iconName = "delete_bin")
+        )
+        NativePopupMenu.show(anchor, items, alignLeft = false, placeAbove = false) { item ->
+            when (item.id) {
+                1 -> openTab(tab, preview)
+                2 -> if (tab.id == "__home__") openNewTab() else {
+                    val duplicate = if (privateMode) PrivateBrowserTabStore.create(this, tab.url) else BrowserTabStore.create(this, tab.url)
+                    if (privateMode) PrivateBrowserTabStore.updatePage(this, duplicate.id, tab.url, tab.title)
+                    else BrowserTabStore.updatePage(this, duplicate.id, tab.url, tab.title)
+                    openTab(duplicate, preview, privateMode)
+                }
+                3 -> {
+                    val targetPrivate = !privateMode
+                    val moved = if (targetPrivate) PrivateBrowserTabStore.create(this, tab.url) else BrowserTabStore.create(this, tab.url)
+                    if (targetPrivate) PrivateBrowserTabStore.updatePage(this, moved.id, tab.url, tab.title)
+                    else BrowserTabStore.updatePage(this, moved.id, tab.url, tab.title)
+                    if (privateMode) PrivateBrowserTabStore.remove(this, tab.id) else BrowserTabStore.remove(this, tab.id)
+                    BrowserWebViewPool.removeAndDestroy(tab.id)
+                    openTab(moved, preview, targetPrivate)
+                }
+                4 -> closeTab(tab)
+            }
         }
     }
 
@@ -223,7 +276,7 @@ class BrowserTabsActivity : AppCompatActivity() {
 
     private fun finishWithMotion() {
         finish()
-        overridePendingTransition(R.anim.publish_return_enter, R.anim.publish_return_exit)
+        overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
     }
 
     private fun iconButton(icon: String, description: String): FrameLayout = FrameLayout(this).apply {
@@ -291,12 +344,15 @@ class BrowserTabsActivity : AppCompatActivity() {
         override fun getItemCount(): Int = data.size
         override fun onBindViewHolder(holder: TabHolder, position: Int) {
             val tab = data[position]
-            holder.itemView.setOnLongClickListener(null)
+            holder.itemView.setOnLongClickListener {
+                showTabOptions(holder.itemView, tab, holder.preview)
+                true
+            }
             holder.preview.transitionName = if (sourceTabId == tab.id) "browser_tab_preview" else "browser_tab_preview_${tab.id}"
             holder.title.text = tab.title.ifBlank { titleFromUrl(tab.url) }
             if (tab.id == "__home__") {
                 Glide.with(this@BrowserTabsActivity).clear(holder.favicon)
-                IconLoader.applyIcon(holder.favicon, "home", R.color.iconTint)
+                holder.favicon.setImageResource(R.drawable.logo)
                 val homeImage = homeSnapshotPath.takeIf { it.isNotBlank() }?.let(::File)
                 if (homeImage != null && homeImage.exists()) {
                     Glide.with(this@BrowserTabsActivity).load(homeImage).centerCrop().into(holder.preview)
@@ -316,10 +372,6 @@ class BrowserTabsActivity : AppCompatActivity() {
                 Glide.with(this@BrowserTabsActivity).clear(holder.preview)
                 holder.preview.setImageDrawable(null)
                 holder.preview.setBackgroundColor(ContextCompat.getColor(this@BrowserTabsActivity, R.color.card2))
-            }
-            holder.itemView.setOnLongClickListener {
-                closeTab(tab)
-                true
             }
         }
     }

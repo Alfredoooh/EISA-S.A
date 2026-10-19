@@ -113,7 +113,7 @@ object IconLoader {
         add("send", "send", "paper_plane", "paper_plane_outline")
         add("swap_vert", "swap_vert", "sort")
         add("translate", "translate")
-        # Explicit aliases used by existing XML/Kotlin callers.
+        // Explicit aliases used by existing XML/Kotlin callers.
         add("arrow_back", "arrow_left_outline", "arrow_back_outline")
         add("description", "document_text", "document_text_outline")
         add("public", "globe_outline")

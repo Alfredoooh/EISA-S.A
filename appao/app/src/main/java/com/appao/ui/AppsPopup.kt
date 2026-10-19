@@ -1,7 +1,7 @@
 package com.appao
 
 import android.view.View
-import android.widget.PopupMenu
+import android.widget.PopupWindow
 import com.appao.ui.NativePopupMenu
 
 /** Native anchored quick-add menu opened from the fixed AI composer. */
@@ -33,7 +33,7 @@ object AppsPopup {
         return active
     }
 
-    fun show(anchor: View, onPick: (String) -> Unit): PopupMenu {
+    fun show(anchor: View, onPick: (String) -> Unit): PopupWindow {
         val thinkActive = isThinkEnabled(anchor.context)
         return NativePopupMenu.show(
             anchor,

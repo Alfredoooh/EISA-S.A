@@ -141,9 +141,35 @@ def download_variant(symbol: str, filled: bool = False) -> tuple[str, int]:
             root = ET.fromstring(data)
             if not root.tag.endswith("svg") or not any(e.tag.rsplit("}", 1)[-1] == "path" for e in root.iter()):
                 raise ValueError("response was not a valid SVG with path data")
-            viewbox = root.attrib.get("viewBox", "")
+
+            # Some official Google Material Symbols SVGs (for example auto_awesome_24px.svg)
+            # specify width/height but omit viewBox. Add the equivalent viewport rather than
+            # failing the whole CI download. Keep the official path data unchanged.
+            viewbox = root.attrib.get("viewBox", "").strip()
             if not viewbox:
-                raise ValueError("SVG has no viewBox")
+                def svg_dimension(value: str, attribute: str) -> float:
+                    match = re.fullmatch(r"\s*([0-9]+(?:\.[0-9]+)?)\s*(?:px)?\s*", value, re.I)
+                    if not match:
+                        raise ValueError(
+                            f"SVG has no viewBox and an unsupported {attribute} value: {value!r}"
+                        )
+                    result = float(match.group(1))
+                    if result <= 0:
+                        raise ValueError(f"SVG has invalid {attribute}: {value!r}")
+                    return result
+
+                width = svg_dimension(root.attrib.get("width", "24"), "width")
+                height = svg_dimension(root.attrib.get("height", "24"), "height")
+                svg_tag = re.search(rb"<svg\b[^>]*>", data, re.S)
+                if not svg_tag:
+                    raise ValueError("SVG root tag could not be located for viewBox normalization")
+                insertion = f' viewBox="0 0 {width:g} {height:g}"'.encode("ascii")
+                data = data[:svg_tag.end() - 1] + insertion + data[svg_tag.end() - 1:]
+                root = ET.fromstring(data)
+                viewbox = root.attrib.get("viewBox", "").strip()
+                if not viewbox:
+                    raise ValueError("SVG viewBox normalization failed")
+
             ASSET_DIR.mkdir(parents=True, exist_ok=True)
             (ASSET_DIR / filename).write_bytes(data)
             return filename, len(data)

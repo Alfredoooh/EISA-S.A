@@ -103,7 +103,7 @@ class HistorySettingsActivity : AppCompatActivity() {
             isFocusable = true
             setOnClickListener { action() }
         }
-        row.addView(ImageView(this).apply { IconLoader.applyIcon(this, iconName, R.color.iconTint) }, LinearLayout.LayoutParams(dp(22), dp(22)))
+        row.addView(ImageView(this).apply { IconLoader.applyIcon(this, iconName, R.color.iconTint) }, LinearLayout.LayoutParams(dp(24), dp(24)))
         row.addView(TextView(this).apply {
             text = title
             textSize = 14f
@@ -138,7 +138,7 @@ class HistorySettingsActivity : AppCompatActivity() {
         contentDescription = label
         isClickable = true
         isFocusable = true
-        addView(ImageView(this@HistorySettingsActivity).apply { IconLoader.applyIcon(this, name, R.color.iconTint) }, LinearLayout.LayoutParams(dp(21), dp(21)))
+        addView(ImageView(this@HistorySettingsActivity).apply { IconLoader.applyIcon(this, name, R.color.iconTint) }, LinearLayout.LayoutParams(dp(24), dp(24)))
         layoutParams = LinearLayout.LayoutParams(dp(42), dp(46))
     }
     private fun rowParams() = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(2) }

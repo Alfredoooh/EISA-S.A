@@ -51,7 +51,7 @@ class BrowserTabsActivity : AppCompatActivity() {
         homeSnapshotPath = intent.getStringExtra("home_snapshot_path").orEmpty().ifBlank {
             getSharedPreferences("appao", MODE_PRIVATE).getString("home_tab_snapshot_path", "").orEmpty()
         }
-        if (sourceTabId.isNotBlank()) postponeEnterTransition()
+        if (sourceTabId.isNotBlank() && sourceTabId != "__home__") postponeEnterTransition()
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -133,7 +133,7 @@ class BrowserTabsActivity : AppCompatActivity() {
         setContentView(root)
         refreshSegment()
         refreshTabs()
-        if (sourceTabId.isNotBlank()) list.post { startPostponedEnterTransition() }
+        if (sourceTabId.isNotBlank() && sourceTabId != "__home__") list.post { startPostponedEnterTransition() }
     }
 
     override fun onResume() {
@@ -291,7 +291,7 @@ class BrowserTabsActivity : AppCompatActivity() {
         isClickable = true; isFocusable = true; contentDescription = description
         foreground = ContextCompat.getDrawable(this@BrowserTabsActivity, R.drawable.bg_transparent_pressed)
         addView(ImageView(this@BrowserTabsActivity).apply {
-            layoutParams = FrameLayout.LayoutParams(dp(19), dp(19), Gravity.CENTER)
+            layoutParams = FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER)
             scaleType = ImageView.ScaleType.FIT_CENTER
             IconLoader.applyIcon(this, icon, R.color.iconTint)
         })

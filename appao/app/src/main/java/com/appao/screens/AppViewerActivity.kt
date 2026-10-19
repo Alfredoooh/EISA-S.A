@@ -106,7 +106,7 @@ class AppViewerActivity : AppCompatActivity() {
     private var browserBarHidden = false
     private var zoomBar: View? = null
     private var addressSuggestionsPopup: PopupWindow? = null
-    private var elementActionsPopup: PopupWindow? = null
+    private var elementActionsPopup: androidx.appcompat.widget.PopupMenu? = null
     private var lastTouchRawX = 0f
     private var lastTouchRawY = 0f
     private val REQUEST_BROWSER_SEARCH = 7415
@@ -502,8 +502,10 @@ class AppViewerActivity : AppCompatActivity() {
         // re-layout/scroll feedback, which looked like jitter and occasionally jumped the page.
         val webParams = web.layoutParams as? android.widget.FrameLayout.LayoutParams
         webParams?.let {
-            it.topMargin = 0
-            it.bottomMargin = 0
+            // The viewport never overlaps the toolbar. Keep these margins stable during collapse
+            // so scrolling a page cannot resize/reposition the WebView and create feedback jitter.
+            it.topMargin = if (bottom) 0 else dp(58)
+            it.bottomMargin = if (bottom) dp(58) else 0
             web.layoutParams = it
         }
         val progressParams = progress.layoutParams as? android.widget.FrameLayout.LayoutParams
@@ -838,93 +840,51 @@ class AppViewerActivity : AppCompatActivity() {
 
     private data class ElementAction(val title: String, val icon: String, val callback: () -> Unit)
 
+    @Suppress("UNUSED_PARAMETER")
     private fun showWebElementActions(url: String, kind: String, rawX: Float, rawY: Float) {
         elementActionsPopup?.dismiss()
         val pageTitle = when (kind) { "image" -> "Imagem"; "video" -> "Vídeo"; else -> "Ligação" }
-        val actions = mutableListOf<ElementAction>()
-        if (kind == "image") actions += ElementAction("Pré-visualizar imagem", "image") {
+        val actions = mutableListOf<Pair<String, Pair<String, () -> Unit>>>()
+        if (kind == "image") actions += "Pré-visualizar imagem" to ("image" to {
             startActivity(Intent(this, ImageViewerActivity::class.java).putExtra("image", url))
             overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
-        }
-        if (kind == "image" || kind == "video") actions += ElementAction(if (kind == "image") "Transferir imagem" else "Transferir vídeo", "download") { enqueueWebDownload(url) }
-        if (kind == "link" || kind == "video") actions += ElementAction("Abrir num separador", "open-outline") { openNewBrowserTab(url) }
-        actions += ElementAction("Copiar ligação", "copy") {
+        })
+        if (kind == "image" || kind == "video") actions += (if (kind == "image") "Transferir imagem" else "Transferir vídeo") to ("download" to { enqueueWebDownload(url) })
+        if (kind == "link" || kind == "video") actions += "Abrir num separador" to ("open_in_new" to { openNewBrowserTab(url) })
+        actions += "Copiar ligação" to ("content_copy" to {
             (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Ligação", url))
             AppAoToast.show(this, "Ligação copiada")
-        }
-        actions += ElementAction("Partilhar", "share") {
+        })
+        actions += "Partilhar" to ("share" to {
             runCatching { startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, url) }, "Partilhar ligação")) }
-        }
+        })
 
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(4), dp(4), dp(4), dp(4))
-            background = android.graphics.drawable.GradientDrawable().apply {
-                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                cornerRadius = dp(16).toFloat()
-                setColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dialogSurface))
-                setStroke(dp(1), ContextCompat.getColor(this@AppViewerActivity, R.color.border))
-            }
-            elevation = dp(12).toFloat()
-            clipToOutline = true
-        }
-        root.addView(TextView(this).apply {
-            text = pageTitle
-            textSize = 11.5f
-            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
-            setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dim))
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(10), 0, dp(8), 0)
-        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(30)))
-        lateinit var popup: PopupWindow
-        actions.forEach { action ->
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                minimumHeight = dp(40)
-                setPadding(dp(10), dp(4), dp(10), dp(4))
-                isClickable = true
-                isFocusable = true
-                foreground = ContextCompat.getDrawable(this@AppViewerActivity, R.drawable.bg_transparent_pressed)
-            }
-            row.addView(ImageView(this).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(18), dp(18))
-                scaleType = ImageView.ScaleType.CENTER_INSIDE
-                IconLoader.applyIcon(this, action.icon, R.color.iconTint)
-            })
-            row.addView(TextView(this).apply {
-                text = action.title
-                textSize = 13.5f
-                maxLines = 1
-                ellipsize = android.text.TextUtils.TruncateAt.END
-                setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.text))
-                setPadding(dp(11), 0, 0, 0)
-            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            row.setOnClickListener { popup.dismiss(); action.callback() }
-            root.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40)))
-        }
-        val width = minOf(dp(246), (resources.displayMetrics.widthPixels - dp(20)).coerceAtLeast(dp(200)))
-        root.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
-        val height = root.measuredHeight.coerceAtMost(resources.displayMetrics.heightPixels - dp(120))
-        popup = PopupWindow(root, width, height, true).apply {
-            isOutsideTouchable = true
-            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
-            elevation = dp(12).toFloat()
-        }
         val container = findViewById<android.widget.FrameLayout>(R.id.appViewerRoot)
         val rootLocation = IntArray(2)
         container.getLocationOnScreen(rootLocation)
-        val localX = (rawX - rootLocation[0]).toInt()
-        val localY = (rawY - rootLocation[1]).toInt()
-        val x = (localX + dp(10)).coerceIn(dp(8), (container.width - width - dp(8)).coerceAtLeast(dp(8)))
-        val y = if (localY + height + dp(18) > container.height) {
-            (localY - height - dp(8)).coerceAtLeast(dp(8))
-        } else {
-            (localY + dp(12)).coerceAtMost((container.height - height - dp(8)).coerceAtLeast(dp(8)))
+        val anchorX = (rawX - rootLocation[0]).toInt().coerceIn(dp(8), (container.width - dp(8)).coerceAtLeast(dp(8)))
+        val anchorY = (rawY - rootLocation[1]).toInt().coerceIn(dp(8), (container.height - dp(8)).coerceAtLeast(dp(8)))
+        val nativeAnchor = View(this).apply {
+            alpha = 0f
+            isClickable = false
+            layoutParams = android.widget.FrameLayout.LayoutParams(dp(1), dp(1)).apply {
+                leftMargin = anchorX
+                topMargin = anchorY
+            }
+        }
+        container.addView(nativeAnchor)
+        val menuItems = mutableListOf(NativePopupMenu.Item(0, pageTitle, enabled = false))
+        actions.forEachIndexed { index, entry ->
+            menuItems += NativePopupMenu.Item(index + 1, entry.first, iconName = entry.second.first)
+        }
+        val popup = NativePopupMenu.show(nativeAnchor, menuItems, placeAbove = true) { item ->
+            actions.getOrNull(item.id - 1)?.second?.second?.invoke()
         }
         elementActionsPopup = popup
-        popup.showAtLocation(container, Gravity.TOP or Gravity.START, x, y)
-        popup.setOnDismissListener { if (elementActionsPopup === popup) elementActionsPopup = null }
+        popup.setOnDismissListener {
+            if (elementActionsPopup === popup) elementActionsPopup = null
+            (nativeAnchor.parent as? ViewGroup)?.removeView(nativeAnchor)
+        }
     }
 
     private fun enqueueWebDownload(url: String) {
@@ -970,7 +930,7 @@ class AppViewerActivity : AppCompatActivity() {
         }
         header.addView(value)
         val close = ImageView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(19), dp(19))
+            layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
             scaleType = ImageView.ScaleType.CENTER_INSIDE
             contentDescription = "Fechar zoom"
             IconLoader.applyIcon(this, "close", R.color.iconTint)
@@ -1101,7 +1061,7 @@ class AppViewerActivity : AppCompatActivity() {
                     } else shareWith(option.packageName, title, url)
                 }
             }
-            val icon = ImageView(this).apply { layoutParams = LinearLayout.LayoutParams(dp(19), dp(19)); scaleType = ImageView.ScaleType.CENTER_INSIDE; IconLoader.applyIcon(this, option.icon, R.color.iconTint) }
+            val icon = ImageView(this).apply { layoutParams = LinearLayout.LayoutParams(dp(24), dp(24)); scaleType = ImageView.ScaleType.CENTER_INSIDE; IconLoader.applyIcon(this, option.icon, R.color.iconTint) }
             cell.addView(icon)
             cell.addView(TextView(this).apply { text = option.label; textSize = 11f; gravity = Gravity.CENTER; maxLines = 2; setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.text)); setPadding(0, dp(6), 0, 0) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             grid.addView(cell, android.widget.GridLayout.LayoutParams().apply { width = 0; height = dp(96); columnSpec = android.widget.GridLayout.spec(index % 3, 1f); rowSpec = android.widget.GridLayout.spec(index / 3); setMargins(dp(2), dp(2), dp(2), dp(2)) })

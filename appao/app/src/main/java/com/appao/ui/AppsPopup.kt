@@ -1,7 +1,7 @@
 package com.appao
 
 import android.view.View
-import android.widget.PopupWindow
+import androidx.appcompat.widget.PopupMenu
 import com.appao.ui.NativePopupMenu
 
 /** Native anchored quick-add menu opened from the fixed AI composer. */
@@ -19,7 +19,6 @@ object AppsPopup {
 
     fun isThinkEnabled(context: android.content.Context): Boolean {
         val prefs = context.getSharedPreferences("appao", android.content.Context.MODE_PRIVATE)
-        // Clear the old behavior which permanently enabled Think by launching it as an app.
         if (!prefs.getBoolean(THINK_INIT_KEY, false)) {
             prefs.edit().putBoolean("think_mode", false).putBoolean(THINK_INIT_KEY, true).apply()
         }
@@ -33,7 +32,7 @@ object AppsPopup {
         return active
     }
 
-    fun show(anchor: View, onPick: (String) -> Unit): PopupWindow {
+    fun show(anchor: View, onPick: (String) -> Unit): PopupMenu {
         val thinkActive = isThinkEnabled(anchor.context)
         return NativePopupMenu.show(
             anchor,
@@ -43,7 +42,8 @@ object AppsPopup {
                     option.id,
                     option.label,
                     iconName = option.iconName,
-                    checked = isThink && thinkActive
+                    checked = isThink && thinkActive,
+                    checkable = isThink
                 )
             }
         ) { item ->

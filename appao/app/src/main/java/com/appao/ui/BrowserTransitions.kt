@@ -4,6 +4,7 @@ import com.appao.R
 import android.app.Activity
 import android.graphics.Color
 import android.view.Window
+import android.transition.Fade
 import com.google.android.material.transition.platform.MaterialContainerTransform
 import com.google.android.material.transition.platform.MaterialContainerTransformSharedElementCallback
 import androidx.core.content.ContextCompat
@@ -14,6 +15,11 @@ object BrowserTransitions {
         runCatching { activity.window.requestFeature(Window.FEATURE_ACTIVITY_TRANSITIONS) }
         activity.window.allowEnterTransitionOverlap = true
         activity.window.allowReturnTransitionOverlap = true
+        // Fade the surrounding Activity surface while the selected page/card uses container transform.
+        activity.window.enterTransition = Fade(Fade.IN).apply { duration = 180L }
+        activity.window.exitTransition = Fade(Fade.OUT).apply { duration = 140L }
+        activity.window.reenterTransition = Fade(Fade.IN).apply { duration = 180L }
+        activity.window.returnTransition = Fade(Fade.OUT).apply { duration = 140L }
         activity.setEnterSharedElementCallback(MaterialContainerTransformSharedElementCallback())
         activity.setExitSharedElementCallback(MaterialContainerTransformSharedElementCallback())
         val surface = ContextCompat.getColor(activity, R.color.bg)

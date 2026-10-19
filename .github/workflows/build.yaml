@@ -64,9 +64,18 @@ jobs:
           from pathlib import Path
           folder = Path("app/src/main/assets/icons/material-symbols-rounded")
           files = list(folder.glob("*.svg"))
-          if len(files) < 20:
-              raise SystemExit(f"ERROR: Expected the rounded Material SVG set; only {len(files)} icons were downloaded.")
-          print(f"Material Symbols Rounded ready: {len(files)} SVG icons")
+          required = {
+              "home_24px.svg", "home_fill1_24px.svg",
+              "explore_24px.svg", "explore_fill1_24px.svg",
+              "person_24px.svg", "person_fill1_24px.svg",
+              "search_24px.svg", "menu_24px.svg",
+          }
+          missing = sorted(required - {file.name for file in files})
+          if len(files) < 70 or missing:
+              raise SystemExit(
+                  f"ERROR: Incomplete Material Symbols Rounded set: {len(files)} SVGs; missing={missing}"
+              )
+          print(f"Material Symbols Rounded ready: {len(files)} SVG icons including outline and fill1 variants")
           PYVERIFY
 
       - name: Generate official Gradle Wrapper

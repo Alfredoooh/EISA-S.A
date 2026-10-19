@@ -34,7 +34,6 @@ import java.util.Locale
 import java.util.TimeZone
 import java.util.concurrent.CopyOnWriteArraySet
 import kotlin.math.max
-import com.appao.ui.FallbackIconDrawable
 import com.appao.ui.IconLoader
 
 /** Native feed renderer with image cards plus grouped, square no-image sections. */

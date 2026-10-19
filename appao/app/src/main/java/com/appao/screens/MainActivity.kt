@@ -50,6 +50,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Locale
 import kotlin.math.abs
+import com.appao.screens.BrowserSearchActivity
 import com.appao.screens.AppViewerActivity
 import com.appao.screens.BrowserDownloadsActivity
 import com.appao.screens.BrowserTabStore
@@ -112,6 +113,7 @@ class MainActivity : AppCompatActivity() {
     private val homeSuggestionHandler = Handler(Looper.getMainLooper())
     private var homeSuggestionRunnable: Runnable? = null
     private var homeSuggestionGeneration = 0L
+    private val REQUEST_MAIN_BROWSER_SEARCH = 7416
     private var activeMainTab = "home"
     private var profileOpen = false
     private var feedEmptyOverlay: View? = null
@@ -240,18 +242,19 @@ class MainActivity : AppCompatActivity() {
                 feedOpen = false
                 if (sidePanelOpen && activeMainTab == "home") openAppsPanelImmediate()
                 when (activeMainTab) {
-                    "apps" -> switchMainTab("apps", animate = false)
+                    "discover" -> switchMainTab("discover", animate = false)
                     "profile" -> switchMainTab("profile", animate = false)
                 }
             } else {
                 setupInitialData()
                 when (activeMainTab) {
-                    "apps" -> switchMainTab("apps", animate = false)
+                    "discover" -> switchMainTab("discover", animate = false)
                     "profile" -> switchMainTab("profile", animate = false)
                 }
             }
             intent.getStringExtra("appao_main_tab")?.lowercase(Locale.ROOT)
-                ?.takeIf { it == "home" || it == "apps" || it == "profile" }
+                ?.let { if (it == "apps") "discover" else it }
+                ?.takeIf { it == "home" || it == "discover" || it == "profile" }
                 ?.let { switchMainTab(it, animate = false) }
         }
 
@@ -262,7 +265,8 @@ class MainActivity : AppCompatActivity() {
         setIntent(intent)
         val target = intent.getStringExtra("appao_main_tab")
             ?.lowercase(Locale.ROOT)
-            ?.takeIf { it == "home" || it == "apps" || it == "profile" }
+            ?.let { if (it == "apps") "discover" else it }
+            ?.takeIf { it == "home" || it == "discover" || it == "profile" }
         if (target != null && ::rootHost.isInitialized) rootHost.post { switchMainTab(target, animate = false) }
     }
 
@@ -283,7 +287,7 @@ class MainActivity : AppCompatActivity() {
         restoredFeedPosition = state.getInt("main.feed_position", 0).coerceAtLeast(0)
         restoredFeedOffset = state.getInt("main.feed_offset", 0)
         appsTabIsApps = state.getBoolean("main.apps_tab_apps", true)
-        activeMainTab = state.getString("main.active_tab", "home") ?: "home"
+        activeMainTab = when (state.getString("main.active_tab", "home") ?: "home") { "apps", "discover" -> "discover"; "profile" -> "profile"; else -> "home" }
         profileOpen = activeMainTab == "profile"
 
         val raw = state.getString("main.items").orEmpty()
@@ -415,10 +419,13 @@ class MainActivity : AppCompatActivity() {
         homeFeedStack.stateListAnimator = null
         homeFeedStack.isFocusable = false
         homeEmptyNews.visibility = View.GONE
+        findViewById<View>(R.id.homeCategoryScroll).visibility = View.GONE
+        findViewById<View>(R.id.homeFeedContainer).visibility = View.GONE
+        homeNewsSections.visibility = View.GONE
         findViewById<ImageView>(R.id.homeEmptyNewsIcon).setImageDrawable(EmptyNewsIllustrationDrawable(this))
         findViewById<TextView>(R.id.homeQuickTitle).visibility = View.GONE
         findViewById<TextView>(R.id.homeNewsTitle).visibility = View.GONE
-        findViewById<View>(R.id.homeQuickDivider).visibility = View.VISIBLE
+        findViewById<View>(R.id.homeQuickDivider).visibility = View.GONE
 
         homeAddressBar = findViewById(R.id.homeAddressBar)
         homeAddressBar.transitionName = "browser_tab_preview"
@@ -441,42 +448,17 @@ class MainActivity : AppCompatActivity() {
         homeAddressInput.setPadding(0, 0, 0, 0)
         homeAddressInput.imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_GO
         homeAddressInput.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_AUTO_CORRECT
-        homeAddressInput.setOnEditorActionListener { _, _, _ ->
-            val query = homeAddressInput.text?.toString().orEmpty().trim()
-            if (query.isNotBlank()) {
-                hideHomeSuggestions()
-                openNewBrowserTab(normalizeBrowserTarget(query))
-                homeAddressInput.clearFocus()
-                (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(homeAddressInput.windowToken, 0)
-            }
-            true
-        }
-        homeAddressInput.setOnFocusChangeListener { _, focused ->
-            animateHomeSearchMode(focused)
-            homeAddressClear.visibility = if (focused || homeAddressInput.text?.isNotEmpty() == true) View.VISIBLE else View.GONE
-            if (focused) showHomeSuggestions(homeAddressInput.text?.toString().orEmpty()) else homeSuggestionHandler.postDelayed({ hideHomeSuggestions() }, 120)
-        }
-        homeAddressInput.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                homeAddressClear.visibility = if (homeAddressInput.hasFocus() || !s.isNullOrEmpty()) View.VISIBLE else View.GONE
-                if (homeAddressInput.hasFocus()) {
-                    homeSuggestionRunnable?.let(homeSuggestionHandler::removeCallbacks)
-                    val query = s?.toString().orEmpty()
-                    homeSuggestionRunnable = Runnable { showHomeSuggestions(query) }
-                    homeSuggestionRunnable?.let { homeSuggestionHandler.postDelayed(it, 130) }
-                }
-            }
-            override fun afterTextChanged(s: Editable?) = Unit
-        })
+        homeAddressInput.isFocusable = false
+        homeAddressInput.isFocusableInTouchMode = false
+        homeAddressInput.isCursorVisible = false
+        homeAddressInput.showSoftInputOnFocus = false
+        homeAddressClear.visibility = View.GONE
+        homeAddressBar.isClickable = true
+        homeAddressBar.setOnClickListener { openMainBrowserSearch() }
+        homeAddressInput.setOnClickListener { openMainBrowserSearch() }
+        homeAddressClear.setOnClickListener { openMainBrowserSearch() }
         homeSearchEngineIcon.setOnClickListener { showSearchEnginePicker(it) }
         findViewById<View>(R.id.homeSearchEngineButton).setOnClickListener { showSearchEnginePicker(it) }
-        homeAddressClear.setOnClickListener {
-            homeAddressInput.setText("")
-            homeAddressInput.requestFocus()
-            showHomeSuggestions("")
-            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(homeAddressInput, InputMethodManager.SHOW_IMPLICIT)
-        }
         setupHomeNavigation()
         stackBack.scaleType = ImageView.ScaleType.CENTER_CROP
         stackFront.scaleType = ImageView.ScaleType.CENTER_CROP
@@ -484,11 +466,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupHomeNavigation() {
         IconLoader.applyIcon(findViewById(R.id.homeMainNavHomeIcon), "home", R.color.iconTint)
-        IconLoader.applyIcon(findViewById(R.id.homeMainNavAppsIcon), "apps-outline", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.homeMainNavAppsIcon), "compass", R.color.iconTint)
         IconLoader.applyIcon(findViewById(R.id.homeMainNavTabsIcon), "copy", R.color.iconTint)
         IconLoader.applyIcon(findViewById(R.id.homeMainNavProfileIcon), "person-outline", R.color.iconTint)
         findViewById<View>(R.id.homeMainNavHome).setOnClickListener { switchMainTab("home") }
-        findViewById<View>(R.id.homeMainNavApps).setOnClickListener { switchMainTab("apps") }
+        findViewById<View>(R.id.homeMainNavApps).setOnClickListener { switchMainTab("discover") }
         findViewById<View>(R.id.homeMainNavTabs).setOnClickListener {
             hideHomeSuggestions()
             openBrowserTabs()
@@ -505,75 +487,101 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateMainTabSelection(selected: String) {
+        val effective = if (selected == "apps") "discover" else selected
         val defs = listOf(
             Triple("home", R.id.homeMainNavHomeLabel, R.id.homeMainNavHomeIcon),
-            Triple("apps", R.id.homeMainNavAppsLabel, R.id.homeMainNavAppsIcon),
+            Triple("discover", R.id.homeMainNavAppsLabel, R.id.homeMainNavAppsIcon),
             Triple("tabs", R.id.homeMainNavTabsLabel, R.id.homeMainNavTabsIcon),
             Triple("profile", R.id.homeMainNavProfileLabel, R.id.homeMainNavProfileIcon)
         )
         defs.forEach { (name, labelId, iconId) ->
             findViewById<TextView>(labelId).setTextColor(
-                ContextCompat.getColor(this, if (name == selected) R.color.pri else R.color.dim)
+                ContextCompat.getColor(this, if (name == effective) R.color.pri else R.color.dim)
             )
             val iconName = when (name) {
-                "home" -> if (name == selected) "home_filled" else "home"
-                "apps" -> if (name == selected) "apps_filled" else "apps-outline"
+                "home" -> if (name == effective) "home_filled" else "home"
+                "discover" -> if (name == effective) "compass_filled" else "compass"
                 "tabs" -> "copy"
-                else -> if (name == selected) "person" else "person-outline"
+                else -> if (name == effective) "profile_filled" else "profile"
             }
             IconLoader.applyIcon(findViewById(iconId), iconName, R.color.iconTint)
         }
     }
 
-    /** Four stable app tabs. Each content surface is a sibling of the global navigation bar. */
+    /** Four stable bottom tabs. Discover owns the feed; the feed is no longer mounted on Home. */
     private fun switchMainTab(target: String, animate: Boolean = true) {
         if (isFinishing || isDestroyed) return
-        val safeTarget = target.lowercase(Locale.ROOT).let { if (it in setOf("home", "apps", "profile")) it else "home" }
-        hideHomeSuggestions()
+        val requested = target.lowercase(Locale.ROOT)
+        val safeTarget = when (requested) {
+            "discover", "apps" -> "discover"
+            "profile" -> "profile"
+            else -> "home"
+        }
         if (::homeAddressInput.isInitialized) homeAddressInput.clearFocus()
-        runCatching { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(homeAddressBar.windowToken, 0) }
+        if (::homeAddressBar.isInitialized) {
+            runCatching { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(homeAddressBar.windowToken, 0) }
+        }
         feedAnimator?.cancel(); appsAnimator?.cancel()
-        homePage.animate().cancel(); appsPanel.animate().cancel(); profilePanel.animate().cancel()
-        feedOpen = false; sidePanelOpen = false; profileOpen = safeTarget == "profile"
-        feedPanel.visibility = View.GONE
+        homePage.animate().cancel(); feedPanel.animate().cancel(); appsPanel.animate().cancel(); profilePanel.animate().cancel()
+        sidePanelOpen = false
+        profileOpen = safeTarget == "profile"
+        feedOpen = safeTarget == "discover"
         conversationsContent.visibility = View.GONE
 
-        val next = when (safeTarget) { "apps" -> appsPanel; "profile" -> profilePanel; else -> homePage }
-        val old = when {
+        val next: View = when (safeTarget) {
+            "discover" -> feedPanel
+            "profile" -> profilePanel
+            else -> homePage
+        }
+        val old: View = when {
+            feedPanel.visibility == View.VISIBLE -> feedPanel
             profilePanel.visibility == View.VISIBLE -> profilePanel
             appsPanel.visibility == View.VISIBLE -> appsPanel
             else -> homePage
         }
+
         activeMainTab = safeTarget
         updateMainTabSelection(safeTarget)
-
-        // Apps is a genuinely separate, intentionally empty top-level tab.
-        if (safeTarget == "apps") {
-            findViewById<View>(R.id.appsHeaderBar).visibility = View.GONE
-            findViewById<View>(R.id.appsContent).visibility = View.GONE
-            findViewById<View>(R.id.conversationsContent).visibility = View.GONE
-            findViewById<View>(R.id.appsBottomBar).visibility = View.GONE
+        if (safeTarget == "discover") {
+            appsPanel.visibility = View.GONE
+            showFeedAppsTab(false)
+            feedHeader.visibility = View.VISIBLE
+            findViewById<View>(R.id.feedToolbar).visibility = View.VISIBLE
+            findViewById<View>(R.id.feedBottomBar).visibility = View.VISIBLE
+            feedTabsScroll.visibility = View.VISIBLE
         }
 
         if (old === next && next.visibility == View.VISIBLE) {
-            next.translationX = 0f; next.alpha = 1f
+            next.translationX = 0f
+            next.alpha = 1f
             findViewById<View>(R.id.homeMainBottomNav).bringToFront()
             pullIndicator.bringToFront(); progress.bringToFront()
             return
         }
+
         next.visibility = View.VISIBLE
         next.translationX = 0f
         next.alpha = if (animate) 0f else 1f
         next.bringToFront()
         if (old !== next) old.animate().cancel()
         if (!animate) {
-            old.visibility = View.GONE; old.alpha = 1f; old.translationX = 0f
+            old.visibility = View.GONE
+            old.alpha = 1f
+            old.translationX = 0f
             next.alpha = 1f
         } else {
             if (old !== next && old.visibility == View.VISIBLE) {
                 old.animate().alpha(0f).setDuration(150L).setInterpolator(Curves.IOS).withEndAction {
-                    if (activeMainTab != when (old) { appsPanel -> "apps"; profilePanel -> "profile"; else -> "home" }) {
-                        old.visibility = View.GONE; old.alpha = 1f; old.translationX = 0f
+                    val oldName = when (old) {
+                        feedPanel -> "discover"
+                        appsPanel -> "apps"
+                        profilePanel -> "profile"
+                        else -> "home"
+                    }
+                    if (activeMainTab != oldName) {
+                        old.visibility = View.GONE
+                        old.alpha = 1f
+                        old.translationX = 0f
                     }
                 }.start()
             }
@@ -581,6 +589,21 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.homeMainBottomNav).bringToFront()
         pullIndicator.bringToFront(); progress.bringToFront()
+    }
+
+    private fun openMainBrowserSearch(initialQuery: String = "") {
+        if (isFinishing || isDestroyed) return
+        hideHomeSuggestions()
+        if (::homeAddressInput.isInitialized) {
+            homeAddressInput.clearFocus()
+            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
+                .hideSoftInputFromWindow(homeAddressInput.windowToken, 0)
+        }
+        val intent = Intent(this, BrowserSearchActivity::class.java)
+            .putExtra(BrowserSearchActivity.EXTRA_INITIAL_QUERY, initialQuery)
+            .putExtra("browser_private_mode", false)
+        startActivityForResult(intent, REQUEST_MAIN_BROWSER_SEARCH)
+        overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
     }
 
     private fun updateHomeTabCount() {
@@ -655,6 +678,7 @@ class MainActivity : AppCompatActivity() {
         }
         homeSearchEngineIcon.setImageResource(iconRes)
         homeSearchEngineIcon.clearColorFilter()
+        homeSearchEngineIcon.imageTintList = null
         homeSearchEngineIcon.contentDescription = "Motor de pesquisa: $engine"
     }
 
@@ -715,7 +739,7 @@ class MainActivity : AppCompatActivity() {
                 scaleType = ImageView.ScaleType.CENTER_INSIDE
                 IconLoader.applyIcon(this, suggestion.icon, R.color.iconTint)
             }
-            row.addView(icon, LinearLayout.LayoutParams(dp(19), dp(19)))
+            row.addView(icon, LinearLayout.LayoutParams(dp(24), dp(24)))
             row.addView(TextView(this).apply {
                 text = suggestion.label
                 textSize = 14f
@@ -779,10 +803,7 @@ class MainActivity : AppCompatActivity() {
                     return
                 }
 
-                if (dy != 0) {
-                    updateFeedBarsFromScroll(dy)
-                    consumeQuickSitesScroll(rv, dy)
-                }
+                if (dy != 0) updateFeedBarsFromScroll(dy)
                 if (!feedAppsMode && !rv.canScrollVertically(1) && !loading && !exhausted) loadMore()
             }
         })
@@ -867,7 +888,8 @@ class MainActivity : AppCompatActivity() {
         }
         homeQuickSites.translationY = -offset.toFloat()
 
-        homeQuickDivider.visibility = View.VISIBLE
+        // Home no longer hosts the news feed; never show the old divider beneath quick sites.
+        homeQuickDivider.visibility = View.GONE
         val dividerParams = homeQuickDivider.layoutParams as? ViewGroup.MarginLayoutParams ?: return
         val dividerHeight = if (remainingHeight == 0) 0 else dp(1)
         val topMargin = (dp(5) * (1f - progress)).toInt().coerceAtLeast(0)
@@ -903,21 +925,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupFeedHeader() {
-        // Feed content is mounted directly beneath the Home category toggles.
-        // Keep the legacy overlay panel dormant; there is no Discover/Saved bottom bar.
         feedPanel.visibility = View.GONE
-        feedHeader.visibility = View.GONE
-        findViewById<View>(R.id.feedToolbar).visibility = View.GONE
-        findViewById<View>(R.id.feedBottomBar).visibility = View.GONE
-        feedTabsScroll.visibility = View.GONE
+        feedHeader.visibility = View.VISIBLE
+        findViewById<View>(R.id.feedToolbar).visibility = View.VISIBLE
+        findViewById<View>(R.id.feedBottomBar).visibility = View.VISIBLE
+        feedTabsScroll.visibility = View.VISIBLE
+        findViewById<View>(R.id.feedBack).visibility = View.GONE
         findViewById<View>(R.id.feedPublish).visibility = View.GONE
-        feedHeaderHeight = 0
+        findViewById<TextView>(R.id.feedToolbarTitle).text = "Descobrir"
+        findViewById<View>(R.id.feedBack).setOnClickListener { switchMainTab("home") }
+        findViewById<View>(R.id.feedMore).setOnClickListener { showFeedMorePopup(it) }
+        findViewById<View>(R.id.feedNavDiscover).setOnClickListener { showFeedAppsTab(false) }
+        findViewById<View>(R.id.feedNavApps).setOnClickListener { showFeedAppsTab(true) }
+        feedHeaderHeight = dp(104)
         recycler.updatePadding(top = 0, bottom = dp(10))
         findViewById<ImageView>(R.id.feedSavedEmptyIcon).setImageDrawable(EmptySavedIllustrationDrawable(this))
         findViewById<ImageView>(R.id.feedEmptyExploreIcon).setImageDrawable(EmptyNewsIllustrationDrawable(this))
         findViewById<View>(R.id.feedSavedEmpty).visibility = View.GONE
         findViewById<View>(R.id.feedEmptyExplore).visibility = View.GONE
         refreshFeedTabs(scrollToSelection = false)
+        setFeedBottomSelection(discover = true)
     }
 
     private fun hiddenCategories(): MutableSet<String> {
@@ -1198,8 +1225,8 @@ class MainActivity : AppCompatActivity() {
                 // Sites with no bundled PNG download their real favicon from the favicon endpoint.
                 Glide.with(this).load(BrowserTabStore.faviconFor(quickEntry.url)).circleCrop().placeholder(R.drawable.logo).error(R.drawable.logo).into(icon)
             } else {
-                val materialIcon = if (quickEntry.internal == "downloads") R.drawable.ic_download_outline else R.drawable.ic_compass_outline
-                icon.setImageResource(materialIcon)
+                val png = if (quickEntry.internal == "downloads") R.drawable.asset_quick_download else R.drawable.asset_quick_more_sites
+                icon.setImageResource(png)
                 icon.setColorFilter(ContextCompat.getColor(this@MainActivity, R.color.iconTint), android.graphics.PorterDuff.Mode.SRC_IN)
             }
             iconBox.addView(icon, FrameLayout.LayoutParams(-1, -1))
@@ -1561,8 +1588,8 @@ class MainActivity : AppCompatActivity() {
             } else if (shortcut.url.isNotBlank()) {
                 Glide.with(this).load(BrowserTabStore.faviconFor(shortcut.url)).circleCrop().placeholder(R.drawable.logo).error(R.drawable.logo).into(icon)
             } else {
-                val materialIcon = if (shortcut.internal == "downloads") R.drawable.ic_download_outline else R.drawable.ic_compass_outline
-                icon.setImageResource(materialIcon)
+                val png = if (shortcut.internal == "downloads") R.drawable.asset_quick_download else R.drawable.asset_quick_more_sites
+                icon.setImageResource(png)
                 icon.setColorFilter(ContextCompat.getColor(this@MainActivity, R.color.iconTint), android.graphics.PorterDuff.Mode.SRC_IN)
             }
             iconBox.addView(icon, FrameLayout.LayoutParams(-1, -1))
@@ -1593,7 +1620,7 @@ class MainActivity : AppCompatActivity() {
                 isClickable = true; isFocusable = true
                 setOnClickListener { startActivity(Intent(this@MainActivity, SearchActivity::class.java).putExtra("query", entry.query)); overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit) }
             }
-            row.addView(ImageView(this).apply { IconLoader.applyIcon(this, "chat_history", R.color.iconTint) }, LinearLayout.LayoutParams(dp(22), dp(22)))
+            row.addView(ImageView(this).apply { IconLoader.applyIcon(this, "chat_history", R.color.iconTint) }, LinearLayout.LayoutParams(dp(24), dp(24)))
             row.addView(TextView(this).apply {
                 text = entry.title; textSize = 14f; maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END
                 setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text)); setPadding(dp(11),0,0,0)
@@ -1627,7 +1654,7 @@ class MainActivity : AppCompatActivity() {
             addView(ImageView(this@MainActivity).apply {
                 scaleType = ImageView.ScaleType.CENTER_INSIDE
                 IconLoader.applyIcon(this, row.icon, R.color.iconTint)
-            }, LinearLayout.LayoutParams(dp(19), dp(19)))
+            }, LinearLayout.LayoutParams(dp(24), dp(24)))
             addView(TextView(this@MainActivity).apply {
                 text = row.label; textSize = 14.5f
                 setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
@@ -1653,7 +1680,7 @@ class MainActivity : AppCompatActivity() {
                 addView(ImageView(this@MainActivity).apply {
                     scaleType = ImageView.ScaleType.CENTER_INSIDE
                     IconLoader.applyIcon(this, "arrow_right", R.color.dim)
-                }, LinearLayout.LayoutParams(dp(15), dp(15)))
+                }, LinearLayout.LayoutParams(dp(24), dp(24)))
             }
             setOnClickListener { row.action() }
         }
@@ -1834,9 +1861,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openFeedPanelImmediate() {
-        feedOpen = false
-        feedPanel.visibility = View.GONE
-        switchMainTab("home", animate = false)
+        feedOpen = true
+        switchMainTab("discover", animate = false)
         if (::recycler.isInitialized) recycler.scrollToPosition(0)
     }
 
@@ -1851,14 +1877,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openFeedPanel(gestureProgress: Float? = null) {
-        feedOpen = false
-        feedPanel.visibility = View.GONE
-        switchMainTab("home")
+        feedOpen = true
+        switchMainTab("discover")
     }
 
     private fun closeFeedPanel(gestureProgress: Float? = null) {
         feedOpen = false
-        feedPanel.visibility = View.GONE
         switchMainTab("home")
     }
 
@@ -1957,7 +1981,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateFeedBarsFromScroll(dy: Int) {
-        // The legacy feed app bar is hidden; Home's category toggles stay pinned.
+        // Discover uses a stable native toolbar; only the news list scrolls beneath it.
         feedBarProgress = if (recycler.computeVerticalScrollOffset() <= 0) 0f else 1f
         feedHeader.translationY = 0f
     }
@@ -2210,14 +2234,10 @@ class MainActivity : AppCompatActivity() {
         val launch = Intent(this, BrowserTabsActivity::class.java)
             .putExtra("source_tab_id", "__home__")
             .putExtra("home_snapshot_path", homeSnapshot.orEmpty())
-        val launched = runCatching {
-            val options = android.app.ActivityOptions.makeSceneTransitionAnimation(this, homeAddressBar, "browser_tab_preview")
-            startActivity(launch, options.toBundle())
-        }.isSuccess
-        if (!launched) {
-            startActivity(launch)
-            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
-        }
+        // Open the overview as its own Activity with a stable fade. The container transform is
+        // reserved for opening an individual tab card into its live WebView.
+        startActivity(launch)
+        overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
     }
 
     /** Captures the currently rendered home surface for the first-class Home tab preview. */
@@ -2318,11 +2338,16 @@ class MainActivity : AppCompatActivity() {
             (this as? ViewGroup.MarginLayoutParams)?.topMargin = dp(headerHeightDp) + feedStatusBarInset
         }
         findViewById<View>(R.id.feedAppsContent).layoutParams = findViewById<View>(R.id.feedAppsContent).layoutParams.apply {
-            (this as? ViewGroup.MarginLayoutParams)?.topMargin = dp(headerHeightDp) + feedStatusBarInset
+            (this as? ViewGroup.MarginLayoutParams)?.let { it.topMargin = dp(headerHeightDp) + feedStatusBarInset; it.bottomMargin = dp(128) }
+        }
+        (recycler.layoutParams as? android.widget.FrameLayout.LayoutParams)?.let {
+            it.topMargin = dp(headerHeightDp) + feedStatusBarInset
+            it.bottomMargin = dp(128)
+            recycler.layoutParams = it
         }
         feedHeader.layoutParams = feedHeader.layoutParams.apply { height = dp(headerHeightDp) + feedStatusBarInset }
         feedHeaderHeight = dp(headerHeightDp) + feedStatusBarInset
-        recycler.updatePadding(top = feedHeaderHeight)
+        recycler.updatePadding(top = 0, bottom = dp(10))
         findViewById<TextView>(R.id.feedToolbarTitle).text = if (showSaved) "Guardados" else "Descobrir"
         if (showSaved) adapter.submit(savedItems) else adapter.submit(items)
         setFeedBottomSelection(discover = !showSaved)
@@ -2595,6 +2620,11 @@ class MainActivity : AppCompatActivity() {
     @Deprecated("Uses legacy result callbacks to remain compatible with the existing Activity structure")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_MAIN_BROWSER_SEARCH && resultCode == RESULT_OK) {
+            val target = data?.getStringExtra(BrowserSearchActivity.EXTRA_RESULT_VALUE)?.trim().orEmpty()
+            if (target.isNotBlank()) openNewBrowserTab(normalizeBrowserTarget(target))
+            return
+        }
         if ((requestCode == 902 || requestCode == 903) && resultCode == RESULT_OK) {
             val selected = data?.getStringArrayListExtra("image_uris").orEmpty()
             val single = data?.getStringExtra("image_uri") ?: data?.data?.toString()
@@ -2742,7 +2772,7 @@ class MainActivity : AppCompatActivity() {
                 (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(homeAddressInput.windowToken, 0)
                 animateHomeSearchMode(false)
             }
-            activeMainTab == "apps" || activeMainTab == "profile" -> switchMainTab("home")
+            activeMainTab == "discover" || activeMainTab == "apps" || activeMainTab == "profile" -> switchMainTab("home")
             sidePanelOpen -> closeAppsPanel() // Legacy edge-swipe panel; separate from the real Apps tab.
             else -> super.onBackPressed()
         }
@@ -2758,7 +2788,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         if (::biBar.isInitialized) updateBrowserTabCount()
         if (::homeAddressInput.isInitialized) updateHomeTabCount()
-        if (::appsPanel.isInitialized && activeMainTab == "apps") {
+        if (::appsPanel.isInitialized && activeMainTab == "legacy_apps") {
             appsPanel.setBackgroundColor(ContextCompat.getColor(this, R.color.bg))
             findViewById<View>(R.id.appsHeaderBar).visibility = View.GONE
             findViewById<View>(R.id.appsContent).visibility = View.GONE

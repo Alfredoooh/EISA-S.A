@@ -131,7 +131,7 @@ class HistoryActivity : AppCompatActivity() {
                     .error(faviconFallback)
                     .into(icon)
             }
-            row.addView(icon, LinearLayout.LayoutParams(dp(19), dp(19)))
+            row.addView(icon, LinearLayout.LayoutParams(dp(24), dp(24)))
             val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, dp(4), 0) }
             column.addView(TextView(this).apply {
                 text = entry.title.ifBlank { entry.url }; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END

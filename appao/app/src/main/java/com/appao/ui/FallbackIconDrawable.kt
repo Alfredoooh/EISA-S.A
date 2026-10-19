@@ -1,4 +1,5 @@
-package com.appao.ui
+package com.appao
+
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint

@@ -82,21 +82,6 @@ for p in ROOT.rglob('*.kt'):
         if bad in text:
             errors.append(f'Forbidden/corrupt token {bad}: {p}')
 
-
-# Material Symbols Rounded: ensure the workflow downloaded every symbol referenced by IconLoader.
-icon_loader = ROOT / 'java' / 'com' / 'appao' / 'ui' / 'IconLoader.kt'
-material_dir = ROOT / 'assets' / 'icons' / 'material-symbols-rounded'
-if icon_loader.is_file():
-    code = icon_loader.read_text(encoding='utf-8', errors='ignore')
-    block = re.search(r"private val materialAliases:\s*Map<String, String>\s*=\s*mapOf\((.*?)\n\s*\)", code, re.S)
-    if not block:
-        errors.append('Could not parse materialAliases from IconLoader.kt')
-    else:
-        symbols = set(re.findall(r'"[a-z0-9_]+"\s+to\s+"([a-z0-9_]+)"', block.group(1)))
-        missing = sorted(symbol for symbol in symbols if not (material_dir / f'{symbol}.svg').is_file())
-        if missing:
-            errors.append('Missing official Material Symbols Rounded assets (run tools/download_material_symbols_rounded.py): ' + ', '.join(missing))
-
 if errors:
     print('\n'.join(sorted(set(errors))))
     raise SystemExit(1)

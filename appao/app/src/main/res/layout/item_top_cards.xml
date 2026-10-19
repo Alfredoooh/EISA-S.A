@@ -82,8 +82,8 @@
 
                 <ImageView
                     android:id="@+id/topSavingsIcon"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
                     android:scaleType="fitCenter" />
 
                 <TextView
@@ -126,8 +126,8 @@
 
                 <ImageView
                     android:id="@+id/topHistoryIcon"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
                     android:scaleType="fitCenter" />
 
                 <TextView

@@ -192,7 +192,7 @@ class BrowserDownloadsActivity : AppCompatActivity() {
         isFocusable = true
         val image = ImageView(this@BrowserDownloadsActivity)
         IconLoader.applyIcon(image, name, R.color.iconTint)
-        addView(image, LinearLayout.LayoutParams(dp(21), dp(21)))
+        addView(image, LinearLayout.LayoutParams(dp(24), dp(24)))
         layoutParams = LinearLayout.LayoutParams(dp(40), dp(44))
     }
 

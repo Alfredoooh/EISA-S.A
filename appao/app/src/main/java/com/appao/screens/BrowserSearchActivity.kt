@@ -28,9 +28,11 @@ import com.appao.BrowsingHistoryStore
 import com.appao.R
 import com.appao.SystemBarHelper
 import com.appao.ui.IconLoader
+import com.appao.ui.NativePopupMenu
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
 
 /** Dedicated address/search screen. It returns a target to the browser instead of adding itself to browser history. */
@@ -43,6 +45,8 @@ class BrowserSearchActivity : AppCompatActivity() {
     private lateinit var input: EditText
     private lateinit var rows: LinearLayout
     private lateinit var engineLabel: TextView
+    private lateinit var engineIcon: ImageView
+    private lateinit var clearIcon: View
     private val handler = Handler(Looper.getMainLooper())
     private var pendingSearch: Runnable? = null
     private var generation = 0L
@@ -59,6 +63,7 @@ class BrowserSearchActivity : AppCompatActivity() {
         val initial = intent.getStringExtra(EXTRA_INITIAL_QUERY).orEmpty()
         input.setText(initial)
         input.setSelection(input.text?.length ?: 0)
+        clearIcon.visibility = if (initial.isNotBlank()) View.VISIBLE else View.GONE
         renderSuggestions(initial.trim(), emptyList())
         configureInput()
 
@@ -84,7 +89,7 @@ class BrowserSearchActivity : AppCompatActivity() {
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(8), dp(7), dp(10), dp(7))
+            setPadding(dp(8), dp(7), dp(8), dp(7))
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58))
         }
         val back = FrameLayout(this).apply {
@@ -93,7 +98,7 @@ class BrowserSearchActivity : AppCompatActivity() {
             foreground = ContextCompat.getDrawable(this@BrowserSearchActivity, R.drawable.bg_transparent_pressed)
             contentDescription = "Voltar ao browser"
             addView(ImageView(this@BrowserSearchActivity).apply {
-                layoutParams = FrameLayout.LayoutParams(dp(20), dp(20), Gravity.CENTER)
+                layoutParams = FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER)
                 scaleType = ImageView.ScaleType.CENTER_INSIDE
                 IconLoader.applyIcon(this, "arrow_left", R.color.iconTint)
             })
@@ -101,43 +106,54 @@ class BrowserSearchActivity : AppCompatActivity() {
         }
         header.addView(back, LinearLayout.LayoutParams(dp(40), dp(42)))
 
+        // This is the same 42dp toolbar pill used by activity_app_viewer.xml.
         val pill = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(13), 0, dp(9), 0)
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dp(24).toFloat()
-                setColor(ContextCompat.getColor(this@BrowserSearchActivity, R.color.card2))
-                setStroke(dp(1), ContextCompat.getColor(this@BrowserSearchActivity, R.color.border))
-            }
+            setPadding(dp(10), 0, dp(5), 0)
+            background = ContextCompat.getDrawable(this@BrowserSearchActivity, R.drawable.bg_toolbar_actions)
         }
+        engineIcon = ImageView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(20), dp(20))
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            contentDescription = "Escolher motor de pesquisa"
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { showSearchEnginePicker(this) }
+        }
+        pill.addView(engineIcon)
         input = EditText(this).apply {
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f).apply { marginStart = dp(7) }
             background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
             setSingleLine(true)
             imeOptions = EditorInfo.IME_ACTION_GO
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_AUTO_CORRECT
             setTextColor(ContextCompat.getColor(this@BrowserSearchActivity, R.color.text))
             setHintTextColor(ContextCompat.getColor(this@BrowserSearchActivity, R.color.dim))
-            textSize = 15f
+            textSize = 14f
             hint = "Pesquisar ou inserir endereço"
-            setPadding(0, 0, dp(6), 0)
+            setPadding(0, 0, dp(4), 0)
         }
         pill.addView(input)
-        val go = FrameLayout(this).apply {
+        clearIcon = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(30), dp(34))
             isClickable = true
             isFocusable = true
+            visibility = View.GONE
             foreground = ContextCompat.getDrawable(this@BrowserSearchActivity, R.drawable.bg_transparent_pressed)
-            contentDescription = "Pesquisar"
+            contentDescription = "Limpar pesquisa"
             addView(ImageView(this@BrowserSearchActivity).apply {
-                layoutParams = FrameLayout.LayoutParams(dp(19), dp(19), Gravity.CENTER)
+                layoutParams = FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER)
                 scaleType = ImageView.ScaleType.CENTER_INSIDE
-                IconLoader.applyIcon(this, "search", R.color.iconTint)
+                IconLoader.applyIcon(this, "close", R.color.iconTint)
             })
-            setOnClickListener { submit(input.text?.toString().orEmpty()) }
+            setOnClickListener {
+                input.setText("")
+                input.requestFocus()
+                (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+            }
         }
-        pill.addView(go, LinearLayout.LayoutParams(dp(34), dp(38)))
+        pill.addView(clearIcon)
         header.addView(pill, LinearLayout.LayoutParams(0, dp(42), 1f))
         root.addView(header)
 
@@ -154,9 +170,39 @@ class BrowserSearchActivity : AppCompatActivity() {
             setPadding(dp(8), dp(3), dp(8), dp(18))
         }
         rows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        scroll.addView(rows, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        scroll.addView(rows, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        updateSearchEngineIcon()
         return root
+    }
+
+    private fun updateSearchEngineIcon() {
+        if (!::engineIcon.isInitialized) return
+        val icon = when (BrowserPreferences.searchEngine(this).lowercase(Locale.ROOT)) {
+            "bing" -> R.drawable.site_icon_bing
+            "duckduckgo" -> R.drawable.site_icon_duckduckgo
+            "brave" -> R.drawable.asset_search_brave
+            else -> R.drawable.site_icon_google
+        }
+        engineIcon.setImageResource(icon)
+        engineIcon.clearColorFilter()
+        engineIcon.imageTintList = null
+    }
+
+    private fun showSearchEnginePicker(anchor: View) {
+        val current = BrowserPreferences.searchEngine(this)
+        NativePopupMenu.show(anchor, listOf(
+            NativePopupMenu.Item(1, "Google", checked = current.equals("Google", true), iconResId = R.drawable.site_icon_google),
+            NativePopupMenu.Item(2, "Bing", checked = current.equals("Bing", true), iconResId = R.drawable.site_icon_bing),
+            NativePopupMenu.Item(3, "DuckDuckGo", checked = current.equals("DuckDuckGo", true), iconResId = R.drawable.site_icon_duckduckgo),
+            NativePopupMenu.Item(4, "Brave Search", checked = current.equals("Brave", true), iconResId = R.drawable.asset_search_brave)
+        )) { item ->
+            val engine = when (item.id) { 2 -> "Bing"; 3 -> "DuckDuckGo"; 4 -> "Brave"; else -> "Google" }
+            BrowserPreferences.setSearchEngine(this, engine)
+            updateSearchEngineIcon()
+            if (::engineLabel.isInitialized) engineLabel.text = "Motor de pesquisa: $engine"
+            renderSuggestions(input.text?.toString().orEmpty().trim(), emptyList())
+        }
     }
 
     private fun configureInput() {
@@ -171,6 +217,7 @@ class BrowserSearchActivity : AppCompatActivity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 pendingSearch?.let(handler::removeCallbacks)
                 val query = s?.toString().orEmpty().trim()
+                clearIcon.visibility = if (query.isNotEmpty()) View.VISIBLE else View.GONE
                 renderSuggestions(query, emptyList())
                 if (query.isBlank()) return
                 val callGeneration = ++generation
@@ -203,7 +250,7 @@ class BrowserSearchActivity : AppCompatActivity() {
                 isFocusable = true
             }
             row.addView(ImageView(this).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(19), dp(19))
+                layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
                 scaleType = ImageView.ScaleType.CENTER_INSIDE
                 IconLoader.applyIcon(this, iconName, R.color.iconTint)
             })

@@ -60,10 +60,10 @@
         <activity android:name=".CategoryManagerActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
         <activity android:name=".CommentsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
         <activity android:name=".PublishActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
-        <activity android:name="com.appao.screens.BrowserTabsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
-        <activity android:name="com.appao.screens.BrowserSearchActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
-        <activity android:name="com.appao.screens.BrowserDownloadsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
-        <activity android:name="com.appao.screens.HistorySettingsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
-        <activity android:name="com.appao.screens.AppViewerActivity" android:exported="false" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
+        <activity android:name=".screens.BrowserSearchActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
+        <activity android:name=".screens.BrowserTabsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
+        <activity android:name=".screens.BrowserDownloadsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
+        <activity android:name=".screens.HistorySettingsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
+        <activity android:name=".screens.AppViewerActivity" android:exported="false" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
     </application>
 </manifest>

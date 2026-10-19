@@ -59,8 +59,8 @@
                 android:contentDescription="Limpar pesquisa">
                 <ImageView
                     android:id="@+id/browserAddressClearIcon"
-                    android:layout_width="17dp"
-                    android:layout_height="17dp"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
                     android:layout_gravity="center"
                     android:scaleType="fitCenter" />
             </FrameLayout>
@@ -95,8 +95,8 @@
             android:focusable="true">
             <ImageView
                 android:id="@+id/appViewerMoreIcon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
                 android:layout_gravity="center"
                 android:scaleType="fitCenter" />
         </FrameLayout>
@@ -139,8 +139,8 @@
             android:contentDescription="Fechar pesquisa">
             <ImageView
                 android:id="@+id/browserFindCloseIcon"
-                android:layout_width="17dp"
-                android:layout_height="17dp"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
                 android:layout_gravity="center"
                 android:scaleType="fitCenter" />
         </FrameLayout>

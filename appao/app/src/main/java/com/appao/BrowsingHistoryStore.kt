@@ -2,9 +2,11 @@ package com.appao
 
 import android.content.Context
 import android.net.Uri
+import com.appao.screens.BrowserTabStore
+import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
-import java.util.Locale
+
 
 /** Compact local history for Browser pages and AI/conversation queries. */
 object BrowsingHistoryStore {

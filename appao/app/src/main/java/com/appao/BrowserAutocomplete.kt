@@ -1,9 +1,10 @@
 package com.appao
 
-import org.json.JSONArray
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import org.json.JSONArray
+
 
 /** Live search suggestions from Google's public, undocumented autocomplete endpoint. */
 object BrowserAutocomplete {

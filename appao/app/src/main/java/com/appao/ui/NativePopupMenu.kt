@@ -1,4 +1,4 @@
-package com.appao
+package com.appao.ui
 
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
@@ -13,6 +13,9 @@ import android.widget.PopupWindow
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import com.appao.AccentColorManager
+import com.appao.R
+
 
 /** Compact, scrollable popup used by the browser. Rows keep the same restrained dimensions on every screen. */
 object NativePopupMenu {

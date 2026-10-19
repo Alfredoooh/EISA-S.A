@@ -1,4 +1,4 @@
-package com.appao
+package com.appao.screens
 
 import android.os.Bundle
 import android.view.Gravity
@@ -10,7 +10,16 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import com.appao.AppAoToast
+import com.appao.BrowserPreferences
+import com.appao.BrowsingHistoryStore
+import com.appao.ConversationHistoryStore
+import com.appao.NativeM3Dialog
+import com.appao.R
+import com.appao.SystemBarHelper
+import com.appao.ui.IconLoader
 import com.google.android.material.materialswitch.MaterialSwitch
+
 
 /** History-specific controls, intentionally separate from global app settings. */
 class HistorySettingsActivity : AppCompatActivity() {

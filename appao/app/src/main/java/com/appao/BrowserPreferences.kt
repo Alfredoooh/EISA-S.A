@@ -5,6 +5,7 @@ import android.webkit.WebSettings
 import java.net.URLEncoder
 import java.util.Locale
 
+
 /** Persisted browser-specific options, kept separate from the app's global theme settings. */
 object BrowserPreferences {
     private const val PREFS = "appao_browser"

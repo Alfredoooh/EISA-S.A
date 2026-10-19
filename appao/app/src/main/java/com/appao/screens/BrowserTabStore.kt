@@ -1,12 +1,14 @@
-package com.appao
+package com.appao.screens
 
 import android.content.Context
 import android.graphics.Bitmap
-import org.json.JSONArray
-import org.json.JSONObject
+import com.appao.BrowsingHistoryStore
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
+import org.json.JSONArray
+import org.json.JSONObject
+
 
 /** Small local tab store: URLs, titles, favicon URLs and WebView snapshots persist between launches. */
 data class BrowserTab(

@@ -1,4 +1,4 @@
-package com.appao
+package com.appao.screens
 
 import android.app.DownloadManager
 import android.content.Context
@@ -15,7 +15,14 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import com.appao.AppAoToast
+import com.appao.NativeM3Dialog
+import com.appao.R
+import com.appao.SystemBarHelper
+import com.appao.ui.IconLoader
+import com.appao.ui.NativePopupMenu
 import java.util.Locale
+
 
 /** Native list for downloads created by the in-app WebView. */
 class BrowserDownloadsActivity : AppCompatActivity() {

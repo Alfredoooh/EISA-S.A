@@ -1,4 +1,4 @@
-package com.appao
+package com.appao.screens
 
 import android.content.Intent
 import android.graphics.drawable.GradientDrawable
@@ -22,9 +22,16 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
+import com.appao.BrowserAutocomplete
+import com.appao.BrowserPreferences
+import com.appao.BrowsingHistoryStore
+import com.appao.R
+import com.appao.SystemBarHelper
+import com.appao.ui.IconLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
 
 /** Dedicated address/search screen. It returns a target to the browser instead of adding itself to browser history. */
 class BrowserSearchActivity : AppCompatActivity() {

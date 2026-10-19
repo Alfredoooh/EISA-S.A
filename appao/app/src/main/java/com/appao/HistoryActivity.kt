@@ -13,11 +13,15 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.bumptech.glide.Glide
 import androidx.core.view.WindowCompat
+import com.appao.screens.AppViewerActivity
+import com.appao.screens.BrowserTabStore
+import com.appao.ui.IconLoader
+import com.bumptech.glide.Glide
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
 
 /** Real browser history, separate from history/privacy settings. */
 class HistoryActivity : AppCompatActivity() {

@@ -1,11 +1,12 @@
-package com.appao
+package com.appao.screens
 
 import android.app.Activity
 import android.view.ViewGroup
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.webkit.WebChromeClient
 import java.lang.ref.WeakReference
+
 
 /** Keeps one live WebView per browser tab so tab selection preserves DOM, scroll position and back/forward state. */
 object BrowserWebViewPool {

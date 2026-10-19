@@ -1,18 +1,20 @@
-package com.appao
+package com.appao.ui
 
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
 import android.graphics.ColorFilter
+import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.util.LruCache
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
+import com.appao.R
 import com.caverock.androidsvg.SVG
 import java.util.Locale
+
 
 object IconLoader {
     private val sourceCache = LruCache<String, String>(96)

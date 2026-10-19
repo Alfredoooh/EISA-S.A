@@ -1,4 +1,4 @@
-package com.appao
+package com.appao.screens
 
 import android.app.ActivityOptions
 import android.content.Intent
@@ -16,8 +16,16 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.appao.EmptyNewsIllustrationDrawable
+import com.appao.MainActivity
+import com.appao.R
+import com.appao.SystemBarHelper
+import com.appao.ui.BrowserTransitions
+import com.appao.ui.IconLoader
+import com.appao.ui.NativePopupMenu
 import com.bumptech.glide.Glide
 import java.io.File
+
 
 /** Browser overview. The original WebView activity remains underneath, preserving the live page. */
 class BrowserTabsActivity : AppCompatActivity() {

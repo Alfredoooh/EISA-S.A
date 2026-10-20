@@ -27,11 +27,22 @@
             android:paddingStart="10dp"
             android:paddingEnd="5dp"
             android:background="@drawable/bg_toolbar_actions">
-            <ImageView
-                android:id="@+id/browserFavicon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:scaleType="centerInside" />
+            <FrameLayout
+                android:layout_width="24dp"
+                android:layout_height="24dp">
+                <ImageView
+                    android:id="@+id/browserFavicon"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:scaleType="centerInside" />
+                <com.appao.PullRefreshIndicatorView
+                    android:id="@+id/browserFaviconLoader"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:visibility="gone" />
+            </FrameLayout>
             <EditText
                 android:id="@+id/browserAddress"
                 android:layout_width="0dp"
@@ -146,26 +157,21 @@
         </FrameLayout>
     </LinearLayout>
 
-    <WebView
-        android:id="@+id/webView"
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/webSwipeRefresh"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_marginTop="0dp"
-        android:layout_marginBottom="0dp"
-        android:elevation="0dp"
-        android:background="@color/bg"
-        android:transitionName="browser_tab_preview" />
+        android:layout_height="match_parent">
 
-    <View
-        android:id="@+id/appProgress"
-        android:layout_width="0dp"
-        android:layout_height="3dp"
-        android:layout_gravity="top|start"
-        android:layout_marginTop="58dp"
-        android:background="@drawable/progress_gradient"
-        android:alpha="0"
-        android:elevation="20dp"
-        android:translationZ="20dp" />
+        <WebView
+            android:id="@+id/webView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="0dp"
+            android:layout_marginBottom="0dp"
+            android:elevation="0dp"
+            android:background="@color/bg"
+            android:transitionName="browser_tab_preview" />
 
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
 </FrameLayout>

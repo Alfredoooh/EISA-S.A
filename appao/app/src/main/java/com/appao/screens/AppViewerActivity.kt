@@ -72,6 +72,7 @@ import com.appao.MainActivity
 import com.appao.NativeHtmlDialog
 import com.appao.NativeM3Dialog
 import com.appao.NativeSheetDialog
+import com.appao.PullRefreshIndicatorView
 import com.appao.R
 import com.appao.SystemBarHelper
 import com.appao.ui.BrowserTransitions
@@ -92,7 +93,10 @@ import com.appao.SearchActivity
 /** Full in-app WebView browser with persistent tabs, address bar, native browser menu and downloads. */
 class AppViewerActivity : AppCompatActivity() {
     private lateinit var web: WebView
-    private lateinit var progress: View
+    private lateinit var swipeRefresh: androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+    private lateinit var faviconLoader: PullRefreshIndicatorView
+    private var faviconLoaderAnimator: android.animation.ValueAnimator? = null
+    private var topBarMarginAnimator: android.animation.ValueAnimator? = null
     private lateinit var address: EditText
     private lateinit var favicon: ImageView
     private var rendererRecoveryAttempted = false
@@ -144,7 +148,8 @@ class AppViewerActivity : AppCompatActivity() {
 
         val root = findViewById<android.widget.FrameLayout>(R.id.appViewerRoot)
         val placeholder = findViewById<WebView>(R.id.webView)
-        progress = findViewById(R.id.appProgress)
+        swipeRefresh = findViewById(R.id.webSwipeRefresh)
+        faviconLoader = findViewById(R.id.browserFaviconLoader)
         address = findViewById(R.id.browserAddress)
         favicon = findViewById(R.id.browserFavicon)
         findBar = findViewById(R.id.browserFindBar)
@@ -175,7 +180,6 @@ class AppViewerActivity : AppCompatActivity() {
         }
         BrowserWebViewPool.setOwner(tabId, this)
         web.transitionName = intent.getStringExtra("transition_name") ?: "browser_tab_preview"
-        applyProgressAccent()
 
         IconLoader.applyIcon(findViewById(R.id.appViewerMoreIcon), "more_vert", R.color.iconTint)
         IconLoader.applyIcon(findViewById(R.id.browserFindCloseIcon), "close", R.color.iconTint)
@@ -212,8 +216,6 @@ class AppViewerActivity : AppCompatActivity() {
                 javaScriptEnabled = true
                 domStorageEnabled = true
                 databaseEnabled = true
-                // A browser must not let a normal web page read arbitrary local files.
-                // Uploads still use the system document picker through onShowFileChooser.
                 allowFileAccess = false
                 allowContentAccess = true
                 allowFileAccessFromFileURLs = false
@@ -263,10 +265,10 @@ class AppViewerActivity : AppCompatActivity() {
             }
         })
 
-        progress.post {
-            if (progress.layoutParams.width == 0) progress.layoutParams.width = (resources.displayMetrics.widthPixels * .06f).toInt()
-            progress.alpha = 0f
+        swipeRefresh.setOnRefreshListener {
+            web.reload()
         }
+
         val activeUrl = if (reusedWebView) web.url.orEmpty().ifBlank { initialUrl } else initialUrl
         address.setText(activeUrl)
         loadFavicon(activeUrl)
@@ -311,7 +313,7 @@ class AppViewerActivity : AppCompatActivity() {
             override fun onPageStarted(view: WebView, url: String, faviconBitmap: Bitmap?) {
                 if (browserBarHidden && !address.hasFocus() && !findMode) setBrowserBarHidden(false)
                 if (!address.hasFocus()) address.setText(url)
-                progress.alpha = 1f
+                startFaviconLoader()
             }
 
             override fun onPageFinished(view: WebView, url: String) {
@@ -323,6 +325,8 @@ class AppViewerActivity : AppCompatActivity() {
                 updateTabCounters()
                 refreshAdaptiveBarColor()
                 view.postDelayed({ savePageSnapshot() }, 320L)
+                stopFaviconLoader()
+                swipeRefresh.isRefreshing = false
             }
 
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
@@ -357,12 +361,7 @@ class AppViewerActivity : AppCompatActivity() {
         }
         web.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                val width = resources.displayMetrics.widthPixels
-                val lp = progress.layoutParams
-                lp.width = (width * newProgress / 100f).toInt().coerceIn(0, width)
-                progress.layoutParams = lp
-                progress.alpha = if (newProgress >= 100) 0f else 1f
-                if (newProgress >= 100) progress.postDelayed({ progress.alpha = 0f }, 120)
+                if (newProgress >= 100) stopFaviconLoader()
             }
             override fun onShowFileChooser(
                 view: WebView?,
@@ -427,8 +426,6 @@ class AppViewerActivity : AppCompatActivity() {
     }
 
     private fun configureAddressInput() {
-        // The address pill is a launcher, not an inline editable field. Search suggestions live
-        // in BrowserSearchActivity so system back always returns directly to the current page.
         address.isFocusable = false
         address.isFocusableInTouchMode = false
         address.isCursorVisible = false
@@ -498,22 +495,13 @@ class AppViewerActivity : AppCompatActivity() {
         place(topBar)
         place(findBar)
 
-        // The WebView always keeps the same bounds. Moving its margins during a collapse caused
-        // re-layout/scroll feedback, which looked like jitter and occasionally jumped the page.
-        val webParams = web.layoutParams as? android.widget.FrameLayout.LayoutParams
-        webParams?.let {
-            // The viewport never overlaps the toolbar. Keep these margins stable during collapse
-            // so scrolling a page cannot resize/reposition the WebView and create feedback jitter.
-            it.topMargin = if (bottom) 0 else dp(58)
-            it.bottomMargin = if (bottom) dp(58) else 0
-            web.layoutParams = it
-        }
-        val progressParams = progress.layoutParams as? android.widget.FrameLayout.LayoutParams
-        progressParams?.let {
-            it.gravity = if (bottom) Gravity.BOTTOM or Gravity.START else Gravity.TOP or Gravity.START
-            it.topMargin = if (!bottom && !browserBarHidden) dp(58) else 0
-            it.bottomMargin = if (bottom && !browserBarHidden) dp(58) else 0
-            progress.layoutParams = it
+        val barHeightPx = topBar.height.takeIf { it > 0 } ?: dp(58)
+        val swipeParams = swipeRefresh.layoutParams as? android.widget.FrameLayout.LayoutParams
+        swipeParams?.let {
+            val margin = if (browserBarHidden) 0 else barHeightPx
+            it.topMargin = if (bottom) 0 else margin
+            it.bottomMargin = if (bottom) margin else 0
+            swipeRefresh.layoutParams = it
         }
     }
 
@@ -523,12 +511,31 @@ class AppViewerActivity : AppCompatActivity() {
         if (browserBarHidden == hidden) return
         browserBarHidden = hidden
         val bottom = BrowserPreferences.addressBarPosition(this).equals("bottom", true)
+        val barHeightPx = topBar.height.takeIf { it > 0 } ?: dp(58)
         val direction = if (bottom) 1f else -1f
         topBar.animate().cancel()
+        topBarMarginAnimator?.cancel()
+
+        val webParams = swipeRefresh.layoutParams as? android.widget.FrameLayout.LayoutParams
+        val startMargin = if (bottom) (webParams?.bottomMargin ?: barHeightPx) else (webParams?.topMargin ?: barHeightPx)
+        val endMargin = if (hidden) 0 else barHeightPx
+
+        topBarMarginAnimator = android.animation.ValueAnimator.ofInt(startMargin, endMargin).apply {
+            duration = 170L
+            interpolator = Curves.IOS
+            addUpdateListener {
+                val value = it.animatedValue as Int
+                val lp = swipeRefresh.layoutParams as? android.widget.FrameLayout.LayoutParams ?: return@addUpdateListener
+                if (bottom) lp.bottomMargin = value else lp.topMargin = value
+                swipeRefresh.layoutParams = lp
+            }
+            start()
+        }
+
         if (hidden) {
             topBar.visibility = View.VISIBLE
             topBar.animate()
-                .translationY(direction * dp(60))
+                .translationY(direction * barHeightPx)
                 .alpha(0f)
                 .setDuration(170L)
                 .setInterpolator(Curves.IOS)
@@ -537,7 +544,7 @@ class AppViewerActivity : AppCompatActivity() {
         } else {
             topBar.visibility = View.VISIBLE
             topBar.alpha = 0f
-            topBar.translationY = direction * dp(60)
+            topBar.translationY = direction * barHeightPx
             topBar.animate().alpha(1f).translationY(0f)
                 .setDuration(170L)
                 .setInterpolator(Curves.IOS)
@@ -748,7 +755,6 @@ class AppViewerActivity : AppCompatActivity() {
             }.show()
     }
 
-    /** Browser controls are presented in a native, bottom-aligned sheet. The action toolbar stays fixed while the list scrolls. */
     private fun showPageMenu(anchor: View) {
         val adsEnabled = BrowserPreferences.adBlockEnabled(this)
         val forceDarkEnabled = BrowserPreferences.forceDarkEnabled(this)
@@ -902,7 +908,6 @@ class AppViewerActivity : AppCompatActivity() {
         }.onFailure { AppAoToast.show(this, "Não foi possível iniciar a transferência") }
     }
 
-    /** Compact bottom control: the page zoom changes continuously while the thumb moves. */
     private fun showZoomBar() {
         val root = findViewById<android.widget.FrameLayout>(R.id.appViewerRoot)
         zoomBar?.let { old -> (old.parent as? ViewGroup)?.removeView(old) }
@@ -1256,7 +1261,6 @@ class AppViewerActivity : AppCompatActivity() {
             settings.userAgentString = if (BrowserPreferences.desktopSiteEnabled(this)) BrowserPreferences.desktopUserAgent(this) else WebSettings.getDefaultUserAgent(this)
         }
         runCatching {
-            // Prefer WebView's algorithmic darkening API when the installed provider supports it.
             if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
                 WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, forceDark)
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -1264,6 +1268,25 @@ class AppViewerActivity : AppCompatActivity() {
                 settings.forceDark = if (forceDark) WebSettings.FORCE_DARK_ON else WebSettings.FORCE_DARK_OFF
             }
         }
+    }
+
+    private fun startFaviconLoader() {
+        if (faviconLoaderAnimator?.isRunning == true) return
+        faviconLoader.visibility = View.VISIBLE
+        faviconLoader.rotationDegrees = 0f
+        faviconLoaderAnimator = android.animation.ValueAnimator.ofFloat(0f, 360f).apply {
+            duration = 900L
+            repeatCount = android.animation.ValueAnimator.INFINITE
+            interpolator = android.view.animation.LinearInterpolator()
+            addUpdateListener { faviconLoader.rotationDegrees = it.animatedValue as Float }
+            start()
+        }
+    }
+
+    private fun stopFaviconLoader() {
+        faviconLoaderAnimator?.cancel()
+        faviconLoaderAnimator = null
+        faviconLoader.visibility = View.GONE
     }
 
     private fun loadFavicon(url: String) {
@@ -1300,14 +1323,9 @@ class AppViewerActivity : AppCompatActivity() {
         bitmap.recycle()
     }
 
-    private fun applyProgressAccent() {
-        if (::progress.isInitialized) progress.background = AccentColorManager.primaryShape(this, android.graphics.drawable.GradientDrawable.RECTANGLE, 2f)
-    }
-
     override fun onResume() {
         super.onResume()
         SystemBarHelper.sync(this)
-        applyProgressAccent()
         if (::web.isInitialized) {
             applyBrowserPreferences()
             configureWebViewClients()

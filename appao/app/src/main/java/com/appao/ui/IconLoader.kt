@@ -210,14 +210,10 @@ object IconLoader {
     }
 
     private fun resolveSize(view: ImageView): Int {
-        // Match the ImageView's real declared size. Layout definitions are brought to the standard
-        // 24dp Material glyph size where the surrounding component can accommodate it.
-        val fallback = (24f * view.resources.displayMetrics.density + 0.5f).toInt().coerceAtLeast(1)
-        val lp = view.layoutParams
-        val width = lp?.width?.takeIf { it > 0 } ?: view.width
-        val height = lp?.height?.takeIf { it > 0 } ?: view.height
-        val available = listOf(width, height).filter { it > 0 }.minOrNull()
-        return available ?: fallback
+        // Tamanho fixo para todos os ícones — igual ao que já funciona no ícone da
+        // posição da barra de endereço. Não depende do layoutParams da View (que
+        // ainda pode não estar medido quando o ícone é aplicado).
+        return (24f * view.resources.displayMetrics.density + 0.5f).toInt().coerceAtLeast(1)
     }
 
     private class RoundedSvgDrawable(source: String, density: Float) : Drawable() {

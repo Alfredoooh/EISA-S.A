@@ -532,7 +532,7 @@ class MainActivity : AppCompatActivity() {
             val inactive = ContextCompat.getColor(this, R.color.dim)
             val selectedState = intArrayOf(android.R.attr.state_checked)
             val uncheckedState = intArrayOf(-android.R.attr.state_checked)
-            nav.itemActiveIndicatorEnabled = true
+            nav.setItemActiveIndicatorEnabled(true)
             nav.setItemActiveIndicatorColor(ColorStateList.valueOf(primary))
             nav.itemIconTintList = ColorStateList(arrayOf(selectedState, uncheckedState), intArrayOf(onPrimary, inactive))
             nav.itemTextColor = ColorStateList(arrayOf(selectedState, uncheckedState), intArrayOf(primary, inactive))

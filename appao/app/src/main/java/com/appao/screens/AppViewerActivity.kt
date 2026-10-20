@@ -96,7 +96,6 @@ class AppViewerActivity : AppCompatActivity() {
     private lateinit var swipeRefresh: androidx.swiperefreshlayout.widget.SwipeRefreshLayout
     private lateinit var faviconLoader: PullRefreshIndicatorView
     private var faviconLoaderAnimator: android.animation.ValueAnimator? = null
-    private var topBarMarginAnimator: android.animation.ValueAnimator? = null
     private lateinit var address: EditText
     private lateinit var favicon: ImageView
     private var rendererRecoveryAttempted = false
@@ -311,7 +310,6 @@ class AppViewerActivity : AppCompatActivity() {
     private fun configureWebViewClients() {
         web.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String, faviconBitmap: Bitmap?) {
-                if (browserBarHidden && !address.hasFocus() && !findMode) setBrowserBarHidden(false)
                 if (!address.hasFocus()) address.setText(url)
                 startFaviconLoader()
             }
@@ -514,23 +512,9 @@ class AppViewerActivity : AppCompatActivity() {
         val barHeightPx = topBar.height.takeIf { it > 0 } ?: dp(58)
         val direction = if (bottom) 1f else -1f
         topBar.animate().cancel()
-        topBarMarginAnimator?.cancel()
-
-        val webParams = swipeRefresh.layoutParams as? android.widget.FrameLayout.LayoutParams
-        val startMargin = if (bottom) (webParams?.bottomMargin ?: barHeightPx) else (webParams?.topMargin ?: barHeightPx)
-        val endMargin = if (hidden) 0 else barHeightPx
-
-        topBarMarginAnimator = android.animation.ValueAnimator.ofInt(startMargin, endMargin).apply {
-            duration = 170L
-            interpolator = Curves.IOS
-            addUpdateListener {
-                val value = it.animatedValue as Int
-                val lp = swipeRefresh.layoutParams as? android.widget.FrameLayout.LayoutParams ?: return@addUpdateListener
-                if (bottom) lp.bottomMargin = value else lp.topMargin = value
-                swipeRefresh.layoutParams = lp
-            }
-            start()
-        }
+        // Move the WebView viewport to its final native layout margin before animating the bar.
+        // Running a ValueAnimator against these same margins caused competing writes and jumps.
+        applyAddressBarPosition()
 
         if (hidden) {
             topBar.visibility = View.VISIBLE
@@ -1293,7 +1277,7 @@ class AppViewerActivity : AppCompatActivity() {
         val iconUrl = BrowserTabStore.faviconFor(url)
         if (iconUrl.isBlank()) {
             IconLoader.applyIcon(favicon, "search", R.color.iconTint)
-        } else Glide.with(this).load(iconUrl).circleCrop().placeholder(R.drawable.logo).into(favicon)
+        } else Glide.with(this).load(iconUrl).fitCenter().placeholder(R.drawable.ic_globe_outline).error(R.drawable.ic_globe_outline).into(favicon)
     }
 
     private fun updateTabCounters() {

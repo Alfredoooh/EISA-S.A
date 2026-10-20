@@ -4,6 +4,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Rect
 import android.os.Bundle
 import android.widget.PopupWindow
@@ -38,6 +39,7 @@ import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.bumptech.glide.Glide
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -159,6 +161,8 @@ class MainActivity : AppCompatActivity() {
     private var feedBarAnimator: ValueAnimator? = null
 
     private var bottomBarHeight = 0
+    private var systemBottomInsetPx = 0
+    private var updatingMainNavSelection = false
     private var composerHeightAnimator: ValueAnimator? = null
 
     private val categoryPrefs by lazy { getSharedPreferences("appao", MODE_PRIVATE) }
@@ -356,7 +360,7 @@ class MainActivity : AppCompatActivity() {
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.homeMainBottomNav)) { view, insets ->
             val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
             view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, dp(2) + systemBottom)
-            view.layoutParams = view.layoutParams.apply { height = dp(58) + systemBottom }
+            view.layoutParams = view.layoutParams.apply { height = dp(80) + systemBottom }
             insets
         }
 
@@ -378,7 +382,7 @@ class MainActivity : AppCompatActivity() {
             val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
             val params = view.layoutParams as? ViewGroup.MarginLayoutParams
             if (params != null) {
-                params.bottomMargin = dp(58) + systemBottom
+                params.bottomMargin = dp(80) + systemBottom
                 view.layoutParams = params
             }
             insets
@@ -396,14 +400,6 @@ class MainActivity : AppCompatActivity() {
 
         feedHeaderHeight = 0
         recycler.updatePadding(top = 0, bottom = dp(10))
-        val feedBottom = findViewById<View>(R.id.feedBottomBar)
-        ViewCompat.setOnApplyWindowInsetsListener(feedBottom) { view, insets ->
-            val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
-            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, systemBottom)
-            view.layoutParams = view.layoutParams.apply { height = dp(58) + systemBottom }
-            recycler.updatePadding(bottom = dp(10) + systemBottom)
-            insets
-        }
         ViewCompat.requestApplyInsets(rootHost)
     }
 
@@ -465,46 +461,89 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupHomeNavigation() {
-        IconLoader.applyIcon(findViewById(R.id.homeMainNavHomeIcon), "home", R.color.iconTint)
-        IconLoader.applyIcon(findViewById(R.id.homeMainNavAppsIcon), "compass", R.color.iconTint)
-        IconLoader.applyIcon(findViewById(R.id.homeMainNavTabsIcon), "copy", R.color.iconTint)
-        IconLoader.applyIcon(findViewById(R.id.homeMainNavProfileIcon), "person-outline", R.color.iconTint)
-        findViewById<View>(R.id.homeMainNavHome).setOnClickListener { switchMainTab("home") }
-        findViewById<View>(R.id.homeMainNavApps).setOnClickListener { switchMainTab("discover") }
-        findViewById<View>(R.id.homeMainNavTabs).setOnClickListener {
-            hideHomeSuggestions()
-            openBrowserTabs()
+        val nav = findViewById<BottomNavigationView>(R.id.homeMainBottomNav)
+        nav.setOnItemSelectedListener { item ->
+            if (updatingMainNavSelection) return@setOnItemSelectedListener true
+            when (item.itemId) {
+                R.id.navHome -> {
+                    switchMainTab("home")
+                    true
+                }
+                R.id.navDiscover -> {
+                    switchMainTab("discover")
+                    true
+                }
+                R.id.navTabs -> {
+                    hideHomeSuggestions()
+                    openBrowserTabs()
+                    false // Opening the tabs screen must not steal the selected main destination.
+                }
+                R.id.navProfile -> {
+                    switchMainTab("profile")
+                    true
+                }
+                else -> false
+            }
         }
-        findViewById<View>(R.id.homeMainNavProfile).setOnClickListener { switchMainTab("profile") }
         updateHomeTabCount()
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.homeMainBottomNav)) { view, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(nav) { view, insets ->
             val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
+            systemBottomInsetPx = systemBottom
             view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, dp(2) + systemBottom)
-            view.layoutParams = view.layoutParams.apply { height = dp(58) + systemBottom }
+            view.layoutParams = view.layoutParams.apply { height = dp(80) + systemBottom }
+            if (::homeContentScroll.isInitialized) {
+                (homeContentScroll.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
+                    params.bottomMargin = dp(80) + systemBottom
+                    homeContentScroll.layoutParams = params
+                }
+            }
+            findViewById<View>(R.id.profilePanel)?.let { panel ->
+                (panel.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
+                    params.bottomMargin = dp(80) + systemBottom
+                    panel.layoutParams = params
+                }
+            }
+            if (::recycler.isInitialized) {
+                (recycler.layoutParams as? FrameLayout.LayoutParams)?.let { params ->
+                    params.bottomMargin = dp(80) + systemBottom
+                    recycler.layoutParams = params
+                }
+                recycler.updatePadding(bottom = dp(10) + systemBottom)
+            }
             insets
         }
         updateMainTabSelection(activeMainTab)
     }
 
     private fun updateMainTabSelection(selected: String) {
-        val effective = if (selected == "apps") "discover" else selected
-        val defs = listOf(
-            Triple("home", R.id.homeMainNavHomeLabel, R.id.homeMainNavHomeIcon),
-            Triple("discover", R.id.homeMainNavAppsLabel, R.id.homeMainNavAppsIcon),
-            Triple("tabs", R.id.homeMainNavTabsLabel, R.id.homeMainNavTabsIcon),
-            Triple("profile", R.id.homeMainNavProfileLabel, R.id.homeMainNavProfileIcon)
-        )
-        defs.forEach { (name, labelId, iconId) ->
-            findViewById<TextView>(labelId).setTextColor(
-                ContextCompat.getColor(this, if (name == effective) R.color.pri else R.color.dim)
-            )
-            val iconName = when (name) {
-                "home" -> if (name == effective) "home_filled" else "home"
-                "discover" -> if (name == effective) "compass_filled" else "compass"
-                "tabs" -> "copy"
-                else -> if (name == effective) "profile_filled" else "profile"
+        if (!::homePage.isInitialized) return
+        val destination = when (selected) {
+            "discover", "apps" -> R.id.navDiscover
+            "profile" -> R.id.navProfile
+            else -> R.id.navHome
+        }
+        val nav = findViewById<BottomNavigationView>(R.id.homeMainBottomNav)
+        val previousGuard = updatingMainNavSelection
+        updatingMainNavSelection = true
+        try {
+            nav.selectedItemId = destination
+            val primary = AccentColorManager.resolvedOr(this, R.color.pri)
+            val onPrimary = AccentColorManager.onPrimaryColor(this)
+            val inactive = ContextCompat.getColor(this, R.color.dim)
+            val selectedState = intArrayOf(android.R.attr.state_checked)
+            val uncheckedState = intArrayOf(-android.R.attr.state_checked)
+            nav.itemActiveIndicatorEnabled = true
+            nav.setItemActiveIndicatorColor(ColorStateList.valueOf(primary))
+            nav.itemIconTintList = ColorStateList(arrayOf(selectedState, uncheckedState), intArrayOf(onPrimary, inactive))
+            nav.itemTextColor = ColorStateList(arrayOf(selectedState, uncheckedState), intArrayOf(primary, inactive))
+            nav.getOrCreateBadge(R.id.navTabs).apply {
+                isVisible = true
+                number = (BrowserTabStore.count(this@MainActivity) + 1).coerceAtMost(99)
+                backgroundColor = primary
+                badgeTextColor = onPrimary
             }
-            IconLoader.applyIcon(findViewById(iconId), iconName, R.color.iconTint)
+        } finally {
+            updatingMainNavSelection = previousGuard
         }
     }
 
@@ -547,7 +586,6 @@ class MainActivity : AppCompatActivity() {
             showFeedAppsTab(false)
             feedHeader.visibility = View.VISIBLE
             findViewById<View>(R.id.feedToolbar).visibility = View.VISIBLE
-            findViewById<View>(R.id.feedBottomBar).visibility = View.VISIBLE
             feedTabsScroll.visibility = View.VISIBLE
         }
 
@@ -607,7 +645,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateHomeTabCount() {
-        findViewById<TextView>(R.id.homeMainNavTabsCount).text = (BrowserTabStore.count(this) + 1).coerceAtMost(99).toString()
+        val nav = findViewById<BottomNavigationView>(R.id.homeMainBottomNav)
+        nav.getOrCreateBadge(R.id.navTabs).apply {
+            isVisible = true
+            number = (BrowserTabStore.count(this@MainActivity) + 1).coerceAtMost(99)
+            backgroundColor = AccentColorManager.resolvedOr(this@MainActivity, R.color.pri)
+            badgeTextColor = AccentColorManager.onPrimaryColor(this@MainActivity)
+        }
     }
 
     private var homeSearchMode = false
@@ -655,10 +699,10 @@ class MainActivity : AppCompatActivity() {
     private fun showSearchEnginePicker(anchor: View) {
         val current = BrowserPreferences.searchEngine(this)
         NativePopupMenu.show(anchor, listOf(
-            NativePopupMenu.Item(1, "Google", checked = current == "Google", iconResId = R.drawable.site_icon_google),
-            NativePopupMenu.Item(2, "Bing", checked = current == "Bing", iconResId = R.drawable.site_icon_bing),
-            NativePopupMenu.Item(3, "DuckDuckGo", checked = current == "DuckDuckGo", iconResId = R.drawable.site_icon_duckduckgo),
-            NativePopupMenu.Item(4, "Brave Search", checked = current == "Brave", iconResId = R.drawable.asset_search_brave)
+            NativePopupMenu.Item(1, "Google", checked = current == "Google"),
+            NativePopupMenu.Item(2, "Bing", checked = current == "Bing"),
+            NativePopupMenu.Item(3, "DuckDuckGo", checked = current == "DuckDuckGo"),
+            NativePopupMenu.Item(4, "Brave Search", checked = current == "Brave")
         ), alignLeft = true, placeAbove = false) { item ->
             val engine = when (item.id) { 2 -> "Bing"; 3 -> "DuckDuckGo"; 4 -> "Brave"; else -> "Google" }
             BrowserPreferences.setSearchEngine(this, engine)
@@ -670,15 +714,15 @@ class MainActivity : AppCompatActivity() {
     private fun updateSearchEngineIcon() {
         if (!::homeSearchEngineIcon.isInitialized) return
         val engine = BrowserPreferences.searchEngine(this)
-        val iconRes = when (engine.lowercase(Locale.ROOT)) {
-            "bing" -> R.drawable.site_icon_bing
-            "duckduckgo" -> R.drawable.site_icon_duckduckgo
-            "brave" -> R.drawable.asset_search_brave
-            else -> R.drawable.site_icon_google
+        val url = when (engine.lowercase(Locale.ROOT)) {
+            "bing" -> "https://www.bing.com/"
+            "duckduckgo" -> "https://duckduckgo.com/"
+            "brave" -> "https://search.brave.com/"
+            "ecosia" -> "https://www.ecosia.org/"
+            else -> "https://www.google.com/"
         }
-        homeSearchEngineIcon.setImageResource(iconRes)
-        homeSearchEngineIcon.clearColorFilter()
-        homeSearchEngineIcon.imageTintList = null
+        Glide.with(this).load(BrowserTabStore.faviconFor(url)).fitCenter()
+            .placeholder(R.drawable.ic_search_outline).error(R.drawable.ic_search_outline).into(homeSearchEngineIcon)
         homeSearchEngineIcon.contentDescription = "Motor de pesquisa: $engine"
     }
 
@@ -928,15 +972,12 @@ class MainActivity : AppCompatActivity() {
         feedPanel.visibility = View.GONE
         feedHeader.visibility = View.VISIBLE
         findViewById<View>(R.id.feedToolbar).visibility = View.VISIBLE
-        findViewById<View>(R.id.feedBottomBar).visibility = View.VISIBLE
         feedTabsScroll.visibility = View.VISIBLE
         findViewById<View>(R.id.feedBack).visibility = View.GONE
         findViewById<View>(R.id.feedPublish).visibility = View.GONE
         findViewById<TextView>(R.id.feedToolbarTitle).text = "Descobrir"
         findViewById<View>(R.id.feedBack).setOnClickListener { switchMainTab("home") }
         findViewById<View>(R.id.feedMore).setOnClickListener { showFeedMorePopup(it) }
-        findViewById<View>(R.id.feedNavDiscover).setOnClickListener { showFeedAppsTab(false) }
-        findViewById<View>(R.id.feedNavApps).setOnClickListener { showFeedAppsTab(true) }
         feedHeaderHeight = dp(104)
         recycler.updatePadding(top = 0, bottom = dp(10))
         findViewById<ImageView>(R.id.feedSavedEmptyIcon).setImageDrawable(EmptySavedIllustrationDrawable(this))
@@ -1185,18 +1226,16 @@ class MainActivity : AppCompatActivity() {
     private fun populateHomeQuickSites() {
         if (!::homeQuickSites.isInitialized) return
         homeQuickSites.removeAllViews()
-        homeQuickSites.columnCount = 5
+        homeQuickSites.columnCount = 4
         val sites = listOf(
-            HomeSite("Google", "https://www.google.com", iconRes = R.drawable.site_icon_google),
-            HomeSite("YouTube", "https://m.youtube.com", iconRes = R.drawable.site_icon_youtube),
-            HomeSite("Facebook", "https://m.facebook.com", iconRes = R.drawable.asset_social_facebook),
-            HomeSite("Wikipedia", "https://www.wikipedia.org", iconRes = R.drawable.site_icon_wikipedia),
-            HomeSite("X", "https://x.com", iconRes = R.drawable.site_icon_x),
-            HomeSite("GitHub", "https://github.com", iconRes = R.drawable.site_icon_github),
-            HomeSite("LinkedIn", "https://www.linkedin.com", iconRes = R.drawable.asset_social_linkedin),
-            HomeSite("BeSoccer", "https://www.besoccer.com", iconRes = R.drawable.site_icon_besoccer),
-            HomeSite("Downloads", internal = "downloads"),
-            HomeSite("Mais", internal = "more")
+            HomeSite("Facebook", "https://www.facebook.com/"),
+            HomeSite("CrazyGames", "https://www.crazygames.com/"),
+            HomeSite("Adobe", "https://www.adobe.com/"),
+            HomeSite("HubSpot", "https://www.hubspot.com/"),
+            HomeSite("CNN", "https://www.cnn.com/"),
+            HomeSite("Yahoo", "https://www.yahoo.com/"),
+            HomeSite("X", "https://x.com/"),
+            HomeSite("LinkedIn", "https://www.linkedin.com/")
         )
         sites.forEachIndexed { index, quickEntry ->
             val tile = LinearLayout(this).apply {
@@ -1215,7 +1254,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             val iconBox = FrameLayout(this).apply {
-                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_circle_card)
+                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_app_icon_container)
                 clipToOutline = true
             }
             val icon = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
@@ -1223,14 +1262,13 @@ class MainActivity : AppCompatActivity() {
                 icon.setImageResource(quickEntry.iconRes)
             } else if (quickEntry.url.isNotBlank()) {
                 // Sites with no bundled PNG download their real favicon from the favicon endpoint.
-                Glide.with(this).load(BrowserTabStore.faviconFor(quickEntry.url)).circleCrop().placeholder(R.drawable.logo).error(R.drawable.logo).into(icon)
+                Glide.with(this).load(BrowserTabStore.faviconFor(quickEntry.url)).fitCenter()
+                    .placeholder(R.drawable.ic_globe_outline).error(R.drawable.ic_globe_outline).into(icon)
             } else {
-                val png = if (quickEntry.internal == "downloads") R.drawable.asset_quick_download else R.drawable.asset_quick_more_sites
-                icon.setImageResource(png)
-                icon.setColorFilter(ContextCompat.getColor(this@MainActivity, R.color.iconTint), android.graphics.PorterDuff.Mode.SRC_IN)
+                IconLoader.applyIcon(icon, if (quickEntry.internal == "downloads") "download" else "apps", R.color.iconTint)
             }
             iconBox.addView(icon, FrameLayout.LayoutParams(-1, -1))
-            tile.addView(iconBox, LinearLayout.LayoutParams(dp(44), dp(44)))
+            tile.addView(iconBox, LinearLayout.LayoutParams(dp(38), dp(38)))
             tile.addView(TextView(this).apply {
                 text = quickEntry.label
                 textSize = 11f
@@ -1241,9 +1279,9 @@ class MainActivity : AppCompatActivity() {
                 setPadding(0, dp(5), 0, 0)
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             val params = GridLayout.LayoutParams(
-                GridLayout.spec(index / 5, 1, 1f),
-                GridLayout.spec(index % 5, 1, 1f)
-            ).apply { width = 0; height = dp(82); setMargins(dp(1), dp(1), dp(1), dp(1)) }
+                GridLayout.spec(index / 4, 1, 1f),
+                GridLayout.spec(index % 4, 1, 1f)
+            ).apply { width = 0; height = dp(80); setMargins(dp(1), dp(1), dp(1), dp(1)) }
             homeQuickSites.addView(tile, params)
         }
     }
@@ -1550,18 +1588,16 @@ class MainActivity : AppCompatActivity() {
     private fun populateAppsGrid() {
         if (!::appsGrid.isInitialized) return
         appsGrid.removeAllViews()
-        appsGrid.columnCount = 5
+        appsGrid.columnCount = 4
         val sites = listOf(
-            HomeSite("Google", "https://www.google.com", iconRes = R.drawable.site_icon_google),
-            HomeSite("YouTube", "https://m.youtube.com", iconRes = R.drawable.site_icon_youtube),
-            HomeSite("Facebook", "https://m.facebook.com", iconRes = R.drawable.asset_social_facebook),
-            HomeSite("Wikipedia", "https://www.wikipedia.org", iconRes = R.drawable.site_icon_wikipedia),
-            HomeSite("X", "https://x.com", iconRes = R.drawable.site_icon_x),
-            HomeSite("GitHub", "https://github.com", iconRes = R.drawable.site_icon_github),
-            HomeSite("LinkedIn", "https://www.linkedin.com", iconRes = R.drawable.asset_social_linkedin),
-            HomeSite("BeSoccer", "https://www.besoccer.com", iconRes = R.drawable.site_icon_besoccer),
-            HomeSite("Downloads", internal = "downloads"),
-            HomeSite("Mais", internal = "more")
+            HomeSite("Facebook", "https://www.facebook.com/"),
+            HomeSite("CrazyGames", "https://www.crazygames.com/"),
+            HomeSite("Adobe", "https://www.adobe.com/"),
+            HomeSite("HubSpot", "https://www.hubspot.com/"),
+            HomeSite("CNN", "https://www.cnn.com/"),
+            HomeSite("Yahoo", "https://www.yahoo.com/"),
+            HomeSite("X", "https://x.com/"),
+            HomeSite("LinkedIn", "https://www.linkedin.com/")
         )
         sites.forEachIndexed { index, shortcut ->
             val tile = LinearLayout(this).apply {
@@ -1579,21 +1615,20 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             val iconBox = FrameLayout(this).apply {
-                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_circle_card)
+                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_app_icon_container)
                 clipToOutline = true
             }
             val icon = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
             if (shortcut.iconRes != null) {
                 icon.setImageResource(shortcut.iconRes)
             } else if (shortcut.url.isNotBlank()) {
-                Glide.with(this).load(BrowserTabStore.faviconFor(shortcut.url)).circleCrop().placeholder(R.drawable.logo).error(R.drawable.logo).into(icon)
+                Glide.with(this).load(BrowserTabStore.faviconFor(shortcut.url)).fitCenter()
+                    .placeholder(R.drawable.ic_globe_outline).error(R.drawable.ic_globe_outline).into(icon)
             } else {
-                val png = if (shortcut.internal == "downloads") R.drawable.asset_quick_download else R.drawable.asset_quick_more_sites
-                icon.setImageResource(png)
-                icon.setColorFilter(ContextCompat.getColor(this@MainActivity, R.color.iconTint), android.graphics.PorterDuff.Mode.SRC_IN)
+                IconLoader.applyIcon(icon, if (shortcut.internal == "downloads") "download" else "apps", R.color.iconTint)
             }
             iconBox.addView(icon, FrameLayout.LayoutParams(-1, -1))
-            tile.addView(iconBox, LinearLayout.LayoutParams(dp(32), dp(32)))
+            tile.addView(iconBox, LinearLayout.LayoutParams(dp(30), dp(30)))
             tile.addView(TextView(this).apply {
                 text = shortcut.label; textSize = 11f; maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END; gravity = Gravity.CENTER
@@ -1601,7 +1636,7 @@ class MainActivity : AppCompatActivity() {
                 setPadding(0, dp(5), 0, 0)
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             appsGrid.addView(tile, GridLayout.LayoutParams(
-                GridLayout.spec(index / 5, 1, 1f), GridLayout.spec(index % 5, 1, 1f)
+                GridLayout.spec(index / 4, 1, 1f), GridLayout.spec(index % 4, 1, 1f)
             ).apply { width = 0; height = dp(78); setMargins(dp(2), dp(2), dp(2), dp(2)) })
         }
     }
@@ -1695,7 +1730,7 @@ class MainActivity : AppCompatActivity() {
                 val margin = if (index == rows.lastIndex) 0 else dp(1)
                 profileRows.addView(makeRow(row, backgroundId), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = margin })
             }
-            profileRows.addView(View(this).apply { setBackgroundColor(android.graphics.Color.TRANSPARENT) }, LinearLayout.LayoutParams(-1, dp(9)))
+            profileRows.addView(View(this).apply { setBackgroundColor(android.graphics.Color.TRANSPARENT) }, LinearLayout.LayoutParams(-1, dp(14)))
         }
         addGroup(listOf(
             ProfileRow("Favoritos", "bookmark_filled") { startActivity(Intent(this, LibraryActivity::class.java)); overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit) },
@@ -2320,37 +2355,31 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    /** The second feed tab is now the saved-articles collection, never an Apps directory. */
+    /** Discover is a single feed; saved articles remain available from Profile/Favorites. */
     private fun showFeedAppsTab(showSaved: Boolean) {
-        feedAppsMode = showSaved
-        val savedItems = if (showSaved) savedNewsItems() else items.toList()
+        // Ignore the legacy second-tab request so the removed Guardados tab cannot return.
+        if (showSaved) return
+        feedAppsMode = false
         findViewById<View>(R.id.feedAppsContent).visibility = View.GONE
-        findViewById<View>(R.id.feedSavedEmpty).visibility = if (showSaved && savedItems.isEmpty()) View.VISIBLE else View.GONE
-        findViewById<View>(R.id.feedEmptyExplore).visibility = if (!showSaved && savedItems.isEmpty() && !loading) View.VISIBLE else View.GONE
-        recycler.visibility = if ((showSaved && savedItems.isEmpty()) || (!showSaved && savedItems.isEmpty() && !loading)) View.GONE else View.VISIBLE
-        feedTabsScroll.visibility = if (showSaved) View.GONE else View.VISIBLE
-
-        val headerHeightDp = if (showSaved) 56 else 104
-        findViewById<View>(R.id.feedSavedEmpty).layoutParams = findViewById<View>(R.id.feedSavedEmpty).layoutParams.apply {
-            (this as? ViewGroup.MarginLayoutParams)?.topMargin = dp(headerHeightDp) + feedStatusBarInset
+        findViewById<View>(R.id.feedSavedEmpty).visibility = View.GONE
+        findViewById<View>(R.id.feedEmptyExplore).visibility = if (items.isEmpty() && !loading) View.VISIBLE else View.GONE
+        recycler.visibility = if (items.isEmpty() && !loading) View.GONE else View.VISIBLE
+        feedTabsScroll.visibility = View.VISIBLE
+        val headerHeight = dp(104) + feedStatusBarInset
+        (recycler.layoutParams as? FrameLayout.LayoutParams)?.let { params ->
+            params.topMargin = headerHeight
+            params.bottomMargin = dp(80) + systemBottomInsetPx
+            recycler.layoutParams = params
         }
-        findViewById<View>(R.id.feedEmptyExplore).layoutParams = findViewById<View>(R.id.feedEmptyExplore).layoutParams.apply {
-            (this as? ViewGroup.MarginLayoutParams)?.topMargin = dp(headerHeightDp) + feedStatusBarInset
-        }
-        findViewById<View>(R.id.feedAppsContent).layoutParams = findViewById<View>(R.id.feedAppsContent).layoutParams.apply {
-            (this as? ViewGroup.MarginLayoutParams)?.let { it.topMargin = dp(headerHeightDp) + feedStatusBarInset; it.bottomMargin = dp(128) }
-        }
-        (recycler.layoutParams as? android.widget.FrameLayout.LayoutParams)?.let {
-            it.topMargin = dp(headerHeightDp) + feedStatusBarInset
-            it.bottomMargin = dp(128)
-            recycler.layoutParams = it
-        }
-        feedHeader.layoutParams = feedHeader.layoutParams.apply { height = dp(headerHeightDp) + feedStatusBarInset }
-        feedHeaderHeight = dp(headerHeightDp) + feedStatusBarInset
-        recycler.updatePadding(top = 0, bottom = dp(10))
-        findViewById<TextView>(R.id.feedToolbarTitle).text = if (showSaved) "Guardados" else "Descobrir"
-        if (showSaved) adapter.submit(savedItems) else adapter.submit(items)
-        setFeedBottomSelection(discover = !showSaved)
+        findViewById<View>(R.id.feedEmptyExplore).layoutParams =
+            findViewById<View>(R.id.feedEmptyExplore).layoutParams.apply {
+                (this as? ViewGroup.MarginLayoutParams)?.topMargin = headerHeight
+            }
+        feedHeader.layoutParams = feedHeader.layoutParams.apply { height = headerHeight }
+        feedHeaderHeight = headerHeight
+        recycler.updatePadding(top = 0, bottom = dp(10) + systemBottomInsetPx)
+        findViewById<TextView>(R.id.feedToolbarTitle).text = "Descobrir"
+        adapter.submit(items)
     }
 
     private fun savedNewsItems(): List<NewsItem> {
@@ -2430,15 +2459,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setFeedBottomSelection(discover: Boolean) {
-        if (!::feedPanel.isInitialized) return
-        runCatching {
-            IconLoader.applyIcon(findViewById(R.id.feedNavDiscoverIcon), if (discover) "compass_filled" else "compass", R.color.iconTint)
-            IconLoader.applyIcon(findViewById(R.id.feedNavAppsIcon), if (discover) "bookmark" else "bookmark_filled", R.color.iconTint)
-            findViewById<TextView>(R.id.feedNavDiscoverLabel).setTextColor(ContextCompat.getColor(this, if (discover) R.color.text else R.color.dim))
-            findViewById<TextView>(R.id.feedNavAppsLabel).setTextColor(ContextCompat.getColor(this, if (discover) R.color.dim else R.color.text))
-        }
-    }
+    private fun setFeedBottomSelection(discover: Boolean) = Unit
 
     private fun showAppsPopup(anchor: View) {
         AppsPopup.show(anchor) { action ->
@@ -2852,8 +2873,7 @@ class MainActivity : AppCompatActivity() {
         appsHeader.translationZ = 0f
         appsHeader.setBackgroundColor(bg)
         profilePanel.setBackgroundColor(bg)
-        findViewById<View>(R.id.profileHeader).setBackgroundColor(bg)
-        findViewById<View>(R.id.appsBottomBar).visibility = View.GONE
+                findViewById<View>(R.id.appsBottomBar).visibility = View.GONE
 
         IconLoader.applyIcon(findViewById(R.id.homeMenuIcon), "menu", R.color.iconTint)
         IconLoader.applyIcon(findViewById(R.id.biFaviconIcon), "global", R.color.iconTint)

@@ -20,6 +20,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.bumptech.glide.Glide
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.appao.BrowserAutocomplete
@@ -178,24 +179,24 @@ class BrowserSearchActivity : AppCompatActivity() {
 
     private fun updateSearchEngineIcon() {
         if (!::engineIcon.isInitialized) return
-        val icon = when (BrowserPreferences.searchEngine(this).lowercase(Locale.ROOT)) {
-            "bing" -> R.drawable.site_icon_bing
-            "duckduckgo" -> R.drawable.site_icon_duckduckgo
-            "brave" -> R.drawable.asset_search_brave
-            else -> R.drawable.site_icon_google
+        val url = when (BrowserPreferences.searchEngine(this).lowercase(Locale.ROOT)) {
+            "bing" -> "https://www.bing.com/"
+            "duckduckgo" -> "https://duckduckgo.com/"
+            "brave" -> "https://search.brave.com/"
+            "ecosia" -> "https://www.ecosia.org/"
+            else -> "https://www.google.com/"
         }
-        engineIcon.setImageResource(icon)
-        engineIcon.clearColorFilter()
-        engineIcon.imageTintList = null
+        Glide.with(this).load(BrowserTabStore.faviconFor(url)).fitCenter()
+            .placeholder(R.drawable.ic_search_outline).error(R.drawable.ic_search_outline).into(engineIcon)
     }
 
     private fun showSearchEnginePicker(anchor: View) {
         val current = BrowserPreferences.searchEngine(this)
         NativePopupMenu.show(anchor, listOf(
-            NativePopupMenu.Item(1, "Google", checked = current.equals("Google", true), iconResId = R.drawable.site_icon_google),
-            NativePopupMenu.Item(2, "Bing", checked = current.equals("Bing", true), iconResId = R.drawable.site_icon_bing),
-            NativePopupMenu.Item(3, "DuckDuckGo", checked = current.equals("DuckDuckGo", true), iconResId = R.drawable.site_icon_duckduckgo),
-            NativePopupMenu.Item(4, "Brave Search", checked = current.equals("Brave", true), iconResId = R.drawable.asset_search_brave)
+            NativePopupMenu.Item(1, "Google", checked = current.equals("Google", true)),
+            NativePopupMenu.Item(2, "Bing", checked = current.equals("Bing", true)),
+            NativePopupMenu.Item(3, "DuckDuckGo", checked = current.equals("DuckDuckGo", true)),
+            NativePopupMenu.Item(4, "Brave Search", checked = current.equals("Brave", true))
         )) { item ->
             val engine = when (item.id) { 2 -> "Bing"; 3 -> "DuckDuckGo"; 4 -> "Brave"; else -> "Google" }
             BrowserPreferences.setSearchEngine(this, engine)

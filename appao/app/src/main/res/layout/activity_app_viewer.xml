@@ -15,7 +15,9 @@
         android:paddingStart="8dp"
         android:paddingEnd="8dp"
         android:background="@color/bg"
-        android:elevation="8dp">
+        android:elevation="0dp"
+        android:translationZ="0dp"
+        android:stateListAnimator="@null">
 
         <LinearLayout
             android:id="@+id/browserAddressPill"

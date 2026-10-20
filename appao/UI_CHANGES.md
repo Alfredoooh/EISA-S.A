@@ -13,3 +13,9 @@
 `python3 verify_project.py` — PASS (XML e referências estáticas de recursos).
 
 Não foi possível executar `assembleDebug` neste ambiente: o wrapper tentou descarregar Gradle 8.2.1 e a rede deste ambiente não consegue resolver `services.gradle.org`. Portanto, o APK não foi compilado/testado aqui.
+
+## Follow-up fixes (2026-10-20)
+- Replaced the launcher icon in the existing density-specific `mipmap-*` assets using the user-provided AppAo logo; no `nodpi` assets were added.
+- Rebuilt the adaptive launcher foreground with transparent background and centered, size-limited artwork so it sits within the Android adaptive-icon safe area.
+- Removed the obsolete `drawable-nodpi` monochrome icon and its adaptive-icon references.
+- Removed the unsupported `app:itemActiveIndicatorEnabled` XML attribute that caused Android resource linking to fail. The Material `BottomNavigationView` retains its component default active indicator behavior.

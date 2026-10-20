@@ -190,8 +190,7 @@
         app:itemIconSize="24dp"
         app:itemPaddingTop="6dp"
         app:itemPaddingBottom="6dp"
-        app:itemHorizontalTranslationEnabled="false"
-        app:itemActiveIndicatorEnabled="true" />
+        app:itemHorizontalTranslationEnabled="false" />
     <com.appao.PullRefreshIndicatorView android:id="@+id/pullIndicator" android:layout_width="28dp" android:layout_height="28dp" android:layout_gravity="top|center_horizontal" android:alpha="0" android:elevation="30dp" />
     <View android:id="@+id/appProgress" android:layout_width="0dp" android:layout_height="3dp" android:layout_gravity="top|start" android:background="@drawable/progress_gradient" android:alpha="0" android:elevation="31dp" />
 </com.appao.DrawerHostLayout>

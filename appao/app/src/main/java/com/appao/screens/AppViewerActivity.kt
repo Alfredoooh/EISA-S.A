@@ -230,6 +230,8 @@ class AppViewerActivity : AppCompatActivity() {
             }
         }
         applyBrowserPreferences()
+        BrowserLoadingBooster.configure(web)
+        BrowserLoadingBooster.preResolve(initialUrl)
         web.setBackgroundColor(ContextCompat.getColor(this, R.color.bg))
         web.isVerticalScrollBarEnabled = false
         web.isHorizontalScrollBarEnabled = false
@@ -648,6 +650,7 @@ class AppViewerActivity : AppCompatActivity() {
         address.clearFocus()
         hideAddressSuggestions()
         (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(address.windowToken, 0)
+        BrowserLoadingBooster.preResolve(target)
         web.loadUrl(target)
     }
 
@@ -660,17 +663,14 @@ class AppViewerActivity : AppCompatActivity() {
     }
 
     private fun openTabs() {
-        savePageSnapshot()
+        // Snapshot capture is best-effort; the tabs overview uses a stable fade transition
+        // instead of sharing a live WebView as an Android scene element.
+        runCatching { savePageSnapshot() }
         val launch = Intent(this, BrowserTabsActivity::class.java)
             .putExtra("source_tab_id", tabId)
             .putExtra("browser_private_mode", privateMode)
-        runCatching {
-            val options = ActivityOptions.makeSceneTransitionAnimation(this, web, "browser_tab_preview")
-            startActivity(launch, options.toBundle())
-        }.onFailure {
-            startActivity(launch)
-            overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
-        }
+        startActivity(launch)
+        overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
     }
 
     private fun openNewBrowserTab(url: String) {
@@ -1290,21 +1290,25 @@ class AppViewerActivity : AppCompatActivity() {
         val currentUrl = web.url.orEmpty()
         if (!currentUrl.startsWith("http", true)) return
         val title = web.title?.take(250).orEmpty().ifBlank { hostFor(currentUrl).ifBlank { "Nova aba" } }
-        val width = minOf(web.width, 720).coerceAtLeast(1)
-        val height = minOf(web.height, 1280).coerceAtLeast(1)
+        val scale = minOf(1f, 480f / web.width.toFloat(), 960f / web.height.toFloat())
+        val width = (web.width * scale).toInt().coerceAtLeast(1)
+        val height = (web.height * scale).toInt().coerceAtLeast(1)
         val bitmap = runCatching { Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888) }.getOrNull() ?: return
-        runCatching {
-            val canvas = Canvas(bitmap)
-            canvas.scale(width.toFloat() / web.width, height.toFloat() / web.height)
-            web.draw(canvas)
-            val previousPath = tabList().firstOrNull { it.id == tabId }?.snapshotPath.orEmpty()
-            val path = saveTabSnapshot(tabId, bitmap)
-            if (!path.isNullOrBlank()) {
-                updateTabPage(tabId, currentUrl, title, path)
-                if (previousPath.isNotBlank() && previousPath != path) runCatching { java.io.File(previousPath).delete() }
+        try {
+            runCatching {
+                val canvas = Canvas(bitmap)
+                canvas.scale(scale, scale)
+                web.draw(canvas)
+                val previousPath = tabList().firstOrNull { it.id == tabId }?.snapshotPath.orEmpty()
+                val path = saveTabSnapshot(tabId, bitmap)
+                if (!path.isNullOrBlank()) {
+                    updateTabPage(tabId, currentUrl, title, path)
+                    if (previousPath.isNotBlank() && previousPath != path) runCatching { java.io.File(previousPath).delete() }
+                }
             }
+        } finally {
+            bitmap.recycle()
         }
-        bitmap.recycle()
     }
 
     override fun onResume() {
@@ -1312,6 +1316,7 @@ class AppViewerActivity : AppCompatActivity() {
         SystemBarHelper.sync(this)
         if (::web.isInitialized) {
             applyBrowserPreferences()
+            BrowserLoadingBooster.configure(web)
             configureWebViewClients()
             BrowserWebViewPool.setOwner(tabId, this)
             updateTabCounters()

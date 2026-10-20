@@ -173,7 +173,8 @@ class NewsAdapter(
         holder.weatherIcon.setImageDrawable(
             FallbackIconDrawable(
                 weatherGlyph,
-                ContextCompat.getColor(holder.itemView.context, R.color.iconTint)
+                ContextCompat.getColor(holder.itemView.context, R.color.iconTint),
+                holder.itemView.resources.displayMetrics.density
             )
         )
         if (current != null) {

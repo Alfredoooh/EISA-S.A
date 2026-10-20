@@ -19,3 +19,13 @@ Não foi possível executar `assembleDebug` neste ambiente: o wrapper tentou des
 - Rebuilt the adaptive launcher foreground with transparent background and centered, size-limited artwork so it sits within the Android adaptive-icon safe area.
 - Removed the obsolete `drawable-nodpi` monochrome icon and its adaptive-icon references.
 - Removed the unsupported `app:itemActiveIndicatorEnabled` XML attribute that caused Android resource linking to fail. The Material `BottomNavigationView` retains its component default active indicator behavior.
+
+## UI and browser stability pass (2026-10-20)
+- Kept the launcher mipmap assets as provided in the current project; did not add `drawable-nodpi` resources.
+- Fixed normalized icon aliases in `IconLoader` so Settings entries resolve to the existing native drawable resources rather than tiny fallback glyphs. Fallback line spacing now scales with display density.
+- Kept the Material 3 `BottomNavigationView` in a compact 58dp content area (plus system inset), tightened icon/label spacing, and retained a low-opacity version of the primary color for the icon-only active indicator. Surface follows `@color/bg` (white in light theme, dark body surface in night theme).
+- Restored the profile header as a centered rounded card with avatar and greeting, inside the same ScrollView as its rows.
+- Kept all eight quick sites plus Downloads and “Mais sites” inside one rounded parent container; individual site favicons remain circular. Added a circular surface behind the browser's address-bar favicon.
+- Removed shared-element transition setup from the tab overview, disabled change animations during full adapter refreshes, lowered tab preview height to reduce thumbnail memory pressure, and retained fade transitions.
+- Added a lightweight browser warm-up using asynchronous DNS pre-resolution and standard WebView cache settings. This reduces avoidable DNS delays where possible but cannot guarantee faster remote servers or network connections.
+

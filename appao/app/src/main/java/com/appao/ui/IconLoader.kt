@@ -121,10 +121,37 @@ object IconLoader {
 
     // Keep the exact legacy vector resource name for callers not yet represented in the symbol map.
     private val legacyAliases = mapOf(
-        "brand-google" to "logo-google", "logo-google" to "logo-google",
-        "brand-brave" to "search-brave", "search-google" to "search-google",
-        "search-bing" to "search-bing", "search-duckduckgo" to "search-duckduckgo",
-        "search-brave" to "search-brave"
+        // Keys are normalized by norm(): lowercase, underscores instead of hyphens/spaces.
+        "brand_google" to "logo-google", "logo_google" to "logo-google",
+        "brand_brave" to "search-brave", "search_google" to "search-google",
+        "search_bing" to "search-bing", "search_duckduckgo" to "search-duckduckgo",
+        "search_brave" to "search-brave", "search_yahoo" to "search-yahoo",
+        "arrow_left" to "arrow-back-outline", "arrow_left_outline" to "arrow-back-outline",
+        "arrow_back" to "arrow-back-outline", "arrow_back_outline" to "arrow-back-outline",
+        "arrow_right" to "arrow-forward-outline", "arrow_right_outline" to "arrow-forward-outline",
+        "arrow_forward" to "arrow-forward-outline", "arrow_forward_outline" to "arrow-forward-outline",
+        "global" to "globe-outline", "globe" to "globe-outline", "public" to "globe-outline",
+        "swap_vertical" to "swap-vertical-outline", "swap_vertical_outline" to "swap-vertical-outline",
+        "desktop" to "desktop-outline", "desktop_outline" to "desktop-outline",
+        "chart_bars" to "bar-chart-outline", "chart_bars_outline" to "bar-chart-outline",
+        "bar_chart" to "bar-chart-outline", "bar_chart_outline" to "bar-chart-outline",
+        "chart_pie" to "pie-chart-outline", "chart_pie_outline" to "pie-chart-outline",
+        "pie_chart" to "pie-chart-outline", "pie_chart_outline" to "pie-chart-outline",
+        "chat" to "chatbubble-outline", "chat_history" to "chatbubbles-outline",
+        "delete_bin" to "trash-outline", "delete" to "trash-outline", "trash" to "trash-outline",
+        "write" to "create-outline", "camera" to "camera-outline", "location" to "location-outline",
+        "download" to "download-outline", "downloads" to "download-outline",
+        "bookmark" to "bookmark-outline", "heart" to "heart-outline",
+        "settings" to "settings-outline", "moon" to "moon-outline", "apps" to "apps-outline",
+        "person" to "person-outline", "profile" to "person-circle-outline",
+        "history" to "time-outline", "newspaper" to "newspaper-outline",
+        "mail" to "mail-outline", "compass" to "compass-outline",
+        "share" to "share-social-outline", "menu" to "menu-outline",
+        "more_vert" to "ellipsis-vertical-outline", "more_horiz" to "ellipsis-horizontal-outline",
+        "shield_check" to "shield-checkmark-outline", "shield_checkmark" to "shield-checkmark-outline",
+        "contrast" to "contrast-outline", "language" to "language-outline",
+        "terms" to "document-text-outline", "description" to "document-text-outline",
+        "open" to "open-outline", "copy" to "copy-outline", "sun" to "sunny-outline"
     )
 
     private fun norm(name: String): String = name.lowercase(Locale.ROOT).trim().replace('-', '_').replace(' ', '_')
@@ -157,21 +184,31 @@ object IconLoader {
     }
 
     private fun drawable(context: Context, name: String, tint: Int): Drawable? {
+        val normalized = norm(name)
+        // Existing native vector/bitmap resources are the source of truth for the app's UI icons.
+        // Prefer them over the optional Material SVG pack so updates cannot silently change the glyphs.
+        val alias = legacyAliases[normalized]
+        val candidates = linkedSetOf<String>().apply {
+            if (alias != null) add(alias)
+            add(normalized)
+            add(normalized.removeSuffix("_outline"))
+            add("${normalized.removeSuffix("_outline")}_outline")
+            add(normalized.replace('_', '-'))
+        }
+        for (candidate in candidates) {
+            val resourceName = "ic_${candidate.replace('-', '_')}"
+            val drawableId = context.resources.getIdentifier(resourceName, "drawable", context.packageName)
+            if (drawableId == 0) continue
+            val supplied = runCatching { ContextCompat.getDrawable(context, drawableId)?.mutate() }.getOrNull() ?: continue
+            val keepColor = candidate.startsWith("brand-") || candidate.startsWith("search-") || candidate == "logo-google"
+            if (!keepColor) supplied.setTint(tint)
+            return supplied
+        }
+
         val material = source(context, name, tint)
         if (material != null) return runCatching {
             RoundedSvgDrawable(material, context.resources.displayMetrics.density)
         }.getOrNull()
-
-        val normalized = norm(name)
-        val resourceCandidate = legacyAliases[normalized] ?: normalized.replace('_', '-')
-        val drawableName = "ic_${resourceCandidate.replace('-', '_')}"
-        val drawableId = context.resources.getIdentifier(drawableName, "drawable", context.packageName)
-        if (drawableId != 0) {
-            val supplied = ContextCompat.getDrawable(context, drawableId)?.mutate() ?: return null
-            val keepColor = resourceCandidate.startsWith("brand-") || resourceCandidate.startsWith("search-") || resourceCandidate == "logo-google"
-            if (!keepColor) supplied.setTint(tint)
-            return supplied
-        }
         return null
     }
 
@@ -199,7 +236,7 @@ object IconLoader {
             view.clearColorFilter()
         } else {
             view.clearColorFilter()
-            view.setImageDrawable(FallbackIconDrawable(norm(name), tint))
+            view.setImageDrawable(FallbackIconDrawable(norm(name), tint, view.resources.displayMetrics.density))
         }
     }
 

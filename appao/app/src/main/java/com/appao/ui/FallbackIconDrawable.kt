@@ -11,12 +11,13 @@ import android.view.Gravity
 /** Lightweight vector fallback used only when an optional packaged asset is absent. */
 class FallbackIconDrawable(
     private val icon: String,
-    private var tint: Int = Color.WHITE
+    private var tint: Int = Color.WHITE,
+    private val density: Float = android.content.res.Resources.getSystem().displayMetrics.density
 ) : Drawable() {
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 1.8f
+        strokeWidth = 1.8f * density
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
@@ -30,13 +31,13 @@ class FallbackIconDrawable(
 
         val cx = b.left + w / 2f
         val cy = b.top + h / 2f
-        val r = minOf(w, h) * 0.28f
+        val r = minOf(w, h) * 0.42f
 
         when (icon.lowercase()) {
             "menu" -> {
-                canvas.drawLine(cx - r, cy - 4.5f, cx + r, cy - 4.5f, paint)
+                canvas.drawLine(cx - r, cy - 4.5f * density, cx + r, cy - 4.5f * density, paint)
                 canvas.drawLine(cx - r, cy, cx + r, cy, paint)
-                canvas.drawLine(cx - r, cy + 4.5f, cx + r, cy + 4.5f, paint)
+                canvas.drawLine(cx - r, cy + 4.5f * density, cx + r, cy + 4.5f * density, paint)
             }
             "plus" -> {
                 canvas.drawLine(cx - r, cy, cx + r, cy, paint)

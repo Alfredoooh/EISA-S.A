@@ -1,6 +1,5 @@
 package com.appao.screens
 
-import android.app.ActivityOptions
 import android.content.Intent
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -20,7 +19,6 @@ import com.appao.EmptyNewsIllustrationDrawable
 import com.appao.MainActivity
 import com.appao.R
 import com.appao.SystemBarHelper
-import com.appao.ui.BrowserTransitions
 import com.appao.ui.IconLoader
 import com.appao.ui.NativePopupMenu
 import com.bumptech.glide.Glide
@@ -43,7 +41,6 @@ class BrowserTabsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, true)
-        BrowserTransitions.configure(this)
         SystemBarHelper.sync(this)
         sourceTabId = intent.getStringExtra("source_tab_id").orEmpty()
         sourcePrivateMode = intent.getBooleanExtra("browser_private_mode", false)
@@ -51,7 +48,6 @@ class BrowserTabsActivity : AppCompatActivity() {
         homeSnapshotPath = intent.getStringExtra("home_snapshot_path").orEmpty().ifBlank {
             getSharedPreferences("appao", MODE_PRIVATE).getString("home_tab_snapshot_path", "").orEmpty()
         }
-        if (sourceTabId.isNotBlank() && sourceTabId != "__home__") postponeEnterTransition()
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -109,9 +105,9 @@ class BrowserTabsActivity : AppCompatActivity() {
             clipToPadding = false
             overScrollMode = View.OVER_SCROLL_NEVER
             setPadding(dp(12), dp(8), dp(12), dp(18))
-            itemAnimator = androidx.recyclerview.widget.DefaultItemAnimator().apply {
-                addDuration = 210L; removeDuration = 180L; moveDuration = 220L; changeDuration = 180L
-            }
+            // Full-list refreshes while Glide thumbnails are loading should not animate stale holders.
+            itemAnimator = null
+            setItemViewCacheSize(4)
             addItemDecoration(object : RecyclerView.ItemDecoration() {
                 override fun getItemOffsets(outRect: android.graphics.Rect, view: View, parent: RecyclerView, state: RecyclerView.State) {
                     outRect.set(dp(5), dp(5), dp(5), dp(5))
@@ -133,7 +129,6 @@ class BrowserTabsActivity : AppCompatActivity() {
         setContentView(root)
         refreshSegment()
         refreshTabs()
-        if (sourceTabId.isNotBlank() && sourceTabId != "__home__") list.post { startPostponedEnterTransition() }
     }
 
     override fun onResume() {
@@ -211,28 +206,19 @@ class BrowserTabsActivity : AppCompatActivity() {
         }
         if (tab.id == sourceTabId && targetPrivateMode == sourcePrivateMode) {
             // Returning to the already-live page reverses the shared container transform.
-            finishAfterTransition()
+            finishWithMotion()
             return
         }
 
-        val transitionName = preview?.transitionName?.takeIf { it.isNotBlank() } ?: "browser_tab_preview_${tab.id}"
         val launch = Intent(this, AppViewerActivity::class.java).apply {
             putExtra("browser_mode", true)
             putExtra("browser_private_mode", targetPrivateMode)
             putExtra("browser_tab_id", tab.id)
             putExtra("url", tab.url)
-            putExtra("transition_name", transitionName)
         }
-        val transitioned = preview != null && runCatching {
-            startActivity(launch, ActivityOptions.makeSceneTransitionAnimation(this, preview, transitionName).toBundle())
-        }.isSuccess
-        if (transitioned) {
-            finishAfterTransition()
-        } else {
-            startActivity(launch)
-            finish()
-            overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
-        }
+        startActivity(launch)
+        finish()
+        overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
     }
 
     private fun showTabOptions(anchor: View, tab: BrowserTab, preview: View) {
@@ -337,7 +323,7 @@ class BrowserTabsActivity : AppCompatActivity() {
             header.addView(title, LinearLayout.LayoutParams(0, dp(28), 1f))
             card.addView(header)
             val preview = ImageView(this@BrowserTabsActivity).apply {
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(166))
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(124))
                 scaleType = ImageView.ScaleType.CENTER_CROP
                 setBackgroundColor(ContextCompat.getColor(this@BrowserTabsActivity, R.color.bg))
             }
@@ -356,10 +342,10 @@ class BrowserTabsActivity : AppCompatActivity() {
                 showTabOptions(holder.itemView, tab, holder.preview)
                 true
             }
-            holder.preview.transitionName = if (sourceTabId == tab.id) "browser_tab_preview" else "browser_tab_preview_${tab.id}"
             holder.title.text = tab.title.ifBlank { titleFromUrl(tab.url) }
+            Glide.with(this@BrowserTabsActivity).clear(holder.favicon)
+            Glide.with(this@BrowserTabsActivity).clear(holder.preview)
             if (tab.id == "__home__") {
-                Glide.with(this@BrowserTabsActivity).clear(holder.favicon)
                 holder.favicon.setImageResource(R.drawable.logo)
                 val homeImage = homeSnapshotPath.takeIf { it.isNotBlank() }?.let(::File)
                 if (homeImage != null && homeImage.exists()) {

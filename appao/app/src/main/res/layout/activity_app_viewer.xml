@@ -30,12 +30,15 @@
             android:paddingEnd="5dp"
             android:background="@drawable/bg_toolbar_actions">
             <FrameLayout
-                android:layout_width="24dp"
-                android:layout_height="24dp">
+                android:id="@+id/browserFaviconContainer"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:background="@drawable/bg_favicon_container"
+                android:clipToOutline="true">
                 <ImageView
                     android:id="@+id/browserFavicon"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
                     android:layout_gravity="center"
                     android:scaleType="centerInside" />
                 <com.appao.PullRefreshIndicatorView

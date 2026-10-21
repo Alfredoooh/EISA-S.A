@@ -57,7 +57,7 @@ class BrowserTabsActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(12), dp(5), dp(12), dp(5))
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(66))
         }
         top.addView(iconButton("close", "Fechar vista de separadores").apply {
             setOnClickListener { finishWithMotion() }
@@ -68,25 +68,25 @@ class BrowserTabsActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dp(13).toFloat()
-                setColor(ContextCompat.getColor(this@BrowserTabsActivity, R.color.card2))
+                cornerRadius = dp(999).toFloat()
+                setColor(ContextCompat.getColor(this@BrowserTabsActivity, R.color.card))
                 setStroke(dp(1), ContextCompat.getColor(this@BrowserTabsActivity, R.color.border))
             }
             setPadding(dp(3), dp(3), dp(3), dp(3))
         }
         normalModeTab = TextView(this).apply {
-            text = "Separadores"; gravity = Gravity.CENTER; textSize = 12.5f
-            setPadding(dp(8), 0, dp(8), 0); isClickable = true; isFocusable = true
+            text = "Separadores"; gravity = Gravity.CENTER; textSize = 13.5f
+            setPadding(dp(10), 0, dp(10), 0); isClickable = true; isFocusable = true
             setOnClickListener { switchMode(false) }
         }
         privateModeTab = TextView(this).apply {
-            text = "Privados"; gravity = Gravity.CENTER; textSize = 12.5f
-            setPadding(dp(8), 0, dp(8), 0); isClickable = true; isFocusable = true
+            text = "Privados"; gravity = Gravity.CENTER; textSize = 13.5f
+            setPadding(dp(10), 0, dp(10), 0); isClickable = true; isFocusable = true
             setOnClickListener { switchMode(true) }
         }
-        segment.addView(normalModeTab, LinearLayout.LayoutParams(0, dp(34), 1f))
-        segment.addView(privateModeTab, LinearLayout.LayoutParams(0, dp(34), 1f))
-        top.addView(segment, LinearLayout.LayoutParams(0, dp(42), 1f).apply { marginStart = dp(8); marginEnd = dp(8) })
+        segment.addView(normalModeTab, LinearLayout.LayoutParams(0, dp(44), 1f))
+        segment.addView(privateModeTab, LinearLayout.LayoutParams(0, dp(44), 1f))
+        top.addView(segment, LinearLayout.LayoutParams(0, dp(52), 1f).apply { marginStart = dp(8); marginEnd = dp(8) })
         top.addView(iconButton("home", "Ir para o início").apply {
             setOnClickListener {
                 val launch = Intent(this@BrowserTabsActivity, MainActivity::class.java)
@@ -150,15 +150,18 @@ class BrowserTabsActivity : AppCompatActivity() {
     private fun refreshSegment() {
         val selectedText = ContextCompat.getColor(this, R.color.text)
         val inactiveText = ContextCompat.getColor(this, R.color.dim)
-        val selectedSurface = ContextCompat.getColor(this, R.color.card)
+        val selectedSurface = ContextCompat.getColor(this, R.color.bg)
+        val border = ContextCompat.getColor(this, R.color.border)
         fun selectedBackground(selected: Boolean) = if (selected) GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            cornerRadius = dp(10).toFloat()
+            cornerRadius = dp(999).toFloat()
             setColor(selectedSurface)
-            setStroke(dp(1), ContextCompat.getColor(this@BrowserTabsActivity, R.color.border))
+            setStroke(dp(1), border)
         } else null
         normalModeTab.background = selectedBackground(!privateMode)
         privateModeTab.background = selectedBackground(privateMode)
+        normalModeTab.elevation = if (!privateMode && !com.appao.ThemeManager.resolvedDark(this)) dp(1).toFloat() else 0f
+        privateModeTab.elevation = if (privateMode && !com.appao.ThemeManager.resolvedDark(this)) dp(1).toFloat() else 0f
         normalModeTab.setTextColor(if (!privateMode) selectedText else inactiveText)
         normalModeTab.typeface = android.graphics.Typeface.create(
             "sans-serif-medium",
@@ -176,8 +179,8 @@ class BrowserTabsActivity : AppCompatActivity() {
         val tabs = if (privateMode) PrivateBrowserTabStore.tabs() else BrowserTabStore.tabs(this)
         val display = if (privateMode) tabs else listOf(BrowserTab("__home__", "appao://home", "Início", "", "", Long.MAX_VALUE)) + tabs
         adapter.submit(display)
-        emptyState.visibility = if (privateMode && tabs.isEmpty()) View.VISIBLE else View.GONE
-        list.visibility = if (privateMode && tabs.isEmpty()) View.GONE else View.VISIBLE
+        emptyState.visibility = View.GONE
+        list.visibility = View.VISIBLE
         emptyState.setTextColor(ContextCompat.getColor(this, R.color.dim))
     }
 
@@ -277,19 +280,56 @@ class BrowserTabsActivity : AppCompatActivity() {
         isClickable = true; isFocusable = true; contentDescription = description
         foreground = ContextCompat.getDrawable(this@BrowserTabsActivity, R.drawable.bg_transparent_pressed)
         addView(ImageView(this@BrowserTabsActivity).apply {
-            layoutParams = FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER)
+            layoutParams = FrameLayout.LayoutParams(dp(26), dp(26), Gravity.CENTER)
             scaleType = ImageView.ScaleType.FIT_CENTER
             IconLoader.applyIcon(this, icon, R.color.iconTint)
         })
     }
 
-    private inner class TabAdapter : RecyclerView.Adapter<TabHolder>() {
+    private inner class TabAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+        private val TYPE_TAB = 0
+        private val TYPE_ADD_TAB = 1
         private var data: List<BrowserTab> = emptyList()
         fun submit(next: List<BrowserTab>) {
             data = next
             notifyDataSetChanged()
         }
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TabHolder {
+
+        override fun getItemCount(): Int = data.size + 1 // Permanent new-tab card.
+        override fun getItemViewType(position: Int): Int = if (position == data.size) TYPE_ADD_TAB else TYPE_TAB
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+            if (viewType == TYPE_ADD_TAB) {
+                val card = FrameLayout(this@BrowserTabsActivity).apply {
+                    background = GradientDrawable().apply {
+                        cornerRadius = dp(18).toFloat()
+                        setColor(ContextCompat.getColor(this@BrowserTabsActivity, R.color.card))
+                        setStroke(dp(1), ContextCompat.getColor(this@BrowserTabsActivity, R.color.border))
+                    }
+                    clipToOutline = true
+                    isClickable = true
+                    isFocusable = true
+                    contentDescription = "Novo separador"
+                    setOnClickListener { openNewTab() }
+                }
+                val addCircle = FrameLayout(this@BrowserTabsActivity).apply {
+                    background = GradientDrawable().apply {
+                        shape = GradientDrawable.OVAL
+                        setColor(ContextCompat.getColor(this@BrowserTabsActivity, R.color.bg))
+                        setStroke(dp(1), ContextCompat.getColor(this@BrowserTabsActivity, R.color.border))
+                    }
+                }
+                val plus = ImageView(this@BrowserTabsActivity).apply {
+                    layoutParams = FrameLayout.LayoutParams(dp(30), dp(30), Gravity.CENTER)
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                    IconLoader.applyIcon(this, "plus", R.color.iconTint)
+                }
+                addCircle.addView(plus)
+                card.addView(addCircle, FrameLayout.LayoutParams(dp(58), dp(58), Gravity.CENTER))
+                card.layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(160))
+                return AddTabHolder(card)
+            }
+
             val card = LinearLayout(this@BrowserTabsActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 background = GradientDrawable().apply {
@@ -308,7 +348,7 @@ class BrowserTabsActivity : AppCompatActivity() {
                 setPadding(dp(9), dp(8), dp(7), dp(8))
             }
             val favicon = ImageView(this@BrowserTabsActivity).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(22), dp(22))
+                layoutParams = LinearLayout.LayoutParams(dp(26), dp(26))
                 scaleType = ImageView.ScaleType.CENTER_INSIDE
             }
             val title = TextView(this@BrowserTabsActivity).apply {
@@ -317,7 +357,7 @@ class BrowserTabsActivity : AppCompatActivity() {
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL))
                 setTextColor(ContextCompat.getColor(this@BrowserTabsActivity, R.color.text))
-                setPadding(dp(7), 0, dp(3), 0)
+                setPadding(dp(8), 0, dp(3), 0)
             }
             header.addView(favicon)
             header.addView(title, LinearLayout.LayoutParams(0, dp(28), 1f))
@@ -331,44 +371,50 @@ class BrowserTabsActivity : AppCompatActivity() {
             val holder = TabHolder(card, favicon, title, preview)
             card.setOnClickListener {
                 val pos = holder.bindingAdapterPosition
-                if (pos != RecyclerView.NO_POSITION) openTab(data[pos], holder.preview)
+                if (pos != RecyclerView.NO_POSITION && pos in data.indices) openTab(data[pos], holder.preview)
             }
             return holder
         }
-        override fun getItemCount(): Int = data.size
-        override fun onBindViewHolder(holder: TabHolder, position: Int) {
+
+        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+            if (getItemViewType(position) == TYPE_ADD_TAB) return
+            val tabHolder = holder as TabHolder
             val tab = data[position]
-            holder.itemView.setOnLongClickListener {
-                showTabOptions(holder.itemView, tab, holder.preview)
+            tabHolder.itemView.setOnLongClickListener {
+                showTabOptions(tabHolder.itemView, tab, tabHolder.preview)
                 true
             }
-            holder.title.text = tab.title.ifBlank { titleFromUrl(tab.url) }
-            Glide.with(this@BrowserTabsActivity).clear(holder.favicon)
-            Glide.with(this@BrowserTabsActivity).clear(holder.preview)
+            tabHolder.title.text = tab.title.ifBlank { titleFromUrl(tab.url) }
+            Glide.with(this@BrowserTabsActivity).clear(tabHolder.favicon)
+            Glide.with(this@BrowserTabsActivity).clear(tabHolder.preview)
             if (tab.id == "__home__") {
-                holder.favicon.setImageResource(R.drawable.logo)
+                tabHolder.favicon.setImageResource(R.drawable.logo)
                 val homeImage = homeSnapshotPath.takeIf { it.isNotBlank() }?.let(::File)
                 if (homeImage != null && homeImage.exists()) {
-                    Glide.with(this@BrowserTabsActivity).load(homeImage).centerCrop().into(holder.preview)
+                    Glide.with(this@BrowserTabsActivity).load(homeImage).centerCrop().into(tabHolder.preview)
                 } else {
-                    Glide.with(this@BrowserTabsActivity).clear(holder.preview)
-                    holder.preview.setImageDrawable(com.appao.EmptyNewsIllustrationDrawable(this@BrowserTabsActivity))
-                    holder.preview.setBackgroundColor(ContextCompat.getColor(this@BrowserTabsActivity, R.color.bg))
+                    Glide.with(this@BrowserTabsActivity).clear(tabHolder.preview)
+                    tabHolder.preview.setImageDrawable(com.appao.EmptyNewsIllustrationDrawable(this@BrowserTabsActivity))
+                    tabHolder.preview.setBackgroundColor(ContextCompat.getColor(this@BrowserTabsActivity, R.color.bg))
                 }
-                holder.itemView.contentDescription = "Separador Início"
+                tabHolder.itemView.contentDescription = "Separador Início"
                 return
             }
-            Glide.with(this@BrowserTabsActivity).load(tab.favicon.ifBlank { BrowserTabStore.faviconFor(tab.url) }).circleCrop().placeholder(R.drawable.logo).into(holder.favicon)
+            Glide.with(this@BrowserTabsActivity).load(tab.favicon.ifBlank { BrowserTabStore.faviconFor(tab.url) })
+                .circleCrop().placeholder(R.drawable.logo).into(tabHolder.favicon)
             val imageFile = tab.snapshotPath.takeIf { it.isNotBlank() }?.let(::File)
             if (imageFile != null && imageFile.exists()) {
-                Glide.with(this@BrowserTabsActivity).load(imageFile).centerCrop().placeholder(R.color.card2).into(holder.preview)
+                Glide.with(this@BrowserTabsActivity).load(imageFile).centerCrop().placeholder(R.color.card2).into(tabHolder.preview)
             } else {
-                Glide.with(this@BrowserTabsActivity).clear(holder.preview)
-                holder.preview.setImageDrawable(null)
-                holder.preview.setBackgroundColor(ContextCompat.getColor(this@BrowserTabsActivity, R.color.card2))
+                Glide.with(this@BrowserTabsActivity).clear(tabHolder.preview)
+                tabHolder.preview.setImageDrawable(null)
+                tabHolder.preview.setBackgroundColor(ContextCompat.getColor(this@BrowserTabsActivity, R.color.card2))
             }
         }
+
     }
+
+    private class AddTabHolder(item: View) : RecyclerView.ViewHolder(item)
 
     private class TabHolder(item: View, val favicon: ImageView, val title: TextView, val preview: ImageView) : RecyclerView.ViewHolder(item)
 

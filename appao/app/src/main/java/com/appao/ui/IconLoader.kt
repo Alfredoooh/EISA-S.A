@@ -237,6 +237,11 @@ object IconLoader {
 
     fun applyIcon(view: ImageView, name: String, tintRes: Int = 0) {
         val tint = ContextCompat.getColor(view.context, if (tintRes != 0) tintRes else R.color.iconTint)
+        applyIconColor(view, name, tint)
+    }
+
+    /** Applies an already-resolved ARGB tint (useful for runtime accent colors and night mode). */
+    fun applyIconColor(view: ImageView, name: String, tint: Int) {
         val icon = drawable(view.context, name, tint)
         if (icon != null) {
             val size = resolveSize(view)

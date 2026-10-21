@@ -38,3 +38,11 @@ Não foi possível executar `assembleDebug` neste ambiente: o wrapper tentou des
 - Browser actions continue to use an anchor-attached AppCompat `PopupMenu`, explicitly themed with the application's Material 3 popup style, a rounded M3 surface, and the existing icon column; this remains a popup menu, not a Dialog.
 
 Validation for this update: all XML files parse successfully and the modified home grid, four navigation indicators, and popup theme references passed targeted static checks. Full Android compilation was not run because this archive does not contain the generated `drawable-nodpi` icon assets or the Gradle Wrapper JAR; those are normally injected by the project's generation/build workflow.
+
+## Barra inferior e vista de separadores (2026-10-21)
+- Removidos os traços indicadores acima dos ícones da barra inferior, sem aumentar a altura da barra.
+- Ícones e labels selecionados seguem a cor primária configurada no tema claro; no tema escuro, ícones selecionados ficam branco puro e inativos cinza-claro. O item de separadores continua representado pelo contador numérico, com contorno e número coloridos conforme o estado, sem ícone de copiar.
+- Aumentados os ícones de navegação das linhas do perfil para 30dp e as setas finais para 27dp; a linha de definições agora usa 30dp e `fitCenter` para evitar reduzir visualmente o desenho.
+- Segmento “Separadores / Privados” redesenhado como pílula com cantos totalmente arredondados, fundo de superfície e cápsula selecionada com contraste adaptado aos temas claro/escuro.
+- A vista de separadores agora inclui sempre um cartão de novo separador no final da grelha, com fundo de card e botão circular de mais centralizado; continua disponível mesmo quando não existem separadores privados.
+- O catálogo `assets/site_icons/site_icon_catalog.json` foi preservado sem alteração e não foram criados recursos `drawable-nodpi`.

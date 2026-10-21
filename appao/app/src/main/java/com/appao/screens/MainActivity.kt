@@ -461,10 +461,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupHomeNavigation() {
-        IconLoader.applyIcon(findViewById(R.id.homeMainNavHomeIcon), "home", R.color.iconTint)
-        IconLoader.applyIcon(findViewById(R.id.homeMainNavAppsIcon), "compass", R.color.iconTint)
-        IconLoader.applyIcon(findViewById(R.id.homeMainNavTabsIcon), "copy", R.color.iconTint)
-        IconLoader.applyIcon(findViewById(R.id.homeMainNavProfileIcon), "person-outline", R.color.iconTint)
         findViewById<View>(R.id.homeMainNavHome).setOnClickListener { switchMainTab("home") }
         findViewById<View>(R.id.homeMainNavApps).setOnClickListener { switchMainTab("discover") }
         findViewById<View>(R.id.homeMainNavTabs).setOnClickListener {
@@ -505,41 +501,43 @@ class MainActivity : AppCompatActivity() {
     private fun updateMainTabSelection(selected: String) {
         val effective = if (selected == "apps") "discover" else selected
         val defs = listOf(
-            Triple("home", R.id.homeMainNavHomeLabel, R.id.homeMainNavHomeIcon) to R.id.homeMainNavHomeIndicator,
-            Triple("discover", R.id.homeMainNavAppsLabel, R.id.homeMainNavAppsIcon) to R.id.homeMainNavAppsIndicator,
-            Triple("tabs", R.id.homeMainNavTabsLabel, R.id.homeMainNavTabsIcon) to R.id.homeMainNavTabsIndicator,
-            Triple("profile", R.id.homeMainNavProfileLabel, R.id.homeMainNavProfileIcon) to R.id.homeMainNavProfileIndicator
+            Triple("home", R.id.homeMainNavHomeLabel, R.id.homeMainNavHomeIcon),
+            Triple("discover", R.id.homeMainNavAppsLabel, R.id.homeMainNavAppsIcon),
+            Triple("tabs", R.id.homeMainNavTabsLabel, R.id.homeMainNavTabsIcon),
+            Triple("profile", R.id.homeMainNavProfileLabel, R.id.homeMainNavProfileIcon)
         )
+        val dark = ThemeManager.resolvedDark(this)
         val primary = AccentColorManager.resolvedOr(this, R.color.pri)
-        defs.forEach { (entry, indicatorId) ->
-            val (name, labelId, iconId) = entry
-            val isSelected = name == effective
-            findViewById<TextView>(labelId).setTextColor(
-                ContextCompat.getColor(this, if (isSelected) R.color.pri else R.color.dim)
-            )
-            val iconName = when (name) {
-                "home" -> if (isSelected) "home_filled" else "home"
-                "discover" -> if (isSelected) "compass_filled" else "compass"
-                "tabs" -> "copy" // The tabs control is rendered by its numeric count badge.
-                else -> if (isSelected) "profile_filled" else "profile"
-            }
-            IconLoader.applyIcon(findViewById(iconId), iconName, R.color.iconTint)
+        val inactiveIcon = if (dark) android.graphics.Color.rgb(190, 190, 190)
+            else ContextCompat.getColor(this, R.color.dim)
+        val activeIcon = if (dark) android.graphics.Color.WHITE else primary
+        val inactiveText = ContextCompat.getColor(this, R.color.dim)
+        val activeText = if (dark) ContextCompat.getColor(this, R.color.text) else primary
 
-            val indicator = findViewById<View>(indicatorId)
-            indicator.background = android.graphics.drawable.GradientDrawable().apply {
-                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                cornerRadius = dp(99).toFloat()
-                setColor(primary)
-            }
-            indicator.animate().cancel()
-            if (isSelected) {
-                indicator.visibility = View.VISIBLE
-                indicator.alpha = 0f
-                indicator.scaleX = 0.72f
-                indicator.animate().alpha(1f).scaleX(1f).setDuration(240L).setInterpolator(Curves.SMOOTH).start()
+        defs.forEach { (name, labelId, iconId) ->
+            val isSelected = name == effective
+            findViewById<TextView>(labelId).setTextColor(if (isSelected) activeText else inactiveText)
+            if (name == "tabs") {
+                // The tabs item is intentionally represented by a numeric live tab count, not a copy icon.
+                val countTint = if (dark) {
+                    if (isSelected) android.graphics.Color.WHITE else android.graphics.Color.rgb(190, 190, 190)
+                } else if (isSelected) primary else ContextCompat.getColor(this, R.color.text)
+                findViewById<TextView>(R.id.homeMainNavTabsCount).apply {
+                    setTextColor(countTint)
+                    background = android.graphics.drawable.GradientDrawable().apply {
+                        shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                        cornerRadius = dp(6).toFloat()
+                        setColor(android.graphics.Color.TRANSPARENT)
+                        setStroke(dp(2), countTint)
+                    }
+                }
             } else {
-                indicator.alpha = 0f
-                indicator.visibility = View.GONE
+                val iconName = when (name) {
+                    "home" -> if (isSelected) "home_filled" else "home"
+                    "discover" -> if (isSelected) "compass_filled" else "compass"
+                    else -> if (isSelected) "profile_filled" else "profile"
+                }
+                IconLoader.applyIconColor(findViewById(iconId), iconName, if (isSelected) activeIcon else inactiveIcon)
             }
         }
     }
@@ -1689,9 +1687,9 @@ class MainActivity : AppCompatActivity() {
             background = ContextCompat.getDrawable(this@MainActivity, backgroundId)
             isClickable = true; isFocusable = true
             addView(ImageView(this@MainActivity).apply {
-                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                scaleType = ImageView.ScaleType.FIT_CENTER
                 IconLoader.applyIcon(this, row.icon, R.color.iconTint)
-            }, LinearLayout.LayoutParams(dp(24), dp(24)))
+            }, LinearLayout.LayoutParams(dp(30), dp(30)))
             addView(TextView(this@MainActivity).apply {
                 text = row.label; textSize = 14.5f
                 setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
@@ -1715,9 +1713,9 @@ class MainActivity : AppCompatActivity() {
                 }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             } else {
                 addView(ImageView(this@MainActivity).apply {
-                    scaleType = ImageView.ScaleType.CENTER_INSIDE
+                    scaleType = ImageView.ScaleType.FIT_CENTER
                     IconLoader.applyIcon(this, "arrow_right", R.color.dim)
-                }, LinearLayout.LayoutParams(dp(24), dp(24)))
+                }, LinearLayout.LayoutParams(dp(27), dp(27)))
             }
             setOnClickListener { row.action() }
         }

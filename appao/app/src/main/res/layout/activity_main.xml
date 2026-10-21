@@ -194,31 +194,27 @@
                 <ImageView android:id="@+id/homeMainNavHomeIcon" android:layout_width="24dp" android:layout_height="24dp" android:scaleType="fitCenter" />
                 <TextView android:id="@+id/homeMainNavHomeLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Início" android:textSize="12sp" android:textColor="@color/text" />
             </LinearLayout>
-            <View android:id="@+id/homeMainNavHomeIndicator" android:layout_width="24dp" android:layout_height="3dp" android:layout_gravity="top|center_horizontal" android:layout_marginTop="4dp" android:background="@drawable/bg_auth_indicator" android:visibility="gone" />
         </FrameLayout>
         <FrameLayout android:id="@+id/homeMainNavApps" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:background="@drawable/bg_transparent_pressed" android:clickable="true" android:focusable="true" android:contentDescription="Descobrir">
             <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center">
                 <ImageView android:id="@+id/homeMainNavAppsIcon" android:layout_width="24dp" android:layout_height="24dp" android:scaleType="fitCenter" />
                 <TextView android:id="@+id/homeMainNavAppsLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Descobrir" android:textSize="12sp" android:textColor="@color/dim" />
             </LinearLayout>
-            <View android:id="@+id/homeMainNavAppsIndicator" android:layout_width="24dp" android:layout_height="3dp" android:layout_gravity="top|center_horizontal" android:layout_marginTop="4dp" android:background="@drawable/bg_auth_indicator" android:visibility="gone" />
         </FrameLayout>
         <FrameLayout android:id="@+id/homeMainNavTabs" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:background="@drawable/bg_transparent_pressed" android:clickable="true" android:focusable="true" android:contentDescription="Abas">
             <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center">
                 <FrameLayout android:layout_width="25dp" android:layout_height="25dp">
                     <ImageView android:id="@+id/homeMainNavTabsIcon" android:layout_width="24dp" android:layout_height="24dp" android:layout_gravity="center" android:scaleType="fitCenter" android:visibility="gone" />
-                    <TextView android:id="@+id/homeMainNavTabsCount" android:layout_width="24dp" android:layout_height="24dp" android:layout_gravity="center" android:gravity="center" android:background="@drawable/bg_browser_tab_counter" android:text="1" android:textColor="@color/text" android:textSize="10sp" android:textStyle="normal" />
+                    <TextView android:id="@+id/homeMainNavTabsCount" android:layout_width="24dp" android:layout_height="24dp" android:layout_gravity="center" android:gravity="center" android:background="@drawable/bg_browser_tab_counter" android:text="1" android:textColor="@color/text" android:textSize="12sp" android:textStyle="normal" />
                 </FrameLayout>
                 <TextView android:id="@+id/homeMainNavTabsLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Abas" android:textSize="12sp" android:textColor="@color/dim" />
             </LinearLayout>
-            <View android:id="@+id/homeMainNavTabsIndicator" android:layout_width="24dp" android:layout_height="3dp" android:layout_gravity="top|center_horizontal" android:layout_marginTop="4dp" android:background="@drawable/bg_auth_indicator" android:visibility="gone" />
         </FrameLayout>
         <FrameLayout android:id="@+id/homeMainNavProfile" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:background="@drawable/bg_transparent_pressed" android:clickable="true" android:focusable="true" android:contentDescription="Perfil e menu">
             <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center">
                 <ImageView android:id="@+id/homeMainNavProfileIcon" android:layout_width="24dp" android:layout_height="24dp" android:scaleType="fitCenter" />
                 <TextView android:id="@+id/homeMainNavProfileLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Perfil" android:textSize="12sp" android:textColor="@color/dim" />
             </LinearLayout>
-            <View android:id="@+id/homeMainNavProfileIndicator" android:layout_width="24dp" android:layout_height="3dp" android:layout_gravity="top|center_horizontal" android:layout_marginTop="4dp" android:background="@drawable/bg_auth_indicator" android:visibility="gone" />
         </FrameLayout>
     </LinearLayout>
     <com.appao.PullRefreshIndicatorView android:id="@+id/pullIndicator" android:layout_width="28dp" android:layout_height="28dp" android:layout_gravity="top|center_horizontal" android:alpha="0" android:elevation="30dp" />

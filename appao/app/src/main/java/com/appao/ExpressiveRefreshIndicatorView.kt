@@ -7,7 +7,6 @@ import android.graphics.Path
 import android.util.AttributeSet
 import android.view.View
 import androidx.core.graphics.ColorUtils
-import com.appao.core.AccentColorManager
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos

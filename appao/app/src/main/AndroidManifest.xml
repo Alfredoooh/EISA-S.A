@@ -65,6 +65,7 @@
         <activity android:name=".screens.BrowserSettingsActivity" android:exported="false" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
         <activity android:name=".screens.BrowserDownloadsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
         <activity android:name=".screens.HistorySettingsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
+        <activity android:name=".screens.MiniAppActivity" android:exported="false" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
         <activity android:name=".screens.AppViewerActivity" android:exported="false" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize" android:configChanges="screenSize|orientation|screenLayout|smallestScreenSize" />
     </application>
 </manifest>

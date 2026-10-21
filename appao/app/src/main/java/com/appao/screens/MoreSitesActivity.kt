@@ -1,6 +1,7 @@
 package com.appao
 
 import android.content.Intent
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -16,13 +17,26 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.bumptech.glide.Glide
 import com.appao.screens.AppViewerActivity
+import com.appao.screens.MiniAppActivity
 import com.appao.screens.BrowserTabStore
 import com.appao.ui.IconLoader
 
-/** Popular web sites grouped by category, opened in AppAo's persistent browser tabs. */
+/** Site catalogue and standalone mini apps, with separate experiences for each section. */
 class MoreSitesActivity : AppCompatActivity() {
     private data class Site(val name: String, val url: String, val icon: Int? = null)
     private data class SiteCategory(val name: String, val sites: List<Site>)
+    private data class MiniApp(val id: String, val name: String, val description: String, val icon: Int)
+
+    private lateinit var sitesTab: TextView
+    private lateinit var miniAppsTab: TextView
+    private lateinit var sitesSection: View
+    private lateinit var miniAppsSection: View
+
+    private val miniApps = listOf(
+        MiniApp("docs", "Documentos", "Criar e editar documentos", R.drawable.ic_mini_docs),
+        MiniApp("sheets", "Folhas de cálculo", "Organizar dados e cálculos", R.drawable.ic_mini_sheets),
+        MiniApp("slides", "Apresentações", "Criar apresentações", R.drawable.ic_mini_slides)
+    )
 
     private val siteCategories = listOf(
         SiteCategory("Pesquisa e navegadores", listOf(
@@ -149,6 +163,25 @@ class MoreSitesActivity : AppCompatActivity() {
         root.addView(toolbar)
         root.addView(View(this).apply { setBackgroundColor(ContextCompat.getColor(this@MoreSitesActivity, R.color.line)) }, LinearLayout.LayoutParams(-1, dp(1)))
 
+        val segment = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(999).toFloat()
+                setColor(ContextCompat.getColor(this@MoreSitesActivity, R.color.card))
+                setStroke(dp(1), ContextCompat.getColor(this@MoreSitesActivity, R.color.border))
+            }
+            setPadding(dp(3), dp(3), dp(3), dp(3))
+        }
+        sitesTab = createSegmentTab("Sites") { showSection(false) }
+        miniAppsTab = createSegmentTab("Mini apps") { showSection(true) }
+        segment.addView(sitesTab, LinearLayout.LayoutParams(0, dp(42), 1f))
+        segment.addView(miniAppsTab, LinearLayout.LayoutParams(0, dp(42), 1f))
+        root.addView(segment, LinearLayout.LayoutParams(-1, dp(50)).apply {
+            setMargins(dp(16), dp(10), dp(16), dp(6))
+        })
+
         val scroll = ScrollView(this).apply {
             isFillViewport = true
             isVerticalScrollBarEnabled = false
@@ -192,8 +225,129 @@ class MoreSitesActivity : AppCompatActivity() {
             }
         }
         scroll.addView(content, ViewGroup.LayoutParams(-1, -2))
-        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+
+        val miniScroll = ScrollView(this).apply {
+            isFillViewport = true
+            isVerticalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+            visibility = View.GONE
+        }
+        val miniContent = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(14), dp(16), dp(28))
+        }
+        miniContent.addView(TextView(this).apply {
+            text = "Ferramentas de produtividade"
+            textSize = 16f
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+            setTextColor(ContextCompat.getColor(this@MoreSitesActivity, R.color.text))
+            setPadding(dp(2), dp(2), dp(2), dp(5))
+        }, LinearLayout.LayoutParams(-1, -2))
+        miniContent.addView(TextView(this).apply {
+            text = "Mini apps integradas no AppAo, sem a barra do navegador."
+            textSize = 13f
+            setTextColor(ContextCompat.getColor(this@MoreSitesActivity, R.color.dim))
+            setPadding(dp(2), 0, dp(2), dp(14))
+        }, LinearLayout.LayoutParams(-1, -2))
+        val miniGrid = GridLayout(this).apply {
+            columnCount = 3
+            useDefaultMargins = false
+            alignmentMode = GridLayout.ALIGN_BOUNDS
+        }
+        miniApps.forEachIndexed { index, app ->
+            miniGrid.addView(createMiniAppTile(app), GridLayout.LayoutParams(
+                GridLayout.spec(index / 3, 1, 1f),
+                GridLayout.spec(index % 3, 1, 1f)
+            ).apply {
+                width = 0
+                height = dp(104)
+                setMargins(dp(1), dp(1), dp(1), dp(1))
+            })
+        }
+        miniContent.addView(miniGrid, LinearLayout.LayoutParams(-1, -2))
+        miniScroll.addView(miniContent, ViewGroup.LayoutParams(-1, -2))
+
+        val sections = FrameLayout(this)
+        sitesSection = scroll
+        miniAppsSection = miniScroll
+        sections.addView(sitesSection, FrameLayout.LayoutParams(-1, -1))
+        sections.addView(miniAppsSection, FrameLayout.LayoutParams(-1, -1))
+        root.addView(sections, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
+        showSection(false)
+    }
+
+    private fun createSegmentTab(label: String, action: () -> Unit): TextView = TextView(this).apply {
+        text = label
+        gravity = Gravity.CENTER
+        textSize = 13.5f
+        isClickable = true
+        isFocusable = true
+        setOnClickListener { action() }
+    }
+
+    private fun showSection(showMiniApps: Boolean) {
+        if (!::sitesTab.isInitialized || !::miniAppsTab.isInitialized ||
+            !::sitesSection.isInitialized || !::miniAppsSection.isInitialized) return
+        sitesSection.visibility = if (showMiniApps) View.GONE else View.VISIBLE
+        miniAppsSection.visibility = if (showMiniApps) View.VISIBLE else View.GONE
+        val selectedText = ContextCompat.getColor(this, R.color.text)
+        val inactiveText = ContextCompat.getColor(this, R.color.dim)
+        val selectedSurface = ContextCompat.getColor(this, R.color.bg)
+        val border = ContextCompat.getColor(this, R.color.border)
+        fun selectedBackground(selected: Boolean) = if (selected) GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(999).toFloat()
+            setColor(selectedSurface)
+            setStroke(dp(1), border)
+        } else null
+        sitesTab.background = selectedBackground(!showMiniApps)
+        miniAppsTab.background = selectedBackground(showMiniApps)
+        sitesTab.elevation = if (!showMiniApps && !com.appao.ThemeManager.resolvedDark(this)) dp(1).toFloat() else 0f
+        miniAppsTab.elevation = if (showMiniApps && !com.appao.ThemeManager.resolvedDark(this)) dp(1).toFloat() else 0f
+        sitesTab.setTextColor(if (!showMiniApps) selectedText else inactiveText)
+        miniAppsTab.setTextColor(if (showMiniApps) selectedText else inactiveText)
+        sitesTab.typeface = android.graphics.Typeface.create("sans-serif-medium", if (!showMiniApps) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+        miniAppsTab.typeface = android.graphics.Typeface.create("sans-serif-medium", if (showMiniApps) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+    }
+
+    private fun createMiniAppTile(entry: MiniApp): View {
+        val tile = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(3), dp(7), dp(3), dp(5))
+            isClickable = true
+            isFocusable = true
+            background = ContextCompat.getDrawable(this@MoreSitesActivity, R.drawable.bg_transparent_pressed)
+            contentDescription = entry.name
+            setOnClickListener {
+                startActivity(Intent(this@MoreSitesActivity, MiniAppActivity::class.java).apply {
+                    putExtra(MiniAppActivity.EXTRA_MINI_APP_ID, entry.id)
+                })
+            }
+        }
+        val iconBox = FrameLayout(this).apply {
+            background = ContextCompat.getDrawable(this@MoreSitesActivity, R.drawable.bg_app_icon_container)
+            clipToOutline = true
+        }
+        val icon = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            contentDescription = "Logo de ${entry.name}"
+            setImageResource(entry.icon)
+            setPadding(dp(7), dp(7), dp(7), dp(7))
+        }
+        iconBox.addView(icon, FrameLayout.LayoutParams(-1, -1))
+        tile.addView(iconBox, LinearLayout.LayoutParams(dp(48), dp(48)))
+        tile.addView(TextView(this).apply {
+            text = entry.name
+            textSize = 11.5f
+            gravity = Gravity.CENTER
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setTextColor(ContextCompat.getColor(this@MoreSitesActivity, R.color.text))
+            setPadding(0, dp(5), 0, 0)
+        }, LinearLayout.LayoutParams(-1, -2))
+        return tile
     }
 
     private fun createSiteTile(entry: Site): View {

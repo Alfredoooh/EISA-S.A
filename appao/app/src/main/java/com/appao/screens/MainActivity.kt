@@ -52,6 +52,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Locale
 import kotlin.math.abs
+import com.appao.screens.BrowserLoadingBooster
 import com.appao.screens.BrowserSearchActivity
 import com.appao.screens.AppViewerActivity
 import com.appao.screens.BrowserDownloadsActivity

@@ -505,22 +505,42 @@ class MainActivity : AppCompatActivity() {
     private fun updateMainTabSelection(selected: String) {
         val effective = if (selected == "apps") "discover" else selected
         val defs = listOf(
-            Triple("home", R.id.homeMainNavHomeLabel, R.id.homeMainNavHomeIcon),
-            Triple("discover", R.id.homeMainNavAppsLabel, R.id.homeMainNavAppsIcon),
-            Triple("tabs", R.id.homeMainNavTabsLabel, R.id.homeMainNavTabsIcon),
-            Triple("profile", R.id.homeMainNavProfileLabel, R.id.homeMainNavProfileIcon)
+            Triple("home", R.id.homeMainNavHomeLabel, R.id.homeMainNavHomeIcon) to R.id.homeMainNavHomeIndicator,
+            Triple("discover", R.id.homeMainNavAppsLabel, R.id.homeMainNavAppsIcon) to R.id.homeMainNavAppsIndicator,
+            Triple("tabs", R.id.homeMainNavTabsLabel, R.id.homeMainNavTabsIcon) to R.id.homeMainNavTabsIndicator,
+            Triple("profile", R.id.homeMainNavProfileLabel, R.id.homeMainNavProfileIcon) to R.id.homeMainNavProfileIndicator
         )
-        defs.forEach { (name, labelId, iconId) ->
+        val primary = AccentColorManager.resolvedOr(this, R.color.pri)
+        defs.forEach { (entry, indicatorId) ->
+            val (name, labelId, iconId) = entry
+            val isSelected = name == effective
             findViewById<TextView>(labelId).setTextColor(
-                ContextCompat.getColor(this, if (name == effective) R.color.pri else R.color.dim)
+                ContextCompat.getColor(this, if (isSelected) R.color.pri else R.color.dim)
             )
             val iconName = when (name) {
-                "home" -> if (name == effective) "home_filled" else "home"
-                "discover" -> if (name == effective) "compass_filled" else "compass"
-                "tabs" -> "copy"
-                else -> if (name == effective) "profile_filled" else "profile"
+                "home" -> if (isSelected) "home_filled" else "home"
+                "discover" -> if (isSelected) "compass_filled" else "compass"
+                "tabs" -> "copy" // The tabs control is rendered by its numeric count badge.
+                else -> if (isSelected) "profile_filled" else "profile"
             }
             IconLoader.applyIcon(findViewById(iconId), iconName, R.color.iconTint)
+
+            val indicator = findViewById<View>(indicatorId)
+            indicator.background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = dp(99).toFloat()
+                setColor(primary)
+            }
+            indicator.animate().cancel()
+            if (isSelected) {
+                indicator.visibility = View.VISIBLE
+                indicator.alpha = 0f
+                indicator.scaleX = 0.72f
+                indicator.animate().alpha(1f).scaleX(1f).setDuration(240L).setInterpolator(Curves.SMOOTH).start()
+            } else {
+                indicator.alpha = 0f
+                indicator.visibility = View.GONE
+            }
         }
     }
 
@@ -1197,7 +1217,7 @@ class MainActivity : AppCompatActivity() {
     private fun populateHomeQuickSites() {
         if (!::homeQuickSites.isInitialized) return
         homeQuickSites.removeAllViews()
-        homeQuickSites.columnCount = 6
+        homeQuickSites.columnCount = 5
         val sites = listOf(
             HomeSite("Facebook", "https://www.facebook.com/", iconRes = R.drawable.asset_social_facebook),
             HomeSite("CrazyGames", "https://www.crazygames.com/"),
@@ -1236,10 +1256,16 @@ class MainActivity : AppCompatActivity() {
                 icon.setImageResource(quickEntry.iconRes)
             } else if (quickEntry.url.isNotBlank()) {
                 // Sites with no bundled PNG download their real favicon from the favicon endpoint.
-                Glide.with(this).load(BrowserTabStore.faviconFor(quickEntry.url)).fitCenter()
-                    .placeholder(R.drawable.ic_search_outline).error(R.drawable.ic_search_outline).into(icon)
+                Glide.with(this).load(BrowserTabStore.faviconFor(quickEntry.url)).circleCrop()
+                    .placeholder(R.drawable.logo).error(R.drawable.logo).into(icon)
             } else {
-                IconLoader.applyIcon(icon, if (quickEntry.internal == "downloads") "download" else "apps", R.color.iconTint)
+                val utilityIcon = if (quickEntry.internal == "downloads") {
+                    R.drawable.asset_quick_download
+                } else {
+                    R.drawable.asset_quick_more_sites
+                }
+                icon.setImageResource(utilityIcon)
+                icon.setColorFilter(ContextCompat.getColor(this@MainActivity, R.color.iconTint), android.graphics.PorterDuff.Mode.SRC_IN)
             }
             iconBox.addView(icon, FrameLayout.LayoutParams(-1, -1))
             tile.addView(iconBox, LinearLayout.LayoutParams(dp(44), dp(44)))
@@ -1253,9 +1279,9 @@ class MainActivity : AppCompatActivity() {
                 setPadding(0, dp(5), 0, 0)
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             val params = GridLayout.LayoutParams(
-                GridLayout.spec(index / 6, 1, 1f),
-                GridLayout.spec(index % 6, 1, 1f)
-            ).apply { width = 0; height = dp(80); setMargins(dp(1), dp(1), dp(1), dp(1)) }
+                GridLayout.spec(index / 5, 1, 1f),
+                GridLayout.spec(index % 5, 1, 1f)
+            ).apply { width = 0; height = dp(82); setMargins(dp(1), dp(1), dp(1), dp(1)) }
             homeQuickSites.addView(tile, params)
         }
     }

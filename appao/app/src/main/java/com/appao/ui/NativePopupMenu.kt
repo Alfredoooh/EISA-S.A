@@ -1,10 +1,12 @@
 package com.appao.ui
 
+import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.Menu
 import android.view.View
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.ContextCompat
+import com.appao.R
 
 /**
  * Shared native Android popup menus. Geometry, elevation, scrolling and dismissal are left
@@ -31,8 +33,9 @@ object NativePopupMenu {
         onClick: (Item) -> Unit
     ): PopupMenu {
         val context = anchor.context
-        val popup = PopupMenu(context, anchor)
-        runCatching { popup.gravity = if (alignLeft) Gravity.START else Gravity.END }
+        val popupContext = ContextThemeWrapper(context, R.style.ThemeOverlay_AppAo_PopupMenu)
+        val gravity = if (alignLeft) Gravity.START else Gravity.END
+        val popup = PopupMenu(popupContext, anchor, gravity, androidx.appcompat.R.attr.popupMenuStyle, R.style.AppAo_PopupMenu)
 
         items.forEach { item ->
             val menuItem = popup.menu.add(Menu.NONE, item.id, Menu.NONE, item.title)

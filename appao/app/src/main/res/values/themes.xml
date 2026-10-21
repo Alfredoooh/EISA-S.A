@@ -193,10 +193,16 @@
     <style
         name="AppAo.PopupMenu"
         parent="Widget.Material3.PopupMenu">
+        <item name="android:popupBackground">@drawable/bg_popup_material</item>
+    </style>
 
-        <item name="android:popupBackground">
-            @drawable/bg_popup_material
-        </item>
+    <!-- Theme used only by anchor-attached Material 3 popup menus, never a Dialog. -->
+    <style name="ThemeOverlay.AppAo.PopupMenu" parent="ThemeOverlay.Material3">
+        <item name="colorSurface">@color/popupBg</item>
+        <item name="colorOnSurface">@color/text</item>
+        <item name="colorPrimary">@color/pri</item>
+        <item name="popupMenuStyle">@style/AppAo.PopupMenu</item>
+        <item name="android:popupMenuStyle">@style/AppAo.PopupMenu</item>
     </style>
     <style name="Theme.AppAo.Splash" parent="Theme.AppAo">
         <item name="android:windowBackground">@drawable/splash_window</item>

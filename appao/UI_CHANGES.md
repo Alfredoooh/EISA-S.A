@@ -29,3 +29,12 @@ Não foi possível executar `assembleDebug` neste ambiente: o wrapper tentou des
 - Removed shared-element transition setup from the tab overview, disabled change animations during full adapter refreshes, lowered tab preview height to reduce thumbnail memory pressure, and retained fade transitions.
 - Added a lightweight browser warm-up using asynchronous DNS pre-resolution and standard WebView cache settings. This reduces avoidable DNS delays where possible but cannot guarantee faster remote servers or network connections.
 
+
+
+## Homepage and popup-menu correction (2026-10-21)
+- Returned the home quick-sites panel to a five-column grid: eight sites plus Downloads and Mais sites now display as five entries in each of two rows. The app-discovery grid remains six columns.
+- Restored 44dp circular quick-site icon containers and original utility glyph assets; remote favicons use circle cropping so images without square content do not look undersized. No `drawable-nodpi` resources were added or regenerated.
+- Added a compact 24dp-wide, 3dp-high primary-colour indicator above the active bottom-navigation icon. It is overlaid on each tab so the existing icon/label stack does not move down. The tabs item continues to use its numeric tab-count symbol rather than a copy glyph.
+- Browser actions continue to use an anchor-attached AppCompat `PopupMenu`, explicitly themed with the application's Material 3 popup style, a rounded M3 surface, and the existing icon column; this remains a popup menu, not a Dialog.
+
+Validation for this update: all XML files parse successfully and the modified home grid, four navigation indicators, and popup theme references passed targeted static checks. Full Android compilation was not run because this archive does not contain the generated `drawable-nodpi` icon assets or the Gradle Wrapper JAR; those are normally injected by the project's generation/build workflow.

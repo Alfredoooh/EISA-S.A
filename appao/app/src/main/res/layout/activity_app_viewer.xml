@@ -31,20 +31,20 @@
             android:background="@drawable/bg_toolbar_actions">
             <FrameLayout
                 android:id="@+id/browserFaviconContainer"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
                 android:background="@drawable/bg_favicon_container"
                 android:clipToOutline="true">
                 <ImageView
                     android:id="@+id/browserFavicon"
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
                     android:layout_gravity="center"
                     android:scaleType="centerInside" />
                 <com.appao.PullRefreshIndicatorView
                     android:id="@+id/browserFaviconLoader"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
                     android:layout_gravity="center"
                     android:visibility="gone" />
             </FrameLayout>
@@ -162,7 +162,7 @@
         </FrameLayout>
     </LinearLayout>
 
-    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+    <com.appao.ExpressiveSwipeRefreshLayout
         android:id="@+id/webSwipeRefresh"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
@@ -177,6 +177,15 @@
             android:background="@color/bg"
             android:transitionName="browser_tab_preview" />
 
-    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+    </com.appao.ExpressiveSwipeRefreshLayout>
+
+    <com.appao.ExpressiveRefreshIndicatorView
+        android:id="@+id/browserPullIndicator"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="top|center_horizontal"
+        android:alpha="0"
+        android:elevation="12dp"
+        android:visibility="gone" />
 
 </FrameLayout>

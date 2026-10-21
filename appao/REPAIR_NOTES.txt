@@ -1,9 +1,11 @@
-AppAo – correções da interface e do browser
+AppAo — notas desta passagem de correções
 
-Restaurado o bottom bar personalizado usado pelo projeto, com o fundo ligado a @color/bg (tema claro/escuro) e o contador numérico das abas. A lista rápida continua com os oito sites pedidos, Downloads e Mais sites; os sites permanecem em contentores circulares dentro de um único contentor-pai com @drawable/bg_toolbar_actions. A grelha de apps usa seis colunas e os tamanhos de ícone originais (44dp nos acessos rápidos da página inicial e 32dp na grelha de apps).
+- Ícones Material Symbols Rounded: viewport intrínseco comum de 24 dp, sem os antigos limites manuais que tornavam o desenho demasiado pequeno; fallback Canvas declara 24 dp. Foram preservados o catálogo JSON e o pipeline de recursos existente.
+- Favicon do browser: imagem recortada circularmente, contentor e anel gradiente existentes com 28 dp, sem alterações ao desenho/animação do loader do favicon.
+- Barra do navegador: ocultação progressiva em função do scroll e ajuste simultâneo da margem da área WebView; sem espaço vazio quando a barra fica oculta.
+- Pull-to-refresh: indicador Canvas expressivo separado do loader do favicon; o wrapper de SwipeRefreshLayout tenta distinguir gestos verticais de arrastos horizontais antes de os intercetar.
+- Pesquisa: transição Material Container Transform a partir do campo de endereço da página inicial e do browser; sem botão de voltar na atividade de pesquisa, com retorno do sistema preservado; histórico mostra títulos em vez de URLs e favicons apenas para páginas visitadas.
+- Popup menus sem contorno sólido. Perfil continua sem cartões, com cabeçalho centrado e divisórias finas.
+- Nenhum ficheiro `drawable-nodpi` foi criado/incluído; `app/src/main/assets/site_icons/site_icon_catalog.json` permanece inalterado.
 
-Restauradas as referências aos recursos legados R.drawable.* e os ícones dos popups de motores de pesquisa. O arquivo app/src/main/assets/site_icons/site_icon_catalog.json foi preservado sem alterações. Nenhum arquivo drawable-nodpi foi criado nem incluído; o pipeline de geração do projeto deve continuar a gerar esses recursos a partir do catálogo.
-
-O perfil mantém o avatar e os textos centralizados, sem fundo de cartão no cabeçalho, e o conteúdo continua a deslocar-se verticalmente. O menu do browser fica limitado a Recuar, Avançar, Novo separador, Downloads, Pesquisar nesta página, Partilhar página, Zoom da página, Início e Definições. As definições do browser foram isoladas numa atividade nativa própria. O círculo do favicon é mais compacto e usa a superfície do tema; o anel gradiente mantém-se.
-
-Verificação local: XML bem-formado (210 ficheiros), verificação de fontes PASS e nenhuma referência a `getChildAte` ou `R.drawable/`. Não foi possível fazer uma compilação Android completa neste ambiente: o ZIP original não contém o Gradle Wrapper JAR nem os recursos de ícones gerados pelo pipeline, deliberadamente não incluídos conforme pedido.
+Verificação: XML bem-formado e verificações estáticas direcionadas. A verificação geral reporta recursos gráficos que são gerados pelo pipeline e não constam deste snapshot. Não foi possível fazer `assembleDebug`: o ambiente não conseguiu descarregar Gradle 8.2.1 de `services.gradle.org` por falha de resolução DNS. Portanto, não se afirma que uma compilação Android completa tenha passado.

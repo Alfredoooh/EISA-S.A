@@ -22,6 +22,9 @@ class FallbackIconDrawable(
         strokeJoin = Paint.Join.ROUND
     }
 
+    override fun getIntrinsicWidth(): Int = (24f * density + 0.5f).toInt().coerceAtLeast(1)
+    override fun getIntrinsicHeight(): Int = (24f * density + 0.5f).toInt().coerceAtLeast(1)
+
     override fun draw(canvas: Canvas) {
         paint.color = tint
         val b = bounds

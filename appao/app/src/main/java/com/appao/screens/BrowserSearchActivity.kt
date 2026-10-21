@@ -1,7 +1,9 @@
 package com.appao.screens
 
 import android.content.Intent
+import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -25,6 +27,9 @@ import androidx.lifecycle.lifecycleScope
 import com.appao.BrowserAutocomplete
 import com.appao.BrowserPreferences
 import com.appao.BrowsingHistoryStore
+import com.bumptech.glide.Glide
+import com.google.android.material.transition.platform.MaterialContainerTransform
+import com.google.android.material.transition.platform.MaterialContainerTransformSharedElementCallback
 import com.appao.R
 import com.appao.SystemBarHelper
 import com.appao.ui.IconLoader
@@ -58,6 +63,7 @@ class BrowserSearchActivity : AppCompatActivity() {
         SystemBarHelper.sync(this)
         window.statusBarColor = ContextCompat.getColor(this, R.color.bg)
         setContentView(buildContent())
+        configureContainerTransform()
 
         privateMode = intent.getBooleanExtra("browser_private_mode", false)
         val initial = intent.getStringExtra(EXTRA_INITIAL_QUERY).orEmpty()
@@ -92,22 +98,10 @@ class BrowserSearchActivity : AppCompatActivity() {
             setPadding(dp(8), dp(7), dp(8), dp(7))
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58))
         }
-        val back = FrameLayout(this).apply {
-            isClickable = true
-            isFocusable = true
-            foreground = ContextCompat.getDrawable(this@BrowserSearchActivity, R.drawable.bg_transparent_pressed)
-            contentDescription = "Voltar ao browser"
-            addView(ImageView(this@BrowserSearchActivity).apply {
-                layoutParams = FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER)
-                scaleType = ImageView.ScaleType.CENTER_INSIDE
-                IconLoader.applyIcon(this, "arrow_left", R.color.iconTint)
-            })
-            setOnClickListener { finishWithFade() }
-        }
-        header.addView(back, LinearLayout.LayoutParams(dp(40), dp(42)))
-
         // This is the same 42dp toolbar pill used by activity_app_viewer.xml.
         val pill = LinearLayout(this).apply {
+            id = R.id.homeAddressBar
+            transitionName = "browser_address_transform"
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(10), 0, dp(5), 0)
@@ -239,7 +233,7 @@ class BrowserSearchActivity : AppCompatActivity() {
         rows.removeAllViews()
         engineLabel.text = "Motor de pesquisa: ${BrowserPreferences.searchEngine(this)}"
 
-        fun addRow(title: String, subtitle: String, iconName: String, value: String) {
+        fun addRow(title: String, subtitle: String, iconName: String, value: String, faviconUrl: String? = null) {
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -249,11 +243,19 @@ class BrowserSearchActivity : AppCompatActivity() {
                 isClickable = true
                 isFocusable = true
             }
-            row.addView(ImageView(this).apply {
+            val leadingIcon = ImageView(this).apply {
                 layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
                 scaleType = ImageView.ScaleType.CENTER_INSIDE
-                IconLoader.applyIcon(this, iconName, R.color.iconTint)
-            })
+            }
+            if (!faviconUrl.isNullOrBlank()) {
+                Glide.with(this@BrowserSearchActivity).load(faviconUrl)
+                    .circleCrop().override(dp(24), dp(24)).dontAnimate()
+                    .placeholder(R.drawable.ic_globe_outline).error(R.drawable.ic_globe_outline)
+                    .into(leadingIcon)
+            } else {
+                IconLoader.applyIcon(leadingIcon, iconName, R.color.iconTint)
+            }
+            row.addView(leadingIcon)
             val labels = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(13), 0, 0, 0)
@@ -284,7 +286,11 @@ class BrowserSearchActivity : AppCompatActivity() {
         val history = if (privateMode) emptyList() else BrowsingHistoryStore.all(this)
             .filter { query.isBlank() || it.title.contains(query, true) || it.url.contains(query, true) }
             .take(if (query.isBlank()) 10 else 4)
-        history.forEach { addRow(it.title.ifBlank { it.url }, it.url, "history", it.url) }
+        history.forEach { entry ->
+            val host = runCatching { Uri.parse(entry.url).host.orEmpty().removePrefix("www.") }.getOrDefault("")
+            val title = entry.title.trim().ifBlank { host.ifBlank { "Site visitado" } }
+            addRow(title, "", "history", entry.url, BrowserTabStore.faviconFor(entry.url))
+        }
         if (query.isBlank() && history.isEmpty()) addRow("Nova pesquisa", "Escreve uma palavra ou endereço", "search", "")
     }
 
@@ -298,9 +304,25 @@ class BrowserSearchActivity : AppCompatActivity() {
         finishWithFade()
     }
 
+    private fun configureContainerTransform() {
+        window.sharedElementsUseOverlay = false
+        setEnterSharedElementCallback(MaterialContainerTransformSharedElementCallback())
+        setExitSharedElementCallback(MaterialContainerTransformSharedElementCallback())
+        window.sharedElementEnterTransition = MaterialContainerTransform().apply {
+            duration = 320L
+            scrimColor = Color.TRANSPARENT
+            drawingViewId = android.R.id.content
+        }
+        window.sharedElementReturnTransition = MaterialContainerTransform().apply {
+            duration = 280L
+            scrimColor = Color.TRANSPARENT
+            drawingViewId = android.R.id.content
+        }
+    }
+
     private fun finishWithFade() {
+        // Let Android run the shared-element return transform. Device Back remains available.
         finish()
-        overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
     }
 
     override fun onDestroy() {

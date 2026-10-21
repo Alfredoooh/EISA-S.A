@@ -634,8 +634,8 @@ class NewsAdapter(
         }
         container.visibility = View.VISIBLE
         val context = container.context
-        val actionSize = dp(context, if (compact) 26 else 28)
-        val glyphSize = dp(context, if (compact) 18 else 19)
+        val actionSize = dp(context, 32)
+        val glyphSize = dp(context, 24)
         fun addAction(iconName: String, description: String, heartActive: Boolean = false, callback: (View) -> Unit) {
             val button = FrameLayout(context).apply {
                 contentDescription = description

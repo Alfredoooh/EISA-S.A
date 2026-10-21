@@ -242,15 +242,38 @@ object IconLoader {
 
     /** Applies an already-resolved ARGB tint (useful for runtime accent colors and night mode). */
     fun applyIconColor(view: ImageView, name: String, tint: Int) {
+        standardizeIconView(view)
         val icon = drawable(view.context, name, tint)
         if (icon != null) {
-            val size = resolveSize(view)
-            icon.setBounds(0, 0, size, size)
+            // Let ImageView use its own bounds. The former manually fixed 24dp bounds could
+            // be scaled down again by smaller legacy ImageViews and made the same symbol look
+            // different across rows and screens.
             view.setImageDrawable(icon)
             view.clearColorFilter()
         } else {
             view.clearColorFilter()
-            view.setImageDrawable(FallbackIconDrawable(norm(name), tint))
+            view.setImageDrawable(FallbackIconDrawable(norm(name), tint, view.resources.displayMetrics.density))
+        }
+    }
+
+    /** All Material Symbols Rounded get a consistent 24dp drawable viewport. */
+    private fun standardizeIconView(view: ImageView) {
+        val minSize = (24f * view.resources.displayMetrics.density + 0.5f).toInt().coerceAtLeast(1)
+        view.scaleX = 1f
+        view.scaleY = 1f
+        view.adjustViewBounds = false
+        // CENTER_INSIDE caps the visible glyph at the drawable's 24dp intrinsic size,
+        // rather than scaling a 24dp symbol up to oversized 32/40dp click targets.
+        view.scaleType = ImageView.ScaleType.CENTER_INSIDE
+        view.setPadding(0, 0, 0, 0)
+        view.minimumWidth = minSize
+        view.minimumHeight = minSize
+        val params = view.layoutParams
+        if (params != null) {
+            var changed = false
+            if (params.width > 0 && params.width < minSize) { params.width = minSize; changed = true }
+            if (params.height > 0 && params.height < minSize) { params.height = minSize; changed = true }
+            if (changed) view.layoutParams = params
         }
     }
 
@@ -258,13 +281,6 @@ object IconLoader {
         applyIcon(view, name, tintRes)
         view.scaleX = 1f
         view.scaleY = 1f
-    }
-
-    private fun resolveSize(view: ImageView): Int {
-        // Tamanho fixo para todos os ícones — igual ao que já funciona no ícone da
-        // posição da barra de endereço. Não depende do layoutParams da View (que
-        // ainda pode não estar medido quando o ícone é aplicado).
-        return (24f * view.resources.displayMetrics.density + 0.5f).toInt().coerceAtLeast(1)
     }
 
     private class RoundedSvgDrawable(source: String, density: Float) : Drawable() {

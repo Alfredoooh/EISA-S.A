@@ -26,68 +26,68 @@ class MoreSitesActivity : AppCompatActivity() {
 
     private val siteCategories = listOf(
         SiteCategory("Pesquisa e navegadores", listOf(
-            Site("Google", "https://www.google.com/"),
-            Site("Bing", "https://www.bing.com/"),
-            Site("DuckDuckGo", "https://duckduckgo.com/"),
-            Site("Brave Search", "https://search.brave.com/"),
-            Site("Arc Browser", "https://arc.net/"),
-            Site("Opera", "https://www.opera.com/")
+            Site("Google", "https://www.google.com/", R.drawable.site_icon_google),
+            Site("Bing", "https://www.bing.com/", R.drawable.site_icon_bing),
+            Site("DuckDuckGo", "https://duckduckgo.com/", R.drawable.site_icon_duckduckgo),
+            Site("Brave Search", "https://search.brave.com/", R.drawable.asset_search_brave),
+            Site("Arc Browser", "https://arc.net/", R.drawable.site_icon_arc_browser),
+            Site("Opera", "https://www.opera.com/", R.drawable.site_icon_opera_browser)
         )),
         SiteCategory("Redes sociais e comunidades", listOf(
-            Site("Facebook", "https://www.facebook.com/"),
-            Site("Instagram", "https://www.instagram.com/"),
-            Site("X", "https://x.com/"),
-            Site("WhatsApp", "https://www.whatsapp.com/"),
-            Site("TikTok", "https://www.tiktok.com/"),
-            Site("Reddit", "https://www.reddit.com/"),
-            Site("LinkedIn", "https://www.linkedin.com/")
+            Site("Facebook", "https://www.facebook.com/", R.drawable.asset_social_facebook),
+            Site("Instagram", "https://www.instagram.com/", R.drawable.site_icon_instagram),
+            Site("X", "https://x.com/", R.drawable.site_icon_x),
+            Site("WhatsApp", "https://www.whatsapp.com/", R.drawable.asset_social_whatsapp),
+            Site("TikTok", "https://www.tiktok.com/", R.drawable.site_icon_tiktok),
+            Site("Reddit", "https://www.reddit.com/", R.drawable.site_icon_reddit),
+            Site("LinkedIn", "https://www.linkedin.com/", R.drawable.asset_social_linkedin)
         )),
         SiteCategory("Vídeo, áudio e streaming", listOf(
-            Site("YouTube", "https://www.youtube.com/"),
-            Site("Netflix", "https://www.netflix.com/"),
-            Site("Spotify", "https://open.spotify.com/")
+            Site("YouTube", "https://www.youtube.com/", R.drawable.site_icon_youtube),
+            Site("Netflix", "https://www.netflix.com/", R.drawable.site_icon_netflix),
+            Site("Spotify", "https://open.spotify.com/", R.drawable.site_icon_spotify)
         )),
         SiteCategory("Compras, viagens e serviços", listOf(
-            Site("Amazon", "https://www.amazon.com/"),
-            Site("Alibaba", "https://www.alibaba.com/"),
-            Site("Flipkart", "https://www.flipkart.com/"),
-            Site("Airbnb", "https://www.airbnb.com/"),
+            Site("Amazon", "https://www.amazon.com/", R.drawable.site_icon_amazon),
+            Site("Alibaba", "https://www.alibaba.com/", R.drawable.site_icon_alibaba),
+            Site("Flipkart", "https://www.flipkart.com/", R.drawable.site_icon_flipkart),
+            Site("Airbnb", "https://www.airbnb.com/", R.drawable.site_icon_airbnb),
             Site("eBay", "https://www.ebay.com/")
         )),
         SiteCategory("Notícias e publicação", listOf(
-            Site("BBC", "https://www.bbc.com/"),
-            Site("Medium", "https://medium.com/"),
+            Site("BBC", "https://www.bbc.com/", R.drawable.site_icon_bbc),
+            Site("Medium", "https://medium.com/", R.drawable.site_icon_medium),
             Site("Yahoo", "https://www.yahoo.com/"),
             Site("Globo", "https://www.globo.com/"),
             Site("CNN", "https://www.cnn.com/")
         )),
         SiteCategory("Desporto", listOf(
-            Site("BeSoccer", "https://www.besoccer.com/"),
-            Site("FC Barcelona", "https://www.fcbarcelona.com/"),
-            Site("Real Madrid", "https://www.realmadrid.com/")
+            Site("BeSoccer", "https://www.besoccer.com/", R.drawable.site_icon_besoccer),
+            Site("FC Barcelona", "https://www.fcbarcelona.com/", R.drawable.site_icon_fc_barcelona),
+            Site("Real Madrid", "https://www.realmadrid.com/", R.drawable.site_icon_real_madrid)
         )),
         SiteCategory("Referência e conhecimento", listOf(
-            Site("Wikipedia", "https://www.wikipedia.org/"),
+            Site("Wikipedia", "https://www.wikipedia.org/", R.drawable.site_icon_wikipedia),
             Site("Quora", "https://www.quora.com/")
         )),
         SiteCategory("Inteligência artificial", listOf(
-            Site("ChatGPT", "https://chatgpt.com/"),
-            Site("Mistral AI", "https://mistral.ai/"),
-            Site("Perplexity", "https://www.perplexity.ai/"),
-            Site("Suno", "https://suno.com/")
+            Site("ChatGPT", "https://chatgpt.com/", R.drawable.site_icon_openai_chatgpt),
+            Site("Mistral AI", "https://mistral.ai/", R.drawable.site_icon_mistral_ai),
+            Site("Perplexity", "https://www.perplexity.ai/", R.drawable.site_icon_perplexity),
+            Site("Suno", "https://suno.com/", R.drawable.site_icon_suno)
         )),
         SiteCategory("Design e produtividade", listOf(
-            Site("Adobe", "https://www.adobe.com/"),
-            Site("Canva", "https://www.canva.com/"),
-            Site("Dropbox", "https://www.dropbox.com/"),
-            Site("Figma", "https://www.figma.com/"),
-            Site("Gmail", "https://mail.google.com/"),
-            Site("HubSpot", "https://www.hubspot.com/"),
-            Site("Make", "https://www.make.com/"),
-            Site("Miro", "https://miro.com/"),
-            Site("Notion", "https://www.notion.so/"),
-            Site("Zapier", "https://zapier.com/"),
-            Site("Zoom", "https://zoom.us/")
+            Site("Adobe", "https://www.adobe.com/", R.drawable.site_icon_adobe),
+            Site("Canva", "https://www.canva.com/", R.drawable.site_icon_canva),
+            Site("Dropbox", "https://www.dropbox.com/", R.drawable.site_icon_dropbox),
+            Site("Figma", "https://www.figma.com/", R.drawable.site_icon_figma),
+            Site("Gmail", "https://mail.google.com/", R.drawable.site_icon_gmail),
+            Site("HubSpot", "https://www.hubspot.com/", R.drawable.site_icon_hubspot),
+            Site("Make", "https://www.make.com/", R.drawable.site_icon_make),
+            Site("Miro", "https://miro.com/", R.drawable.site_icon_miro),
+            Site("Notion", "https://www.notion.so/", R.drawable.site_icon_notion),
+            Site("Zapier", "https://zapier.com/", R.drawable.site_icon_zapier),
+            Site("Zoom", "https://zoom.us/", R.drawable.site_icon_zoom)
         )),
         SiteCategory("Educação", listOf(
             Site("Khan Academy", "https://www.khanacademy.org/"),
@@ -97,18 +97,18 @@ class MoreSitesActivity : AppCompatActivity() {
             Site("PayPal", "https://www.paypal.com/")
         )),
         SiteCategory("Jogos", listOf(
-            Site("Roblox", "https://www.roblox.com/"),
-            Site("Poki", "https://poki.com/"),
+            Site("Roblox", "https://www.roblox.com/", R.drawable.site_icon_roblox),
+            Site("Poki", "https://poki.com/", R.drawable.site_icon_poki),
             Site("CrazyGames", "https://www.crazygames.com/"),
-            Site("Xbox", "https://www.xbox.com/")
+            Site("Xbox", "https://www.xbox.com/", R.drawable.site_icon_xbox)
         )),
         SiteCategory("Tecnologia e desenvolvimento", listOf(
-            Site("Apple", "https://www.apple.com/"),
-            Site("Atlassian", "https://www.atlassian.com/"),
-            Site("Cloudflare", "https://www.cloudflare.com/"),
-            Site("GitHub", "https://github.com/"),
-            Site("GitLab", "https://gitlab.com/"),
-            Site("Microsoft", "https://www.microsoft.com/")
+            Site("Apple", "https://www.apple.com/", R.drawable.site_icon_apple),
+            Site("Atlassian", "https://www.atlassian.com/", R.drawable.site_icon_atlassian),
+            Site("Cloudflare", "https://www.cloudflare.com/", R.drawable.site_icon_cloudflare),
+            Site("GitHub", "https://github.com/", R.drawable.site_icon_github),
+            Site("GitLab", "https://gitlab.com/", R.drawable.site_icon_gitlab),
+            Site("Microsoft", "https://www.microsoft.com/", R.drawable.site_icon_microsoft)
         ))
     )
 
@@ -215,7 +215,7 @@ class MoreSitesActivity : AppCompatActivity() {
             }
         }
         val iconBox = FrameLayout(this).apply {
-            background = ContextCompat.getDrawable(this@MoreSitesActivity, R.drawable.bg_app_icon_container)
+            background = ContextCompat.getDrawable(this@MoreSitesActivity, R.drawable.bg_circle_card)
             clipToOutline = true
         }
         val icon = ImageView(this).apply {
@@ -227,13 +227,13 @@ class MoreSitesActivity : AppCompatActivity() {
                 IconLoader.applyIcon(this, "globe", R.color.iconTint)
                 Glide.with(this@MoreSitesActivity)
                     .load(BrowserTabStore.faviconFor(entry.url))
-                    .fitCenter().placeholder(R.drawable.ic_globe_outline)
-                    .error(R.drawable.ic_globe_outline)
+                    .placeholder(R.drawable.ic_search_outline)
+                    .error(R.drawable.ic_search_outline)
                     .into(this)
             }
         }
         iconBox.addView(icon, FrameLayout.LayoutParams(-1, -1))
-        tile.addView(iconBox, LinearLayout.LayoutParams(dp(38), dp(38)))
+        tile.addView(iconBox, LinearLayout.LayoutParams(dp(44), dp(44)))
         tile.addView(TextView(this).apply {
             text = entry.name
             textSize = 11.5f

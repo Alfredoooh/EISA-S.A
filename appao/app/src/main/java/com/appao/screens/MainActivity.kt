@@ -4,7 +4,6 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Intent
-import android.content.res.ColorStateList
 import android.graphics.Rect
 import android.os.Bundle
 import android.widget.PopupWindow
@@ -39,7 +38,6 @@ import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.bumptech.glide.Glide
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -360,7 +358,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.biBar).visibility = View.GONE
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.homeMainBottomNav)) { view, insets ->
             val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
-            view.setPadding(view.paddingLeft, 0, view.paddingRight, systemBottom)
+            systemBottomInsetPx = systemBottom
+            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, dp(2) + systemBottom)
             view.layoutParams = view.layoutParams.apply { height = dp(58) + systemBottom }
             insets
         }
@@ -462,35 +461,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupHomeNavigation() {
-        val nav = findViewById<BottomNavigationView>(R.id.homeMainBottomNav)
-        nav.setOnItemSelectedListener { item ->
-            if (updatingMainNavSelection) return@setOnItemSelectedListener true
-            when (item.itemId) {
-                R.id.navHome -> {
-                    switchMainTab("home")
-                    true
-                }
-                R.id.navDiscover -> {
-                    switchMainTab("discover")
-                    true
-                }
-                R.id.navTabs -> {
-                    hideHomeSuggestions()
-                    openBrowserTabs()
-                    false // Opening the tabs screen must not steal the selected main destination.
-                }
-                R.id.navProfile -> {
-                    switchMainTab("profile")
-                    true
-                }
-                else -> false
-            }
+        IconLoader.applyIcon(findViewById(R.id.homeMainNavHomeIcon), "home", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.homeMainNavAppsIcon), "compass", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.homeMainNavTabsIcon), "copy", R.color.iconTint)
+        IconLoader.applyIcon(findViewById(R.id.homeMainNavProfileIcon), "person-outline", R.color.iconTint)
+        findViewById<View>(R.id.homeMainNavHome).setOnClickListener { switchMainTab("home") }
+        findViewById<View>(R.id.homeMainNavApps).setOnClickListener { switchMainTab("discover") }
+        findViewById<View>(R.id.homeMainNavTabs).setOnClickListener {
+            hideHomeSuggestions()
+            openBrowserTabs()
         }
+        findViewById<View>(R.id.homeMainNavProfile).setOnClickListener { switchMainTab("profile") }
         updateHomeTabCount()
-        ViewCompat.setOnApplyWindowInsetsListener(nav) { view, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.homeMainBottomNav)) { view, insets ->
             val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
             systemBottomInsetPx = systemBottom
-            view.setPadding(view.paddingLeft, 0, view.paddingRight, systemBottom)
+            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, dp(2) + systemBottom)
             view.layoutParams = view.layoutParams.apply { height = dp(58) + systemBottom }
             if (::homeContentScroll.isInitialized) {
                 (homeContentScroll.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
@@ -517,35 +503,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateMainTabSelection(selected: String) {
-        if (!::homePage.isInitialized) return
-        val destination = when (selected) {
-            "discover", "apps" -> R.id.navDiscover
-            "profile" -> R.id.navProfile
-            else -> R.id.navHome
-        }
-        val nav = findViewById<BottomNavigationView>(R.id.homeMainBottomNav)
-        val previousGuard = updatingMainNavSelection
-        updatingMainNavSelection = true
-        try {
-            nav.selectedItemId = destination
-            val primary = AccentColorManager.resolvedOr(this, R.color.pri)
-            val inactive = ContextCompat.getColor(this, R.color.dim)
-            val paleIndicator = androidx.core.graphics.ColorUtils.setAlphaComponent(primary, 34)
-            val selectedState = intArrayOf(android.R.attr.state_checked)
-            val uncheckedState = intArrayOf(-android.R.attr.state_checked)
-            nav.setItemActiveIndicatorEnabled(true)
-            nav.setItemActiveIndicatorColor(ColorStateList.valueOf(paleIndicator))
-            nav.setActiveIndicatorLabelPadding(0)
-            nav.itemIconTintList = ColorStateList(arrayOf(selectedState, uncheckedState), intArrayOf(primary, inactive))
-            nav.itemTextColor = ColorStateList(arrayOf(selectedState, uncheckedState), intArrayOf(primary, inactive))
-            nav.getOrCreateBadge(R.id.navTabs).apply {
-                isVisible = true
-                number = (BrowserTabStore.count(this@MainActivity) + 1).coerceAtMost(99)
-                backgroundColor = primary
-                badgeTextColor = AccentColorManager.onPrimaryColor(this@MainActivity)
+        val effective = if (selected == "apps") "discover" else selected
+        val defs = listOf(
+            Triple("home", R.id.homeMainNavHomeLabel, R.id.homeMainNavHomeIcon),
+            Triple("discover", R.id.homeMainNavAppsLabel, R.id.homeMainNavAppsIcon),
+            Triple("tabs", R.id.homeMainNavTabsLabel, R.id.homeMainNavTabsIcon),
+            Triple("profile", R.id.homeMainNavProfileLabel, R.id.homeMainNavProfileIcon)
+        )
+        defs.forEach { (name, labelId, iconId) ->
+            findViewById<TextView>(labelId).setTextColor(
+                ContextCompat.getColor(this, if (name == effective) R.color.pri else R.color.dim)
+            )
+            val iconName = when (name) {
+                "home" -> if (name == effective) "home_filled" else "home"
+                "discover" -> if (name == effective) "compass_filled" else "compass"
+                "tabs" -> "copy"
+                else -> if (name == effective) "profile_filled" else "profile"
             }
-        } finally {
-            updatingMainNavSelection = previousGuard
+            IconLoader.applyIcon(findViewById(iconId), iconName, R.color.iconTint)
         }
     }
 
@@ -647,13 +622,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateHomeTabCount() {
-        val nav = findViewById<BottomNavigationView>(R.id.homeMainBottomNav)
-        nav.getOrCreateBadge(R.id.navTabs).apply {
-            isVisible = true
-            number = (BrowserTabStore.count(this@MainActivity) + 1).coerceAtMost(99)
-            backgroundColor = AccentColorManager.resolvedOr(this@MainActivity, R.color.pri)
-            badgeTextColor = AccentColorManager.onPrimaryColor(this@MainActivity)
-        }
+        findViewById<TextView>(R.id.homeMainNavTabsCount).text = (BrowserTabStore.count(this) + 1).coerceAtMost(99).toString()
     }
 
     private var homeSearchMode = false
@@ -701,10 +670,10 @@ class MainActivity : AppCompatActivity() {
     private fun showSearchEnginePicker(anchor: View) {
         val current = BrowserPreferences.searchEngine(this)
         NativePopupMenu.show(anchor, listOf(
-            NativePopupMenu.Item(1, "Google", checked = current == "Google"),
-            NativePopupMenu.Item(2, "Bing", checked = current == "Bing"),
-            NativePopupMenu.Item(3, "DuckDuckGo", checked = current == "DuckDuckGo"),
-            NativePopupMenu.Item(4, "Brave Search", checked = current == "Brave")
+            NativePopupMenu.Item(1, "Google", checked = current == "Google", iconResId = R.drawable.site_icon_google),
+            NativePopupMenu.Item(2, "Bing", checked = current == "Bing", iconResId = R.drawable.site_icon_bing),
+            NativePopupMenu.Item(3, "DuckDuckGo", checked = current == "DuckDuckGo", iconResId = R.drawable.site_icon_duckduckgo),
+            NativePopupMenu.Item(4, "Brave Search", checked = current == "Brave", iconResId = R.drawable.asset_search_brave)
         ), alignLeft = true, placeAbove = false) { item ->
             val engine = when (item.id) { 2 -> "Bing"; 3 -> "DuckDuckGo"; 4 -> "Brave"; else -> "Google" }
             BrowserPreferences.setSearchEngine(this, engine)
@@ -716,15 +685,15 @@ class MainActivity : AppCompatActivity() {
     private fun updateSearchEngineIcon() {
         if (!::homeSearchEngineIcon.isInitialized) return
         val engine = BrowserPreferences.searchEngine(this)
-        val url = when (engine.lowercase(Locale.ROOT)) {
-            "bing" -> "https://www.bing.com/"
-            "duckduckgo" -> "https://duckduckgo.com/"
-            "brave" -> "https://search.brave.com/"
-            "ecosia" -> "https://www.ecosia.org/"
-            else -> "https://www.google.com/"
+        val iconRes = when (engine.lowercase(Locale.ROOT)) {
+            "bing" -> R.drawable.site_icon_bing
+            "duckduckgo" -> R.drawable.site_icon_duckduckgo
+            "brave" -> R.drawable.asset_search_brave
+            else -> R.drawable.site_icon_google
         }
-        Glide.with(this).load(BrowserTabStore.faviconFor(url)).fitCenter()
-            .placeholder(R.drawable.ic_search_outline).error(R.drawable.ic_search_outline).into(homeSearchEngineIcon)
+        homeSearchEngineIcon.setImageResource(iconRes)
+        homeSearchEngineIcon.clearColorFilter()
+        homeSearchEngineIcon.imageTintList = null
         homeSearchEngineIcon.contentDescription = "Motor de pesquisa: $engine"
     }
 
@@ -1078,7 +1047,7 @@ class MainActivity : AppCompatActivity() {
 
         // The category control is an uncontained pencil, not a plus/circle button.
         val plus = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(34), dp(34)).apply { marginStart = dp(6) }
+            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginStart = dp(6) }
             background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
             isClickable = true
             isFocusable = true
@@ -1228,16 +1197,16 @@ class MainActivity : AppCompatActivity() {
     private fun populateHomeQuickSites() {
         if (!::homeQuickSites.isInitialized) return
         homeQuickSites.removeAllViews()
-        homeQuickSites.columnCount = 4
+        homeQuickSites.columnCount = 6
         val sites = listOf(
-            HomeSite("Facebook", "https://www.facebook.com/"),
+            HomeSite("Facebook", "https://www.facebook.com/", iconRes = R.drawable.asset_social_facebook),
             HomeSite("CrazyGames", "https://www.crazygames.com/"),
-            HomeSite("Adobe", "https://www.adobe.com/"),
-            HomeSite("HubSpot", "https://www.hubspot.com/"),
+            HomeSite("Adobe", "https://www.adobe.com/", iconRes = R.drawable.site_icon_adobe),
+            HomeSite("HubSpot", "https://www.hubspot.com/", iconRes = R.drawable.site_icon_hubspot),
             HomeSite("CNN", "https://www.cnn.com/"),
             HomeSite("Yahoo", "https://www.yahoo.com/"),
-            HomeSite("X", "https://x.com/"),
-            HomeSite("LinkedIn", "https://www.linkedin.com/"),
+            HomeSite("X", "https://x.com/", iconRes = R.drawable.site_icon_x),
+            HomeSite("LinkedIn", "https://www.linkedin.com/", iconRes = R.drawable.asset_social_linkedin),
             HomeSite("Downloads", internal = "downloads"),
             HomeSite("Mais sites", internal = "more")
         )
@@ -1259,7 +1228,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             val iconBox = FrameLayout(this).apply {
-                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_app_icon_container)
+                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_circle_card)
                 clipToOutline = true
             }
             val icon = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
@@ -1267,13 +1236,13 @@ class MainActivity : AppCompatActivity() {
                 icon.setImageResource(quickEntry.iconRes)
             } else if (quickEntry.url.isNotBlank()) {
                 // Sites with no bundled PNG download their real favicon from the favicon endpoint.
-                Glide.with(this).load(BrowserTabStore.faviconFor(quickEntry.url)).circleCrop()
-                    .placeholder(R.drawable.ic_globe_outline).error(R.drawable.ic_globe_outline).into(icon)
+                Glide.with(this).load(BrowserTabStore.faviconFor(quickEntry.url)).fitCenter()
+                    .placeholder(R.drawable.ic_search_outline).error(R.drawable.ic_search_outline).into(icon)
             } else {
                 IconLoader.applyIcon(icon, if (quickEntry.internal == "downloads") "download" else "apps", R.color.iconTint)
             }
             iconBox.addView(icon, FrameLayout.LayoutParams(-1, -1))
-            tile.addView(iconBox, LinearLayout.LayoutParams(dp(34), dp(34)))
+            tile.addView(iconBox, LinearLayout.LayoutParams(dp(44), dp(44)))
             tile.addView(TextView(this).apply {
                 text = quickEntry.label
                 textSize = 11f
@@ -1284,8 +1253,8 @@ class MainActivity : AppCompatActivity() {
                 setPadding(0, dp(5), 0, 0)
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             val params = GridLayout.LayoutParams(
-                GridLayout.spec(index / 4, 1, 1f),
-                GridLayout.spec(index % 4, 1, 1f)
+                GridLayout.spec(index / 6, 1, 1f),
+                GridLayout.spec(index % 6, 1, 1f)
             ).apply { width = 0; height = dp(80); setMargins(dp(1), dp(1), dp(1), dp(1)) }
             homeQuickSites.addView(tile, params)
         }
@@ -1593,16 +1562,16 @@ class MainActivity : AppCompatActivity() {
     private fun populateAppsGrid() {
         if (!::appsGrid.isInitialized) return
         appsGrid.removeAllViews()
-        appsGrid.columnCount = 4
+        appsGrid.columnCount = 6
         val sites = listOf(
-            HomeSite("Facebook", "https://www.facebook.com/"),
+            HomeSite("Facebook", "https://www.facebook.com/", iconRes = R.drawable.asset_social_facebook),
             HomeSite("CrazyGames", "https://www.crazygames.com/"),
-            HomeSite("Adobe", "https://www.adobe.com/"),
-            HomeSite("HubSpot", "https://www.hubspot.com/"),
+            HomeSite("Adobe", "https://www.adobe.com/", iconRes = R.drawable.site_icon_adobe),
+            HomeSite("HubSpot", "https://www.hubspot.com/", iconRes = R.drawable.site_icon_hubspot),
             HomeSite("CNN", "https://www.cnn.com/"),
             HomeSite("Yahoo", "https://www.yahoo.com/"),
-            HomeSite("X", "https://x.com/"),
-            HomeSite("LinkedIn", "https://www.linkedin.com/"),
+            HomeSite("X", "https://x.com/", iconRes = R.drawable.site_icon_x),
+            HomeSite("LinkedIn", "https://www.linkedin.com/", iconRes = R.drawable.asset_social_linkedin),
             HomeSite("Downloads", internal = "downloads"),
             HomeSite("Mais sites", internal = "more")
         )
@@ -1622,20 +1591,20 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             val iconBox = FrameLayout(this).apply {
-                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_app_icon_container)
+                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_circle_card)
                 clipToOutline = true
             }
             val icon = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
             if (shortcut.iconRes != null) {
                 icon.setImageResource(shortcut.iconRes)
             } else if (shortcut.url.isNotBlank()) {
-                Glide.with(this).load(BrowserTabStore.faviconFor(shortcut.url)).circleCrop()
-                    .placeholder(R.drawable.ic_globe_outline).error(R.drawable.ic_globe_outline).into(icon)
+                Glide.with(this).load(BrowserTabStore.faviconFor(shortcut.url)).fitCenter()
+                    .placeholder(R.drawable.ic_search_outline).error(R.drawable.ic_search_outline).into(icon)
             } else {
                 IconLoader.applyIcon(icon, if (shortcut.internal == "downloads") "download" else "apps", R.color.iconTint)
             }
             iconBox.addView(icon, FrameLayout.LayoutParams(-1, -1))
-            tile.addView(iconBox, LinearLayout.LayoutParams(dp(28), dp(28)))
+            tile.addView(iconBox, LinearLayout.LayoutParams(dp(32), dp(32)))
             tile.addView(TextView(this).apply {
                 text = shortcut.label; textSize = 11f; maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END; gravity = Gravity.CENTER
@@ -1643,7 +1612,7 @@ class MainActivity : AppCompatActivity() {
                 setPadding(0, dp(5), 0, 0)
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             appsGrid.addView(tile, GridLayout.LayoutParams(
-                GridLayout.spec(index / 4, 1, 1f), GridLayout.spec(index % 4, 1, 1f)
+                GridLayout.spec(index / 6, 1, 1f), GridLayout.spec(index % 6, 1, 1f)
             ).apply { width = 0; height = dp(78); setMargins(dp(2), dp(2), dp(2), dp(2)) })
         }
     }

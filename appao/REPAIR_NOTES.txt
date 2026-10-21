@@ -1,0 +1,9 @@
+AppAo – correções da interface e do browser
+
+Restaurado o bottom bar personalizado usado pelo projeto, com o fundo ligado a @color/bg (tema claro/escuro) e o contador numérico das abas. A lista rápida continua com os oito sites pedidos, Downloads e Mais sites; os sites permanecem em contentores circulares dentro de um único contentor-pai com @drawable/bg_toolbar_actions. A grelha de apps usa seis colunas e os tamanhos de ícone originais (44dp nos acessos rápidos da página inicial e 32dp na grelha de apps).
+
+Restauradas as referências aos recursos legados R.drawable.* e os ícones dos popups de motores de pesquisa. O arquivo app/src/main/assets/site_icons/site_icon_catalog.json foi preservado sem alterações. Nenhum arquivo drawable-nodpi foi criado nem incluído; o pipeline de geração do projeto deve continuar a gerar esses recursos a partir do catálogo.
+
+O perfil mantém o avatar e os textos centralizados, sem fundo de cartão no cabeçalho, e o conteúdo continua a deslocar-se verticalmente. O menu do browser fica limitado a Recuar, Avançar, Novo separador, Downloads, Pesquisar nesta página, Partilhar página, Zoom da página, Início e Definições. As definições do browser foram isoladas numa atividade nativa própria. O círculo do favicon é mais compacto e usa a superfície do tema; o anel gradiente mantém-se.
+
+Verificação local: XML bem-formado (210 ficheiros), verificação de fontes PASS e nenhuma referência a `getChildAte` ou `R.drawable/`. Não foi possível fazer uma compilação Android completa neste ambiente: o ZIP original não contém o Gradle Wrapper JAR nem os recursos de ícones gerados pelo pipeline, deliberadamente não incluídos conforme pedido.

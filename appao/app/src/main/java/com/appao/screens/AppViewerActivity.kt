@@ -740,83 +740,30 @@ class AppViewerActivity : AppCompatActivity() {
     }
 
     private fun showPageMenu(anchor: View) {
-        val adsEnabled = BrowserPreferences.adBlockEnabled(this)
-        val forceDarkEnabled = BrowserPreferences.forceDarkEnabled(this)
-        val desktopEnabled = BrowserPreferences.desktopSiteEnabled(this)
-        val trackingEnabled = BrowserPreferences.trackingProtectionEnabled(this)
-        val addressAtBottom = BrowserPreferences.addressBarPosition(this).equals("bottom", true)
-
-        fun truncateLabel(text: String, max: Int = 28): String =
-            if (text.length > max) text.take(max).trimEnd() + "…" else text
-
         NativePopupMenu.show(anchor, listOf(
-            NativePopupMenu.Item(1, "Recuar", iconName = "arrow_go_back", checked = false),
-            NativePopupMenu.Item(2, "Avançar", iconName = "arrow_go_forward", checked = false),
-            NativePopupMenu.Item(3, "Recarregar", iconName = "refresh"),
-            NativePopupMenu.Item(4, "Novo separador", iconName = "plus"),
-            NativePopupMenu.Item(5, "Todos os separadores", iconName = "apps"),
-            NativePopupMenu.Item(6, "Zoom da página", iconName = "zoom_in"),
-            NativePopupMenu.Item(7, truncateLabel(if (desktopEnabled) "Modo desktop: ligado" else "Modo desktop: desligado"), iconName = "desktop", checked = desktopEnabled),
-            NativePopupMenu.Item(8, truncateLabel(if (addressAtBottom) "Barra de endereço: em baixo" else "Barra de endereço: no topo"), iconName = "options", checked = addressAtBottom),
-            NativePopupMenu.Item(9, truncateLabel(if (adsEnabled) "Bloqueador de anúncios: ligado" else "Bloqueador de anúncios: desligado"), iconName = "shield_check", checked = adsEnabled),
-            NativePopupMenu.Item(10, truncateLabel(if (forceDarkEnabled) "Forçar tema escuro: ligado" else "Forçar tema escuro: desligado"), iconName = "moon", checked = forceDarkEnabled),
-            NativePopupMenu.Item(11, "Downloads", iconName = "download"),
-            NativePopupMenu.Item(12, "Copiar ligação", iconName = "link"),
-            NativePopupMenu.Item(13, "Partilhar página…", iconName = "share"),
-            NativePopupMenu.Item(14, "Limpar dados de navegação", iconName = "flame"),
-            NativePopupMenu.Item(15, "Pesquisar nesta página", iconName = "search"),
-            NativePopupMenu.Item(16, "Novo separador privado", iconName = "eye_off"),
-            NativePopupMenu.Item(17, "Permissões deste site", iconName = "shield_check"),
-            NativePopupMenu.Item(18, "Início", iconName = "home"),
-            NativePopupMenu.Item(19, truncateLabel(if (trackingEnabled) "Bloquear rastreadores: ligado" else "Bloquear rastreadores: desligado"), iconName = "shield_check", checked = trackingEnabled)
+            NativePopupMenu.Item(1, "Recuar", iconName = "arrow_go_back", enabled = web.canGoBack()),
+            NativePopupMenu.Item(2, "Avançar", iconName = "arrow_go_forward", enabled = web.canGoForward()),
+            NativePopupMenu.Item(3, "Novo separador", iconName = "plus"),
+            NativePopupMenu.Item(4, "Downloads", iconName = "download"),
+            NativePopupMenu.Item(5, "Pesquisar nesta página", iconName = "search"),
+            NativePopupMenu.Item(6, "Partilhar página…", iconName = "share"),
+            NativePopupMenu.Item(7, "Zoom da página", iconName = "zoom_in"),
+            NativePopupMenu.Item(8, "Início", iconName = "home"),
+            NativePopupMenu.Item(9, "Definições", iconName = "settings")
         ), alignLeft = false, placeAbove = true) { item ->
-            val currentUrl = web.url?.takeIf { it.isNotBlank() } ?: "https://duckduckgo.com/"
             when (item.id) {
                 1 -> if (web.canGoBack()) web.goBack() else AppAoToast.show(this, "Não há página anterior")
                 2 -> if (web.canGoForward()) web.goForward() else AppAoToast.show(this, "Não há página seguinte")
-                3 -> web.reload()
-                4 -> openNewTab(privateMode)
-                5 -> openTabs()
-                6 -> showZoomBar()
-                7 -> {
-                    BrowserPreferences.setDesktopSiteEnabled(this, !desktopEnabled)
-                    applyBrowserPreferences()
-                    AppAoToast.show(this, if (!desktopEnabled) "Modo desktop ativado" else "Modo desktop desativado")
-                    web.reload()
+                3 -> openNewTab(privateMode)
+                4 -> startActivity(Intent(this, BrowserDownloadsActivity::class.java)).also {
+                    overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
                 }
-                8 -> {
-                    BrowserPreferences.setAddressBarPosition(this, if (addressAtBottom) "top" else "bottom")
-                    browserBarHidden = false
-                    findViewById<View>(R.id.browserTopBar).apply { animate().cancel(); translationY = 0f; alpha = 1f; visibility = View.VISIBLE }
-                    applyAddressBarPosition()
-                }
-                9 -> {
-                    BrowserPreferences.setAdBlockEnabled(this, !adsEnabled)
-                    AppAoToast.show(this, if (!adsEnabled) "Bloqueador de anúncios ativado" else "Bloqueador de anúncios desativado")
-                    web.reload()
-                }
-                10 -> {
-                    BrowserPreferences.setForceDarkEnabled(this, !forceDarkEnabled)
-                    applyBrowserPreferences()
-                    AppAoToast.show(this, if (!forceDarkEnabled) "Tema escuro de sites ativado" else "Tema escuro de sites desativado")
-                    web.reload()
-                }
-                11 -> startActivity(Intent(this, BrowserDownloadsActivity::class.java)).also { overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit) }
-                12 -> {
-                    val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("Ligação", currentUrl))
-                    AppAoToast.show(this, "Ligação copiada")
-                }
-                13 -> showBrowserShareSheet()
-                14 -> clearBrowserData()
-                15 -> openFindInPage()
-                16 -> openNewTab(true)
-                17 -> showSitePermissions()
-                18 -> goToHomeKeepingTab()
-                19 -> {
-                    BrowserPreferences.setTrackingProtectionEnabled(this, !trackingEnabled)
-                    AppAoToast.show(this, if (!trackingEnabled) "Bloqueio de rastreamento ativado" else "Bloqueio de rastreamento desativado")
-                    web.reload()
+                5 -> openFindInPage()
+                6 -> showBrowserShareSheet()
+                7 -> showZoomBar()
+                8 -> goToHomeKeepingTab()
+                9 -> startActivity(Intent(this, BrowserSettingsActivity::class.java)).also {
+                    overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
                 }
             }
         }

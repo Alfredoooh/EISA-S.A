@@ -39,6 +39,7 @@ jobs:
           cache-provider: basic
 
       - name: Configure Android SDK
+        shell: bash
         run: |
           set -euo pipefail
           PROJECT_DIR="$GITHUB_WORKSPACE/appao"
@@ -56,6 +57,7 @@ jobs:
           echo "APP_MODULE_DIR=$APP_MODULE_DIR" >> "$GITHUB_ENV"
 
       - name: Download official Material Symbols Rounded icons
+        shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
@@ -78,7 +80,20 @@ jobs:
           print(f"Material Symbols Rounded ready: {len(files)} SVG icons including outline and fill1 variants")
           PYVERIFY
 
+      # FIX: remove the broken generated-JAR cache before creating the wrapper.
+      # This targets the bcprov JAR cache failure without changing the rest of the workflow.
+      - name: Stop Gradle and clear generated-JAR cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          gradle --stop || true
+          GRADLE_CACHE="${GRADLE_USER_HOME:-$HOME/.gradle}"
+          echo "Clearing generated-JAR cache: $GRADLE_CACHE/caches/jars-9"
+          rm -rf "$GRADLE_CACHE/caches/jars-9"
+
       - name: Generate official Gradle Wrapper
+        shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
@@ -87,7 +102,7 @@ jobs:
           gradle --version
 
           echo "Generating the official Gradle Wrapper for Gradle 8.2.1..."
-          gradle wrapper --gradle-version 8.2.1 --distribution-type bin --no-daemon
+          gradle wrapper --gradle-version 8.2.1 --distribution-type bin --no-daemon --no-parallel
 
           if [ ! -s "gradle/wrapper/gradle-wrapper.jar" ]; then
             echo "ERROR: Gradle did not generate gradle/wrapper/gradle-wrapper.jar."
@@ -111,6 +126,7 @@ jobs:
           LOOPLY_KEYSTORE_PASSWORD: ${{ secrets.LOOPLY_KEYSTORE_PASSWORD }}
           LOOPLY_KEY_ALIAS: ${{ secrets.LOOPLY_KEY_ALIAS }}
           LOOPLY_KEY_PASSWORD: ${{ secrets.LOOPLY_KEY_PASSWORD }}
+        shell: bash
         run: |
           set -euo pipefail
 
@@ -198,6 +214,7 @@ jobs:
           echo "signing_dir=$SIGNING_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Build app ao Debug APK
+        shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
@@ -234,6 +251,7 @@ jobs:
           ./gradlew clean assembleDebug --stacktrace --no-daemon
 
       - name: Sign APK with local keystore
+        shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
@@ -271,6 +289,7 @@ jobs:
           echo "Signed local APK: $SIGNED_APK"
 
       - name: Verify APK size
+        shell: bash
         run: |
           set -euo pipefail
           APK="$APP_MODULE_DIR/build/outputs/apk/debug/appao-local-signed.apk"
@@ -302,6 +321,7 @@ jobs:
 
       - name: Warn if repository is public and key material is not being archived
         if: steps.setup-signing.outputs.generated == 'true' && github.event.repository.private != true
+        shell: bash
         run: |
           echo "::warning::This repository is public, so the generated keystore and its passwords will not be uploaded. Configure LOOPLY_KEYSTORE_BASE64, LOOPLY_KEYSTORE_PASSWORD, LOOPLY_KEY_ALIAS and LOOPLY_KEY_PASSWORD in GitHub Secrets to reuse one private key across builds."
 

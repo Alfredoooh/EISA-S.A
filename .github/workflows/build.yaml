@@ -32,30 +32,20 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # ⬇ Gradle atualizado para 8.5 (suporta class files do Java 21) e
-      #   cleanup automático de caches obsoletos
-      - name: Setup Gradle 8.5
+      # ⬇ Gradle 8.13: versão mínima compatível com AGP 8.11.1 (declarado no build.gradle raiz)
+      - name: Setup Gradle 8.13
         uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: '8.5'
+          gradle-version: '8.13'
           cache-provider: basic
           gradle-home-cache-cleanup: true
 
-      # ⬇ Limpa o jars-9 corrompido que o setup-gradle acabou de restaurar.
-      #   Isso é obrigatório porque o bcprov-jdk18on-1.79.jar quebrado está lá.
-      - name: Clean corrupt Gradle jar cache (bcprov 1.79)
-        run: |
-          set -euo pipefail
-          echo "Removendo jars-9 (bcprov-jdk18on-1.79.jar corrompido)..."
-          rm -rf "$GRADLE_USER_HOME/caches/jars-9"
-
       - name: Configure Android SDK
+        shell: bash
         run: |
           set -euo pipefail
           PROJECT_DIR="$GITHUB_WORKSPACE/appao"
-          if [ ! -d "$PROJECT_DIR/app" ]; then
-            PROJECT_DIR="$GITHUB_WORKSPACE"
-          fi
+          if [ ! -d "$PROJECT_DIR/app" ]; then PROJECT_DIR="$GITHUB_WORKSPACE"; fi
           if [ -d "$PROJECT_DIR/app/src/main" ]; then
             APP_MODULE_DIR="$PROJECT_DIR/app"
           elif [ -d "$PROJECT_DIR/src/main" ]; then
@@ -69,6 +59,7 @@ jobs:
           echo "APP_MODULE_DIR=$APP_MODULE_DIR" >> "$GITHUB_ENV"
 
       - name: Download official Material Symbols Rounded icons
+        shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
@@ -91,24 +82,39 @@ jobs:
           print(f"Material Symbols Rounded ready: {len(files)} SVG icons including outline and fill1 variants")
           PYVERIFY
 
-      - name: Generate official Gradle Wrapper
+      - name: Stop Gradle and clear generated-JAR cache
+        shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
+          gradle --stop || true
+          GRADLE_CACHE="${GRADLE_USER_HOME:-$HOME/.gradle}"
+          echo "Clearing generated-JAR cache: $GRADLE_CACHE/caches/jars-9"
+          rm -rf "$GRADLE_CACHE/caches/jars-9"
+
+      - name: Generate official Gradle Wrapper
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+
           echo "Gradle installed by setup-gradle:"
           gradle --version
-          echo "Generating the official Gradle Wrapper for Gradle 8.5..."
-          gradle wrapper --gradle-version 8.5 --distribution-type bin --no-daemon --no-parallel
+
+          echo "Generating the official Gradle Wrapper for Gradle 8.13..."
+          gradle wrapper --gradle-version 8.13 --distribution-type bin --no-daemon --no-parallel
+
           if [ ! -s "gradle/wrapper/gradle-wrapper.jar" ]; then
             echo "ERROR: Gradle did not generate gradle/wrapper/gradle-wrapper.jar."
             exit 1
           fi
-          # ⬇ Verificação atualizada para 8.5
-          if ! grep -Fq "gradle-8.5-bin.zip" "gradle/wrapper/gradle-wrapper.properties"; then
-            echo "ERROR: Gradle Wrapper is not configured for Gradle 8.5."
+
+          if ! grep -Fq "gradle-8.13-bin.zip" "gradle/wrapper/gradle-wrapper.properties"; then
+            echo "ERROR: Gradle Wrapper is not configured for Gradle 8.13."
             cat "gradle/wrapper/gradle-wrapper.properties"
             exit 1
           fi
+
           chmod +x ./gradlew
           echo "Gradle Wrapper generated and verified."
           ./gradlew --version
@@ -120,8 +126,10 @@ jobs:
           LOOPLY_KEYSTORE_PASSWORD: ${{ secrets.LOOPLY_KEYSTORE_PASSWORD }}
           LOOPLY_KEY_ALIAS: ${{ secrets.LOOPLY_KEY_ALIAS }}
           LOOPLY_KEY_PASSWORD: ${{ secrets.LOOPLY_KEY_PASSWORD }}
+        shell: bash
         run: |
           set -euo pipefail
+
           SIGNING_DIR="$RUNNER_TEMP/appao-local-signing-material"
           mkdir -p "$SIGNING_DIR"
           chmod 700 "$SIGNING_DIR"
@@ -135,18 +143,22 @@ jobs:
               echo "ERROR: LOOPLY_KEYSTORE_BASE64 is set, but LOOPLY_KEYSTORE_PASSWORD is missing."
               exit 1
             fi
+
             echo "Loading the existing local keystore from GitHub Secrets..."
             printf '%s' "$LOOPLY_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
             STORE_PASSWORD="$LOOPLY_KEYSTORE_PASSWORD"
             KEY_PASSWORD="${LOOPLY_KEY_PASSWORD:-$STORE_PASSWORD}"
+
             if [ ! -s "$KEYSTORE_PATH" ]; then
               echo "ERROR: The decoded keystore is empty. Check LOOPLY_KEYSTORE_BASE64."
               exit 1
             fi
+
             if ! keytool -list -keystore "$KEYSTORE_PATH" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
               echo "ERROR: Could not open the keystore or find alias '$KEY_ALIAS'. Check the keystore secrets."
               exit 1
             fi
+
             KEYSTORE_TYPE="$(keytool -list -keystore "$KEYSTORE_PATH" -storepass "$STORE_PASSWORD" 2>&1 | sed -n 's/^Keystore type: //p' | head -n 1)"
             KEYSTORE_TYPE="${KEYSTORE_TYPE:-PKCS12}"
             echo "Existing keystore loaded. It will not be uploaded again as an artifact."
@@ -155,6 +167,7 @@ jobs:
             STORE_PASSWORD="$(openssl rand -hex 24)"
             KEY_PASSWORD="$STORE_PASSWORD"
             KEYSTORE_TYPE="PKCS12"
+
             keytool -genkeypair \
               -noprompt \
               -v \
@@ -167,22 +180,19 @@ jobs:
               -keysize 3072 \
               -validity 10000 \
               -dname "CN=AppAo Local, OU=Development, O=AppAo, L=Luanda, ST=Luanda, C=AO"
+
             cat > "$INFO_PATH" <<EOF
           AppAo local/testing signing key — NOT intended as a Play Store release key
-
           Keystore file: appao-local.keystore
           Keystore type: $KEYSTORE_TYPE
           Key alias: $KEY_ALIAS
           Keystore password: $STORE_PASSWORD
           Key password: $KEY_PASSWORD
 
-          Keep this keystore and its passwords private.
-          Use the same keystore for future APK updates.
-
-          To reuse it in later workflow runs, store the keystore as Base64 in the
-          LOOPLY_KEYSTORE_BASE64 GitHub Secret, set LOOPLY_KEYSTORE_PASSWORD to the
-          keystore password, LOOPLY_KEY_ALIAS to the alias, and LOOPLY_KEY_PASSWORD
-          to the key password (the same as the keystore password for this generated key).
+          Keep this keystore and its passwords private. Use the same keystore for future APK updates.
+          To reuse it in later workflow runs, store the keystore as Base64 in the LOOPLY_KEYSTORE_BASE64 GitHub Secret,
+          set LOOPLY_KEYSTORE_PASSWORD to the keystore password, LOOPLY_KEY_ALIAS to the alias,
+          and LOOPLY_KEY_PASSWORD to the key password (the same as the keystore password for this generated key).
           EOF
             chmod 600 "$INFO_PATH"
             base64 -w 0 "$KEYSTORE_PATH" > "$SIGNING_DIR/appao-local.keystore.base64.txt"
@@ -199,13 +209,16 @@ jobs:
             echo "APP_KEYSTORE_PASSWORD=$STORE_PASSWORD"
             echo "APP_KEY_PASSWORD=$KEY_PASSWORD"
           } >> "$GITHUB_ENV"
+
           echo "generated=$GENERATED" >> "$GITHUB_OUTPUT"
           echo "signing_dir=$SIGNING_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Build app ao Debug APK
+        shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
+
           python3 - <<'PYVERIFY'
           from pathlib import Path
           import hashlib
@@ -227,33 +240,41 @@ jobs:
           print("Build source sanity check: PASS")
           print("MainActivity SHA-256:", hashlib.sha256(main.read_bytes()).hexdigest())
           PYVERIFY
+
           python3 verify_project.py
+
           if [ ! -s "gradle/wrapper/gradle-wrapper.jar" ]; then
             echo "ERROR: Gradle Wrapper JAR is missing after the generation step."
             exit 1
           fi
+
           ./gradlew clean assembleDebug --stacktrace --no-daemon
 
       - name: Sign APK with local keystore
+        shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
+
           APK_DIR="$APP_MODULE_DIR/build/outputs/apk/debug"
           APK="$(find "$APK_DIR" -maxdepth 1 -type f -name '*-debug.apk' ! -name 'appao-local-signed.apk' -print -quit)"
           if [ -z "$APK" ] || [ ! -s "$APK" ]; then
             echo "ERROR: The Debug APK was not found in $APK_DIR."
             exit 1
           fi
+
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
           if [ -z "$SDK_ROOT" ] || [ ! -d "$SDK_ROOT/build-tools" ]; then
             echo "ERROR: Android SDK Build Tools directory was not found."
             exit 1
           fi
+
           APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner -print | sort -V | tail -n 1)"
           if [ -z "$APKSIGNER" ] || [ ! -x "$APKSIGNER" ]; then
             echo "ERROR: apksigner was not found in Android SDK Build Tools."
             exit 1
           fi
+
           SIGNED_APK="$APK_DIR/appao-local-signed.apk"
           "$APKSIGNER" sign \
             --ks "$APP_KEYSTORE_PATH" \
@@ -263,10 +284,12 @@ jobs:
             --key-pass env:APP_KEY_PASSWORD \
             --out "$SIGNED_APK" \
             "$APK"
+
           "$APKSIGNER" verify --verbose --print-certs "$SIGNED_APK"
           echo "Signed local APK: $SIGNED_APK"
 
       - name: Verify APK size
+        shell: bash
         run: |
           set -euo pipefail
           APK="$APP_MODULE_DIR/build/outputs/apk/debug/appao-local-signed.apk"
@@ -274,12 +297,14 @@ jobs:
             echo "ERROR: Signed local APK was not generated."
             exit 1
           fi
+
           bytes=$(stat -c%s "$APK")
           mib=$((bytes / 1024 / 1024))
           echo "APK: $APK"
           echo "Bytes: $bytes"
           echo "Size: ${mib} MiB"
           echo "Target: below 5 MiB (informational; Debug shrinking is disabled)"
+
           if [ "$bytes" -lt 5242880 ]; then
             echo "APK is below the 5 MiB target."
           else
@@ -296,6 +321,7 @@ jobs:
 
       - name: Warn if repository is public and key material is not being archived
         if: steps.setup-signing.outputs.generated == 'true' && github.event.repository.private != true
+        shell: bash
         run: |
           echo "::warning::This repository is public, so the generated keystore and its passwords will not be uploaded. Configure LOOPLY_KEYSTORE_BASE64, LOOPLY_KEYSTORE_PASSWORD, LOOPLY_KEY_ALIAS and LOOPLY_KEY_PASSWORD in GitHub Secrets to reuse one private key across builds."
 

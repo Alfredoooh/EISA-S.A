@@ -32,35 +32,22 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle 8.2.1
+      # ⬇ Gradle atualizado para 8.5 (suporta class files do Java 21) e
+      #   cleanup automático de caches obsoletos
+      - name: Setup Gradle 8.5
         uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: '8.2.1'
+          gradle-version: '8.5'
           cache-provider: basic
+          gradle-home-cache-cleanup: true
 
-      # ⬇⬇⬇ STEP NOVO ⬇⬇⬇
-      # 1) Limpa o cache jars-9 que o setup-gradle acabou de restaurar
-      #    (contém o bcprov-jdk18on-1.79.jar que o Gradle 8.2.1 não consegue transformar)
-      # 2) Instala um init script forçando bcprov 1.78.1 em TODOS os projetos/configurações
-      - name: Fix bcprov jar cache and pin bcprov 1.78.1
+      # ⬇ Limpa o jars-9 corrompido que o setup-gradle acabou de restaurar.
+      #   Isso é obrigatório porque o bcprov-jdk18on-1.79.jar quebrado está lá.
+      - name: Clean corrupt Gradle jar cache (bcprov 1.79)
         run: |
           set -euo pipefail
-          echo "Limpando jars-9 (bcprov-jdk18on-1.79.jar corrompido no cache)..."
+          echo "Removendo jars-9 (bcprov-jdk18on-1.79.jar corrompido)..."
           rm -rf "$GRADLE_USER_HOME/caches/jars-9"
-          mkdir -p "$GRADLE_USER_HOME/init.d"
-          cat > "$GRADLE_USER_HOME/init.d/force-bcprov.gradle" <<'EOF'
-          allprojects {
-              configurations.all {
-                  resolutionStrategy {
-                      force 'org.bouncycastle:bcprov-jdk18on:1.78.1'
-                      force 'org.bouncycastle:bcpkix-jdk18on:1.78.1'
-                      force 'org.bouncycastle:bcutil-jdk18on:1.78.1'
-                  }
-              }
-          }
-          EOF
-          echo "Init script instalado:"
-          cat "$GRADLE_USER_HOME/init.d/force-bcprov.gradle"
 
       - name: Configure Android SDK
         run: |
@@ -110,14 +97,15 @@ jobs:
           cd "$PROJECT_DIR"
           echo "Gradle installed by setup-gradle:"
           gradle --version
-          echo "Generating the official Gradle Wrapper for Gradle 8.2.1..."
-          gradle wrapper --gradle-version 8.2.1 --distribution-type bin --no-daemon --no-parallel
+          echo "Generating the official Gradle Wrapper for Gradle 8.5..."
+          gradle wrapper --gradle-version 8.5 --distribution-type bin --no-daemon --no-parallel
           if [ ! -s "gradle/wrapper/gradle-wrapper.jar" ]; then
             echo "ERROR: Gradle did not generate gradle/wrapper/gradle-wrapper.jar."
             exit 1
           fi
-          if ! grep -Fq "gradle-8.2.1-bin.zip" "gradle/wrapper/gradle-wrapper.properties"; then
-            echo "ERROR: Gradle Wrapper is not configured for Gradle 8.2.1."
+          # ⬇ Verificação atualizada para 8.5
+          if ! grep -Fq "gradle-8.5-bin.zip" "gradle/wrapper/gradle-wrapper.properties"; then
+            echo "ERROR: Gradle Wrapper is not configured for Gradle 8.5."
             cat "gradle/wrapper/gradle-wrapper.properties"
             exit 1
           fi

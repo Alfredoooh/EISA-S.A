@@ -72,4 +72,17 @@
         <item name="android:windowExitAnimation">@anim/modal_slide_out</item>
     </style>
 
+    <!-- M3 Expressive: anchored popup menus scale/fade in from the anchor corner
+         instead of the plain system fade. Used by ThemeOverlay.AppAo.PopupMenu below. -->
+    <style name="AppAo.PopupMenu.Animation" parent="android:Animation">
+        <item name="android:windowEnterAnimation">@anim/popup_scale_in</item>
+        <item name="android:windowExitAnimation">@anim/popup_scale_out</item>
+    </style>
+
+    <!-- M3 Expressive dialog entrance: scale + fade from center instead of a slide. -->
+    <style name="AppAo.DialogWindowAnimations">
+        <item name="android:windowEnterAnimation">@anim/dialog_scale_in</item>
+        <item name="android:windowExitAnimation">@anim/dialog_scale_out</item>
+    </style>
+
 </resources>

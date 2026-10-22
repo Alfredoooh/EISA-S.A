@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.util.LruCache
+import android.view.ViewGroup
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
 import com.appao.FallbackIconDrawable
@@ -116,13 +117,11 @@ object IconLoader {
         add("send", "send", "paper_plane", "paper_plane_outline")
         add("swap_vert", "swap_vert", "sort")
         add("translate", "translate")
-        // Explicit aliases used by existing XML/Kotlin callers.
         add("arrow_back", "arrow_left_outline", "arrow_back_outline")
         add("description", "document_text", "document_text_outline")
         add("public", "globe_outline")
     }
 
-    // Keep the exact legacy vector resource name for callers not yet represented in the symbol map.
     private val legacyAliases = mapOf(
         "brand-google" to "logo-google", "logo-google" to "logo-google",
         "brand-brave" to "search-brave", "search-google" to "search-google",
@@ -130,8 +129,6 @@ object IconLoader {
         "search-brave" to "search-brave"
     )
 
-    // Existing vector resources are the fallback when the build-time Material Symbols bundle
-    // is unavailable. This reuses the project's original glyphs instead of drawing a generic dot.
     private val fallbackDrawableAliases = mapOf(
         "home" to "home", "home_outline" to "home_outline", "home_filled" to "home",
         "compass" to "compass_outline", "compass_outline" to "compass_outline", "compass_filled" to "compass",
@@ -176,7 +173,6 @@ object IconLoader {
     private fun symbolFor(name: String): Symbol? {
         val normalized = norm(name)
         symbols[normalized]?.let { return it }
-        // Normalise older Ionicons-style name strings into the equivalent Rounded symbol.
         val withoutOutline = normalized.removeSuffix("_outline").removeSuffix("_line")
         symbols[withoutOutline]?.let { return it }
         return null
@@ -192,8 +188,6 @@ object IconLoader {
         val raw = runCatching {
             context.assets.open("icons/material-symbols-rounded/$filename").bufferedReader(Charsets.UTF_8).use { it.readText() }
         }.getOrNull() ?: return null
-        // Material Symbols SVG paths default to black. Store the requested tint in the official path
-        // fill so ImageView's layout size is the only geometry deciding their apparent size.
         val hex = String.format(Locale.US, "#%06X", 0xFFFFFF and tint)
         val colored = Regex("<path\\b(?![^>]*\\bfill=)").replace(raw) { "<path fill=\"$hex\"" }
         sourceCache.put(key, colored)
@@ -249,9 +243,6 @@ object IconLoader {
         standardizeIconView(view)
         val icon = drawable(view.context, name, tint)
         if (icon != null) {
-            // Let ImageView use its own bounds. The former manually fixed 24dp bounds could
-            // be scaled down again by smaller legacy ImageViews and made the same symbol look
-            // different across rows and screens.
             view.setImageDrawable(icon)
             view.clearColorFilter()
         } else {
@@ -273,10 +264,15 @@ object IconLoader {
         val params = view.layoutParams
         if (params != null) {
             var changed = false
-            // Increase undersized icon slots, never shrink a view supplied for a larger icon.
-            if (params.width > 0 && params.width < standardSize) { params.width = standardSize; changed = true }
-            if (params.height > 0 && params.height < standardSize) { params.height = standardSize; changed = true }
+            // Always force the universal icon size, regardless of whatever size the XML or
+            // caller originally declared. Icons must never render smaller OR larger than this.
+            if (params.width > 0 && params.width != standardSize) { params.width = standardSize; changed = true }
+            if (params.height > 0 && params.height != standardSize) { params.height = standardSize; changed = true }
             if (changed) view.layoutParams = params
+        } else {
+            // layoutParams is still null (view not yet attached to a parent). Pre-set explicit
+            // LayoutParams now so the size is already correct at attach/measure time.
+            view.layoutParams = ViewGroup.LayoutParams(standardSize, standardSize)
         }
     }
 

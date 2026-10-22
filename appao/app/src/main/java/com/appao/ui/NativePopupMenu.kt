@@ -37,6 +37,16 @@ object NativePopupMenu {
         val gravity = if (alignLeft) Gravity.START else Gravity.END
         val popup = PopupMenu(popupContext, anchor, gravity, androidx.appcompat.R.attr.popupMenuStyle, R.style.AppAo_PopupMenu)
 
+        // Belt-and-braces: force the M3 Expressive scale/fade animation even if some OEM
+        // skin ignores the style-driven android:popupAnimationStyle above.
+        runCatching {
+            val menuField = popup.javaClass.getDeclaredField("mPopup")
+            menuField.isAccessible = true
+            val helper = menuField.get(popup)
+            val setAnimStyle = helper.javaClass.getMethod("setAnimationStyle", Int::class.javaPrimitiveType)
+            setAnimStyle.invoke(helper, R.style.AppAo_PopupMenu_Animation)
+        }
+
         items.forEach { item ->
             val menuItem = popup.menu.add(Menu.NONE, item.id, Menu.NONE, item.title)
             menuItem.isEnabled = item.enabled

@@ -642,11 +642,15 @@ class MainActivity : AppCompatActivity() {
         val intent = Intent(this, BrowserSearchActivity::class.java)
             .putExtra(BrowserSearchActivity.EXTRA_INITIAL_QUERY, initialQuery)
             .putExtra("browser_private_mode", false)
-        // Avoid the fragile shared-element morph that could crash when the keyboard/insets
-        // changed during the launch. The dedicated search screen uses a short native activity fade.
+            .putExtra("transition_name", "browser_address_transform")
+        // Container Transform M3 Expressive: keyboard is requested only after the destination
+        // transform finishes (see BrowserSearchActivity), which is what caused the earlier
+        // instability. The transform itself never touches insets.
         runCatching {
-            startActivityForResult(intent, REQUEST_MAIN_BROWSER_SEARCH)
-            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+            val options = android.app.ActivityOptions.makeSceneTransitionAnimation(
+                this, homeAddressBar, "browser_address_transform"
+            )
+            startActivityForResult(intent, REQUEST_MAIN_BROWSER_SEARCH, options.toBundle())
         }.onFailure {
             openingBrowserSearch = false
             AppAoToast.show(this, "Não foi possível abrir a pesquisa. Tenta novamente.")
@@ -1722,6 +1726,7 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
             isClickable = true; isFocusable = true
             addView(ImageView(this@MainActivity).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(28), dp(28))
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 IconLoader.applyIcon(this, row.icon, R.color.iconTint)
             }, LinearLayout.LayoutParams(dp(28), dp(28)))
@@ -1748,6 +1753,7 @@ class MainActivity : AppCompatActivity() {
                 }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             } else {
                 addView(ImageView(this@MainActivity).apply {
+                    layoutParams = LinearLayout.LayoutParams(dp(28), dp(28))
                     scaleType = ImageView.ScaleType.FIT_CENTER
                     IconLoader.applyIcon(this, "chevron_right", R.color.dim)
                 }, LinearLayout.LayoutParams(dp(28), dp(28)))

@@ -194,6 +194,7 @@
         name="AppAo.PopupMenu"
         parent="Widget.Material3.PopupMenu">
         <item name="android:popupBackground">@drawable/bg_popup_material</item>
+        <item name="android:popupAnimationStyle">@style/AppAo.PopupMenu.Animation</item>
     </style>
 
     <!-- Theme used only by anchor-attached Material 3 popup menus, never a Dialog. -->
@@ -203,6 +204,7 @@
         <item name="colorPrimary">@color/pri</item>
         <item name="popupMenuStyle">@style/AppAo.PopupMenu</item>
         <item name="android:popupMenuStyle">@style/AppAo.PopupMenu</item>
+        <item name="android:popupAnimationStyle">@style/AppAo.PopupMenu.Animation</item>
     </style>
     <style name="Theme.AppAo.Splash" parent="Theme.AppAo">
         <item name="android:windowBackground">@drawable/splash_window</item>

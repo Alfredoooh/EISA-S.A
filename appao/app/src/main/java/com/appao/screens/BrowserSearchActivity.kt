@@ -8,9 +8,15 @@ import android.os.Handler
 import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
+import android.transition.ChangeBounds
+import android.transition.ChangeClipBounds
+import android.transition.ChangeTransform
+import android.transition.Transition
+import android.transition.TransitionSet
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
@@ -21,11 +27,13 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.appao.BrowserAutocomplete
 import com.appao.BrowserPreferences
 import com.appao.BrowsingHistoryStore
+import com.appao.Curves
 import com.bumptech.glide.Glide
 import com.appao.R
 import com.appao.SystemBarHelper
@@ -53,10 +61,22 @@ class BrowserSearchActivity : AppCompatActivity() {
     private var pendingSearch: Runnable? = null
     private var generation = 0L
     private var privateMode = false
+    private var incomingTransitionName = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, true)
+        incomingTransitionName = intent.getStringExtra("transition_name").orEmpty()
+        if (incomingTransitionName.isNotBlank()) {
+            // Container Transform M3 Expressive. Postponed until this screen's own search pill
+            // is measured. Keyboard is requested only after the transform has visually
+            // finished — that coupling was what made the earlier attempt unstable.
+            postponeEnterTransition()
+            window.sharedElementEnterTransition = containerTransition()
+            window.sharedElementReturnTransition = containerTransition()
+            window.allowReturnTransitionOverlap = true
+            window.allowEnterTransitionOverlap = true
+        }
         SystemBarHelper.sync(this)
         window.statusBarColor = ContextCompat.getColor(this, R.color.bg)
         setContentView(buildContent())
@@ -69,18 +89,51 @@ class BrowserSearchActivity : AppCompatActivity() {
         renderSuggestions(initial.trim(), emptyList())
         configureInput()
 
-        input.requestFocus()
         if (initial.isNotBlank()) input.selectAll()
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { finishWithFade() }
         })
-        input.post {
-            if (!isFinishing && !isDestroyed && input.isAttachedToWindow) {
-                runCatching {
-                    input.requestFocus()
-                    (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
-                        .showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+
+        if (incomingTransitionName.isNotBlank()) {
+            val decor = window.decorView
+            decor.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    decor.viewTreeObserver.removeOnPreDrawListener(this)
+                    startPostponedEnterTransition()
+                    return true
                 }
+            })
+            window.sharedElementEnterTransition?.addListener(object : Transition.TransitionListener {
+                override fun onTransitionEnd(transition: Transition) {
+                    transition.removeListener(this)
+                    showKeyboardSafely()
+                }
+                override fun onTransitionStart(transition: Transition) {}
+                override fun onTransitionCancel(transition: Transition) { showKeyboardSafely() }
+                override fun onTransitionPause(transition: Transition) {}
+                override fun onTransitionResume(transition: Transition) {}
+            })
+        } else {
+            input.requestFocus()
+            input.post { showKeyboardSafely() }
+        }
+    }
+
+    private fun containerTransition(): TransitionSet =
+        TransitionSet().apply {
+            addTransition(ChangeBounds())
+            addTransition(ChangeTransform())
+            addTransition(ChangeClipBounds())
+            duration = 380L
+            interpolator = Curves.SMOOTH
+        }
+
+    private fun showKeyboardSafely() {
+        if (!isFinishing && !isDestroyed && input.isAttachedToWindow) {
+            runCatching {
+                input.requestFocus()
+                (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
+                    .showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
             }
         }
     }
@@ -304,8 +357,6 @@ class BrowserSearchActivity : AppCompatActivity() {
     }
 
     private fun finishWithFade() {
-        // Shared-element window transitions can race the IME/insets and crash on some OEM builds.
-        // Finish normally; the launching activity supplies the short native fade transition.
         finish()
         overridePendingTransition(R.anim.publish_exit, R.anim.publish_enter)
     }

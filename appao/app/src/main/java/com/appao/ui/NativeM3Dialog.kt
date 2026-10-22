@@ -139,7 +139,7 @@ object NativeM3Dialog {
         val window = dialog.window ?: return
         try {
             window.setBackgroundDrawableResource(android.R.color.transparent)
-            window.setWindowAnimations(R.style.AppAo_ModalWindowAnimations)
+            window.setWindowAnimations(R.style.AppAo_DialogWindowAnimations)
             val density = dialog.context.resources.displayMetrics.density
             val screenWidth = dialog.context.resources.displayMetrics.widthPixels
             val horizontalInset = (20 * density + 0.5f).toInt()

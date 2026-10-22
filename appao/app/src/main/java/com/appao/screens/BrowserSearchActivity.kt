@@ -91,7 +91,7 @@ class BrowserSearchActivity : AppCompatActivity() {
 
         if (initial.isNotBlank()) input.selectAll()
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() { finishWithFade() }
+            override fun handleOnBackPressed() { finishOnBack() }
         })
 
         if (incomingTransitionName.isNotBlank()) {
@@ -359,6 +359,18 @@ class BrowserSearchActivity : AppCompatActivity() {
     private fun finishWithFade() {
         finish()
         overridePendingTransition(R.anim.publish_exit, R.anim.publish_enter)
+    }
+
+    /** System "back" (gesture or button). If we entered via Container Transform, reverse it
+        instead of forcing the old slide — forcing overridePendingTransition here was overriding
+        window.sharedElementReturnTransition every time, which is why "back" never showed the
+        reversed morph. With no incoming transition, this falls back to the normal fade. */
+    private fun finishOnBack() {
+        if (incomingTransitionName.isNotBlank()) {
+            finishAfterTransition()
+        } else {
+            finishWithFade()
+        }
     }
 
     override fun onDestroy() {

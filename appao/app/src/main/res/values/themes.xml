@@ -195,6 +195,15 @@
         parent="Widget.Material3.PopupMenu">
         <item name="android:popupBackground">@drawable/bg_popup_material</item>
         <item name="android:popupAnimationStyle">@style/AppAo.PopupMenu.Animation</item>
+        <!-- M3 Expressive "vertical menu" corner treatment: rounder than the classic Material 3
+             popup shape, matching the 24dp bg_popup_material background above. -->
+        <item name="shapeAppearance">@null</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearanceOverlay.AppAo.PopupMenu</item>
+    </style>
+
+    <style name="ShapeAppearanceOverlay.AppAo.PopupMenu" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">24dp</item>
     </style>
 
     <!-- Theme used only by anchor-attached Material 3 popup menus, never a Dialog. -->

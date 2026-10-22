@@ -564,12 +564,19 @@ class AppViewerActivity : AppCompatActivity() {
                 topBar.visibility = View.INVISIBLE
             } else {
                 topBar.visibility = View.VISIBLE
+                // translationY/alpha are pure GPU transforms — safe to set every scroll frame,
+                // no layout pass involved. This is what actually needs to move smoothly.
                 topBar.translationY = direction * offset.toFloat()
                 topBar.alpha = (1f - fraction).coerceIn(0f, 1f)
             }
         }
 
-        val remaining = (barHeight - offset).coerceAtLeast(0)
+        // The WebView's own content reflows whenever swipeRefresh's margins change, which is a
+        // real requestLayout(). Calling that on every scroll pixel (dozens of times per second
+        // during a slow drag) is what produced the stutter — each layout pass competes with the
+        // scroll itself for the same frame. Only resize the content area at the two endpoints
+        // (bar fully shown / fully hidden), matching what the user actually sees settle.
+        val remaining = if (browserBarHidden) 0 else barHeight
         val params = swipeRefresh.layoutParams as? android.widget.FrameLayout.LayoutParams
         if (params != null) {
             val top = if (bottom) 0 else remaining

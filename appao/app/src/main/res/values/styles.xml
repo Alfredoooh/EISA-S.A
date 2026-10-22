@@ -73,10 +73,18 @@
     </style>
 
     <!-- M3 Expressive: anchored popup menus scale/fade in from the anchor corner
-         instead of the plain system fade. Used by ThemeOverlay.AppAo.PopupMenu below. -->
+         instead of the plain system fade. Used by ThemeOverlay.AppAo.PopupMenu below.
+         ".Animation" is the right-anchored (Gravity.END) variant. -->
     <style name="AppAo.PopupMenu.Animation" parent="android:Animation">
         <item name="android:windowEnterAnimation">@anim/popup_scale_in</item>
         <item name="android:windowExitAnimation">@anim/popup_scale_out</item>
+    </style>
+
+    <!-- Left-anchored (Gravity.START) variant — the scale pivot must sit on the same side
+         the popup actually grows from, or the motion reads as sliding instead of scaling. -->
+    <style name="AppAo.PopupMenu.Animation.Start" parent="android:Animation">
+        <item name="android:windowEnterAnimation">@anim/popup_scale_in_start</item>
+        <item name="android:windowExitAnimation">@anim/popup_scale_out_start</item>
     </style>
 
     <!-- M3 Expressive dialog entrance: scale + fade from center instead of a slide. -->

@@ -261,17 +261,32 @@ object IconLoader {
         view.setPadding(0, 0, 0, 0)
         view.minimumWidth = standardSize
         view.minimumHeight = standardSize
+        forceIconSize(view, standardSize)
+        // Callers very often do:
+        //   ImageView(ctx).apply { IconLoader.applyIcon(this, name) }
+        //   parent.addView(child, LinearLayout.LayoutParams(someOtherSize, someOtherSize))
+        // That second call overwrites whatever layoutParams we just set, because addView(view, params)
+        // always wins. Re-apply the universal size the instant this view actually gets attached, so
+        // the final on-screen size is always 28dp regardless of what the caller passed to addView.
+        if (!view.isAttachedToWindow) {
+            view.addOnAttachStateChangeListener(object : android.view.View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: android.view.View) {
+                    view.removeOnAttachStateChangeListener(this)
+                    forceIconSize(view, standardSize)
+                }
+                override fun onViewDetachedFromWindow(v: android.view.View) = Unit
+            })
+        }
+    }
+
+    private fun forceIconSize(view: ImageView, standardSize: Int) {
         val params = view.layoutParams
         if (params != null) {
             var changed = false
-            // Always force the universal icon size, regardless of whatever size the XML or
-            // caller originally declared. Icons must never render smaller OR larger than this.
-            if (params.width > 0 && params.width != standardSize) { params.width = standardSize; changed = true }
-            if (params.height > 0 && params.height != standardSize) { params.height = standardSize; changed = true }
+            if (params.width != standardSize) { params.width = standardSize; changed = true }
+            if (params.height != standardSize) { params.height = standardSize; changed = true }
             if (changed) view.layoutParams = params
         } else {
-            // layoutParams is still null (view not yet attached to a parent). Pre-set explicit
-            // LayoutParams now so the size is already correct at attach/measure time.
             view.layoutParams = ViewGroup.LayoutParams(standardSize, standardSize)
         }
     }

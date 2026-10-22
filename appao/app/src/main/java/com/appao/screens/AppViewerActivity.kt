@@ -56,7 +56,6 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.core.app.ActivityOptionsCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -74,7 +73,6 @@ import com.appao.NativeHtmlDialog
 import com.appao.NativeM3Dialog
 import com.appao.NativeSheetDialog
 import com.appao.PullRefreshIndicatorView
-import com.appao.ExpressiveRefreshIndicatorView
 import com.appao.ExpressiveSwipeRefreshLayout
 import com.appao.R
 import com.appao.SystemBarHelper
@@ -83,7 +81,6 @@ import com.appao.ui.IconLoader
 import com.appao.ui.NativePopupMenu
 import com.bumptech.glide.Glide
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.transition.platform.MaterialContainerTransform
 import com.google.android.material.materialswitch.MaterialSwitch
 import java.io.ByteArrayInputStream
 import java.net.URLEncoder
@@ -91,6 +88,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.appao.Curves
+import com.google.android.material.loadingindicator.LoadingIndicator
 import com.appao.SearchActivity
 
 
@@ -99,15 +97,14 @@ class AppViewerActivity : AppCompatActivity() {
     private lateinit var web: WebView
     private lateinit var swipeRefresh: ExpressiveSwipeRefreshLayout
     private lateinit var faviconLoader: PullRefreshIndicatorView
-    private lateinit var browserPullIndicator: ExpressiveRefreshIndicatorView
-    private var browserPullIndicatorAnimator: android.animation.ValueAnimator? = null
-    private var browserPullIndicatorGeneration = 0L
+    private lateinit var browserPullIndicator: LoadingIndicator
     private var faviconLoaderAnimator: android.animation.ValueAnimator? = null
     private lateinit var address: EditText
     private lateinit var favicon: ImageView
     private var rendererRecoveryAttempted = false
     private var tabId: String = ""
     private var privateMode = false
+    private var openingBrowserSearch = false
     private var addressSuggestionGeneration = 0L
     private var reusedWebView = false
     private lateinit var findBar: View
@@ -158,6 +155,8 @@ class AppViewerActivity : AppCompatActivity() {
         swipeRefresh = findViewById(R.id.webSwipeRefresh)
         faviconLoader = findViewById(R.id.browserFaviconLoader)
         browserPullIndicator = findViewById(R.id.browserPullIndicator)
+        browserPullIndicator.setIndicatorColor(AccentColorManager.resolvedOr(this, R.color.pri))
+        browserPullIndicator.contentDescription = "A atualizar página"
         address = findViewById(R.id.browserAddress)
         favicon = findViewById(R.id.browserFavicon)
         findBar = findViewById(R.id.browserFindBar)
@@ -593,7 +592,6 @@ class AppViewerActivity : AppCompatActivity() {
 
     private fun showBrowserPullProgress(progress: Float) {
         if (!::browserPullIndicator.isInitialized || isFinishing || isDestroyed) return
-        browserPullIndicatorGeneration++
         val indicator = browserPullIndicator
         val bottom = BrowserPreferences.addressBarPosition(this).equals("bottom", true)
         val lp = indicator.layoutParams as? android.widget.FrameLayout.LayoutParams
@@ -603,21 +601,17 @@ class AppViewerActivity : AppCompatActivity() {
             lp.topMargin = if (!bottom) remainingToolbar + dp(8) else dp(8)
             indicator.layoutParams = lp
         }
-        browserPullIndicatorAnimator?.cancel()
-        browserPullIndicatorAnimator = null
-        indicator.animate().cancel()
-        indicator.visibility = View.VISIBLE
-        indicator.alpha = progress.coerceIn(0f, 1f)
-        val scale = (0.78f + progress.coerceIn(0f, 1f) * 0.22f)
+        val value = progress.coerceIn(0f, 1f)
+        if (value > 0.025f && indicator.visibility != View.VISIBLE) indicator.show()
+        if (value <= 0.025f) indicator.hide()
+        indicator.alpha = value
+        val scale = 0.88f + value * 0.12f
         indicator.scaleX = scale
         indicator.scaleY = scale
-        indicator.pullProgress = progress
-        indicator.rotationDegrees = (progress.coerceAtMost(1f) * 290f)
     }
 
     private fun startBrowserPullIndicator() {
         if (!::browserPullIndicator.isInitialized) return
-        browserPullIndicatorGeneration++
         val indicator = browserPullIndicator
         val bottom = BrowserPreferences.addressBarPosition(this).equals("bottom", true)
         val lp = indicator.layoutParams as? android.widget.FrameLayout.LayoutParams
@@ -626,40 +620,20 @@ class AppViewerActivity : AppCompatActivity() {
             lp.topMargin = if (!bottom && !browserBarHidden) dp(66) else dp(10)
             indicator.layoutParams = lp
         }
-        indicator.animate().cancel()
-        indicator.visibility = View.VISIBLE
-        indicator.pullProgress = 1f
-        indicator.alpha = 0f
-        indicator.scaleX = 0.86f
-        indicator.scaleY = 0.86f
-        indicator.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(150L).start()
-        browserPullIndicatorAnimator?.cancel()
-        browserPullIndicatorAnimator = android.animation.ValueAnimator.ofFloat(0f, 360f).apply {
-            duration = 900L
-            repeatCount = android.animation.ValueAnimator.INFINITE
-            interpolator = android.view.animation.LinearInterpolator()
-            addUpdateListener { indicator.rotationDegrees = it.animatedValue as Float }
-            start()
-        }
+        indicator.alpha = 1f
+        indicator.scaleX = 1f
+        indicator.scaleY = 1f
+        indicator.show()
     }
 
     private fun stopBrowserPullIndicator() {
         if (::swipeRefresh.isInitialized && swipeRefresh.isRefreshing) return
-        browserPullIndicatorAnimator?.cancel()
-        browserPullIndicatorAnimator = null
         if (!::browserPullIndicator.isInitialized) return
-        val indicator = browserPullIndicator
-        val generation = ++browserPullIndicatorGeneration
-        indicator.animate().cancel()
-        indicator.animate().alpha(0f).scaleX(0.86f).scaleY(0.86f).setDuration(110L).withEndAction {
-            if (browserPullIndicatorGeneration == generation && browserPullIndicatorAnimator == null) {
-                indicator.visibility = View.GONE
-                indicator.rotationDegrees = 0f
-                indicator.pullProgress = 0f
-                indicator.scaleX = 1f
-                indicator.scaleY = 1f
-            }
-        }.start()
+        browserPullIndicator.animate().cancel()
+        browserPullIndicator.hide()
+        browserPullIndicator.alpha = 1f
+        browserPullIndicator.scaleX = 1f
+        browserPullIndicator.scaleY = 1f
     }
 
     private fun handleWebPermissionRequest(request: PermissionRequest) {
@@ -743,28 +717,27 @@ class AppViewerActivity : AppCompatActivity() {
     }
 
     private fun openBrowserSearch(initialQuery: String = web.url.orEmpty()) {
-        if (isFinishing || isDestroyed) return
+        if (isFinishing || isDestroyed || openingBrowserSearch) return
+        openingBrowserSearch = true
         val launch = Intent(this, BrowserSearchActivity::class.java).apply {
             putExtra(BrowserSearchActivity.EXTRA_INITIAL_QUERY, initialQuery)
             putExtra("browser_private_mode", privateMode)
         }
-        val pill = findViewById<View>(R.id.browserAddressPill).apply {
-            transitionName = "browser_address_transform"
+        // Use a safe activity fade instead of a shared-element morph while WebView/IME
+        // are changing insets; the morph was responsible for intermittent OEM crashes.
+        runCatching {
+            startActivityForResult(launch, REQUEST_BROWSER_SEARCH)
+            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+        }.onFailure {
+            openingBrowserSearch = false
+            AppAoToast.show(this, "Não foi possível abrir a pesquisa. Tenta novamente.")
         }
-        window.sharedElementExitTransition = MaterialContainerTransform().apply {
-            duration = 320L
-            scrimColor = android.graphics.Color.TRANSPARENT
-            drawingViewId = android.R.id.content
-        }
-        val options = ActivityOptionsCompat.makeSceneTransitionAnimation(
-            this, pill, "browser_address_transform"
-        )
-        startActivityForResult(launch, REQUEST_BROWSER_SEARCH, options.toBundle())
     }
 
     @Deprecated("Deprecated by Android, retained for compatibility with this project's existing Activity setup")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_BROWSER_SEARCH) openingBrowserSearch = false
         if (requestCode != REQUEST_BROWSER_SEARCH || resultCode != Activity.RESULT_OK) return
         val target = data?.getStringExtra(BrowserSearchActivity.EXTRA_RESULT_VALUE)?.trim().orEmpty()
         if (target.isBlank()) return
@@ -1393,6 +1366,7 @@ class AppViewerActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        openingBrowserSearch = false
         SystemBarHelper.sync(this)
         if (::web.isInitialized) {
             applyBrowserPreferences()
@@ -1411,10 +1385,10 @@ class AppViewerActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        browserPullIndicatorGeneration++
-        browserPullIndicatorAnimator?.cancel()
-        browserPullIndicatorAnimator = null
-        if (::browserPullIndicator.isInitialized) browserPullIndicator.animate().cancel()
+        if (::browserPullIndicator.isInitialized) {
+            browserPullIndicator.animate().cancel()
+            browserPullIndicator.hide()
+        }
         hideAddressSuggestions()
         elementActionsPopup?.dismiss()
         elementActionsPopup = null

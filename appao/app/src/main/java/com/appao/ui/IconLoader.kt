@@ -21,6 +21,9 @@ object IconLoader {
     private data class Symbol(val file: String, val filled: Boolean = false)
     private val sourceCache = LruCache<String, String>(192)
 
+    /** Standard Material Symbols Rounded glyph footprint shared throughout the UI. */
+    const val UNIVERSAL_ICON_SIZE_DP: Int = 28
+
     private val symbols: Map<String, Symbol> = buildMap {
         fun add(symbol: String, vararg aliases: String) {
             aliases.forEach { put(norm(it), Symbol(symbol)) }
@@ -142,6 +145,7 @@ object IconLoader {
         "arrow_go_back" to "arrow_undo_outline", "undo" to "arrow_undo_outline",
         "arrow_go_forward" to "arrow_redo_outline", "redo" to "arrow_redo_outline",
         "chevron_down" to "chevron_down_outline", "keyboard_arrow_down" to "chevron_down_outline",
+        "chevron_right" to "chevron_right_outline", "keyboard_arrow_right" to "chevron_right_outline", "arrow_right_small" to "chevron_right_outline",
         "open_in_new" to "open_outline", "external_link" to "open_outline",
         "search" to "search_outline", "search_outline" to "search_outline",
         "settings" to "settings_outline", "options" to "options_outline", "tune" to "options_outline",
@@ -256,23 +260,22 @@ object IconLoader {
         }
     }
 
-    /** All Material Symbols Rounded get a consistent 24dp drawable viewport. */
+    /** One consistent visible glyph size. The old CENTER_INSIDE 24dp cap made icons look tiny. */
     private fun standardizeIconView(view: ImageView) {
-        val minSize = (24f * view.resources.displayMetrics.density + 0.5f).toInt().coerceAtLeast(1)
+        val standardSize = (UNIVERSAL_ICON_SIZE_DP * view.resources.displayMetrics.density + 0.5f).toInt().coerceAtLeast(1)
         view.scaleX = 1f
         view.scaleY = 1f
         view.adjustViewBounds = false
-        // CENTER_INSIDE caps the visible glyph at the drawable's 24dp intrinsic size,
-        // rather than scaling a 24dp symbol up to oversized 32/40dp click targets.
-        view.scaleType = ImageView.ScaleType.CENTER_INSIDE
+        view.scaleType = ImageView.ScaleType.FIT_CENTER
         view.setPadding(0, 0, 0, 0)
-        view.minimumWidth = minSize
-        view.minimumHeight = minSize
+        view.minimumWidth = standardSize
+        view.minimumHeight = standardSize
         val params = view.layoutParams
         if (params != null) {
             var changed = false
-            if (params.width > 0 && params.width < minSize) { params.width = minSize; changed = true }
-            if (params.height > 0 && params.height < minSize) { params.height = minSize; changed = true }
+            // Increase undersized icon slots, never shrink a view supplied for a larger icon.
+            if (params.width > 0 && params.width < standardSize) { params.width = standardSize; changed = true }
+            if (params.height > 0 && params.height < standardSize) { params.height = standardSize; changed = true }
             if (changed) view.layoutParams = params
         }
     }
@@ -285,7 +288,7 @@ object IconLoader {
 
     private class RoundedSvgDrawable(source: String, density: Float) : Drawable() {
         private val svg: SVG = SVG.getFromString(source)
-        private val intrinsicSize = (24f * density + 0.5f).toInt().coerceAtLeast(1)
+        private val intrinsicSize = (UNIVERSAL_ICON_SIZE_DP * density + 0.5f).toInt().coerceAtLeast(1)
         override fun getIntrinsicWidth(): Int = intrinsicSize
         override fun getIntrinsicHeight(): Int = intrinsicSize
         override fun draw(canvas: Canvas) {

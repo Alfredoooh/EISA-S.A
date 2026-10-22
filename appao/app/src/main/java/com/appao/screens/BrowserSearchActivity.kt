@@ -1,7 +1,6 @@
 package com.appao.screens
 
 import android.content.Intent
-import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
@@ -28,8 +27,6 @@ import com.appao.BrowserAutocomplete
 import com.appao.BrowserPreferences
 import com.appao.BrowsingHistoryStore
 import com.bumptech.glide.Glide
-import com.google.android.material.transition.platform.MaterialContainerTransform
-import com.google.android.material.transition.platform.MaterialContainerTransformSharedElementCallback
 import com.appao.R
 import com.appao.SystemBarHelper
 import com.appao.ui.IconLoader
@@ -63,7 +60,6 @@ class BrowserSearchActivity : AppCompatActivity() {
         SystemBarHelper.sync(this)
         window.statusBarColor = ContextCompat.getColor(this, R.color.bg)
         setContentView(buildContent())
-        configureContainerTransform()
 
         privateMode = intent.getBooleanExtra("browser_private_mode", false)
         val initial = intent.getStringExtra(EXTRA_INITIAL_QUERY).orEmpty()
@@ -79,9 +75,12 @@ class BrowserSearchActivity : AppCompatActivity() {
             override fun handleOnBackPressed() { finishWithFade() }
         })
         input.post {
-            if (!isFinishing && !isDestroyed) {
-                (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
-                    .showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+            if (!isFinishing && !isDestroyed && input.isAttachedToWindow) {
+                runCatching {
+                    input.requestFocus()
+                    (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
+                        .showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+                }
             }
         }
     }
@@ -304,25 +303,11 @@ class BrowserSearchActivity : AppCompatActivity() {
         finishWithFade()
     }
 
-    private fun configureContainerTransform() {
-        window.sharedElementsUseOverlay = false
-        setEnterSharedElementCallback(MaterialContainerTransformSharedElementCallback())
-        setExitSharedElementCallback(MaterialContainerTransformSharedElementCallback())
-        window.sharedElementEnterTransition = MaterialContainerTransform().apply {
-            duration = 320L
-            scrimColor = Color.TRANSPARENT
-            drawingViewId = android.R.id.content
-        }
-        window.sharedElementReturnTransition = MaterialContainerTransform().apply {
-            duration = 280L
-            scrimColor = Color.TRANSPARENT
-            drawingViewId = android.R.id.content
-        }
-    }
-
     private fun finishWithFade() {
-        // Let Android run the shared-element return transform. Device Back remains available.
+        // Shared-element window transitions can race the IME/insets and crash on some OEM builds.
+        // Finish normally; the launching activity supplies the short native fade transition.
         finish()
+        overridePendingTransition(R.anim.publish_exit, R.anim.publish_enter)
     }
 
     override fun onDestroy() {

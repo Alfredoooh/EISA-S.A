@@ -30,8 +30,6 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityOptionsCompat
-import com.google.android.material.transition.platform.MaterialContainerTransform
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -62,6 +60,7 @@ import com.appao.screens.BrowserWebViewPool
 import com.appao.screens.HistorySettingsActivity
 import com.appao.ui.IconLoader
 import com.appao.ui.NativePopupMenu
+import com.google.android.material.loadingindicator.LoadingIndicator
 
 class MainActivity : AppCompatActivity() {
 
@@ -102,7 +101,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var biSend: FrameLayout
     private lateinit var appsGrid: GridLayout
     private var homeNewsJob: Job? = null
-    private lateinit var pullIndicator: ExpressiveRefreshIndicatorView
+    private lateinit var pullIndicator: LoadingIndicator
     private lateinit var homeFeedStack: View
     private lateinit var stackBack: ImageView
     private lateinit var stackFront: ImageView
@@ -117,6 +116,7 @@ class MainActivity : AppCompatActivity() {
     private var homeSuggestionRunnable: Runnable? = null
     private var homeSuggestionGeneration = 0L
     private val REQUEST_MAIN_BROWSER_SEARCH = 7416
+    private var openingBrowserSearch = false
     private var activeMainTab = "home"
     private var profileOpen = false
     private var feedEmptyOverlay: View? = null
@@ -177,8 +177,6 @@ class MainActivity : AppCompatActivity() {
     private var pullVelocity = 0f
     private var pullLastTimeNs = 0L
     private var pullFramePosted = false
-    private var pullRotation = 0f
-    private var pullSpinnerAnimator: ValueAnimator? = null
     private var pullFinishPosted = false
 
     private var restoredState = false
@@ -221,6 +219,8 @@ class MainActivity : AppCompatActivity() {
         biSend = findViewById(R.id.biSend)
         appsGrid = findViewById(R.id.appsGrid)
         pullIndicator = findViewById(R.id.pullIndicator)
+        pullIndicator.setIndicatorColor(AccentColorManager.resolvedOr(this, R.color.pri))
+        pullIndicator.contentDescription = "A atualizar conteúdo"
         homeFeedStack = findViewById(R.id.homeFeedStack)
         stackBack = findViewById(R.id.stackBack)
         stackFront = findViewById(R.id.stackFront)
@@ -628,27 +628,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openMainBrowserSearch(initialQuery: String = "") {
-        if (isFinishing || isDestroyed) return
+        if (isFinishing || isDestroyed || openingBrowserSearch) return
+        if (!::homeAddressBar.isInitialized || !homeAddressBar.isAttachedToWindow) return
+        openingBrowserSearch = true
         hideHomeSuggestions()
         if (::homeAddressInput.isInitialized) {
             homeAddressInput.clearFocus()
-            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
-                .hideSoftInputFromWindow(homeAddressInput.windowToken, 0)
+            runCatching {
+                (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
+                    .hideSoftInputFromWindow(homeAddressInput.windowToken, 0)
+            }
         }
         val intent = Intent(this, BrowserSearchActivity::class.java)
             .putExtra(BrowserSearchActivity.EXTRA_INITIAL_QUERY, initialQuery)
             .putExtra("browser_private_mode", false)
-        // Native Material container transform: the address pill itself morphs into the
-        // full search field instead of fading between two unrelated screens.
-        window.sharedElementExitTransition = MaterialContainerTransform().apply {
-            duration = 320L
-            scrimColor = android.graphics.Color.TRANSPARENT
-            drawingViewId = android.R.id.content
+        // Avoid the fragile shared-element morph that could crash when the keyboard/insets
+        // changed during the launch. The dedicated search screen uses a short native activity fade.
+        runCatching {
+            startActivityForResult(intent, REQUEST_MAIN_BROWSER_SEARCH)
+            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+        }.onFailure {
+            openingBrowserSearch = false
+            AppAoToast.show(this, "Não foi possível abrir a pesquisa. Tenta novamente.")
         }
-        val options = ActivityOptionsCompat.makeSceneTransitionAnimation(
-            this, homeAddressBar, "browser_address_transform"
-        )
-        startActivityForResult(intent, REQUEST_MAIN_BROWSER_SEARCH, options.toBundle())
     }
 
     private fun updateHomeTabCount() {
@@ -1705,18 +1707,24 @@ class MainActivity : AppCompatActivity() {
     private fun setupProfilePanel() {
         if (!::profileRows.isInitialized) return
         profileRows.removeAllViews()
+        findViewById<TextView>(R.id.profileTitle).text = "My account"
+        findViewById<TextView>(R.id.profileSubtitle).text = "Visitante"
+        IconLoader.applyIcon(findViewById(R.id.profileEditIcon), "edit", R.color.iconTint)
+        findViewById<View>(R.id.profileEditButton).setOnClickListener {
+            AppAoToast.show(this, "Estás a utilizar o AppAo como visitante.")
+        }
         data class ProfileRow(val label: String, val icon: String, val isSwitch: Boolean = false, val switchChecked: Boolean = false, val action: () -> Unit)
         fun makeRow(row: ProfileRow): View = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(54)
-            setPadding(dp(14), dp(8), dp(14), dp(8))
+            minimumHeight = dp(62)
+            setPadding(dp(16), dp(8), dp(16), dp(8))
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
             isClickable = true; isFocusable = true
             addView(ImageView(this@MainActivity).apply {
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 IconLoader.applyIcon(this, row.icon, R.color.iconTint)
-            }, LinearLayout.LayoutParams(dp(30), dp(30)))
+            }, LinearLayout.LayoutParams(dp(28), dp(28)))
             addView(TextView(this@MainActivity).apply {
                 text = row.label; textSize = 14.5f
                 setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
@@ -1741,21 +1749,17 @@ class MainActivity : AppCompatActivity() {
             } else {
                 addView(ImageView(this@MainActivity).apply {
                     scaleType = ImageView.ScaleType.FIT_CENTER
-                    IconLoader.applyIcon(this, "arrow_right", R.color.dim)
-                }, LinearLayout.LayoutParams(dp(27), dp(27)))
+                    IconLoader.applyIcon(this, "chevron_right", R.color.dim)
+                }, LinearLayout.LayoutParams(dp(28), dp(28)))
             }
             setOnClickListener { row.action() }
         }
         fun addGroup(rows: List<ProfileRow>) {
-            rows.forEachIndexed { index, row ->
+            rows.forEach { row ->
                 profileRows.addView(makeRow(row), LinearLayout.LayoutParams(-1, -2))
-                if (index != rows.lastIndex) {
-                    profileRows.addView(View(this).apply {
-                        setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.line))
-                    }, LinearLayout.LayoutParams(-1, dp(1)))
-                }
             }
-            profileRows.addView(View(this).apply { setBackgroundColor(android.graphics.Color.TRANSPARENT) }, LinearLayout.LayoutParams(-1, dp(14)))
+            // Preserve clear grouping without the thin divider lines the new profile design removes.
+            profileRows.addView(View(this).apply { setBackgroundColor(android.graphics.Color.TRANSPARENT) }, LinearLayout.LayoutParams(-1, dp(10)))
         }
         addGroup(listOf(
             ProfileRow("Favoritos", "bookmark_filled") { startActivity(Intent(this, LibraryActivity::class.java)); overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit) },
@@ -2547,11 +2551,11 @@ class MainActivity : AppCompatActivity() {
         startPullLoop()
         rootHost.postDelayed({
             if (!pullRefreshing && abs(pullCurrentY) < 1f) {
-                pullSpinnerAnimator?.cancel()
-                pullSpinnerAnimator = null
-                pullRotation = 0f
-                pullIndicator.rotationDegrees = 0f
-                pullIndicator.pullProgress = 0f
+                pullIndicator.hide()
+                pullIndicator.alpha = 0f
+                pullIndicator.scaleX = 1f
+                pullIndicator.scaleY = 1f
+                pullIndicator.translationY = 0f
             }
         }, 700L)
     }
@@ -2617,16 +2621,12 @@ class MainActivity : AppCompatActivity() {
         val recyclerTop = (recyclerLocation[1] - rootLocation[1]).toFloat()
         val topY = recyclerTop + (y * 0.34f) - dp(24).toFloat()
 
+        if (zoom > 0.025f && pullIndicator.visibility != View.VISIBLE) pullIndicator.show()
+        if (zoom <= 0.025f && !pullRefreshing && pullIndicator.visibility == View.VISIBLE) pullIndicator.hide()
         pullIndicator.alpha = zoom
-        pullIndicator.scaleX = zoom
-        pullIndicator.scaleY = zoom
+        pullIndicator.scaleX = 0.88f + (0.12f * zoom)
+        pullIndicator.scaleY = 0.88f + (0.12f * zoom)
         pullIndicator.translationY = topY
-        pullIndicator.pullProgress = (y / threshold).coerceIn(0f, 1.3f)
-
-        if (!pullRefreshing) {
-            pullRotation = (y / threshold).coerceIn(0f, 1f) * 300f
-            pullIndicator.rotationDegrees = pullRotation
-        }
 
         recycler.translationY = y.coerceAtLeast(0f)
         // Category toggles are outside the RecyclerView and remain pinned during pull-to-refresh.
@@ -2638,19 +2638,10 @@ class MainActivity : AppCompatActivity() {
         pullTargetY = dp(72).toFloat()
         pullVelocity = 0f
 
-        pullIndicator.rotationDegrees = pullRotation
-        pullSpinnerAnimator?.cancel()
-        val start = pullRotation
-        pullSpinnerAnimator = ValueAnimator.ofFloat(start, start + 360f).apply {
-            duration = 800L
-            repeatCount = ValueAnimator.INFINITE
-            interpolator = android.view.animation.LinearInterpolator()
-            addUpdateListener {
-                pullRotation = it.animatedValue as Float
-                pullIndicator.rotationDegrees = pullRotation
-            }
-            start()
-        }
+        pullIndicator.show()
+        pullIndicator.alpha = 1f
+        pullIndicator.scaleX = 1f
+        pullIndicator.scaleY = 1f
 
         startPullLoop()
 
@@ -2668,6 +2659,7 @@ class MainActivity : AppCompatActivity() {
     @Deprecated("Uses legacy result callbacks to remain compatible with the existing Activity structure")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_MAIN_BROWSER_SEARCH) openingBrowserSearch = false
         if (requestCode == REQUEST_MAIN_BROWSER_SEARCH && resultCode == RESULT_OK) {
             val target = data?.getStringExtra(BrowserSearchActivity.EXTRA_RESULT_VALUE)?.trim().orEmpty()
             if (target.isNotBlank()) openNewBrowserTab(normalizeBrowserTarget(target))
@@ -2834,6 +2826,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        openingBrowserSearch = false
         if (::biBar.isInitialized) updateBrowserTabCount()
         if (::homeAddressInput.isInitialized) updateHomeTabCount()
         if (::appsPanel.isInitialized && activeMainTab == "legacy_apps") {
@@ -2963,7 +2956,7 @@ class MainActivity : AppCompatActivity() {
         feedAnimator?.cancel()
         appsAnimator?.cancel()
         feedBarAnimator?.cancel()
-        pullSpinnerAnimator?.cancel()
+        if (::pullIndicator.isInitialized) pullIndicator.hide()
         super.onDestroy()
     }
 

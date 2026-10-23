@@ -56,7 +56,7 @@ object AppAoToast {
         val density = context.resources.displayMetrics.density
         fun dp(value: Int) = (value * density + 0.5f).toInt()
 
-        val card = buildCard(context, message, dp)
+        val card = buildCard(context, message, ::dp)
 
         val popup = PopupWindow(card, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             isOutsideTouchable = false
@@ -67,7 +67,7 @@ object AppAoToast {
         }
         activePopup = popup
 
-        val topInset = topSafeInsetPx(activity, dp)
+        val topInset = topSafeInsetPx(activity, ::dp)
         card.alpha = 0f
         card.translationY = -dp(28).toFloat()
 
@@ -79,7 +79,7 @@ object AppAoToast {
                 popup.showAtLocation(decor, Gravity.TOP or Gravity.CENTER_HORIZONTAL, 0, topInset)
             }.onFailure { return@post }
 
-            applyBackdropBlur(activity, decor, card, dp)
+            applyBackdropBlur(activity, decor, card, ::dp)
 
             card.animate()
                 .alpha(1f)
@@ -111,25 +111,25 @@ object AppAoToast {
         }
     }
 
-    private fun topSafeInsetPx(activity: Activity, dp: (Int) -> Int): Int {
+    private fun topSafeInsetPx(activity: Activity, dpFn: (Int) -> Int): Int {
         val insets = activity.window.decorView.rootWindowInsets
         val systemTop = if (Build.VERSION.SDK_INT >= 23 && insets != null) {
             insets.systemWindowInsetTop
         } else 0
-        return systemTop.coerceAtLeast(dp(28)) + dp(6)
+        return systemTop.coerceAtLeast(dpFn(28)) + dpFn(6)
     }
 
-    private fun buildCard(context: Context, message: String, dp: (Int) -> Int): LinearLayout {
+    private fun buildCard(context: Context, message: String, dpFn: (Int) -> Int): LinearLayout {
         val surfaceColor = ContextCompat.getColor(context, R.color.card)
         return LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(56)
-            setPadding(dp(18), dp(12), dp(10), dp(12))
+            minimumHeight = dpFn(56)
+            setPadding(dpFn(18), dpFn(12), dpFn(10), dpFn(12))
             clipToOutline = true
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dp(28).toFloat()
+                cornerRadius = dpFn(28).toFloat()
                 // Not fully transparent: this is the fallback/tint layer that sits on top of the
                 // blurred snapshot (or, on old OS versions, is the only layer). A blur with zero
                 // tint looks like smeared glass; a light tint of the app surface color is what
@@ -138,7 +138,7 @@ object AppAoToast {
             }
             outlineProvider = object : android.view.ViewOutlineProvider() {
                 override fun getOutline(view: View, outline: android.graphics.Outline) {
-                    outline.setRoundRect(0, 0, view.width, view.height, dp(28).toFloat())
+                    outline.setRoundRect(0, 0, view.width, view.height, dpFn(28).toFloat())
                 }
             }
 
@@ -150,11 +150,11 @@ object AppAoToast {
                 gravity = Gravity.CENTER_VERTICAL
                 includeFontPadding = false
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                marginEnd = dp(10)
+                marginEnd = dpFn(10)
             })
 
             addView(ImageView(context).apply {
-                val iconBitmap = IconLoader.iconBitmap(context, "close", dp(16))
+                val iconBitmap = IconLoader.iconBitmap(context, "close", dpFn(16))
                 val baseIcon: Drawable = iconBitmap?.let { BitmapDrawable(context.resources, it) }
                     ?: ContextCompat.getDrawable(context, android.R.drawable.ic_menu_close_clear_cancel)!!
                 val icon = DrawableCompat.wrap(baseIcon).mutate().apply {
@@ -163,7 +163,7 @@ object AppAoToast {
                 setImageDrawable(icon)
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 contentDescription = "Fechar"
-            }, LinearLayout.LayoutParams(dp(28), dp(28)))
+            }, LinearLayout.LayoutParams(dpFn(28), dpFn(28)))
         }
     }
 
@@ -171,13 +171,13 @@ object AppAoToast {
         card. RenderEffect/RenderNode blur does not exist below API 31 — RenderScript (the old
         alternative) is deprecated and was removed as a recommended path, so older OS versions
         keep the solid frosted-tint background set in buildCard instead of a blurred one. */
-    private fun applyBackdropBlur(activity: Activity, decor: ViewGroup, card: View, dp: (Int) -> Int) {
+    private fun applyBackdropBlur(activity: Activity, decor: ViewGroup, card: View, dpFn: (Int) -> Int) {
         if (Build.VERSION.SDK_INT < 31) return
         if (card.width <= 0 || card.height <= 0) {
             card.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
                 override fun onPreDraw(): Boolean {
                     card.viewTreeObserver.removeOnPreDrawListener(this)
-                    applyBackdropBlur(activity, decor, card, dp)
+                    applyBackdropBlur(activity, decor, card, dpFn)
                     return true
                 }
             })
@@ -201,7 +201,7 @@ object AppAoToast {
             val blurHost = ImageView(activity).apply {
                 setImageDrawable(blurDrawable)
                 scaleType = ImageView.ScaleType.FIT_XY
-                setRenderEffect(RenderEffect.createBlurEffect(dp(18).toFloat(), dp(18).toFloat(), Shader.TileMode.CLAMP))
+                setRenderEffect(RenderEffect.createBlurEffect(dpFn(18).toFloat(), dpFn(18).toFloat(), Shader.TileMode.CLAMP))
                 clipToOutline = true
                 outlineProvider = card.outlineProvider
             }

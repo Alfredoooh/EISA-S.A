@@ -1,5 +1,9 @@
 package com.appao.screens
 
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -9,14 +13,16 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.SwitchCompat
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import com.appao.AccentColorManager
 import com.appao.BrowserPreferences
 import com.appao.R
 import com.appao.SystemBarHelper
 import com.appao.ui.IconLoader
 import com.appao.ui.NativePopupMenu
+import com.google.android.material.materialswitch.MaterialSwitch
 
 /** Dedicated, native settings page for browser-specific behaviour. */
 class BrowserSettingsActivity : AppCompatActivity() {
@@ -97,6 +103,10 @@ class BrowserSettingsActivity : AppCompatActivity() {
         addToggle("history", "Guardar histórico", "Guarda páginas visitadas neste dispositivo", BrowserPreferences.savePageHistory(this)) {
             BrowserPreferences.setSavePageHistory(this, it)
         }
+        addToggle("notifications", "Notificações de sites", "Permite que os sites peçam para enviar notificações", BrowserPreferences.siteNotificationsEnabled(this)) { enabled ->
+            BrowserPreferences.setSiteNotificationsEnabled(this, enabled)
+            if (enabled) requestNotificationRuntimePermission()
+        }
 
         section("Compatibilidade e aparência")
         addToggle("desktop", "Modo desktop", "Solicita a versão para computador dos sites", BrowserPreferences.desktopSiteEnabled(this)) {
@@ -109,6 +119,14 @@ class BrowserSettingsActivity : AppCompatActivity() {
             BrowserPreferences.setAdaptiveBrowserBarColor(this, it)
         }
         refreshValues()
+    }
+
+    /** The user must still grant the OS-level POST_NOTIFICATIONS permission (Android 13+) before
+     *  any notification can actually be posted, even with the in-app toggle enabled. */
+    private fun requestNotificationRuntimePermission() {
+        if (Build.VERSION.SDK_INT < 33) return
+        if (ContextCompat.checkSelfPermission(this, "android.permission.POST_NOTIFICATIONS") == PackageManager.PERMISSION_GRANTED) return
+        ActivityCompat.requestPermissions(this, arrayOf("android.permission.POST_NOTIFICATIONS"), 7201)
     }
 
     private fun section(title: String) {
@@ -141,15 +159,38 @@ class BrowserSettingsActivity : AppCompatActivity() {
 
     private fun addToggle(iconName: String, title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
         val row = rowBase(iconName, title, subtitle)
-        val toggle = SwitchCompat(this).apply {
+        val toggle = MaterialSwitch(this).apply {
             isChecked = checked
-            showText = false
+            isClickable = false
+            isFocusable = false
             contentDescription = title
+            styleRowSwitch(this)
             setOnCheckedChangeListener { _, enabled -> onChange(enabled) }
         }
-        row.addView(toggle, LinearLayout.LayoutParams(dp(52), dp(48)))
+        row.addView(toggle, LinearLayout.LayoutParams(-2, dp(48)))
         row.setOnClickListener { toggle.isChecked = !toggle.isChecked }
         content.addView(row, LinearLayout.LayoutParams(-1, -2))
+    }
+
+    /** Matches the switch style used across the rest of the app (SettingsActivity, Profile, etc.). */
+    private fun styleRowSwitch(switch: MaterialSwitch) {
+        val checkedState = intArrayOf(android.R.attr.state_checked)
+        val defaultState = intArrayOf()
+        val accentColor = AccentColorManager.resolvedOr(this, R.color.pri)
+        switch.thumbTintList = android.content.res.ColorStateList(
+            arrayOf(checkedState, defaultState),
+            intArrayOf(
+                AccentColorManager.onPrimaryColor(this),
+                ContextCompat.getColor(this, R.color.dim)
+            )
+        )
+        switch.trackTintList = android.content.res.ColorStateList(
+            arrayOf(checkedState, defaultState),
+            intArrayOf(
+                androidx.core.graphics.ColorUtils.setAlphaComponent(accentColor, 150),
+                ContextCompat.getColor(this, R.color.card2)
+            )
+        )
     }
 
     private fun rowBase(iconName: String, title: String, subtitle: String): LinearLayout {

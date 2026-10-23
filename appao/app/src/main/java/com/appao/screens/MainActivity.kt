@@ -71,9 +71,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var homeQuickSites: GridLayout
     private lateinit var homeQuickSitesClip: FrameLayout
     private lateinit var homeQuickDivider: View
-    // The quick-sites area consumes scroll distance before the news list itself moves,
-    // just like a native collapsing app bar. This value is independent of RecyclerView's
-    // reported scroll offset, which changes when the viewport is resized.
     private var quickSitesCollapseOffset = 0
     private var quickSitesExpandedHeight = 0
     private var quickSitesCompensatingScroll = false
@@ -503,11 +500,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateMainTabSelection(selected: String) {
         val effective = if (selected == "apps") "discover" else selected
+        // pillId: the small View sitting behind each icon, giving the M3 Expressive "pill"
+        // highlight on the selected tab. It is intentionally subtle (low alpha), not a solid fill.
         val defs = listOf(
-            Triple("home", R.id.homeMainNavHomeLabel, R.id.homeMainNavHomeIcon),
-            Triple("discover", R.id.homeMainNavAppsLabel, R.id.homeMainNavAppsIcon),
-            Triple("tabs", R.id.homeMainNavTabsLabel, R.id.homeMainNavTabsIcon),
-            Triple("profile", R.id.homeMainNavProfileLabel, R.id.homeMainNavProfileIcon)
+            arrayOf("home", R.id.homeMainNavHomeLabel, R.id.homeMainNavHomeIcon, R.id.homeMainNavHomePill),
+            arrayOf("discover", R.id.homeMainNavAppsLabel, R.id.homeMainNavAppsIcon, R.id.homeMainNavAppsPill),
+            arrayOf("tabs", R.id.homeMainNavTabsLabel, R.id.homeMainNavTabsIcon, R.id.homeMainNavTabsPill),
+            arrayOf("profile", R.id.homeMainNavProfileLabel, R.id.homeMainNavProfileIcon, R.id.homeMainNavProfilePill)
         )
         val dark = ThemeManager.resolvedDark(this)
         val primary = AccentColorManager.resolvedOr(this, R.color.pri)
@@ -516,10 +515,24 @@ class MainActivity : AppCompatActivity() {
         val activeIcon = if (dark) android.graphics.Color.WHITE else primary
         val inactiveText = ContextCompat.getColor(this, R.color.dim)
         val activeText = if (dark) ContextCompat.getColor(this, R.color.text) else primary
+        // Low alpha so the pill reads as a soft tint of the current primary color, never a solid block.
+        val pillTint = androidx.core.graphics.ColorUtils.setAlphaComponent(primary, if (dark) 46 else 34)
 
-        defs.forEach { (name, labelId, iconId) ->
+        defs.forEach { def ->
+            val name = def[0] as String
+            val labelId = def[1] as Int
+            val iconId = def[2] as Int
+            val pillId = def[3] as Int
             val isSelected = name == effective
             findViewById<TextView>(labelId).setTextColor(if (isSelected) activeText else inactiveText)
+            val pill = findViewById<View>(pillId)
+            pill.animate().cancel()
+            pill.background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = dp(999).toFloat()
+                setColor(pillTint)
+            }
+            pill.animate().alpha(if (isSelected) 1f else 0f).setDuration(180L).setInterpolator(Curves.IOS).start()
             if (name == "tabs") {
                 // The tabs item is intentionally represented by a numeric live tab count, not a copy icon.
                 val countTint = if (dark) {
@@ -545,7 +558,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Four stable bottom tabs. Discover owns the feed; the feed is no longer mounted on Home. */
     private fun switchMainTab(target: String, animate: Boolean = true) {
         if (isFinishing || isDestroyed) return
         val requested = target.lowercase(Locale.ROOT)
@@ -862,8 +874,6 @@ class MainActivity : AppCompatActivity() {
 
         recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
-                // The counter-scroll below returns the portion consumed by the collapsing
-                // header. Ignore that nested callback so it cannot reverse the animation.
                 if (quickSitesCompensatingScroll) {
                     quickSitesCompensatingScroll = false
                     return
@@ -884,11 +894,6 @@ class MainActivity : AppCompatActivity() {
         recycler.translationY = 0f
     }
 
-    /**
-     * Consume the portion of a vertical scroll that belongs to the quick-sites header.
-     * Unlike a time-based height animator, this follows the user's finger/fling one-to-one,
-     * so it cannot repeatedly cancel and restart when RecyclerView relays out.
-     */
     private fun consumeQuickSitesScroll(rv: RecyclerView, dy: Int) {
         if (dy == 0 || !::homeQuickSites.isInitialized ||
             !::homeQuickSitesClip.isInitialized || !::homeQuickDivider.isInitialized) return
@@ -910,17 +915,11 @@ class MainActivity : AppCompatActivity() {
         quickSitesCollapseOffset = nextOffset
         applyQuickSitesCollapseLayout()
 
-        // RecyclerView has already moved by dy before onScrolled is called. Reversing only
-        // the distance consumed by the header keeps article motion at the exact finger speed;
-        // the list starts moving freely only after the header is fully collapsed (and vice versa).
         quickSitesCompensatingScroll = true
         rv.scrollBy(0, -consumedByHeader)
-        // Normally scrollBy dispatches onScrolled synchronously. This fallback also clears the
-        // guard if the layout manager has no remaining distance to consume.
         rv.post { quickSitesCompensatingScroll = false }
     }
 
-    /** Apply a collapse offset without running a competing ValueAnimator or fading whole rows. */
     private fun applyQuickSitesCollapseLayout() {
         if (!::homeQuickSites.isInitialized || !::homeQuickSitesClip.isInitialized ||
             !::homeQuickDivider.isInitialized) return
@@ -931,9 +930,6 @@ class MainActivity : AppCompatActivity() {
         val remainingHeight = (maximum - offset).coerceAtLeast(0)
         val progress = offset.toFloat() / maximum.toFloat()
 
-        // Shrink a clipping viewport while translating the full grid upward inside it.
-        // This makes the upper row leave first, as it would in a native collapsing app bar,
-        // instead of clipping sites from the bottom or squeezing individual rows.
         homeQuickSitesClip.visibility = View.VISIBLE
         homeQuickSitesClip.clipChildren = true
         homeQuickSitesClip.clipToPadding = true
@@ -954,7 +950,6 @@ class MainActivity : AppCompatActivity() {
         }
         homeQuickSites.translationY = -offset.toFloat()
 
-        // Home no longer hosts the news feed; never show the old divider beneath quick sites.
         homeQuickDivider.visibility = View.GONE
         val dividerParams = homeQuickDivider.layoutParams as? ViewGroup.MarginLayoutParams ?: return
         val dividerHeight = if (remainingHeight == 0) 0 else dp(1)
@@ -977,7 +972,6 @@ class MainActivity : AppCompatActivity() {
         homeQuickDivider.alpha = (1f - progress).coerceIn(0f, 1f)
     }
 
-    /** Force a stable endpoint when the selected category resets the feed to the top. */
     private fun updateQuickSitesCollapse(collapse: Boolean) {
         if (!::homeQuickSites.isInitialized || !::homeQuickSitesClip.isInitialized ||
             !::homeQuickDivider.isInitialized) return
@@ -1064,8 +1058,6 @@ class MainActivity : AppCompatActivity() {
             indicatorTrack.addView(indicator, FrameLayout.LayoutParams(dp(1), dp(3), Gravity.CENTER))
             tab.addView(indicatorTrack, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(5)))
             tv.post {
-                // Measure the actual label, not the tab container. This prevents
-                // zero/undersized underlines when tabs are rebuilt during a swipe.
                 val labelWidth = tv.paint.measureText(tv.text.toString()).toInt().coerceAtLeast(dp(24))
                 indicatorTrack.layoutParams = (indicatorTrack.layoutParams as LinearLayout.LayoutParams).apply {
                     width = labelWidth
@@ -1096,7 +1088,6 @@ class MainActivity : AppCompatActivity() {
             feedTabsHost.addView(tab, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
         }
 
-        // The category control is an uncontained pencil, not a plus/circle button.
         val plus = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginStart = dp(6) }
             background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
@@ -1195,7 +1186,6 @@ class MainActivity : AppCompatActivity() {
             homeCategoryToggles.addView(tab, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
         }
 
-        // Keep the same uncontained category-edit action as the original feed.
         val edit = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(dp(34), dp(34)).apply { marginStart = dp(6) }
             background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
@@ -1223,8 +1213,6 @@ class MainActivity : AppCompatActivity() {
         NewsRepository.resetDedup()
         refreshFeedTabs(false)
 
-        // Render the selected category's disk cache immediately; never show articles
-        // from the previous category while this category is fetched.
         val categoryId = selectedServerCategoryId()
         val cached = NewsRepository.readCategoryCache(this, categoryId)
         recycler.animate().cancel()
@@ -1286,7 +1274,6 @@ class MainActivity : AppCompatActivity() {
             if (quickEntry.iconRes != null) {
                 icon.setImageResource(quickEntry.iconRes)
             } else if (quickEntry.url.isNotBlank()) {
-                // Sites with no bundled PNG download their real favicon from the favicon endpoint.
                 Glide.with(this).load(BrowserTabStore.faviconFor(quickEntry.url)).circleCrop()
                     .placeholder(R.drawable.logo).error(R.drawable.logo).into(icon)
             } else {
@@ -1333,7 +1320,6 @@ class MainActivity : AppCompatActivity() {
             setPadding(0, dp(14), 0, dp(20))
         })
 
-        // Fetch by exact category, with a predictable limit of ten articles per category.
         val chosen = sourceCategories
             .distinctBy { it.label.lowercase(Locale.ROOT) }
             .ifEmpty { NewsRepository.categoriesSnapshot() }
@@ -1495,9 +1481,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupBottomInput() {
-        // Always keep one blank browser tab available on first launch, like a real browser.
         if (BrowserTabStore.tabs(this).isEmpty()) BrowserTabStore.create(this, "https://duckduckgo.com/")
-        // The home bottom bar intentionally reuses the same geometry and controls as the browser address bar.
         IconLoader.applyIcon(findViewById(R.id.biAddIcon), "plus", R.color.iconTint)
         IconLoader.applyIcon(findViewById(R.id.biFaviconIcon), "global", R.color.iconTint)
         IconLoader.applyIcon(findViewById(R.id.biSendIcon), "sparkles", R.color.iconTint)
@@ -1530,7 +1514,6 @@ class MainActivity : AppCompatActivity() {
             biPill.animate().scaleX(if (focused) 1.01f else 1f)
                 .setDuration(320L).setInterpolator(Curves.SMOOTH).start()
         }
-        // Address submit always opens the in-app browser. AI is a separate sparkle action.
         biInput.setOnEditorActionListener { _, _, _ -> openBrowserFromInput(); true }
         biPill.setOnClickListener { biInput.requestFocus() }
         biSend.visibility = View.GONE
@@ -1764,7 +1747,6 @@ class MainActivity : AppCompatActivity() {
             rows.forEach { row ->
                 profileRows.addView(makeRow(row), LinearLayout.LayoutParams(-1, -2))
             }
-            // Preserve clear grouping without the thin divider lines the new profile design removes.
             profileRows.addView(View(this).apply { setBackgroundColor(android.graphics.Color.TRANSPARENT) }, LinearLayout.LayoutParams(-1, dp(10)))
         }
         addGroup(listOf(
@@ -1827,7 +1809,6 @@ class MainActivity : AppCompatActivity() {
                     .times(maxPull)
                     .coerceAtMost(maxPull)
                 if (pullCurrentY > threshold && pullTargetY < threshold) {
-                    // Keep the indicator state continuous around the trigger boundary.
                 }
                 startPullLoop()
             }
@@ -1843,7 +1824,6 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onDrawerGestureStart(opening: Boolean) {
-                // Discover is the Home feed now, so the legacy feed drawer is disabled.
             }
 
             override fun onDrawerGestureProgress(progress: Float) = Unit
@@ -1851,8 +1831,6 @@ class MainActivity : AppCompatActivity() {
             override fun onDrawerGestureEnd(opening: Boolean, progress: Float, velocity: Float) = Unit
 
             override fun onSidePanelGestureStart(opening: Boolean) {
-                // The bottom Apps destination is a real top-level tab. Edge-swipe side-panel
-                // gestures are only accepted while Home is active, never over Apps/Profile.
                 if (activeMainTab != "home") return
                 appsAnimator?.cancel()
                 appsPanel.animate().cancel()
@@ -2051,7 +2029,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateFeedBarsFromScroll(dy: Int) {
-        // Discover uses a stable native toolbar; only the news list scrolls beneath it.
         feedBarProgress = if (recycler.computeVerticalScrollOffset() <= 0) 0f else 1f
         feedHeader.translationY = 0f
     }
@@ -2093,7 +2070,6 @@ class MainActivity : AppCompatActivity() {
                 emptyList()
             }
 
-            // Ignore stale responses if the user switched category during the request.
             if (isFinishing || isDestroyed || requestToken != feedRequestGeneration ||
                 requestedCategory != currentCat || categoryId != selectedServerCategoryId()) return@launch
 
@@ -2304,13 +2280,10 @@ class MainActivity : AppCompatActivity() {
         val launch = Intent(this, BrowserTabsActivity::class.java)
             .putExtra("source_tab_id", "__home__")
             .putExtra("home_snapshot_path", homeSnapshot.orEmpty())
-        // Open the overview as its own Activity with a stable fade. The container transform is
-        // reserved for opening an individual tab card into its live WebView.
         startActivity(launch)
         overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
     }
 
-    /** Captures the currently rendered home surface for the first-class Home tab preview. */
     private fun saveHomeTabScreenshot(): String? {
         if (!::rootHost.isInitialized || !::homePage.isInitialized) return null
         val width = rootHost.width
@@ -2390,9 +2363,7 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    /** Discover is a single feed; saved articles remain available from Profile/Favorites. */
     private fun showFeedAppsTab(showSaved: Boolean) {
-        // Ignore the legacy second-tab request so the removed Guardados tab cannot return.
         if (showSaved) return
         feedAppsMode = false
         findViewById<View>(R.id.feedAppsContent).visibility = View.GONE
@@ -2618,8 +2589,6 @@ class MainActivity : AppCompatActivity() {
         val threshold = dp(72).toFloat()
         val appearT = (y / dp(55).toFloat()).coerceAtMost(1f)
         val zoom = 1f - (1f - appearT) * (1f - appearT) * (1f - appearT)
-        // Instagram-style refresh: the toolbar and category bar stay pinned.
-        // Only the news content is elastically pushed down, revealing a gap for the loader.
         val recyclerLocation = IntArray(2)
         val rootLocation = IntArray(2)
         recycler.getLocationOnScreen(recyclerLocation)
@@ -2635,7 +2604,6 @@ class MainActivity : AppCompatActivity() {
         pullIndicator.translationY = topY
 
         recycler.translationY = y.coerceAtLeast(0f)
-        // Category toggles are outside the RecyclerView and remain pinned during pull-to-refresh.
     }
 
     private fun beginPullRefresh() {
@@ -2819,7 +2787,7 @@ class MainActivity : AppCompatActivity() {
                 animateHomeSearchMode(false)
             }
             activeMainTab == "discover" || activeMainTab == "apps" || activeMainTab == "profile" -> switchMainTab("home")
-            sidePanelOpen -> closeAppsPanel() // Legacy edge-swipe panel; separate from the real Apps tab.
+            sidePanelOpen -> closeAppsPanel()
             else -> super.onBackPressed()
         }
     }
@@ -2900,7 +2868,7 @@ class MainActivity : AppCompatActivity() {
         appsHeader.translationZ = 0f
         appsHeader.setBackgroundColor(bg)
         profilePanel.setBackgroundColor(bg)
-                findViewById<View>(R.id.appsBottomBar).visibility = View.GONE
+        findViewById<View>(R.id.appsBottomBar).visibility = View.GONE
 
         IconLoader.applyIcon(findViewById(R.id.homeMenuIcon), "menu", R.color.iconTint)
         IconLoader.applyIcon(findViewById(R.id.biFaviconIcon), "global", R.color.iconTint)
@@ -2909,11 +2877,8 @@ class MainActivity : AppCompatActivity() {
         IconLoader.applyIcon(findViewById(R.id.feedBackIcon), "arrow_left", R.color.iconTint)
         IconLoader.applyIcon(findViewById(R.id.feedPublishIcon), "write", R.color.iconTint)
         IconLoader.applyIcon(findViewById(R.id.feedMoreIcon), "more_vert", R.color.iconTint)
-        // Preserve the correct Discover/Apps glyph pair and selected state after
-        // theme changes or returning from another Activity.
         setFeedBottomSelection(discover = !feedAppsMode)
         IconLoader.applyIcon(findViewById(R.id.biAddIcon), "plus", R.color.iconTint)
-        
         IconLoader.applyIcon(findViewById(R.id.biSendIcon), "sparkles", R.color.iconTint)
         findViewById<ImageView>(R.id.appsProfileAvatar).setImageResource(R.mipmap.ic_launcher_round)
         findViewById<View>(R.id.appsHeaderBar).visibility = View.GONE
@@ -2938,7 +2903,6 @@ class MainActivity : AppCompatActivity() {
         findViewById<ImageView>(R.id.appsProfileAvatar).setImageResource(R.mipmap.ic_launcher_round)
         selectAppsTab(appsTabIsApps, false)
         if (::adapter.isInitialized) adapter.refreshTheme(recycler)
-        // Theme changes update the current surface in place; no feed request or data rebuild is made.
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {

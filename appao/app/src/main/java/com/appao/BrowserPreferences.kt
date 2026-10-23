@@ -21,6 +21,7 @@ object BrowserPreferences {
     private const val KEY_AD_BLOCKED_COUNT = "blocked_ads_count"
     private const val KEY_TRACKER_BLOCKED_COUNT = "blocked_trackers_count"
     private const val KEY_ADAPTIVE_BAR_COLOR = "adaptive_browser_bar_color"
+    private const val KEY_SITE_NOTIFICATIONS = "site_notifications_enabled"
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -41,6 +42,10 @@ object BrowserPreferences {
     fun setSavePageHistory(context: Context, enabled: Boolean) { prefs(context).edit().putBoolean(KEY_SAVE_HISTORY, enabled).apply() }
     fun saveConversationHistory(context: Context): Boolean = prefs(context).getBoolean(KEY_SAVE_CONVERSATIONS, true)
     fun setSaveConversationHistory(context: Context, enabled: Boolean) { prefs(context).edit().putBoolean(KEY_SAVE_CONVERSATIONS, enabled).apply() }
+
+    /** Master switch: when off, sites are never asked/allowed to request notification permission at all. */
+    fun siteNotificationsEnabled(context: Context): Boolean = prefs(context).getBoolean(KEY_SITE_NOTIFICATIONS, false)
+    fun setSiteNotificationsEnabled(context: Context, enabled: Boolean) { prefs(context).edit().putBoolean(KEY_SITE_NOTIFICATIONS, enabled).apply() }
 
     /** Google, Bing, DuckDuckGo and Brave are selectable providers; no provider is contacted until search. */
     fun searchEngine(context: Context): String = prefs(context).getString(KEY_SEARCH_ENGINE, "Google") ?: "Google"

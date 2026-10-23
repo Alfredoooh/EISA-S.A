@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+  <!-- A browser needs to be able to open whatever site the user navigates to, including
+         plain-http pages; this mirrors how real mobile browsers (Chrome, Firefox) behave,
+         while still using the system's default trust anchors for HTTPS validation. -->
+  <base-config cleartextTrafficPermitted="true">
+    <trust-anchors>
+      <certificates src="system" />
+    </trust-anchors>
+  </base-config>
+</network-security-config>

@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.appao.AccentColorManager
 import com.appao.EmptyNewsIllustrationDrawable
 import com.appao.MainActivity
 import com.appao.R
@@ -69,8 +70,7 @@ class BrowserTabsActivity : AppCompatActivity() {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(999).toFloat()
-                setColor(ContextCompat.getColor(this@BrowserTabsActivity, R.color.card))
-                setStroke(dp(1), ContextCompat.getColor(this@BrowserTabsActivity, R.color.border))
+                setColor(ContextCompat.getColor(this@BrowserTabsActivity, R.color.card2))
             }
             setPadding(dp(3), dp(3), dp(3), dp(3))
         }
@@ -105,7 +105,6 @@ class BrowserTabsActivity : AppCompatActivity() {
             clipToPadding = false
             overScrollMode = View.OVER_SCROLL_NEVER
             setPadding(dp(12), dp(8), dp(12), dp(18))
-            // Full-list refreshes while Glide thumbnails are loading should not animate stale holders.
             itemAnimator = null
             setItemViewCacheSize(4)
             addItemDecoration(object : RecyclerView.ItemDecoration() {
@@ -148,20 +147,22 @@ class BrowserTabsActivity : AppCompatActivity() {
     }
 
     private fun refreshSegment() {
-        val selectedText = ContextCompat.getColor(this, R.color.text)
+        // M3 Expressive: the selected pill is a soft tint of the app's current primary color
+        // (not a solid/opaque fill) rather than a neutral bg+border card.
+        val primary = AccentColorManager.resolvedOr(this, R.color.pri)
+        val selectedText = primary
         val inactiveText = ContextCompat.getColor(this, R.color.dim)
-        val selectedSurface = ContextCompat.getColor(this, R.color.bg)
-        val border = ContextCompat.getColor(this, R.color.border)
         fun selectedBackground(selected: Boolean) = if (selected) GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = dp(999).toFloat()
-            setColor(selectedSurface)
-            setStroke(dp(1), border)
+            setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(primary, 36))
         } else null
+        normalModeTab.animate().cancel()
+        privateModeTab.animate().cancel()
         normalModeTab.background = selectedBackground(!privateMode)
         privateModeTab.background = selectedBackground(privateMode)
-        normalModeTab.elevation = if (!privateMode && !com.appao.ThemeManager.resolvedDark(this)) dp(1).toFloat() else 0f
-        privateModeTab.elevation = if (privateMode && !com.appao.ThemeManager.resolvedDark(this)) dp(1).toFloat() else 0f
+        normalModeTab.elevation = 0f
+        privateModeTab.elevation = 0f
         normalModeTab.setTextColor(if (!privateMode) selectedText else inactiveText)
         normalModeTab.typeface = android.graphics.Typeface.create(
             "sans-serif-medium",

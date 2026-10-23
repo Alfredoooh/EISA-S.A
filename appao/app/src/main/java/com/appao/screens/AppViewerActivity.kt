@@ -82,6 +82,7 @@ import com.appao.ui.NativePopupMenu
 import com.bumptech.glide.Glide
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.materialswitch.MaterialSwitch
+import com.google.android.material.slider.Slider
 import java.io.ByteArrayInputStream
 import java.net.URLEncoder
 import kotlinx.coroutines.Dispatchers
@@ -248,12 +249,6 @@ class AppViewerActivity : AppCompatActivity() {
         configureAddressInput()
         configureFindInPage()
 
-        findViewById<View>(R.id.browserAddressPill).setOnClickListener { openBrowserSearch() }
-        address.isFocusable = false
-        address.isFocusableInTouchMode = false
-        address.isCursorVisible = false
-        address.showSoftInputOnFocus = false
-        address.setOnClickListener { openBrowserSearch() }
         findViewById<View>(R.id.browserTabsTop).setOnClickListener { openTabs() }
         findViewById<View>(R.id.appViewerMore).setOnClickListener { showPageMenu(it) }
 
@@ -360,6 +355,7 @@ class AppViewerActivity : AppCompatActivity() {
                 stopFaviconLoader()
                 swipeRefresh.isRefreshing = false
                 stopBrowserPullIndicator()
+                handlePageLoadedForNotifications(url)
             }
 
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
@@ -468,6 +464,8 @@ class AppViewerActivity : AppCompatActivity() {
         address.isCursorVisible = false
         address.showSoftInputOnFocus = false
         address.setOnClickListener { openBrowserSearch() }
+        findViewById<View>(R.id.browserAddressPill).setOnClickListener { openBrowserSearch() }
+        androidx.core.view.ViewCompat.setTransitionName(findViewById(R.id.browserAddressPill), "browser_address_transform")
     }
 
     private fun hideAddressSuggestions() {
@@ -691,6 +689,77 @@ class AppViewerActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Native support for the JS Notification API (Notification.requestPermission()), which the
+     * Android WebView does not prompt for on its own the way it does for camera/mic/geolocation.
+     * Mirrors the existing "media"/"location" per-site flow: respects the global Settings switch,
+     * asks the user once per domain, and remembers the decision via BrowserPreferences.
+     */
+    private fun handlePageLoadedForNotifications(url: String) {
+        if (!BrowserPreferences.siteNotificationsEnabled(this)) return
+        val host = hostFor(url)
+        if (host.isBlank()) return
+        if (!BrowserPreferences.sitePermissionAllowed(this, host, "notifications")) {
+            injectNotificationPermissionBridge(requestingPrompt = true, host = host)
+        } else {
+            injectNotificationPermissionBridge(requestingPrompt = false, host = host)
+        }
+    }
+
+    private fun injectNotificationPermissionBridge(requestingPrompt: Boolean, host: String) {
+        // Overrides window.Notification so that a site's own requestPermission() call resolves
+        // immediately instead of silently hanging (stock WebView has no native UI for this API).
+        // The actual decision still goes through our own NativeM3Dialog, never a raw auto-grant.
+        if (!requestingPrompt) {
+            val grantJs = """
+                (function() {
+                    try {
+                        if (window.Notification) { Notification.permission = 'granted'; }
+                    } catch (e) {}
+                })();
+            """.trimIndent()
+            runCatching { web.evaluateJavascript(grantJs, null) }
+            return
+        }
+        val bridgeName = "AppAoNotificationBridge"
+        web.addJavascriptInterface(object {
+            @android.webkit.JavascriptInterface
+            fun requestPermission() {
+                runOnUiThread { promptSiteNotificationPermission(host) }
+            }
+        }, bridgeName)
+        val hookJs = """
+            (function() {
+                try {
+                    if (!window.Notification) return;
+                    var originalRequest = Notification.requestPermission;
+                    Notification.requestPermission = function(cb) {
+                        $bridgeName.requestPermission();
+                        return new Promise(function(resolve) {
+                            var check = setInterval(function() {
+                                if (Notification.permission !== 'default') {
+                                    clearInterval(check);
+                                    if (cb) cb(Notification.permission);
+                                    resolve(Notification.permission);
+                                }
+                            }, 400);
+                        });
+                    };
+                } catch (e) {}
+            })();
+        """.trimIndent()
+        runCatching { web.evaluateJavascript(hookJs, null) }
+    }
+
+    private fun promptSiteNotificationPermission(host: String) {
+        if (isFinishing || isDestroyed) return
+        NativeM3Dialog.confirm(this, "Permitir notificações?", "$host pediu para te enviar notificações.", positive = "Permitir") { allow ->
+            BrowserPreferences.setSitePermission(this, host, "notifications", allow)
+            val resultJs = "try { Notification.permission = '${if (allow) "granted" else "denied"}'; } catch (e) {}"
+            runCatching { web.evaluateJavascript(resultJs, null) }
+        }
+    }
+
     @Deprecated("Deprecated in Java")
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
@@ -729,15 +798,25 @@ class AppViewerActivity : AppCompatActivity() {
         val launch = Intent(this, BrowserSearchActivity::class.java).apply {
             putExtra(BrowserSearchActivity.EXTRA_INITIAL_QUERY, initialQuery)
             putExtra("browser_private_mode", privateMode)
+            putExtra("transition_name", "browser_address_transform")
         }
-        // Use a safe activity fade instead of a shared-element morph while WebView/IME
-        // are changing insets; the morph was responsible for intermittent OEM crashes.
+        // Container Transform M3 Expressive. Postponed on the receiving side (BrowserSearchActivity)
+        // until it has actually laid out, and the keyboard is only requested once the morph visually
+        // finishes — that decoupling, not the morph itself, is what keeps this stable across OEMs.
+        val pill = findViewById<View>(R.id.browserAddressPill)
         runCatching {
-            startActivityForResult(launch, REQUEST_BROWSER_SEARCH)
-            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+            val options = ActivityOptions.makeSceneTransitionAnimation(
+                this, pill, "browser_address_transform"
+            )
+            startActivityForResult(launch, REQUEST_BROWSER_SEARCH, options.toBundle())
         }.onFailure {
-            openingBrowserSearch = false
-            AppAoToast.show(this, "Não foi possível abrir a pesquisa. Tenta novamente.")
+            runCatching {
+                startActivityForResult(launch, REQUEST_BROWSER_SEARCH)
+                overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+            }.onFailure {
+                openingBrowserSearch = false
+                AppAoToast.show(this, "Não foi possível abrir a pesquisa. Tenta novamente.")
+            }
         }
     }
 
@@ -992,26 +1071,31 @@ class AppViewerActivity : AppCompatActivity() {
         }
         header.addView(close)
         bar.addView(header)
-        val seek = SeekBar(this).apply {
-            max = 150
-            progress = (currentZoomPercent - 50).coerceIn(0, 150)
-            progressTintList = ColorStateList.valueOf(AccentColorManager.resolvedOr(this@AppViewerActivity, R.color.pri))
-            thumbTintList = ColorStateList.valueOf(AccentColorManager.resolvedOr(this@AppViewerActivity, R.color.pri))
+        val accent = AccentColorManager.resolvedOr(this@AppViewerActivity, R.color.pri)
+        val seek = Slider(this).apply {
+            valueFrom = 50f
+            valueTo = 200f
+            stepSize = 1f
+            value = currentZoomPercent.toFloat().coerceIn(50f, 200f)
+            trackActiveTintList = ColorStateList.valueOf(accent)
+            trackInactiveTintList = ColorStateList.valueOf(
+                androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 60)
+            )
+            thumbTintList = ColorStateList.valueOf(accent)
+            haloTintList = ColorStateList.valueOf(androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 40))
+            trackStopIndicatorSize = dp(3).toFloat()
+            isTickVisible = false
             contentDescription = "Zoom de 50 a 200 por cento"
         }
-        bar.addView(seek, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(32)))
-        seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                val target = progress + 50
-                value.text = "$target%"
-                if (!fromUser) return
-                val old = currentZoomPercent.coerceAtLeast(1)
-                runCatching { web.zoomBy(target.toFloat() / old.toFloat()) }
-                currentZoomPercent = target
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
-            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
-        })
+        bar.addView(seek, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        seek.addOnChangeListener { _, newValue, fromUser ->
+            val target = newValue.toInt()
+            value.text = "$target%"
+            if (!fromUser) return@addOnChangeListener
+            val old = currentZoomPercent.coerceAtLeast(1)
+            runCatching { web.zoomBy(target.toFloat() / old.toFloat()) }
+            currentZoomPercent = target
+        }
         val labelRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         labelRow.addView(TextView(this).apply { text = "50%"; textSize = 10.5f; setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dim)) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         labelRow.addView(TextView(this).apply { text = "200%"; textSize = 10.5f; gravity = Gravity.END; setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dim)) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -1058,6 +1142,7 @@ class AppViewerActivity : AppCompatActivity() {
         }
         addPermissionRow("Câmara e microfone", "media")
         addPermissionRow("Localização", "location")
+        addPermissionRow("Notificações", "notifications")
         root.addView(TextView(this).apply {
             text = "O Android ainda pode pedir autorização ao sistema. A decisão acima é guardada separadamente para este domínio."; textSize = 12f
             setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dim)); setPadding(0, dp(12), 0, 0)

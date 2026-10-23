@@ -97,6 +97,9 @@ class BrowserSettingsActivity : AppCompatActivity() {
         addToggle("shield_check", "Bloqueador de anúncios", "Bloqueia pedidos publicitários conhecidos", BrowserPreferences.adBlockEnabled(this)) {
             BrowserPreferences.setAdBlockEnabled(this, it)
         }
+        addToggle("shield_check", "Bloqueio rígido", "Bloqueia também subdomínios e padrões de anúncios rotativos, incluindo em sites adultos", BrowserPreferences.adBlockStrictEnabled(this)) {
+            BrowserPreferences.setAdBlockStrictEnabled(this, it)
+        }
         addToggle("shield_check", "Proteção contra rastreadores", "Reduz pedidos de rastreio conhecidos", BrowserPreferences.trackingProtectionEnabled(this)) {
             BrowserPreferences.setTrackingProtectionEnabled(this, it)
         }

@@ -246,6 +246,9 @@ class AppViewerActivity : AppCompatActivity() {
                 javaScriptCanOpenWindowsAutomatically = false
                 mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                 offscreenPreRaster = true
+                cacheMode = WebSettings.LOAD_DEFAULT
+                @Suppress("DEPRECATION")
+                setEnableSmoothTransition(true)
             }
         }
         applyBrowserPreferences()
@@ -371,9 +374,14 @@ class AppViewerActivity : AppCompatActivity() {
             }
 
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
-                if (BrowserPreferences.adBlockEnabled(this@AppViewerActivity) && isKnownAdRequest(request.url)) {
-                    BrowserPreferences.recordBlockedAd(this@AppViewerActivity)
-                    return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+                if (BrowserPreferences.adBlockEnabled(this@AppViewerActivity)) {
+                    val strict = BrowserPreferences.adBlockStrictEnabled(this@AppViewerActivity)
+                    val blocked = isKnownAdRequest(request.url) ||
+                        AdBlockEngine.isBlocked(this@AppViewerActivity, request.url, strict)
+                    if (blocked) {
+                        BrowserPreferences.recordBlockedAd(this@AppViewerActivity)
+                        return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+                    }
                 }
                 if (BrowserPreferences.trackingProtectionEnabled(this@AppViewerActivity) && isKnownTrackerRequest(request.url)) {
                     BrowserPreferences.recordBlockedTracker(this@AppViewerActivity)

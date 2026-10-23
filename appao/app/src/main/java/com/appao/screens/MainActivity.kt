@@ -34,6 +34,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -198,6 +199,7 @@ class MainActivity : AppCompatActivity() {
         homeEmptyNews = findViewById(R.id.homeEmptyNews)
         homeCategoryToggles = findViewById(R.id.homeCategoryToggles)
         profilePanel = findViewById(R.id.profilePanel)
+        applyProfileEdgeToEdge(false)
         profileRows = findViewById(R.id.profileRows)
         feedPanel = findViewById(R.id.feedPanel)
         feedHeader = findViewById(R.id.feedHeader)
@@ -591,6 +593,7 @@ class MainActivity : AppCompatActivity() {
 
         activeMainTab = safeTarget
         updateMainTabSelection(safeTarget)
+        applyProfileEdgeToEdge(safeTarget == "profile")
         if (safeTarget == "discover") {
             appsPanel.visibility = View.GONE
             showFeedAppsTab(false)
@@ -637,6 +640,30 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.homeMainBottomNav).bringToFront()
         pullIndicator.bringToFront(); progress.bringToFront()
+    }
+
+    /** Only the profile tab draws its cover image behind the status bar; every other tab
+        keeps the app's normal (non edge-to-edge) window behavior untouched. */
+    private fun applyProfileEdgeToEdge(enabled: Boolean) {
+        WindowCompat.setDecorFitsSystemWindows(window, !enabled)
+        val dark = ThemeManager.resolvedDark(this)
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            isAppearanceLightStatusBars = !enabled && !dark
+        }
+        val coverImage = findViewById<ImageView>(R.id.profileCoverImage)
+        if (coverImage != null) {
+            coverImage.setPadding(
+                coverImage.paddingLeft,
+                if (enabled) statusBarHeightPx() else 0,
+                coverImage.paddingRight,
+                coverImage.paddingBottom
+            )
+        }
+    }
+
+    private fun statusBarHeightPx(): Int {
+        val resId = resources.getIdentifier("status_bar_height", "dimen", "android")
+        return if (resId > 0) resources.getDimensionPixelSize(resId) else dp(24)
     }
 
     private fun openMainBrowserSearch(initialQuery: String = "") {
@@ -1694,12 +1721,13 @@ class MainActivity : AppCompatActivity() {
     private fun setupProfilePanel() {
         if (!::profileRows.isInitialized) return
         profileRows.removeAllViews()
-        findViewById<TextView>(R.id.profileTitle).text = "My account"
-        findViewById<TextView>(R.id.profileSubtitle).text = "Visitante"
         IconLoader.applyIcon(findViewById(R.id.profileEditIcon), "edit", R.color.iconTint)
         findViewById<View>(R.id.profileEditButton).setOnClickListener {
             AppAoToast.show(this, "Estás a utilizar o AppAo como visitante.")
         }
+        findViewById<ImageView>(R.id.profileCoverImage)?.setImageResource(
+            if (ThemeManager.resolvedDark(this)) R.drawable.profile_cover_dark else R.drawable.profile_cover_light
+        )
         data class ProfileRow(val label: String, val icon: String, val isSwitch: Boolean = false, val switchChecked: Boolean = false, val action: () -> Unit)
         fun makeRow(row: ProfileRow): View = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL

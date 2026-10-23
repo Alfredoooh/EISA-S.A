@@ -22,11 +22,19 @@ object BrowserPreferences {
     private const val KEY_TRACKER_BLOCKED_COUNT = "blocked_trackers_count"
     private const val KEY_ADAPTIVE_BAR_COLOR = "adaptive_browser_bar_color"
     private const val KEY_SITE_NOTIFICATIONS = "site_notifications_enabled"
+    private const val KEY_AD_BLOCK_STRICT = "ad_block_strict_enabled"
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     fun adBlockEnabled(context: Context): Boolean = prefs(context).getBoolean(KEY_AD_BLOCK, true)
     fun setAdBlockEnabled(context: Context, enabled: Boolean) { prefs(context).edit().putBoolean(KEY_AD_BLOCK, enabled).apply() }
+
+    /** When on, applies pattern/regex matching in addition to the host list — catches rotating
+        ad subdomains and CDN-style ad paths that a plain host list would miss (common on
+        ad-heavy and adult sites). Off by default to avoid any false positives for new users. */
+    fun adBlockStrictEnabled(context: Context): Boolean = prefs(context).getBoolean(KEY_AD_BLOCK_STRICT, true)
+    fun setAdBlockStrictEnabled(context: Context, enabled: Boolean) { prefs(context).edit().putBoolean(KEY_AD_BLOCK_STRICT, enabled).apply() }
+
     fun trackingProtectionEnabled(context: Context): Boolean = prefs(context).getBoolean(KEY_TRACKING_PROTECTION, true)
     fun setTrackingProtectionEnabled(context: Context, enabled: Boolean) { prefs(context).edit().putBoolean(KEY_TRACKING_PROTECTION, enabled).apply() }
     fun adaptiveBrowserBarColor(context: Context): Boolean = prefs(context).getBoolean(KEY_ADAPTIVE_BAR_COLOR, false)

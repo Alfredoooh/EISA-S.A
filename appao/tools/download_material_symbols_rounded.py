@@ -2,8 +2,8 @@
 """Download Google's official Material Symbols Rounded SVGs and regenerate generic Android vectors.
 
 Pinned to a specific upstream commit for reproducible CI builds. Only generic monochrome icon
-resource aliases are regenerated. Brand logos, site favicons, splash artwork and unrelated assets
-are preserved. The script never clears drawable-nodpi/; that folder may be restored separately.
+resource aliases are regenerated in drawable/. Brand logos, site favicons, splash artwork, and all
+existing drawable-nodpi assets are preserved without adding duplicate icon resources there.
 """
 from __future__ import annotations
 
@@ -19,7 +19,6 @@ ROOT = Path(__file__).resolve().parents[1]
 JAVA_ICON_LOADER = ROOT / "app/src/main/java/com/appao/ui/IconLoader.kt"
 ASSET_DIR = ROOT / "app/src/main/assets/icons/material-symbols-rounded"
 DRAWABLE_DIR = ROOT / "app/src/main/res/drawable"
-NODPI_DIR = ROOT / "app/src/main/res/drawable-nodpi"
 UPSTREAM_COMMIT = "49d4db35df873165d6bd6ba09b063c7dafbac2f4"
 BASE_URL = (
     f"https://raw.githubusercontent.com/google/material-design-icons/{UPSTREAM_COMMIT}/"
@@ -110,7 +109,6 @@ RESOURCE_ALIASES: dict[str, str] = {
     "ic_avatar_default": "account_circle",
     "ic_checkmark_circle_green": "check_circle",
 }
-RESOURCE_SIZES = {"ic_avatar_default": 64}
 RESOURCE_COLORS = {"ic_checkmark_circle_green": "@color/dotGreen"}
 FILLED_SYMBOLS = {"home", "apps", "explore", "person", "bookmark", "favorite", "account_circle"}
 
@@ -231,9 +229,8 @@ def write_alias(folder: Path, resource_name: str, content: str) -> None:
 def generate_vectors() -> int:
     for resource, symbol in sorted(RESOURCE_ALIASES.items()):
         color = RESOURCE_COLORS.get(resource, "@color/iconTint")
-        content = vector_xml(symbol, RESOURCE_SIZES.get(resource, 24), color)
+        content = vector_xml(symbol, 24, color)
         write_alias(DRAWABLE_DIR, resource, content)
-        write_alias(NODPI_DIR, resource, content)
     return len(RESOURCE_ALIASES)
 
 
@@ -268,7 +265,7 @@ def main() -> int:
         return 1
     total_bytes = sum(size for _, size in completed)
     print(f"Downloaded {len(completed)} official Material Symbols Rounded SVG files ({total_bytes:,} bytes).")
-    print(f"Generated {vector_count} generic VectorDrawable aliases in drawable/ and drawable-nodpi/ without clearing either folder.")
+    print(f"Generated {vector_count} generic VectorDrawable aliases in drawable/; drawable-nodpi/ was left untouched.")
     return 0
 
 

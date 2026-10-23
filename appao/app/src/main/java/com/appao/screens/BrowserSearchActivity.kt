@@ -8,11 +8,7 @@ import android.os.Handler
 import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
-import android.transition.ChangeBounds
-import android.transition.ChangeClipBounds
-import android.transition.ChangeTransform
 import android.transition.Transition
-import android.transition.TransitionSet
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -27,16 +23,15 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.appao.BrowserAutocomplete
 import com.appao.BrowserPreferences
 import com.appao.BrowsingHistoryStore
-import com.appao.Curves
 import com.bumptech.glide.Glide
 import com.appao.R
 import com.appao.SystemBarHelper
+import com.appao.ui.BrowserTransitions
 import com.appao.ui.IconLoader
 import com.appao.ui.NativePopupMenu
 import kotlinx.coroutines.Dispatchers
@@ -68,14 +63,11 @@ class BrowserSearchActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, true)
         incomingTransitionName = intent.getStringExtra("transition_name").orEmpty()
         if (incomingTransitionName.isNotBlank()) {
-            // Container Transform M3 Expressive. Postponed until this screen's own search pill
-            // is measured. Keyboard is requested only after the transform has visually
-            // finished — that coupling was what made the earlier attempt unstable.
+            // Use the Material Components Container Transform for a real shared-element morph.
+            // The destination is postponed until its address pill is laid out, so the incoming
+            // and returning transitions use valid bounds on low-memory/slow devices too.
+            BrowserTransitions.configure(this)
             postponeEnterTransition()
-            window.sharedElementEnterTransition = containerTransition()
-            window.sharedElementReturnTransition = containerTransition()
-            window.allowReturnTransitionOverlap = true
-            window.allowEnterTransitionOverlap = true
         }
         SystemBarHelper.sync(this)
         window.statusBarColor = ContextCompat.getColor(this, R.color.bg)
@@ -108,32 +100,29 @@ class BrowserSearchActivity : AppCompatActivity() {
                     transition.removeListener(this)
                     showKeyboardSafely()
                 }
-                override fun onTransitionStart(transition: Transition) {}
-                override fun onTransitionCancel(transition: Transition) { showKeyboardSafely() }
-                override fun onTransitionPause(transition: Transition) {}
-                override fun onTransitionResume(transition: Transition) {}
+                override fun onTransitionCancel(transition: Transition) {
+                    transition.removeListener(this)
+                    showKeyboardSafely()
+                }
+                override fun onTransitionStart(transition: Transition) = Unit
+                override fun onTransitionPause(transition: Transition) = Unit
+                override fun onTransitionResume(transition: Transition) = Unit
             })
+            // Defensive fallback: if an OEM skips the shared-element callback, the input remains
+            // usable and the keyboard still opens instead of leaving the search screen inert.
+            input.postDelayed({ showKeyboardSafely() }, 700L)
         } else {
             input.requestFocus()
             input.post { showKeyboardSafely() }
         }
     }
 
-    private fun containerTransition(): TransitionSet =
-        TransitionSet().apply {
-            addTransition(ChangeBounds())
-            addTransition(ChangeTransform())
-            addTransition(ChangeClipBounds())
-            duration = 380L
-            interpolator = Curves.SMOOTH
-        }
-
     private fun showKeyboardSafely() {
-        if (!isFinishing && !isDestroyed && input.isAttachedToWindow) {
+        if (!isFinishing && !isDestroyed && ::input.isInitialized && input.isAttachedToWindow) {
             runCatching {
                 input.requestFocus()
-                (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
-                    .showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+                (getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager)
+                    ?.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
             }
         }
     }
@@ -179,6 +168,13 @@ class BrowserSearchActivity : AppCompatActivity() {
             textSize = 14f
             hint = "Pesquisar ou inserir endereço"
             setPadding(0, 0, dp(4), 0)
+            isFocusable = true
+            isFocusableInTouchMode = true
+            showSoftInputOnFocus = true
+            setOnClickListener { showKeyboardSafely() }
+            setOnFocusChangeListener { _, hasFocus ->
+                if (hasFocus) post { showKeyboardSafely() }
+            }
         }
         pill.addView(input)
         clearIcon = FrameLayout(this).apply {
@@ -196,7 +192,7 @@ class BrowserSearchActivity : AppCompatActivity() {
             setOnClickListener {
                 input.setText("")
                 input.requestFocus()
-                (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+                (getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager)?.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
             }
         }
         pill.addView(clearIcon)
@@ -352,13 +348,18 @@ class BrowserSearchActivity : AppCompatActivity() {
         pendingSearch?.let(handler::removeCallbacks)
         val data = Intent().putExtra(EXTRA_RESULT_VALUE, target)
         setResult(RESULT_OK, data)
-        (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(input.windowToken, 0)
+        (getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager)?.hideSoftInputFromWindow(input.windowToken, 0)
         finishWithFade()
     }
 
     private fun finishWithFade() {
-        finish()
-        overridePendingTransition(R.anim.publish_exit, R.anim.publish_enter)
+        pendingSearch?.let(handler::removeCallbacks)
+        if (incomingTransitionName.isNotBlank()) {
+            finishAfterTransition()
+        } else {
+            finish()
+            overridePendingTransition(R.anim.publish_exit, R.anim.publish_enter)
+        }
     }
 
     /** System "back" (gesture or button). If we entered via Container Transform, reverse it

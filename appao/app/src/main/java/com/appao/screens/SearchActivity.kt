@@ -92,6 +92,12 @@ class SearchActivity : AppCompatActivity() {
         menuSearchMode = intent.getBooleanExtra("menu_search", false)
         input = if (menuSearchMode) findViewById(R.id.menuSearchInput) else findViewById(R.id.searchInput)
         send = findViewById(R.id.searchSend)
+        input.isFocusable = true
+        input.isFocusableInTouchMode = true
+        input.setOnClickListener { showComposerKeyboard() }
+        input.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) input.post { showComposerKeyboard() }
+        }
 
         ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
@@ -129,9 +135,7 @@ class SearchActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.menuSearchClear).setOnClickListener {
             input.setText("")
-            input.requestFocus()
-            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
-                .showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+            showComposerKeyboard()
         }
         findViewById<View>(R.id.searchMore).setOnClickListener {
             when {
@@ -213,11 +217,7 @@ class SearchActivity : AppCompatActivity() {
             input.hint = "Pesquisar conversas"
             findViewById<View>(R.id.menuSearchClear).visibility = if (input.text.isNullOrEmpty()) View.GONE else View.VISIBLE
             updateConversationSearchResults(input.text.toString())
-            input.post {
-                input.requestFocus()
-                (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
-                    .showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
-            }
+            input.post { showComposerKeyboard() }
         }
 
         if (galleryMode) {
@@ -744,9 +744,7 @@ class SearchActivity : AppCompatActivity() {
                 3 -> {
                     input.setText("")
                     resultQuery.text = ""
-                    input.requestFocus()
-                    (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
-                        .showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+                    showComposerKeyboard()
                 }
                 4 -> NativeM3Dialog.prompt(
                     this,
@@ -810,6 +808,15 @@ class SearchActivity : AppCompatActivity() {
             }
         }
         return labels.distinct()
+    }
+
+    private fun showComposerKeyboard() {
+        if (isFinishing || isDestroyed || !::input.isInitialized || !input.isAttachedToWindow) return
+        runCatching {
+            input.requestFocus()
+            (getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager)
+                ?.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+        }
     }
 
     private fun resizeInput(animate: Boolean) {

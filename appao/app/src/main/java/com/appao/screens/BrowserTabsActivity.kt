@@ -3,11 +3,6 @@ package com.appao.screens
 import android.content.Intent
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
-import android.transition.ChangeBounds
-import android.transition.ChangeClipBounds
-import android.transition.ChangeImageTransform
-import android.transition.ChangeTransform
-import android.transition.TransitionSet
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -22,11 +17,11 @@ import androidx.core.view.WindowCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.appao.AccentColorManager
-import com.appao.Curves
 import com.appao.EmptyNewsIllustrationDrawable
 import com.appao.MainActivity
 import com.appao.R
 import com.appao.SystemBarHelper
+import com.appao.ui.BrowserTransitions
 import com.appao.ui.IconLoader
 import com.appao.ui.NativePopupMenu
 import com.bumptech.glide.Glide
@@ -50,18 +45,14 @@ class BrowserTabsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, true)
         incomingTransitionName = intent.getStringExtra("transition_name").orEmpty()
         if (incomingTransitionName.isNotBlank()) {
-            // Container Transform M3 Expressive. Postponed until the grid has actually laid out
-            // and the target card for sourceTabId is found and tagged with the matching
-            // transitionName (see refreshTabs/armIncomingTransition below).
+            // Real Material Container Transform in both directions. Delay capture until the
+            // source-matched preview exists and has been measured by RecyclerView.
+            BrowserTransitions.configure(this)
             postponeEnterTransition()
-            window.sharedElementEnterTransition = containerTransition()
-            window.sharedElementReturnTransition = containerTransition()
-            window.allowEnterTransitionOverlap = true
-            window.allowReturnTransitionOverlap = true
         }
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         SystemBarHelper.sync(this)
         sourceTabId = intent.getStringExtra("source_tab_id").orEmpty()
         sourcePrivateMode = intent.getBooleanExtra("browser_private_mode", false)
@@ -212,9 +203,11 @@ class BrowserTabsActivity : AppCompatActivity() {
         }
     }
 
-    /** Finds the grid card matching sourceTabId/__home__, tags it with the exact transitionName
-        the sender used, waits for that card to actually be laid out, then starts the postponed
-        enter transition. If the matching card can't be found, starts the transition anyway. */
+    /**
+     * Scrolls the source tab into view, assigns the matching shared-element name only after its
+     * preview has real bounds, then releases the postponed Material transform. Retries are bounded
+     * so a missing/recycled item can never post an endless chain of main-thread callbacks.
+     */
     private fun armIncomingTransition(display: List<BrowserTab>) {
         val targetId = sourceTabId.ifBlank { "__home__" }
         val targetIndex = display.indexOfFirst { it.id == targetId }
@@ -222,40 +215,55 @@ class BrowserTabsActivity : AppCompatActivity() {
             startPostponedEnterTransition()
             return
         }
+
+        list.scrollToPosition(targetIndex)
+        var attempts = 0
         fun tryArm() {
             if (isFinishing || isDestroyed) return
             val holder = list.findViewHolderForAdapterPosition(targetIndex) as? TabHolder
-            if (holder != null && holder.preview.isAttachedToWindow) {
+            if (holder != null && holder.preview.isAttachedToWindow &&
+                holder.preview.width > 0 && holder.preview.height > 0) {
                 ViewCompat.setTransitionName(holder.preview, incomingTransitionName)
                 startPostponedEnterTransition()
+            } else if (attempts++ < 24) {
+                list.postDelayed({ tryArm() }, 16L)
             } else {
-                list.post { tryArm() }
+                // Never leave the Activity stuck behind a postponed transition on unusual OEMs.
+                startPostponedEnterTransition()
             }
         }
         list.post { tryArm() }
     }
 
-    private fun containerTransition(): TransitionSet =
-        TransitionSet().apply {
-            addTransition(ChangeBounds())
-            addTransition(ChangeTransform())
-            addTransition(ChangeClipBounds())
-            addTransition(ChangeImageTransform())
-            duration = 380L
-            interpolator = Curves.SMOOTH
-        }
-
-    private fun openNewTab() {
+    private fun openNewTab(preview: View? = null) {
         val tab = if (privateMode) PrivateBrowserTabStore.create(this, "https://www.google.com/") else BrowserTabStore.create(this, "https://www.google.com/")
+        val transitionName = "browser_tab_new_${tab.id}"
         val launch = Intent(this, AppViewerActivity::class.java).apply {
             putExtra("browser_mode", true)
             putExtra("browser_private_mode", privateMode)
             putExtra("browser_tab_id", tab.id)
             putExtra("url", tab.url)
+            if (preview != null) putExtra("transition_name", transitionName)
         }
-        startActivity(launch)
-        finish()
-        overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
+        if (preview != null && preview.isAttachedToWindow) {
+            val startedWithTransform = runCatching {
+                ViewCompat.setTransitionName(preview, transitionName)
+                val options = android.app.ActivityOptions.makeSceneTransitionAnimation(this, preview, transitionName)
+                startActivity(launch, options.toBundle())
+                true
+            }.getOrDefault(false)
+            if (startedWithTransform) {
+                runCatching { finishAfterTransition() }.onFailure { finish() }
+            } else {
+                startActivity(launch)
+                finish()
+                overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
+            }
+        } else {
+            startActivity(launch)
+            finish()
+            overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
+        }
     }
 
     private fun openTab(tab: BrowserTab, preview: View?, targetPrivateMode: Boolean = privateMode) {
@@ -286,12 +294,15 @@ class BrowserTabsActivity : AppCompatActivity() {
             if (preview != null) putExtra("transition_name", cardTransitionName)
         }
         if (preview != null && preview.isAttachedToWindow) {
-            runCatching {
+            val startedWithTransform = runCatching {
                 ViewCompat.setTransitionName(preview, cardTransitionName)
                 val options = android.app.ActivityOptions.makeSceneTransitionAnimation(this, preview, cardTransitionName)
                 startActivity(launch, options.toBundle())
-                finish()
-            }.onFailure {
+                true
+            }.getOrDefault(false)
+            if (startedWithTransform) {
+                runCatching { finishAfterTransition() }.onFailure { finish() }
+            } else {
                 startActivity(launch)
                 finish()
                 overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
@@ -393,7 +404,7 @@ class BrowserTabsActivity : AppCompatActivity() {
                     isClickable = true
                     isFocusable = true
                     contentDescription = "Novo separador"
-                    setOnClickListener { openNewTab() }
+                    setOnClickListener { openNewTab(this) }
                 }
                 val addCircle = FrameLayout(this@BrowserTabsActivity).apply {
                     background = GradientDrawable().apply {
@@ -462,6 +473,7 @@ class BrowserTabsActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
             if (getItemViewType(position) == TYPE_ADD_TAB) return
             val tabHolder = holder as TabHolder
+            tabHolder.preview.transitionName = null
             val tab = data[position]
             tabHolder.itemView.setOnLongClickListener {
                 showTabOptions(tabHolder.itemView, tab, tabHolder.preview)

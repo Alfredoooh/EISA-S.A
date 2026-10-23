@@ -13,6 +13,7 @@ import com.appao.FallbackIconDrawable
 import com.appao.R
 import com.caverock.androidsvg.SVG
 import java.util.Locale
+import kotlin.math.ceil
 
 /**
  * Uses Google's official Material Symbols Rounded SVG assets. The YAML build step downloads
@@ -21,9 +22,6 @@ import java.util.Locale
 object IconLoader {
     private data class Symbol(val file: String, val filled: Boolean = false)
     private val sourceCache = LruCache<String, String>(192)
-
-    /** Standard Material Symbols Rounded glyph footprint shared throughout the UI. */
-    const val UNIVERSAL_ICON_SIZE_DP: Int = 28
 
     private val symbols: Map<String, Symbol> = buildMap {
         fun add(symbol: String, vararg aliases: String) {
@@ -240,7 +238,6 @@ object IconLoader {
 
     /** Applies an already-resolved ARGB tint (useful for runtime accent colors and night mode). */
     fun applyIconColor(view: ImageView, name: String, tint: Int) {
-        standardizeIconView(view)
         val icon = drawable(view.context, name, tint)
         if (icon != null) {
             view.setImageDrawable(icon)
@@ -249,46 +246,24 @@ object IconLoader {
             view.clearColorFilter()
             view.setImageDrawable(FallbackIconDrawable(norm(name), tint, view.resources.displayMetrics.density))
         }
-    }
 
-    /** One consistent visible glyph size. The old CENTER_INSIDE 24dp cap made icons look tiny. */
-    private fun standardizeIconView(view: ImageView) {
-        val standardSize = (UNIVERSAL_ICON_SIZE_DP * view.resources.displayMetrics.density + 0.5f).toInt().coerceAtLeast(1)
-        view.scaleX = 1f
-        view.scaleY = 1f
-        view.adjustViewBounds = false
-        view.scaleType = ImageView.ScaleType.FIT_CENTER
-        view.setPadding(0, 0, 0, 0)
-        view.minimumWidth = standardSize
-        view.minimumHeight = standardSize
-        forceIconSize(view, standardSize)
-        // Callers very often do:
-        //   ImageView(ctx).apply { IconLoader.applyIcon(this, name) }
-        //   parent.addView(child, LinearLayout.LayoutParams(someOtherSize, someOtherSize))
-        // That second call overwrites whatever layoutParams we just set, because addView(view, params)
-        // always wins. Re-apply the universal size the instant this view actually gets attached, so
-        // the final on-screen size is always 28dp regardless of what the caller passed to addView.
-        if (!view.isAttachedToWindow) {
-            view.addOnAttachStateChangeListener(object : android.view.View.OnAttachStateChangeListener {
-                override fun onViewAttachedToWindow(v: android.view.View) {
-                    view.removeOnAttachStateChangeListener(this)
-                    forceIconSize(view, standardSize)
-                }
-                override fun onViewDetachedFromWindow(v: android.view.View) = Unit
-            })
+        // Official Material Symbols define their own intrinsic canvas (24px by default).
+        // Do not clamp these icons to arbitrary caller sizes. Run once now and once after attach
+        // because several call sites pass LayoutParams to addView() after calling applyIcon().
+        if (symbolFor(name) != null) {
+            useIntrinsicSymbolSize(view)
+            view.post { useIntrinsicSymbolSize(view) }
         }
     }
 
-    private fun forceIconSize(view: ImageView, standardSize: Int) {
-        val params = view.layoutParams
-        if (params != null) {
-            var changed = false
-            if (params.width != standardSize) { params.width = standardSize; changed = true }
-            if (params.height != standardSize) { params.height = standardSize; changed = true }
-            if (changed) view.layoutParams = params
-        } else {
-            view.layoutParams = ViewGroup.LayoutParams(standardSize, standardSize)
-        }
+    private fun useIntrinsicSymbolSize(view: ImageView) {
+        val params = view.layoutParams ?: return
+        if (params.width == ViewGroup.LayoutParams.WRAP_CONTENT &&
+            params.height == ViewGroup.LayoutParams.WRAP_CONTENT
+        ) return
+        params.width = ViewGroup.LayoutParams.WRAP_CONTENT
+        params.height = ViewGroup.LayoutParams.WRAP_CONTENT
+        view.layoutParams = params
     }
 
     fun applyIconThin(view: ImageView, name: String, tintRes: Int = 0) {
@@ -299,9 +274,12 @@ object IconLoader {
 
     private class RoundedSvgDrawable(source: String, density: Float) : Drawable() {
         private val svg: SVG = SVG.getFromString(source)
-        private val intrinsicSize = (UNIVERSAL_ICON_SIZE_DP * density + 0.5f).toInt().coerceAtLeast(1)
-        override fun getIntrinsicWidth(): Int = intrinsicSize
-        override fun getIntrinsicHeight(): Int = intrinsicSize
+        // Respect the icon file's native 24px Material Symbols canvas, scaled by display density.
+        // The ImageView/layout owner decides the actual view bounds; this drawable never overrides them.
+        private val intrinsicWidth = ceil(svg.documentWidth * density).toInt().coerceAtLeast(1)
+        private val intrinsicHeight = ceil(svg.documentHeight * density).toInt().coerceAtLeast(1)
+        override fun getIntrinsicWidth(): Int = intrinsicWidth
+        override fun getIntrinsicHeight(): Int = intrinsicHeight
         override fun draw(canvas: Canvas) {
             val bounds = bounds
             if (bounds.width() <= 0 || bounds.height() <= 0) return

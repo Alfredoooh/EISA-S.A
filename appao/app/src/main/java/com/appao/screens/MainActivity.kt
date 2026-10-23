@@ -59,6 +59,7 @@ import com.appao.screens.BrowserTabStore
 import com.appao.screens.BrowserTabsActivity
 import com.appao.screens.BrowserWebViewPool
 import com.appao.screens.HistorySettingsActivity
+import com.appao.ui.BrowserTransitions
 import com.appao.ui.IconLoader
 import com.appao.ui.NativePopupMenu
 
@@ -114,6 +115,8 @@ class MainActivity : AppCompatActivity() {
     private var homeSuggestionGeneration = 0L
     private val REQUEST_MAIN_BROWSER_SEARCH = 7416
     private var openingBrowserSearch = false
+    private var browserSharedElementArmed = false
+    private var tabOverviewTransitionStandIn: ImageView? = null
     private var activeMainTab = "home"
     private var profileOpen = false
     private var feedEmptyOverlay: View? = null
@@ -676,6 +679,8 @@ class MainActivity : AppCompatActivity() {
                     .hideSoftInputFromWindow(homeAddressInput.windowToken, 0)
             }
         }
+        BrowserTransitions.configure(this, fadeSurface = false)
+        browserSharedElementArmed = true
         val intent = Intent(this, BrowserSearchActivity::class.java)
             .putExtra(BrowserSearchActivity.EXTRA_INITIAL_QUERY, initialQuery)
             .putExtra("browser_private_mode", false)
@@ -690,6 +695,8 @@ class MainActivity : AppCompatActivity() {
             startActivityForResult(intent, REQUEST_MAIN_BROWSER_SEARCH, options.toBundle())
         }.onFailure {
             openingBrowserSearch = false
+            BrowserTransitions.clearSharedElementTransitions(this)
+            browserSharedElementArmed = false
             AppAoToast.show(this, "Não foi possível abrir a pesquisa. Tenta novamente.")
         }
     }
@@ -2308,6 +2315,8 @@ class MainActivity : AppCompatActivity() {
         .putExtra("source_tab_id", "__home__")
         .putExtra("home_snapshot_path", homeSnapshot.orEmpty())
         .putExtra("transition_name", transitionName)
+    BrowserTransitions.configure(this, fadeSurface = false)
+    browserSharedElementArmed = true
 
     // Container Transform M3 Expressive: a short-lived ImageView holding the screenshot we
     // just captured stands in for the live Home screen (the real root view is never used as
@@ -2323,6 +2332,7 @@ class MainActivity : AppCompatActivity() {
     } else null
 
     if (stand != null && rootHost is ViewGroup) {
+        tabOverviewTransitionStandIn = stand
         (rootHost as ViewGroup).addView(
             stand,
             FrameLayout.LayoutParams(rootHost.width, rootHost.height)
@@ -2331,13 +2341,18 @@ class MainActivity : AppCompatActivity() {
             val options = android.app.ActivityOptions.makeSceneTransitionAnimation(this, stand, transitionName)
             startActivity(launch, options.toBundle())
         }.onFailure {
+            (stand.parent as? ViewGroup)?.removeView(stand)
+            if (tabOverviewTransitionStandIn === stand) tabOverviewTransitionStandIn = null
+            BrowserTransitions.clearSharedElementTransitions(this)
+            browserSharedElementArmed = false
             startActivity(launch)
             overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
         }
-        // The transform takes ~380ms; remove the stand-in after it must have finished so the
-        // real Home surface is not permanently covered by the static snapshot.
-        rootHost.postDelayed({ (stand.parent as? ViewGroup)?.removeView(stand) }, 600L)
     } else {
+        // No measured snapshot means no matching shared element; keep navigation stable and
+        // remove the transitions armed for the path that will not use Container Transform.
+        BrowserTransitions.clearSharedElementTransitions(this)
+        browserSharedElementArmed = false
         startActivity(launch)
         overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
     }
@@ -2695,7 +2710,12 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == REQUEST_MAIN_BROWSER_SEARCH) openingBrowserSearch = false
         if (requestCode == REQUEST_MAIN_BROWSER_SEARCH && resultCode == RESULT_OK) {
             val target = data?.getStringExtra(BrowserSearchActivity.EXTRA_RESULT_VALUE)?.trim().orEmpty()
-            if (target.isNotBlank()) openNewBrowserTab(normalizeBrowserTarget(target))
+            if (target.isNotBlank()) {
+                val normalized = normalizeBrowserTarget(target)
+                rootHost.postDelayed({
+                    if (!isFinishing && !isDestroyed) openNewBrowserTab(normalized)
+                }, 360L)
+            }
             return
         }
         if ((requestCode == 902 || requestCode == 903) && resultCode == RESULT_OK) {
@@ -2860,6 +2880,16 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         openingBrowserSearch = false
+        if (browserSharedElementArmed) {
+            rootHost.postDelayed({
+                tabOverviewTransitionStandIn?.let { stand ->
+                    (stand.parent as? ViewGroup)?.removeView(stand)
+                }
+                tabOverviewTransitionStandIn = null
+                BrowserTransitions.clearSharedElementTransitions(this)
+                browserSharedElementArmed = false
+            }, 700L)
+        }
         if (::biBar.isInitialized) updateBrowserTabCount()
         if (::homeAddressInput.isInitialized) updateHomeTabCount()
         if (::appsPanel.isInitialized && activeMainTab == "legacy_apps") {

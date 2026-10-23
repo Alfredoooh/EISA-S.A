@@ -831,8 +831,10 @@ class AppViewerActivity : AppCompatActivity() {
         if (requestCode != REQUEST_BROWSER_SEARCH || resultCode != Activity.RESULT_OK) return
         val target = data?.getStringExtra(BrowserSearchActivity.EXTRA_RESULT_VALUE)?.trim().orEmpty()
         if (target.isBlank()) return
-        address.setText(target)
-        loadAddressValue(target)
+        val root = findViewById<android.widget.FrameLayout>(R.id.appViewerRoot)
+        root?.postDelayed({
+            if (!isFinishing && !isDestroyed && ::web.isInitialized) loadAddressValue(target)
+        }, 360L)
     }
 
     private fun loadAddressFromInput() = loadAddressValue(address.text?.toString().orEmpty())
@@ -881,6 +883,7 @@ class AppViewerActivity : AppCompatActivity() {
         } else null
 
         if (stand != null) {
+            tabOverviewTransitionStandIn = stand
             val location = IntArray(2)
             web.getLocationInWindow(location)
             val rootLocation = IntArray(2)
@@ -896,10 +899,11 @@ class AppViewerActivity : AppCompatActivity() {
                 val options = android.app.ActivityOptions.makeSceneTransitionAnimation(this, stand, "browser_tab_card_$tabId")
                 startActivity(launch, options.toBundle())
             }.onFailure {
+                (stand.parent as? ViewGroup)?.removeView(stand)
+                if (tabOverviewTransitionStandIn === stand) tabOverviewTransitionStandIn = null
                 startActivity(launch)
                 overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
             }
-            root.postDelayed({ root.removeView(stand) }, 600L)
         } else {
             startActivity(launch)
             overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
@@ -1504,6 +1508,13 @@ class AppViewerActivity : AppCompatActivity() {
         super.onResume()
         openingBrowserSearch = false
         SystemBarHelper.sync(this)
+        tabOverviewTransitionStandIn?.let { stand ->
+            val root = findViewById<android.widget.FrameLayout>(R.id.appViewerRoot)
+            root?.postDelayed({
+                (stand.parent as? ViewGroup)?.removeView(stand)
+                if (tabOverviewTransitionStandIn === stand) tabOverviewTransitionStandIn = null
+            }, 700L)
+        }
         if (::web.isInitialized) {
             applyBrowserPreferences()
             BrowserLoadingBooster.configure(web)

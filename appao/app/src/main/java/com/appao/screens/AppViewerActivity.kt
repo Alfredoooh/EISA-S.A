@@ -57,6 +57,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
@@ -148,6 +149,14 @@ class AppViewerActivity : AppCompatActivity() {
         }
         WindowCompat.setDecorFitsSystemWindows(window, true)
         BrowserTransitions.configure(this)
+        // Container Transform M3 Expressive: postpone the enter transition until the WebView
+        // has been attached and measured. Without this, the MaterialContainerTransform can
+        // start before the WebView has valid bounds, producing a visible "flash" before the
+        // morph actually begins. Started at the end of onCreate once web.loadUrl() has fired.
+        val incomingTransitionName = intent.getStringExtra("transition_name").orEmpty()
+        if (incomingTransitionName.isNotBlank()) {
+            postponeEnterTransition()
+        }
         setContentView(R.layout.activity_app_viewer)
         SystemBarHelper.sync(this)
 
@@ -236,6 +245,7 @@ class AppViewerActivity : AppCompatActivity() {
                 setSupportMultipleWindows(false)
                 javaScriptCanOpenWindowsAutomatically = false
                 mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                offscreenPreRaster = true
             }
         }
         applyBrowserPreferences()
@@ -255,14 +265,11 @@ class AppViewerActivity : AppCompatActivity() {
         web.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
             if (findMode || address.hasFocus() || isFinishing || isDestroyed) return@setOnScrollChangeListener
             if (scrollY <= 0) {
-                // At the top of the page, restore the toolbar synchronously.
                 setBrowserBarOffset(0)
                 return@setOnScrollChangeListener
             }
             val delta = scrollY - oldScrollY
             if (delta == 0) return@setOnScrollChangeListener
-            // Consume small, incremental scroll deltas rather than toggling between endpoints.
-            // Large WebView layout jumps are clamped so the bar never flickers off-screen.
             setBrowserBarOffset(browserBarOffsetPx + delta.coerceIn(-dp(24), dp(24)))
         }
 
@@ -277,8 +284,6 @@ class AppViewerActivity : AppCompatActivity() {
         })
 
         swipeRefresh.setProgressBackgroundColorSchemeColor(ContextCompat.getColor(this, R.color.bg))
-        // Hide the legacy circular spinner behind the page-matched surface; the expressive
-        // indicator below is drawn instead, without touching the favicon loader.
         swipeRefresh.setColorSchemeColors(ContextCompat.getColor(this, R.color.bg))
         swipeRefresh.setOnChildScrollUpCallback { _, _ ->
             address.hasFocus() || findMode || (this::web.isInitialized && web.canScrollVertically(-1))
@@ -305,6 +310,13 @@ class AppViewerActivity : AppCompatActivity() {
             updateTabPage(tabId, activeUrl, web.title?.take(250).orEmpty().ifBlank { storedTab?.title ?: if (privateMode) "Separador privado" else "Nova aba" })
         } else {
             web.loadUrl(initialUrl)
+        }
+
+        // Container Transform M3 Expressive — release the postponed transition once the WebView
+        // is attached and measured. web.post ensures we wait until after the first layout pass,
+        // so the shared element (the WebView bounds) is valid when the transform begins.
+        if (incomingTransitionName.isNotBlank()) {
+            web.post { startPostponedEnterTransition() }
         }
     }
 
@@ -396,6 +408,11 @@ class AppViewerActivity : AppCompatActivity() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                 if (newProgress >= 100) stopFaviconLoader()
             }
+            // Disables Chromium's built-in gray "play button" poster that otherwise covers any
+            // <video> tag without its own poster= attribute, until playback starts.
+            override fun getDefaultVideoPoster(): Bitmap? =
+                Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+
             override fun onShowFileChooser(
                 view: WebView?,
                 filePathCallback: ValueCallback<Array<Uri>>,
@@ -465,7 +482,7 @@ class AppViewerActivity : AppCompatActivity() {
         address.showSoftInputOnFocus = false
         address.setOnClickListener { openBrowserSearch() }
         findViewById<View>(R.id.browserAddressPill).setOnClickListener { openBrowserSearch() }
-        androidx.core.view.ViewCompat.setTransitionName(findViewById(R.id.browserAddressPill), "browser_address_transform")
+        ViewCompat.setTransitionName(findViewById(R.id.browserAddressPill), "browser_address_transform")
     }
 
     private fun hideAddressSuggestions() {
@@ -533,7 +550,6 @@ class AppViewerActivity : AppCompatActivity() {
         applyBrowserBarOffset()
     }
 
-    /** Applies a continuous toolbar displacement and resizes the WebView viewport by the same amount. */
     private fun applyBrowserBarOffset() {
         if (!::web.isInitialized || !::swipeRefresh.isInitialized) return
         val topBar = findViewById<View>(R.id.browserTopBar)
@@ -546,7 +562,6 @@ class AppViewerActivity : AppCompatActivity() {
 
         topBar.animate().cancel()
         if (findMode) {
-            // The find-in-page row replaces the address bar and owns the same viewport edge.
             topBar.visibility = View.GONE
             topBar.translationY = 0f
             topBar.alpha = 1f
@@ -562,18 +577,11 @@ class AppViewerActivity : AppCompatActivity() {
                 topBar.visibility = View.INVISIBLE
             } else {
                 topBar.visibility = View.VISIBLE
-                // translationY/alpha are pure GPU transforms — safe to set every scroll frame,
-                // no layout pass involved. This is what actually needs to move smoothly.
                 topBar.translationY = direction * offset.toFloat()
                 topBar.alpha = (1f - fraction).coerceIn(0f, 1f)
             }
         }
 
-        // The WebView's own content reflows whenever swipeRefresh's margins change, which is a
-        // real requestLayout(). Calling that on every scroll pixel (dozens of times per second
-        // during a slow drag) is what produced the stutter — each layout pass competes with the
-        // scroll itself for the same frame. Only resize the content area at the two endpoints
-        // (bar fully shown / fully hidden), matching what the user actually sees settle.
         val remaining = if (browserBarHidden) 0 else barHeight
         val params = swipeRefresh.layoutParams as? android.widget.FrameLayout.LayoutParams
         if (params != null) {
@@ -689,12 +697,6 @@ class AppViewerActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Native support for the JS Notification API (Notification.requestPermission()), which the
-     * Android WebView does not prompt for on its own the way it does for camera/mic/geolocation.
-     * Mirrors the existing "media"/"location" per-site flow: respects the global Settings switch,
-     * asks the user once per domain, and remembers the decision via BrowserPreferences.
-     */
     private fun handlePageLoadedForNotifications(url: String) {
         if (!BrowserPreferences.siteNotificationsEnabled(this)) return
         val host = hostFor(url)
@@ -707,9 +709,6 @@ class AppViewerActivity : AppCompatActivity() {
     }
 
     private fun injectNotificationPermissionBridge(requestingPrompt: Boolean, host: String) {
-        // Overrides window.Notification so that a site's own requestPermission() call resolves
-        // immediately instead of silently hanging (stock WebView has no native UI for this API).
-        // The actual decision still goes through our own NativeM3Dialog, never a raw auto-grant.
         if (!requestingPrompt) {
             val grantJs = """
                 (function() {
@@ -800,9 +799,6 @@ class AppViewerActivity : AppCompatActivity() {
             putExtra("browser_private_mode", privateMode)
             putExtra("transition_name", "browser_address_transform")
         }
-        // Container Transform M3 Expressive. Postponed on the receiving side (BrowserSearchActivity)
-        // until it has actually laid out, and the keyboard is only requested once the morph visually
-        // finishes — that decoupling, not the morph itself, is what keeps this stable across OEMs.
         val pill = findViewById<View>(R.id.browserAddressPill)
         runCatching {
             val options = ActivityOptions.makeSceneTransitionAnimation(
@@ -854,14 +850,52 @@ class AppViewerActivity : AppCompatActivity() {
     }
 
     private fun openTabs() {
-        // Snapshot capture is best-effort; the tabs overview uses a stable fade transition
-        // instead of sharing a live WebView as an Android scene element.
         runCatching { savePageSnapshot() }
         val launch = Intent(this, BrowserTabsActivity::class.java)
             .putExtra("source_tab_id", tabId)
             .putExtra("browser_private_mode", privateMode)
-        startActivity(launch)
-        overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
+            .putExtra("transition_name", "browser_tab_card_$tabId")
+
+        // Container Transform M3 Expressive. The live WebView itself is never used as the
+        // shared element — sharing a real WebView surface across Activities misbehaves on some
+        // OEMs. Instead, a short-lived ImageView holding the snapshot we just saved is placed
+        // exactly over the WebView and used as the transform source; it is removed right after
+        // the Activity switch, so it never lingers on screen.
+        val root = findViewById<android.widget.FrameLayout>(R.id.appViewerRoot)
+        val snapshotPath = tabList().firstOrNull { it.id == tabId }?.snapshotPath.orEmpty()
+        val snapshotFile = snapshotPath.takeIf { it.isNotBlank() }?.let(::java.io.File)
+        val stand = if (snapshotFile != null && snapshotFile.exists() && ::web.isInitialized && web.width > 0 && web.height > 0) {
+            android.widget.ImageView(this).apply {
+                scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                Glide.with(this@AppViewerActivity).load(snapshotFile).centerCrop().into(this)
+                ViewCompat.setTransitionName(this, "browser_tab_card_$tabId")
+            }
+        } else null
+
+        if (stand != null) {
+            val location = IntArray(2)
+            web.getLocationInWindow(location)
+            val rootLocation = IntArray(2)
+            root.getLocationInWindow(rootLocation)
+            root.addView(
+                stand,
+                android.widget.FrameLayout.LayoutParams(web.width, web.height).apply {
+                    leftMargin = location[0] - rootLocation[0]
+                    topMargin = location[1] - rootLocation[1]
+                }
+            )
+            runCatching {
+                val options = android.app.ActivityOptions.makeSceneTransitionAnimation(this, stand, "browser_tab_card_$tabId")
+                startActivity(launch, options.toBundle())
+            }.onFailure {
+                startActivity(launch)
+                overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
+            }
+            root.postDelayed({ root.removeView(stand) }, 600L)
+        } else {
+            startActivity(launch)
+            overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
+        }
     }
 
     private fun openNewBrowserTab(url: String) {
@@ -1076,7 +1110,9 @@ class AppViewerActivity : AppCompatActivity() {
             valueFrom = 50f
             valueTo = 200f
             stepSize = 1f
-            value = currentZoomPercent.toFloat().coerceIn(50f, 200f)
+            // "value" must resolve to Slider.value, not the TextView local also named "value"
+            // declared earlier in this same function — this@apply disambiguates it.
+            this@apply.value = currentZoomPercent.toFloat().coerceIn(50f, 200f)
             trackActiveTintList = ColorStateList.valueOf(accent)
             trackInactiveTintList = ColorStateList.valueOf(
                 androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 60)

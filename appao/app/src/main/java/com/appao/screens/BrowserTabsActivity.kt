@@ -3,6 +3,11 @@ package com.appao.screens
 import android.content.Intent
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.transition.ChangeBounds
+import android.transition.ChangeClipBounds
+import android.transition.ChangeImageTransform
+import android.transition.ChangeTransform
+import android.transition.TransitionSet
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -12,10 +17,12 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.appao.AccentColorManager
+import com.appao.Curves
 import com.appao.EmptyNewsIllustrationDrawable
 import com.appao.MainActivity
 import com.appao.R
@@ -38,10 +45,23 @@ class BrowserTabsActivity : AppCompatActivity() {
     private var privateMode: Boolean = false
     private var homeSnapshotPath: String = ""
     private var firstResume = true
+    private var incomingTransitionName = ""
+    private var transitionArmed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, true)
+        incomingTransitionName = intent.getStringExtra("transition_name").orEmpty()
+        if (incomingTransitionName.isNotBlank()) {
+            // Container Transform M3 Expressive. Postponed until the grid has actually laid out
+            // and the target card for sourceTabId is found and tagged with the matching
+            // transitionName (see refreshTabs/armIncomingTransition below).
+            postponeEnterTransition()
+            window.sharedElementEnterTransition = containerTransition()
+            window.sharedElementReturnTransition = containerTransition()
+            window.allowEnterTransitionOverlap = true
+            window.allowReturnTransitionOverlap = true
+        }
         SystemBarHelper.sync(this)
         sourceTabId = intent.getStringExtra("source_tab_id").orEmpty()
         sourcePrivateMode = intent.getBooleanExtra("browser_private_mode", false)
@@ -49,6 +69,9 @@ class BrowserTabsActivity : AppCompatActivity() {
         homeSnapshotPath = intent.getStringExtra("home_snapshot_path").orEmpty().ifBlank {
             getSharedPreferences("appao", MODE_PRIVATE).getString("home_tab_snapshot_path", "").orEmpty()
         }
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() { finishWithMotion() }
+        })
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -183,7 +206,44 @@ class BrowserTabsActivity : AppCompatActivity() {
         emptyState.visibility = View.GONE
         list.visibility = View.VISIBLE
         emptyState.setTextColor(ContextCompat.getColor(this, R.color.dim))
+        if (incomingTransitionName.isNotBlank() && !transitionArmed) {
+            transitionArmed = true
+            armIncomingTransition(display)
+        }
     }
+
+    /** Finds the grid card matching sourceTabId/__home__, tags it with the exact transitionName
+        the sender used, waits for that card to actually be laid out, then starts the postponed
+        enter transition. If the matching card can't be found, starts the transition anyway. */
+    private fun armIncomingTransition(display: List<BrowserTab>) {
+        val targetId = sourceTabId.ifBlank { "__home__" }
+        val targetIndex = display.indexOfFirst { it.id == targetId }
+        if (targetIndex < 0) {
+            startPostponedEnterTransition()
+            return
+        }
+        fun tryArm() {
+            if (isFinishing || isDestroyed) return
+            val holder = list.findViewHolderForAdapterPosition(targetIndex) as? TabHolder
+            if (holder != null && holder.preview.isAttachedToWindow) {
+                ViewCompat.setTransitionName(holder.preview, incomingTransitionName)
+                startPostponedEnterTransition()
+            } else {
+                list.post { tryArm() }
+            }
+        }
+        list.post { tryArm() }
+    }
+
+    private fun containerTransition(): TransitionSet =
+        TransitionSet().apply {
+            addTransition(ChangeBounds())
+            addTransition(ChangeTransform())
+            addTransition(ChangeClipBounds())
+            addTransition(ChangeImageTransform())
+            duration = 380L
+            interpolator = Curves.SMOOTH
+        }
 
     private fun openNewTab() {
         val tab = if (privateMode) PrivateBrowserTabStore.create(this, "https://www.google.com/") else BrowserTabStore.create(this, "https://www.google.com/")
@@ -209,20 +269,38 @@ class BrowserTabsActivity : AppCompatActivity() {
             return
         }
         if (tab.id == sourceTabId && targetPrivateMode == sourcePrivateMode) {
-            // Returning to the already-live page reverses the shared container transform.
+            // The underlying AppViewerActivity instance is still alive behind this screen —
+            // reverse the transform we arrived with instead of launching a new Activity.
             finishWithMotion()
             return
         }
 
+        // Opening a DIFFERENT tab than the one we arrived from: Container Transform M3
+        // Expressive from that specific grid card into the (new) AppViewerActivity instance.
+        val cardTransitionName = "browser_tab_open_${tab.id}"
         val launch = Intent(this, AppViewerActivity::class.java).apply {
             putExtra("browser_mode", true)
             putExtra("browser_private_mode", targetPrivateMode)
             putExtra("browser_tab_id", tab.id)
             putExtra("url", tab.url)
+            if (preview != null) putExtra("transition_name", cardTransitionName)
         }
-        startActivity(launch)
-        finish()
-        overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
+        if (preview != null && preview.isAttachedToWindow) {
+            runCatching {
+                ViewCompat.setTransitionName(preview, cardTransitionName)
+                val options = android.app.ActivityOptions.makeSceneTransitionAnimation(this, preview, cardTransitionName)
+                startActivity(launch, options.toBundle())
+                finish()
+            }.onFailure {
+                startActivity(launch)
+                finish()
+                overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
+            }
+        } else {
+            startActivity(launch)
+            finish()
+            overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
+        }
     }
 
     private fun showTabOptions(anchor: View, tab: BrowserTab, preview: View) {
@@ -273,8 +351,12 @@ class BrowserTabsActivity : AppCompatActivity() {
     }
 
     private fun finishWithMotion() {
-        finish()
-        overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
+        if (incomingTransitionName.isNotBlank()) {
+            finishAfterTransition()
+        } else {
+            finish()
+            overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
+        }
     }
 
     private fun iconButton(icon: String, description: String): FrameLayout = FrameLayout(this).apply {
@@ -395,7 +477,7 @@ class BrowserTabsActivity : AppCompatActivity() {
                     Glide.with(this@BrowserTabsActivity).load(homeImage).centerCrop().into(tabHolder.preview)
                 } else {
                     Glide.with(this@BrowserTabsActivity).clear(tabHolder.preview)
-                    tabHolder.preview.setImageDrawable(com.appao.EmptyNewsIllustrationDrawable(this@BrowserTabsActivity))
+                    tabHolder.preview.setImageDrawable(EmptyNewsIllustrationDrawable(this@BrowserTabsActivity))
                     tabHolder.preview.setBackgroundColor(ContextCompat.getColor(this@BrowserTabsActivity, R.color.bg))
                 }
                 tabHolder.itemView.contentDescription = "Separador Início"

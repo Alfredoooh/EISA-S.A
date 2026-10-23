@@ -15,6 +15,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.bumptech.glide.Glide
+import com.appao.ui.IconLoader
+import com.appao.screens.AppViewerActivity
+import com.appao.screens.BrowserTabStore
 
 /** Popular web sites grouped by category, opened in AppAo's persistent browser tabs. */
 class MoreSitesActivity : AppCompatActivity() {
@@ -265,8 +268,6 @@ class MoreSitesActivity : AppCompatActivity() {
             !::sitesSection.isInitialized || !::miniAppsSection.isInitialized) return
         sitesSection.visibility = if (showMiniApps) View.GONE else View.VISIBLE
         miniAppsSection.visibility = if (showMiniApps) View.VISIBLE else View.GONE
-        // M3 Expressive: the selected pill is a soft tint of the app's current primary color
-        // (not a solid/opaque fill) rather than a neutral bg+border card.
         val primary = AccentColorManager.resolvedOr(this, R.color.pri)
         val selectedText = primary
         val inactiveText = ContextCompat.getColor(this, R.color.dim)

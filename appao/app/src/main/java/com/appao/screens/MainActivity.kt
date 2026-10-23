@@ -2272,17 +2272,50 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openBrowserTabs() {
-        hideHomeSuggestions()
-        if (homeSearchMode) animateHomeSearchMode(false)
-        if (::homeAddressInput.isInitialized) homeAddressInput.clearFocus()
-        runCatching { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(homeAddressBar.windowToken, 0) }
-        val homeSnapshot = saveHomeTabScreenshot()
-        val launch = Intent(this, BrowserTabsActivity::class.java)
-            .putExtra("source_tab_id", "__home__")
-            .putExtra("home_snapshot_path", homeSnapshot.orEmpty())
+    hideHomeSuggestions()
+    if (homeSearchMode) animateHomeSearchMode(false)
+    if (::homeAddressInput.isInitialized) homeAddressInput.clearFocus()
+    runCatching { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(homeAddressBar.windowToken, 0) }
+    val homeSnapshot = saveHomeTabScreenshot()
+    val transitionName = "browser_tab_card___home__"
+    val launch = Intent(this, BrowserTabsActivity::class.java)
+        .putExtra("source_tab_id", "__home__")
+        .putExtra("home_snapshot_path", homeSnapshot.orEmpty())
+        .putExtra("transition_name", transitionName)
+
+    // Container Transform M3 Expressive: a short-lived ImageView holding the screenshot we
+    // just captured stands in for the live Home screen (the real root view is never used as
+    // a shared element — it keeps running state/animations that a cross-Activity transform
+    // should not touch), positioned over the same area and removed right after the switch.
+    val snapshotFile = homeSnapshot?.takeIf { it.isNotBlank() }?.let(::java.io.File)
+    val stand = if (::rootHost.isInitialized && snapshotFile != null && snapshotFile.exists() && rootHost.width > 0 && rootHost.height > 0) {
+        android.widget.ImageView(this).apply {
+            scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+            Glide.with(this@MainActivity).load(snapshotFile).centerCrop().into(this)
+            ViewCompat.setTransitionName(this, transitionName)
+        }
+    } else null
+
+    if (stand != null && rootHost is ViewGroup) {
+        (rootHost as ViewGroup).addView(
+            stand,
+            FrameLayout.LayoutParams(rootHost.width, rootHost.height)
+        )
+        runCatching {
+            val options = android.app.ActivityOptions.makeSceneTransitionAnimation(this, stand, transitionName)
+            startActivity(launch, options.toBundle())
+        }.onFailure {
+            startActivity(launch)
+            overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
+        }
+        // The transform takes ~380ms; remove the stand-in after it must have finished so the
+        // real Home surface is not permanently covered by the static snapshot.
+        rootHost.postDelayed({ (stand.parent as? ViewGroup)?.removeView(stand) }, 600L)
+    } else {
         startActivity(launch)
         overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
     }
+}
 
     private fun saveHomeTabScreenshot(): String? {
         if (!::rootHost.isInitialized || !::homePage.isInitialized) return null

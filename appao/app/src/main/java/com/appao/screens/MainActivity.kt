@@ -61,6 +61,8 @@ import com.appao.screens.BrowserWebViewPool
 import com.appao.screens.HistorySettingsActivity
 import com.appao.ui.BrowserTransitions
 import com.appao.ui.IconLoader
+import com.appao.ui.ProfileDoodleDrawable
+import com.appao.ui.ProfileExpressiveSwitch
 import com.appao.ui.NativePopupMenu
 
 class MainActivity : AppCompatActivity() {
@@ -119,6 +121,7 @@ class MainActivity : AppCompatActivity() {
     private var tabOverviewTransitionStandIn: ImageView? = null
     private var activeMainTab = "home"
     private var profileOpen = false
+    private var profileAppbarVisible = false
     private var feedEmptyOverlay: View? = null
 
     private val items = mutableListOf<NewsItem>()
@@ -643,23 +646,21 @@ class MainActivity : AppCompatActivity() {
         pullIndicator.bringToFront(); progress.bringToFront()
     }
 
-    /** Only the profile tab draws its cover image behind the status bar; every other tab
-        keeps the app's normal (non edge-to-edge) window behavior untouched. */
+    /** Keep both system bars native and place profile content below the status bar. */
     private fun applyProfileEdgeToEdge(enabled: Boolean) {
-        WindowCompat.setDecorFitsSystemWindows(window, !enabled)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         val dark = ThemeManager.resolvedDark(this)
+        window.statusBarColor = if (enabled) {
+            ContextCompat.getColor(this, R.color.profileCoverBg)
+        } else {
+            android.graphics.Color.TRANSPARENT
+        }
+        window.navigationBarColor = ContextCompat.getColor(this, R.color.bg)
         WindowInsetsControllerCompat(window, window.decorView).apply {
-            isAppearanceLightStatusBars = !enabled && !dark
+            isAppearanceLightStatusBars = !dark
+            isAppearanceLightNavigationBars = !dark
         }
-        val coverImage = findViewById<ImageView>(R.id.profileCoverImage)
-        if (coverImage != null) {
-            coverImage.setPadding(
-                coverImage.paddingLeft,
-                if (enabled) statusBarHeightPx() else 0,
-                coverImage.paddingRight,
-                coverImage.paddingBottom
-            )
-        }
+        findViewById<ImageView>(R.id.profileCoverImage)?.setPadding(0, 0, 0, 0)
     }
 
     private fun statusBarHeightPx(): Int {
@@ -1726,91 +1727,205 @@ class MainActivity : AppCompatActivity() {
     private fun setupProfilePanel() {
         if (!::profileRows.isInitialized) return
         profileRows.removeAllViews()
-        IconLoader.applyIcon(findViewById(R.id.profileEditIcon), "edit", R.color.iconTint)
-        findViewById<View>(R.id.profileEditButton).setOnClickListener {
-            AppAoToast.show(this, "Estás a utilizar o AppAo como visitante.")
+
+        val cover = findViewById<ImageView>(R.id.profileCoverImage)
+        cover?.apply {
+            setImageDrawable(null)
+            background = ProfileDoodleDrawable(this@MainActivity)
+            scaleType = ImageView.ScaleType.FIT_XY
+            setPadding(0, 0, 0, 0)
         }
-        findViewById<ImageView>(R.id.profileCoverImage)?.setImageResource(
-            if (ThemeManager.resolvedDark(this)) R.drawable.profile_cover_dark else R.drawable.profile_cover_light
+        findViewById<View>(R.id.profileAvatar)?.apply {
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_profile_avatar)
+            elevation = dp(4).toFloat()
+            clipToOutline = true
+        }
+        findViewById<View>(R.id.profileEditButton)?.apply {
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+                setColor(AccentColorManager.resolvedOr(this@MainActivity, R.color.pri))
+                setStroke(dp(3), ContextCompat.getColor(this@MainActivity, R.color.profileCoverBg))
+            }
+            elevation = dp(2).toFloat()
+            setOnClickListener { AppAoToast.show(this@MainActivity, "Estás a utilizar o AppAo como visitante.") }
+        }
+        findViewById<ImageView>(R.id.profileEditIcon)?.let {
+            IconLoader.applyIconColor(it, "edit", android.graphics.Color.WHITE)
+        }
+
+        val profileScroll = findViewById<ScrollView>(R.id.profileScroll)
+        findViewById<View>(R.id.profileAppbar)?.apply {
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_profile_appbar)
+        }
+        profileAppbarVisible = false
+        updateProfileAppbar(profileScroll.scrollY >= dp(320), animate = false)
+        profileScroll.setOnScrollChangeListener { _, _, scrollY, _, _ ->
+            updateProfileAppbar(scrollY >= dp(320))
+        }
+
+        data class ProfileRow(
+            val label: String,
+            val icon: String,
+            val isSwitch: Boolean = false,
+            val switchChecked: Boolean = false,
+            val danger: Boolean = false,
+            val action: () -> Unit
         )
-        data class ProfileRow(val label: String, val icon: String, val isSwitch: Boolean = false, val switchChecked: Boolean = false, val action: () -> Unit)
+
         fun makeRow(row: ProfileRow): View = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(62)
-            setPadding(dp(16), dp(8), dp(16), dp(8))
-            setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            isClickable = true; isFocusable = true
+            minimumHeight = dp(52)
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_profile_row_pressed)
+            isClickable = true
+            isFocusable = true
+            contentDescription = row.label
+
             addView(ImageView(this@MainActivity).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(28), dp(28))
                 scaleType = ImageView.ScaleType.FIT_CENTER
-                IconLoader.applyIcon(this, row.icon, R.color.iconTint)
-            }, LinearLayout.LayoutParams(dp(28), dp(28)))
+                contentDescription = null
+                IconLoader.applyIcon(this, row.icon, if (row.danger) R.color.profileDanger else R.color.profileText)
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
             addView(TextView(this@MainActivity).apply {
-                text = row.label; textSize = 14.5f
-                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
+                text = row.label
+                textSize = 16f
+                includeFontPadding = false
+                setTextColor(ContextCompat.getColor(this@MainActivity, if (row.danger) R.color.profileDanger else R.color.profileText))
                 typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
-                setPadding(dp(12), 0, 0, 0)
+                setPadding(dp(20), 0, 0, 0)
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+
             if (row.isSwitch) {
-                addView(com.google.android.material.materialswitch.MaterialSwitch(this@MainActivity).apply {
-                    isClickable = false
-                    isFocusable = false
-                    isChecked = row.switchChecked
-                    val checked = intArrayOf(android.R.attr.state_checked)
-                    val unchecked = intArrayOf(-android.R.attr.state_checked)
-                    val primary = AccentColorManager.resolvedOr(this@MainActivity, R.color.pri)
-                    val onPrimary = AccentColorManager.onPrimaryColor(this@MainActivity)
-                    val offThumb = ContextCompat.getColor(this@MainActivity, R.color.dim)
-                    val offTrack = ContextCompat.getColor(this@MainActivity, R.color.card2)
-                    val onTrack = androidx.core.graphics.ColorUtils.setAlphaComponent(primary, 150)
-                    thumbTintList = android.content.res.ColorStateList(arrayOf(checked, unchecked), intArrayOf(onPrimary, offThumb))
-                    trackTintList = android.content.res.ColorStateList(arrayOf(checked, unchecked), intArrayOf(onTrack, offTrack))
-                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                addView(ProfileExpressiveSwitch(this@MainActivity).apply {
+                    contentDescription = row.label
+                    setChecked(row.switchChecked, animate = false)
+                    onCheckedChange = { row.action() }
+                }, LinearLayout.LayoutParams(dp(52), dp(32)))
             } else {
                 addView(ImageView(this@MainActivity).apply {
-                    layoutParams = LinearLayout.LayoutParams(dp(28), dp(28))
                     scaleType = ImageView.ScaleType.FIT_CENTER
-                    IconLoader.applyIcon(this, "chevron_right", R.color.dim)
-                }, LinearLayout.LayoutParams(dp(28), dp(28)))
+                    contentDescription = null
+                    IconLoader.applyIcon(this, "chevron_right", R.color.profileTextDim)
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             }
             setOnClickListener { row.action() }
-        }
-        fun addGroup(rows: List<ProfileRow>) {
-            rows.forEach { row ->
-                profileRows.addView(makeRow(row), LinearLayout.LayoutParams(-1, -2))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(6)
             }
-            profileRows.addView(View(this).apply { setBackgroundColor(android.graphics.Color.TRANSPARENT) }, LinearLayout.LayoutParams(-1, dp(10)))
         }
-        addGroup(listOf(
-            ProfileRow("Favoritos", "bookmark_filled") { startActivity(Intent(this, LibraryActivity::class.java)); overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit) },
-            ProfileRow("Histórico", "history") { startActivity(Intent(this, HistoryActivity::class.java)); overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit) },
-            ProfileRow("A seguir", "person") { startActivity(Intent(this, ProfileCollectionActivity::class.java).putExtra("collection_title", "A seguir")); overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit) },
-            ProfileRow("Curtidas", "heart_filled") { startActivity(Intent(this, ProfileCollectionActivity::class.java).putExtra("collection_title", "Curtidas")); overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit) },
-            ProfileRow("Modo escuro", "moon", isSwitch = true, switchChecked = ThemeManager.resolvedDark(this)) {
-                ThemeManager.applyImmediately(this, if (ThemeManager.resolvedDark(this)) "light" else "dark")
-                profileRows.post { setupProfilePanel() }
+
+        fun addRow(row: ProfileRow) {
+            profileRows.addView(makeRow(row))
+        }
+
+        fun addDivider() {
+            profileRows.addView(View(this).apply {
+                setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.profileSurface))
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)).apply {
+                marginStart = dp(16)
+                marginEnd = dp(16)
+                topMargin = dp(10)
+                bottomMargin = dp(16)
+            })
+        }
+
+        addRow(ProfileRow("Favoritos", "bookmark") {
+            startActivity(Intent(this, LibraryActivity::class.java))
+            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+        })
+        addRow(ProfileRow("Histórico", "history") {
+            startActivity(Intent(this, HistoryActivity::class.java))
+            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+        })
+        addRow(ProfileRow("A seguir", "person") {
+            startActivity(Intent(this, ProfileCollectionActivity::class.java).putExtra("collection_title", "A seguir"))
+            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+        })
+        addRow(ProfileRow("Curtidas", "heart") {
+            startActivity(Intent(this, ProfileCollectionActivity::class.java).putExtra("collection_title", "Curtidas"))
+            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+        })
+        addRow(ProfileRow("Modo escuro", "dark_mode", isSwitch = true, switchChecked = ThemeManager.resolvedDark(this)) {
+            ThemeManager.applyImmediately(this, if (ThemeManager.resolvedDark(this)) "light" else "dark")
+            profileRows.post {
+                if (!isFinishing && !isDestroyed && ::profileRows.isInitialized) setupProfilePanel()
             }
-        ))
-        addGroup(listOf(
-            ProfileRow("Configurações", "settings") { startActivity(Intent(this, SettingsActivity::class.java)); overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit) },
-            ProfileRow("Downloads", "download") { startActivity(Intent(this, BrowserDownloadsActivity::class.java)); overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit) },
-            ProfileRow("Atividade de uso", "chart_bars") { startActivity(Intent(this, UsageActivity::class.java)); overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit) }
-        ))
-        addGroup(listOf(
-            ProfileRow("Partilhar AppAo", "share") {
-                val share = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_SUBJECT, "AppAo"); putExtra(Intent.EXTRA_TEXT, "Experimenta o AppAo.") }
-                startActivity(Intent.createChooser(share, "Partilhar AppAo"))
-            },
-            ProfileRow("Ajuda e Feedback", "chat") {
-                val feedback = Intent(Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:" )).apply {
-                    putExtra(Intent.EXTRA_SUBJECT, "AppAo — Ajuda e Feedback")
-                    putExtra(Intent.EXTRA_TEXT, "Descreve aqui a tua questão ou sugestão.")
+        })
+
+        addDivider()
+        addRow(ProfileRow("Configurações", "settings") {
+            startActivity(Intent(this, SettingsActivity::class.java))
+            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+        })
+        addRow(ProfileRow("Downloads", "download") {
+            startActivity(Intent(this, BrowserDownloadsActivity::class.java))
+            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+        })
+        addRow(ProfileRow("Atividade de uso", "bar_chart") {
+            startActivity(Intent(this, UsageActivity::class.java))
+            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+        })
+        addRow(ProfileRow("Partilhar AppAo", "share") {
+            val share = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, "AppAo")
+                putExtra(Intent.EXTRA_TEXT, "Experimenta o AppAo.")
+            }
+            startActivity(Intent.createChooser(share, "Partilhar AppAo"))
+        })
+        addRow(ProfileRow("Ajuda e Feedback", "chat") {
+            val feedback = Intent(Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:")).apply {
+                putExtra(Intent.EXTRA_SUBJECT, "AppAo — Ajuda e Feedback")
+                putExtra(Intent.EXTRA_TEXT, "Descreve aqui a tua questão ou sugestão.")
+            }
+            runCatching { startActivity(feedback) }.onFailure {
+                AppAoToast.show(this, "Não existe uma aplicação de email configurada")
+            }
+        })
+        addRow(ProfileRow("Limpar dados de navegação", "delete", danger = true) {
+            showClearBrowsingFromHome(homeAddressBar)
+        })
+    }
+
+    private fun updateProfileAppbar(show: Boolean, animate: Boolean = true) {
+        val appbar = findViewById<View>(R.id.profileAppbar) ?: return
+        if (profileAppbarVisible == show && (show || appbar.visibility == View.GONE)) return
+        profileAppbarVisible = show
+        appbar.animate().cancel()
+        if (show) {
+            appbar.visibility = View.VISIBLE
+            if (!animate) {
+                appbar.alpha = 1f
+                appbar.translationY = 0f
+                return
+            }
+            appbar.alpha = 0f
+            appbar.translationY = -dp(8).toFloat()
+            appbar.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(220L)
+                .setInterpolator(PathInterpolator(0.2f, 0f, 0f, 1f))
+                .start()
+        } else {
+            if (!animate || appbar.visibility != View.VISIBLE) {
+                appbar.visibility = View.GONE
+                appbar.alpha = 0f
+                appbar.translationY = -dp(8).toFloat()
+                return
+            }
+            appbar.animate()
+                .alpha(0f)
+                .translationY(-dp(8).toFloat())
+                .setDuration(220L)
+                .setInterpolator(PathInterpolator(0.2f, 0f, 0f, 1f))
+                .withEndAction {
+                    if (!profileAppbarVisible) appbar.visibility = View.GONE
                 }
-                runCatching { startActivity(feedback) }.onFailure { AppAoToast.show(this, "Não existe uma aplicação de email configurada") }
-            },
-            ProfileRow("Limpar dados de navegação", "delete_bin") { showClearBrowsingFromHome(homeAddressBar) }
-        ))
+                .start()
+        }
     }
 
     private fun setupTouchHost() {
@@ -2875,6 +2990,7 @@ class MainActivity : AppCompatActivity() {
         super.onConfigurationChanged(newConfig)
         SystemBarHelper.sync(this)
         refreshNativeTheme()
+        applyProfileEdgeToEdge(activeMainTab == "profile")
     }
 
     override fun onResume() {
@@ -2902,6 +3018,7 @@ class MainActivity : AppCompatActivity() {
         if (::appsPanel.isInitialized) refreshConversationHistory()
         SystemBarHelper.sync(this)
         refreshNativeTheme()
+        applyProfileEdgeToEdge(activeMainTab == "profile")
         progress.animate().alpha(0f).setDuration(180L).withEndAction {
             progress.visibility = View.GONE
             (progress.layoutParams as? FrameLayout.LayoutParams)?.let { lp -> lp.width = 0; progress.layoutParams = lp }
@@ -2956,7 +3073,7 @@ class MainActivity : AppCompatActivity() {
         appsHeader.elevation = 0f
         appsHeader.translationZ = 0f
         appsHeader.setBackgroundColor(bg)
-        profilePanel.setBackgroundColor(bg)
+        profilePanel.setBackgroundColor(ContextCompat.getColor(this, R.color.profileBg))
         findViewById<View>(R.id.appsBottomBar).visibility = View.GONE
 
         IconLoader.applyIcon(findViewById(R.id.homeMenuIcon), "menu", R.color.iconTint)

@@ -181,24 +181,30 @@
             <Space android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
         </LinearLayout>
     </FrameLayout>
-    <FrameLayout android:id="@+id/profilePanel" android:layout_width="match_parent" android:layout_height="match_parent" android:layout_gravity="start" android:layout_marginBottom="58dp" android:background="@color/bg" android:visibility="gone" android:elevation="0dp" android:clipChildren="true" android:clipToPadding="false">
-        <LinearLayout android:id="@+id/profilePanelColumn" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@color/bg">
-            <FrameLayout android:id="@+id/profileHeaderWrap" android:layout_width="match_parent" android:layout_height="wrap_content" android:clipChildren="false" android:clipToPadding="false">
-                <ImageView android:id="@+id/profileCoverImage" android:layout_width="match_parent" android:layout_height="168dp" android:scaleType="centerCrop" android:contentDescription="@null" />
-                <LinearLayout android:id="@+id/profileHeader" android:layout_width="match_parent" android:layout_height="132dp" android:layout_gravity="bottom" android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="22dp" android:paddingEnd="20dp" android:paddingTop="16dp" android:paddingBottom="16dp" android:background="@android:color/transparent">
-                    <FrameLayout android:layout_width="58dp" android:layout_height="58dp" android:background="@drawable/bg_circle_card" android:clipToOutline="true">
-                        <TextView android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:text="A" android:textSize="25sp" android:textColor="@color/text" android:fontFamily="sans-serif-medium" />
+    <FrameLayout android:id="@+id/profilePanel" android:layout_width="match_parent" android:layout_height="match_parent" android:layout_gravity="start" android:layout_marginBottom="58dp" android:background="@color/profileBg" android:visibility="gone" android:elevation="0dp" android:clipChildren="true" android:clipToPadding="false">
+        <ScrollView android:id="@+id/profileScroll" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:scrollbars="none" android:overScrollMode="never" android:clipToPadding="false">
+            <LinearLayout android:id="@+id/profilePanelColumn" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@color/profileBg" android:clipChildren="false" android:clipToPadding="false">
+                <FrameLayout android:id="@+id/profileHeaderWrap" android:layout_width="match_parent" android:layout_height="320dp" android:clipChildren="false" android:clipToPadding="false">
+                    <ImageView android:id="@+id/profileCoverImage" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/profileCoverBg" android:scaleType="fitXY" android:contentDescription="@null" />
+                    <FrameLayout android:id="@+id/profileHeader" android:layout_width="104dp" android:layout_height="104dp" android:layout_gravity="center" android:clipChildren="false" android:clipToPadding="false">
+                        <FrameLayout android:id="@+id/profileAvatar" android:layout_width="104dp" android:layout_height="104dp" android:background="@drawable/bg_profile_avatar" android:elevation="4dp" android:clipToOutline="true" />
+                        <FrameLayout android:id="@+id/profileEditButton" android:layout_width="36dp" android:layout_height="36dp" android:layout_gravity="bottom|end" android:layout_marginEnd="-4dp" android:layout_marginBottom="-4dp" android:background="@drawable/bg_profile_edit" android:clickable="true" android:focusable="true" android:contentDescription="Editar perfil">
+                            <ImageView android:id="@+id/profileEditIcon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:scaleType="fitCenter" android:contentDescription="@null" />
+                        </FrameLayout>
                     </FrameLayout>
-                    <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
-                    <FrameLayout android:id="@+id/profileEditButton" android:layout_width="36dp" android:layout_height="36dp" android:background="@drawable/bg_transparent_pressed" android:clickable="true" android:focusable="true" android:contentDescription="Editar perfil">
-                        <ImageView android:id="@+id/profileEditIcon" android:layout_width="22dp" android:layout_height="22dp" android:layout_gravity="center" android:scaleType="fitCenter" />
+                </FrameLayout>
+                <LinearLayout android:id="@+id/profileSheet" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="-24dp" android:orientation="vertical" android:background="@drawable/bg_profile_sheet" android:minHeight="296dp" android:clipChildren="false" android:clipToPadding="false">
+                    <FrameLayout android:id="@+id/profileSheetHandleArea" android:layout_width="match_parent" android:layout_height="22dp">
+                        <View android:id="@+id/profileSheetHandle" android:layout_width="36dp" android:layout_height="4dp" android:layout_gravity="center" android:background="@drawable/bg_profile_handle" />
                     </FrameLayout>
+                    <LinearLayout android:id="@+id/profileRows" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingStart="16dp" android:paddingEnd="16dp" android:paddingTop="8dp" android:paddingBottom="24dp" />
                 </LinearLayout>
-            </FrameLayout>
-            <ScrollView android:id="@+id/profileScroll" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true" android:scrollbars="none" android:overScrollMode="never">
-                <LinearLayout android:id="@+id/profileRows" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingStart="14dp" android:paddingEnd="14dp" android:paddingBottom="18dp" />
-            </ScrollView>
-        </LinearLayout>
+                <View android:layout_width="match_parent" android:layout_height="16dp" />
+            </LinearLayout>
+        </ScrollView>
+        <FrameLayout android:id="@+id/profileAppbar" android:layout_width="match_parent" android:layout_height="64dp" android:layout_gravity="top" android:background="@color/profileBg" android:alpha="0" android:translationY="-8dp" android:visibility="gone" android:elevation="0dp">
+            <TextView android:id="@+id/profileAppbarTitle" android:layout_width="wrap_content" android:layout_height="match_parent" android:gravity="center_vertical" android:paddingStart="20dp" android:paddingEnd="20dp" android:text="Perfil" android:textColor="@color/profileText" android:textSize="20sp" android:fontFamily="sans-serif-medium" android:includeFontPadding="false" />
+        </FrameLayout>
     </FrameLayout>
     <LinearLayout android:id="@+id/homeMainBottomNav" android:layout_width="match_parent" android:layout_height="58dp" android:layout_gravity="bottom" android:orientation="horizontal" android:gravity="center" android:paddingStart="5dp" android:paddingEnd="5dp" android:paddingTop="2dp" android:paddingBottom="2dp" android:background="@color/bg" android:elevation="0dp" android:clipChildren="false" android:clipToPadding="false">
         <LinearLayout android:id="@+id/homeMainNavHome" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:background="@drawable/bg_transparent_pressed" android:clickable="true" android:focusable="true" android:contentDescription="Início">

@@ -863,7 +863,7 @@ class AppViewerActivity : AppCompatActivity() {
         // the Activity switch, so it never lingers on screen.
         val root = findViewById<android.widget.FrameLayout>(R.id.appViewerRoot)
         val snapshotPath = tabList().firstOrNull { it.id == tabId }?.snapshotPath.orEmpty()
-        val snapshotFile = snapshotPath.takeIf { it.isNotBlank() }?.let(::java.io.File)
+        val snapshotFile = snapshotPath.takeIf { it.isNotBlank() }?.let { java.io.File(it) }
         val stand = if (snapshotFile != null && snapshotFile.exists() && ::web.isInitialized && web.width > 0 && web.height > 0) {
             android.widget.ImageView(this).apply {
                 scaleType = android.widget.ImageView.ScaleType.CENTER_CROP

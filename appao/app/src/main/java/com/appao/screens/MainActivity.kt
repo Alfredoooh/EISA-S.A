@@ -2287,7 +2287,7 @@ class MainActivity : AppCompatActivity() {
     // just captured stands in for the live Home screen (the real root view is never used as
     // a shared element — it keeps running state/animations that a cross-Activity transform
     // should not touch), positioned over the same area and removed right after the switch.
-    val snapshotFile = homeSnapshot?.takeIf { it.isNotBlank() }?.let(::java.io.File)
+    val snapshotFile = homeSnapshot?.takeIf { it.isNotBlank() }?.let { java.io.File(it) }
     val stand = if (::rootHost.isInitialized && snapshotFile != null && snapshotFile.exists() && rootHost.width > 0 && rootHost.height > 0) {
         android.widget.ImageView(this).apply {
             scaleType = android.widget.ImageView.ScaleType.CENTER_CROP

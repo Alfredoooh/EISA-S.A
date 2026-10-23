@@ -199,7 +199,6 @@ class MainActivity : AppCompatActivity() {
         homeEmptyNews = findViewById(R.id.homeEmptyNews)
         homeCategoryToggles = findViewById(R.id.homeCategoryToggles)
         profilePanel = findViewById(R.id.profilePanel)
-        applyProfileEdgeToEdge(false)
         profileRows = findViewById(R.id.profileRows)
         feedPanel = findViewById(R.id.feedPanel)
         feedHeader = findViewById(R.id.feedHeader)
@@ -236,6 +235,7 @@ class MainActivity : AppCompatActivity() {
         safeStartup { setupBottomInput() }
         safeStartup { setupAppsPanel() }
         safeStartup { setupProfilePanel() }
+        safeStartup { applyProfileEdgeToEdge(false) }
         safeStartup { setupTouchHost() }
 
         recycler.post {

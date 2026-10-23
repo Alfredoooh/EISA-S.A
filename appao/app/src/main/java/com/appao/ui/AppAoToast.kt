@@ -95,7 +95,7 @@ object AppAoToast {
                 if (activePopup === popup) activePopup = null
                 return@post
             }
-            activeAnimation = animateEntrance(card, dp)
+            activeAnimation = animateEntrance(card, ::dp)
         }
         handler.postDelayed(hide, 3000L)
         card.setOnClickListener {

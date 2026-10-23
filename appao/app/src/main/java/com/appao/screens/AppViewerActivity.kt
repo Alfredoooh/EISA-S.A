@@ -1127,7 +1127,7 @@ class AppViewerActivity : AppCompatActivity() {
             )
             thumbTintList = ColorStateList.valueOf(accent)
             haloTintList = ColorStateList.valueOf(androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 40))
-            trackStopIndicatorSize = dp(3).toFloat()
+            trackStopIndicatorSize = dp(3)
             isTickVisible = false
             contentDescription = "Zoom de 50 a 200 por cento"
         }

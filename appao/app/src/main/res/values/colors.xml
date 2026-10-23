@@ -21,8 +21,8 @@
     <color name="fluent8Light">#038387</color><color name="fluent8Dark">#3FD9DE</color>
     <color name="fluent9Light">#515C6B</color><color name="fluent9Dark">#9BA7B4</color>
 
-    <color name="accent">#000000</color>
-    <color name="pri">#000000</color>
+    <color name="accent">#5C8FD6</color>
+    <color name="pri">#5C8FD6</color>
     <color name="onpri">#FFFFFF</color>
     <color name="scrim">#00000000</color>
     <color name="heroScrim">#26000000</color>
@@ -43,4 +43,16 @@
     <color name="authYellowText">#FFFFFF</color>
     <color name="stackBorder">#111111</color>
     <color name="splash_logo_center">#1F2937</color>
+
+    <color name="profileBg">#FFFFFF</color>
+    <color name="profileText">#1A1A1A</color>
+    <color name="profileTextDim">#6B6B70</color>
+    <color name="profileSurface">#F2F2F5</color>
+    <color name="profileDanger">#D6605C</color>
+    <color name="profileHandle">#D0D0D4</color>
+    <color name="profileCoverBg">#E4DCD1</color>
+    <color name="profileDoodle">#17000000</color>
+    <color name="switchOutline">#79747E</color>
+    <color name="snackbarBg">#1A1A1A</color>
+    <color name="snackbarText">#FFFFFF</color>
 </resources>

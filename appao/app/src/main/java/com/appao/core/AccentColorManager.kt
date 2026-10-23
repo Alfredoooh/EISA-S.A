@@ -10,10 +10,10 @@ import kotlin.math.pow
  * Accent color picker: a fixed set of ten solid colors, the same hex value
  * in both light and dark theme (unlike the old FluentColorPalette, which
  * had a separate light/dark pair per color — that approach was replaced
- * when the default primary became black/white per theme).
+ * while the default primary follows the blue light/dark colors in colors.xml).
  *
- * "None" (index -1, the default) means the primary stays black/white as
- * driven by colors.xml / values-night/colors.xml. Picking one of the ten
+ * "None" (index -1, the default) means the primary follows colors.xml /
+ * values-night/colors.xml (#5C8FD6 in light mode and #7AA6E0 in dark mode). Picking one of the ten
  * entries below overrides that at the view level — see applyToComposerSend
  * and the other per-screen apply functions below, which activities call
  * from onResume()/refreshValues() the same way they already read
@@ -75,7 +75,7 @@ object AccentColorManager {
     /**
      * Resolved color for the current selection, or null when the
      * selection is NONE and callers should fall back to R.color.pri as
-     * read from resources (black in light, white in dark).
+     * read from resources (the default blue for the active theme).
      */
     fun resolvedColor(ctx: Context): Int? {
         val index = current(ctx)
@@ -101,7 +101,7 @@ object AccentColorManager {
     /**
      * Resolves the color to actually paint with: the user's chosen accent
      * if one is set, otherwise whatever [fallbackColorRes] resolves to
-     * (normally R.color.pri, i.e. black in light / white in dark).
+     * (normally R.color.pri, blue in the active theme).
      *
      * This is the one call sites in code should use instead of
      * ContextCompat.getColor(ctx, R.color.pri) directly, so a chosen
@@ -109,7 +109,7 @@ object AccentColorManager {
      * Kotlin. Pure-XML usages of @color/pri (drawables, layouts) cannot
      * be overridden this way — Android resources are resolved at
      * compile/inflate time, not from SharedPreferences — so those keep
-     * using the black/white default unless a view is also re-tinted in
+     * using the theme default unless a view is also re-tinted in
      * code at the call site, the same way updateComposerSendState()
      * re-tints the send button's icon and background in MainActivity /
      * SearchActivity / ArticleActivity / CommentsActivity.

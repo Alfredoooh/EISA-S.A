@@ -61,7 +61,6 @@ import com.appao.screens.BrowserWebViewPool
 import com.appao.screens.HistorySettingsActivity
 import com.appao.ui.IconLoader
 import com.appao.ui.NativePopupMenu
-import com.google.android.material.loadingindicator.LoadingIndicator
 
 class MainActivity : AppCompatActivity() {
 
@@ -99,7 +98,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var biSend: FrameLayout
     private lateinit var appsGrid: GridLayout
     private var homeNewsJob: Job? = null
-    private lateinit var pullIndicator: LoadingIndicator
+    private lateinit var pullIndicator: PullRefreshIndicatorView
     private lateinit var homeFeedStack: View
     private lateinit var stackBack: ImageView
     private lateinit var stackFront: ImageView
@@ -217,7 +216,6 @@ class MainActivity : AppCompatActivity() {
         biSend = findViewById(R.id.biSend)
         appsGrid = findViewById(R.id.appsGrid)
         pullIndicator = findViewById(R.id.pullIndicator)
-        pullIndicator.setIndicatorColor(AccentColorManager.resolvedOr(this, R.color.pri))
         pullIndicator.contentDescription = "A atualizar conteúdo"
         homeFeedStack = findViewById(R.id.homeFeedStack)
         stackBack = findViewById(R.id.stackBack)
@@ -2589,7 +2587,7 @@ class MainActivity : AppCompatActivity() {
         startPullLoop()
         rootHost.postDelayed({
             if (!pullRefreshing && abs(pullCurrentY) < 1f) {
-                pullIndicator.hide()
+                pullIndicator.visibility = View.GONE
                 pullIndicator.alpha = 0f
                 pullIndicator.scaleX = 1f
                 pullIndicator.scaleY = 1f
@@ -2657,8 +2655,8 @@ class MainActivity : AppCompatActivity() {
         val recyclerTop = (recyclerLocation[1] - rootLocation[1]).toFloat()
         val topY = recyclerTop + (y * 0.34f) - dp(24).toFloat()
 
-        if (zoom > 0.025f && pullIndicator.visibility != View.VISIBLE) pullIndicator.show()
-        if (zoom <= 0.025f && !pullRefreshing && pullIndicator.visibility == View.VISIBLE) pullIndicator.hide()
+        if (zoom > 0.025f && pullIndicator.visibility != View.VISIBLE) pullIndicator.visibility = View.VISIBLE
+        if (zoom <= 0.025f && !pullRefreshing && pullIndicator.visibility == View.VISIBLE) pullIndicator.visibility = View.GONE
         pullIndicator.alpha = zoom
         pullIndicator.scaleX = 0.88f + (0.12f * zoom)
         pullIndicator.scaleY = 0.88f + (0.12f * zoom)
@@ -2673,7 +2671,7 @@ class MainActivity : AppCompatActivity() {
         pullTargetY = dp(72).toFloat()
         pullVelocity = 0f
 
-        pullIndicator.show()
+        pullIndicator.visibility = View.VISIBLE
         pullIndicator.alpha = 1f
         pullIndicator.scaleX = 1f
         pullIndicator.scaleY = 1f
@@ -2987,7 +2985,7 @@ class MainActivity : AppCompatActivity() {
         feedAnimator?.cancel()
         appsAnimator?.cancel()
         feedBarAnimator?.cancel()
-        if (::pullIndicator.isInitialized) pullIndicator.hide()
+        if (::pullIndicator.isInitialized) pullIndicator.visibility = View.GONE
         super.onDestroy()
     }
 

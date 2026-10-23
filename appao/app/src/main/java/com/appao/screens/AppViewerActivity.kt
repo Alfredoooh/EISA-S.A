@@ -107,6 +107,7 @@ class AppViewerActivity : AppCompatActivity() {
     private var tabId: String = ""
     private var privateMode = false
     private var openingBrowserSearch = false
+    private var tabOverviewTransitionStandIn: ImageView? = null
     private var addressSuggestionGeneration = 0L
     private var reusedWebView = false
     private lateinit var findBar: View

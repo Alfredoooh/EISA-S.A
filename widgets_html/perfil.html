@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perfil</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0..1,0" />
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f2f2f5;
+    --text: #1a1a1a;
+    --text-dim: #6b6b70;
+    --primary: #5c8fd6;
+    --danger: #d6605c;
+    --cover-bg: #e4dcd1;
+    --doodle-color: rgba(0,0,0,0.08);
+    --avatar-circle: #ffffff;
+    --handle: #d0d0d4;
+  }
+
+  html[data-theme="dark"] {
+    --bg: #0f0f10;
+    --surface: #1c1c1f;
+    --text: #f0f0f0;
+    --text-dim: #9a9a9f;
+    --primary: #7aa6e0;
+    --danger: #e08a86;
+    --cover-bg: #0b141a;
+    --doodle-color: rgba(255,255,255,0.06);
+    --avatar-circle: #ffffff;
+    --handle: #3a3a3e;
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    transition: background-color 0.3s cubic-bezier(0.2,0,0,1), color 0.3s cubic-bezier(0.2,0,0,1);
+  }
+
+  .material-symbols-rounded {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  .app {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .scroll-area {
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ===== Capa estilo "doodle" do fundo de conversas do WhatsApp ===== */
+  .header {
+    position: relative;
+    height: 320px;
+    background-color: var(--cover-bg);
+    background-image: var(--doodle-pattern);
+    background-size: 220px 220px;
+    background-repeat: repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: background-color 0.3s cubic-bezier(0.2,0,0,1);
+  }
+
+  .avatar-wrap {
+    position: relative;
+    width: 104px;
+    height: 104px;
+    z-index: 1;
+  }
+
+  .avatar {
+    width: 104px;
+    height: 104px;
+    border-radius: 999px;
+    background: var(--avatar-circle);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  }
+
+  .edit-btn {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    border: 3px solid var(--cover-bg);
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 0.3s cubic-bezier(0.2,0,0,1);
+  }
+
+  .edit-btn .material-symbols-rounded {
+    font-size: 17px;
+    color: #fff;
+  }
+
+  .header-sentinel {
+    position: absolute;
+    bottom: 0;
+    height: 1px;
+    width: 1px;
+  }
+
+  /* ===== Secção "modal" ===== */
+  .sheet {
+    position: relative;
+    margin-top: -24px;
+    background: var(--bg);
+    border-radius: 28px 28px 0 0;
+    min-height: calc(100% - 320px + 24px);
+    transition: background-color 0.3s cubic-bezier(0.2,0,0,1);
+  }
+
+  .sheet-handle-area {
+    display: flex;
+    justify-content: center;
+    padding: 12px 0 6px;
+  }
+
+  .sheet-handle {
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--handle);
+    transition: background-color 0.3s cubic-bezier(0.2,0,0,1);
+  }
+
+  /* ===== Appbar fixa ===== */
+  .appbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    background: var(--bg);
+    z-index: 20;
+    opacity: 0;
+    transform: translateY(-8px);
+    pointer-events: none;
+    transition: opacity 0.22s cubic-bezier(0.2,0,0,1), transform 0.22s cubic-bezier(0.2,0,0,1), background-color 0.3s cubic-bezier(0.2,0,0,1);
+  }
+
+  .appbar.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  .appbar h1 {
+    font-size: 20px;
+    font-weight: 500;
+    margin: 0;
+    text-align: left;
+  }
+
+  /* ===== Lista de opções ===== */
+  .list {
+    padding: 8px 16px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .list-item {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 16px 16px;
+    border-radius: 20px;
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+    color: var(--text);
+    cursor: pointer;
+    transition: background-color 0.2s cubic-bezier(0.2,0,0,1);
+  }
+
+  .list-item:active {
+    background: var(--surface);
+  }
+
+  .list-item .material-symbols-rounded {
+    color: var(--text);
+    flex-shrink: 0;
+  }
+
+  .list-item .label {
+    flex: 1;
+    font-size: 16px;
+  }
+
+  .list-item .chevron {
+    color: var(--text-dim);
+    font-size: 20px;
+  }
+
+  .list-item.danger .material-symbols-rounded,
+  .list-item.danger .label {
+    color: var(--danger);
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--surface);
+    margin: 10px 16px;
+  }
+
+  /* ===== Switch M3 Expressive ===== */
+  .m3-switch {
+    position: relative;
+    width: 52px;
+    height: 32px;
+    border-radius: 999px;
+    background: transparent;
+    border: 2px solid var(--text-dim);
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    transition:
+      background-color 0.25s cubic-bezier(0.2, 0, 0, 1),
+      border-color 0.25s cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .m3-switch.on {
+    background: var(--primary);
+    border-color: var(--primary);
+  }
+
+  .m3-thumb {
+    position: absolute;
+    left: 4px;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: var(--text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+      left 0.35s cubic-bezier(0.34, 1.4, 0.4, 1),
+      width 0.35s cubic-bezier(0.34, 1.4, 0.4, 1),
+      height 0.35s cubic-bezier(0.34, 1.4, 0.4, 1),
+      background-color 0.25s cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .m3-switch.on .m3-thumb {
+    left: 24px;
+    width: 24px;
+    height: 24px;
+    background: var(--bg);
+  }
+
+  .m3-switch:active .m3-thumb {
+    width: 28px;
+    height: 28px;
+  }
+
+  .m3-switch.on:active .m3-thumb {
+    left: 20px;
+  }
+
+  .m3-switch:not(.on):active .m3-thumb {
+    left: 2px;
+  }
+
+  .check-icon {
+    width: 14px;
+    height: 14px;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.34, 1.4, 0.4, 1);
+  }
+
+  .m3-switch.on .check-icon {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  /* ===== Bottom bar ===== */
+  .bottombar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 76px;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding-bottom: env(safe-area-inset-bottom);
+    z-index: 10;
+    transition: background-color 0.3s cubic-bezier(0.2,0,0,1);
+  }
+
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    width: 64px;
+    padding: 6px 0;
+  }
+
+  .nav-item.active {
+    color: var(--text);
+  }
+
+  .nav-item .icon-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 32px;
+    border-radius: 999px;
+    background: transparent;
+    transition: background-color 0.3s cubic-bezier(0.2,0,0,1);
+  }
+
+  .nav-item.active .icon-pill {
+    background: color-mix(in srgb, var(--primary) 20%, transparent);
+  }
+
+  .nav-item .material-symbols-rounded {
+    font-size: 22px;
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+
+  .nav-item.active .material-symbols-rounded {
+    font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+
+  .tabs-icon {
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--text-dim);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+  }
+
+  .nav-item.active .tabs-icon {
+    background: var(--text);
+    border-color: var(--text);
+    color: var(--bg);
+  }
+
+  .nav-item span:last-child {
+    transition: font-weight 0.2s ease;
+  }
+
+  .nav-item.active span:last-child {
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="appbar" id="appbar">
+    <h1>Perfil</h1>
+  </div>
+
+  <div class="scroll-area" id="scrollArea">
+
+    <div class="header" id="coverHeader">
+      <div class="avatar-wrap">
+        <div class="avatar"></div>
+        <button class="edit-btn">
+          <span class="material-symbols-rounded">edit</span>
+        </button>
+      </div>
+      <div class="header-sentinel" id="headerSentinel"></div>
+    </div>
+
+    <div class="sheet">
+      <div class="sheet-handle-area">
+        <div class="sheet-handle"></div>
+      </div>
+
+      <div class="list">
+        <button class="list-item">
+          <span class="material-symbols-rounded">bookmark</span>
+          <span class="label">Favoritos</span>
+          <span class="material-symbols-rounded chevron">chevron_right</span>
+        </button>
+
+        <button class="list-item">
+          <span class="material-symbols-rounded">history</span>
+          <span class="label">Histórico</span>
+          <span class="material-symbols-rounded chevron">chevron_right</span>
+        </button>
+
+        <button class="list-item">
+          <span class="material-symbols-rounded">person</span>
+          <span class="label">A seguir</span>
+          <span class="material-symbols-rounded chevron">chevron_right</span>
+        </button>
+
+        <button class="list-item">
+          <span class="material-symbols-rounded">favorite</span>
+          <span class="label">Curtidas</span>
+          <span class="material-symbols-rounded chevron">chevron_right</span>
+        </button>
+
+        <div class="list-item" style="cursor:default">
+          <span class="material-symbols-rounded">dark_mode</span>
+          <span class="label">Modo escuro</span>
+          <button class="m3-switch" id="themeSwitch">
+            <span class="m3-thumb">
+              <svg class="check-icon" viewBox="0 0 24 24" fill="none">
+                <path d="M4 12.6L9 17.6L20 6.6" stroke="var(--primary)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+          </button>
+        </div>
+
+        <div class="divider"></div>
+
+        <button class="list-item">
+          <span class="material-symbols-rounded">settings</span>
+          <span class="label">Configurações</span>
+          <span class="material-symbols-rounded chevron">chevron_right</span>
+        </button>
+
+        <button class="list-item">
+          <span class="material-symbols-rounded">download</span>
+          <span class="label">Downloads</span>
+          <span class="material-symbols-rounded chevron">chevron_right</span>
+        </button>
+
+        <button class="list-item">
+          <span class="material-symbols-rounded">bar_chart</span>
+          <span class="label">Atividade de uso</span>
+          <span class="material-symbols-rounded chevron">chevron_right</span>
+        </button>
+
+        <button class="list-item">
+          <span class="material-symbols-rounded">share</span>
+          <span class="label">Partilhar AppAo</span>
+          <span class="material-symbols-rounded chevron">chevron_right</span>
+        </button>
+
+        <button class="list-item">
+          <span class="material-symbols-rounded">chat_bubble</span>
+          <span class="label">Ajuda e Feedback</span>
+          <span class="material-symbols-rounded chevron">chevron_right</span>
+        </button>
+
+        <button class="list-item danger">
+          <span class="material-symbols-rounded">delete</span>
+          <span class="label">Limpar dados de navegação</span>
+          <span class="material-symbols-rounded chevron">chevron_right</span>
+        </button>
+      </div>
+    </div>
+
+    <div style="height:92px"></div>
+
+  </div>
+
+  <nav class="bottombar">
+    <button class="nav-item" data-screen="inicio">
+      <span class="icon-pill"><span class="material-symbols-rounded">home</span></span>
+      <span>Início</span>
+    </button>
+    <button class="nav-item" data-screen="descobrir">
+      <span class="icon-pill"><span class="material-symbols-rounded">explore</span></span>
+      <span>Descobrir</span>
+    </button>
+    <button class="nav-item" data-screen="abas">
+      <span class="icon-pill"><span class="tabs-icon">7</span></span>
+      <span>Abas</span>
+    </button>
+    <button class="nav-item active" data-screen="perfil">
+      <span class="icon-pill"><span class="material-symbols-rounded">person</span></span>
+      <span>Perfil</span>
+    </button>
+  </nav>
+
+</div>
+
+<script>
+  const html = document.documentElement;
+  html.setAttribute('data-theme', 'dark');
+
+  const themeSwitch = document.getElementById('themeSwitch');
+  themeSwitch.classList.add('on');
+
+  themeSwitch.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOn = themeSwitch.classList.toggle('on');
+    html.setAttribute('data-theme', isOn ? 'dark' : 'light');
+  });
+
+  const navItems = document.querySelectorAll('.nav-item');
+  navItems.forEach(btn => {
+    btn.addEventListener('click', () => {
+      navItems.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  const appbar = document.getElementById('appbar');
+  const sentinel = document.getElementById('headerSentinel');
+  const scrollArea = document.getElementById('scrollArea');
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach(entry => {
+        appbar.classList.toggle('visible', !entry.isIntersecting);
+      });
+    },
+    { root: scrollArea, threshold: 0 }
+  );
+  observer.observe(sentinel);
+
+  /* ===== Padrão "doodle" estilo fundo de conversas WhatsApp ===== */
+  function buildDoodlePattern(color) {
+    const icons = [
+      // telefone
+      `<path d="M30 30 q-4 0 -4 4 q0 14 10 24 q10 10 24 10 q4 0 4 -4 l0-6 q0-2 -2-3 l-7-3 q-2-1 -3 0 l-3 3 q-7-4 -11-11 l3-3 q1-1 0-3 l-3-7 q-1-2 -3-2 z" />`,
+      // folha
+      `<path d="M120 40 q20 0 20 20 q0 20 -20 20 q-20 0 -20 -20 q0 -20 20 -20 z M120 40 L120 80" />`,
+      // câmara
+      `<rect x="40" y="100" width="36" height="26" rx="4" /><circle cx="58" cy="113" r="8" /><rect x="50" y="94" width="16" height="8" rx="2"/>`,
+      // nota musical
+      `<circle cx="150" cy="120" r="7"/><circle cx="178" cy="128" r="7"/><path d="M157 120 L157 90 L185 84 L185 128" />`,
+      // coração
+      `<path d="M30 160 q0-8 8-8 q6 0 8 6 q2-6 8-6 q8 0 8 8 q0 12 -16 22 q-16-10 -16-22 z" />`,
+      // relógio
+      `<circle cx="150" cy="60" r="16" /><path d="M150 50 L150 60 L158 64" />`,
+      // avião de papel
+      `<path d="M100 150 L180 170 L140 180 L130 198 L120 175 Z" />`,
+    ];
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="220" height="220" viewBox="0 0 220 220">
+        <g fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          ${icons.join('\n')}
+        </g>
+      </svg>`;
+    return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
+  }
+
+  function applyDoodle() {
+    const isDark = html.getAttribute('data-theme') === 'dark';
+    const color = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.09)';
+    document.documentElement.style.setProperty('--doodle-pattern', buildDoodlePattern(color));
+  }
+
+  applyDoodle();
+  themeSwitch.addEventListener('click', applyDoodle);
+</script>
+
+</body>
+</html>

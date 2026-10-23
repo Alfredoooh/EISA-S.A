@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snackbar Demo</title>
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --primary: #6200ee;
+    --primary-pressed: #4b00b8;
+    --snackbar-bg: #1a1a1a;
+    --snackbar-text: #ffffff;
+    color-scheme: light dark;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121214;
+      --surface: #1c1c1f;
+      --text: #f0f0f0;
+      --primary: #bb86fc;
+      --primary-pressed: #9a5cf5;
+      --snackbar-bg: #2a2a2e;
+      --snackbar-text: #ffffff;
+    }
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    font-family: Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: var(--text);
+  }
+
+  /* Botão estilo Android (Material) */
+  button {
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    padding: 12px 32px;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+  }
+
+  button:hover {
+    box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+  }
+
+  button:active {
+    background: var(--primary-pressed);
+    transform: scale(0.96);
+  }
+
+  /* Snackbar vindo do topo, totalmente arredondado */
+  .snackbar {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    background: var(--snackbar-bg);
+    color: var(--snackbar-text);
+    padding: 14px 26px;
+    border-radius: 999px;
+    font-size: 14px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    z-index: 1000;
+    white-space: nowrap;
+
+    /* estado inicial (escondido) */
+    opacity: 0;
+    transform: translateX(-50%) translateY(-60px) scale(0.85);
+    pointer-events: none;
+  }
+
+  /* animação de entrada: overshoot suave (efeito "mola") */
+  .snackbar.show {
+    opacity: 1;
+    pointer-events: auto;
+    animation: snackbarIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  /* animação de saída: sobe e desvanece com aceleração */
+  .snackbar.hide {
+    opacity: 0;
+    pointer-events: none;
+    animation: snackbarOut 0.35s cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+
+  @keyframes snackbarIn {
+    0% {
+      opacity: 0;
+      transform: translateX(-50%) translateY(-60px) scale(0.85);
+    }
+    60% {
+      opacity: 1;
+      transform: translateX(-50%) translateY(6px) scale(1.02);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0) scale(1);
+    }
+  }
+
+  @keyframes snackbarOut {
+    0% {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translateX(-50%) translateY(-50px) scale(0.9);
+    }
+  }
+</style>
+</head>
+<body>
+
+  <button id="actionBtn">Clique aqui</button>
+
+  <div class="snackbar" id="snackbar">Ação realizada com sucesso!</div>
+
+  <script>
+    const btn = document.getElementById('actionBtn');
+    const snackbar = document.getElementById('snackbar');
+    let hideTimeout;
+
+    btn.addEventListener('click', () => {
+      clearTimeout(hideTimeout);
+
+      // reinicia classes para permitir reclique rápido
+      snackbar.classList.remove('hide');
+      snackbar.classList.add('show');
+
+      hideTimeout = setTimeout(() => {
+        snackbar.classList.remove('show');
+        snackbar.classList.add('hide');
+      }, 3000);
+    });
+  </script>
+
+</body>
+</html>

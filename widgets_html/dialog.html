@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dialog M3 Expressive</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f2f2f5;
+    --dialog-bg: #ffffff;
+    --text: #1a1a1a;
+    --text-dim: #6b6b70;
+    --primary: #5c8fd6;
+    --danger: #d6605c;
+    --scrim: rgba(0,0,0,0.4);
+    color-scheme: light dark;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10;
+      --surface: #1c1c1f;
+      --dialog-bg: #252528;
+      --text: #f0f0f0;
+      --text-dim: #9a9a9f;
+      --primary: #7aa6e0;
+      --danger: #e08a86;
+      --scrim: rgba(0,0,0,0.6);
+    }
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  .open-btn {
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  /* ===== Scrim ===== */
+  .scrim {
+    position: fixed;
+    inset: 0;
+    background: var(--scrim);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .scrim.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* ===== Dialog M3 Expressive ===== */
+  .dialog {
+    background: var(--dialog-bg);
+    border-radius: 28px;
+    padding: 24px;
+    width: 100%;
+    max-width: 320px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.25);
+    transform: scale(0.8) translateY(12px);
+    opacity: 0;
+    transition:
+      transform 0.38s cubic-bezier(0.34, 1.4, 0.4, 1),
+      opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .scrim.open .dialog {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+
+  .dialog-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--danger) 18%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+
+  .dialog-icon svg {
+    width: 24px;
+    height: 24px;
+    stroke: var(--danger);
+  }
+
+  .dialog h2 {
+    font-size: 20px;
+    font-weight: 500;
+    margin: 0 0 8px;
+  }
+
+  .dialog p {
+    font-size: 14px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin: 0 0 24px;
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  /* botões filled, totalmente arredondados */
+  .dialog-btn {
+    border: none;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 11px 22px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: transform 0.15s cubic-bezier(0.34, 1.4, 0.4, 1), filter 0.2s ease;
+  }
+
+  .dialog-btn:active {
+    transform: scale(0.96);
+  }
+
+  .dialog-btn.cancel {
+    background: var(--primary);
+    color: #fff;
+  }
+
+  .dialog-btn.confirm {
+    background: var(--danger);
+    color: #fff;
+  }
+</style>
+</head>
+<body>
+
+  <button class="open-btn" id="openBtn">Abrir dialog</button>
+
+  <div class="scrim" id="scrim">
+    <div class="dialog">
+      <div class="dialog-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"></circle>
+          <line x1="12" y1="8" x2="12" y2="13"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+      </div>
+      <h2>Remover item?</h2>
+      <p>Esta ação não pode ser desfeita. O item será removido permanentemente.</p>
+      <div class="dialog-actions">
+        <button class="dialog-btn cancel" id="cancelBtn">Cancelar</button>
+        <button class="dialog-btn confirm" id="confirmBtn">Remover</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const openBtn = document.getElementById('openBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const confirmBtn = document.getElementById('confirmBtn');
+    const scrim = document.getElementById('scrim');
+
+    openBtn.addEventListener('click', () => scrim.classList.add('open'));
+    cancelBtn.addEventListener('click', () => scrim.classList.remove('open'));
+    confirmBtn.addEventListener('click', () => scrim.classList.remove('open'));
+    scrim.addEventListener('click', (e) => {
+      if (e.target === scrim) scrim.classList.remove('open');
+    });
+  </script>
+
+</body>
+</html>

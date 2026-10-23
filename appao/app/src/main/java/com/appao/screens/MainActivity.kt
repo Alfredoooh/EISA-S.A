@@ -189,6 +189,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Must be requested before setContentView for reliable native shared-element transitions.
+        BrowserTransitions.prepare(this)
         WindowCompat.setDecorFitsSystemWindows(window, true)
         setContentView(R.layout.activity_main)
         try { SystemBarHelper.sync(this) } catch (_: Throwable) { }
@@ -506,23 +508,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateMainTabSelection(selected: String) {
         val effective = if (selected == "apps") "discover" else selected
-        // pillId: the small View sitting behind each icon, giving the M3 Expressive "pill"
-        // highlight on the selected tab. It is intentionally subtle (low alpha), not a solid fill.
         val defs = listOf(
             arrayOf("home", R.id.homeMainNavHomeLabel, R.id.homeMainNavHomeIcon, R.id.homeMainNavHomePill),
             arrayOf("discover", R.id.homeMainNavAppsLabel, R.id.homeMainNavAppsIcon, R.id.homeMainNavAppsPill),
             arrayOf("tabs", R.id.homeMainNavTabsLabel, R.id.homeMainNavTabsIcon, R.id.homeMainNavTabsPill),
             arrayOf("profile", R.id.homeMainNavProfileLabel, R.id.homeMainNavProfileIcon, R.id.homeMainNavProfilePill)
         )
-        val dark = ThemeManager.resolvedDark(this)
         val primary = AccentColorManager.resolvedOr(this, R.color.pri)
-        val inactiveIcon = if (dark) android.graphics.Color.rgb(190, 190, 190)
-            else ContextCompat.getColor(this, R.color.dim)
-        val activeIcon = if (dark) android.graphics.Color.WHITE else primary
-        val inactiveText = ContextCompat.getColor(this, R.color.dim)
-        val activeText = if (dark) ContextCompat.getColor(this, R.color.text) else primary
-        // Low alpha so the pill reads as a soft tint of the current primary color, never a solid block.
-        val pillTint = androidx.core.graphics.ColorUtils.setAlphaComponent(primary, if (dark) 46 else 34)
+        val activeColor = ContextCompat.getColor(this, R.color.profileText)
+        val inactiveColor = ContextCompat.getColor(this, R.color.profileTextDim)
+        // The HTML uses a 20%-alpha primary pill; active labels/icons retain text color.
+        // The tabs item remains the numeric counter and never displays a pill.
+        val pillTint = androidx.core.graphics.ColorUtils.setAlphaComponent(primary, 51)
 
         defs.forEach { def ->
             val name = def[0] as String
@@ -530,7 +527,11 @@ class MainActivity : AppCompatActivity() {
             val iconId = def[2] as Int
             val pillId = def[3] as Int
             val isSelected = name == effective
-            findViewById<TextView>(labelId).setTextColor(if (isSelected) activeText else inactiveText)
+            findViewById<TextView>(labelId).apply {
+                setTextColor(if (isSelected) activeColor else inactiveColor)
+                typeface = android.graphics.Typeface.create(if (isSelected) "sans-serif-medium" else "sans-serif", android.graphics.Typeface.NORMAL)
+            }
+
             val pill = findViewById<View>(pillId)
             pill.animate().cancel()
             pill.background = android.graphics.drawable.GradientDrawable().apply {
@@ -538,20 +539,29 @@ class MainActivity : AppCompatActivity() {
                 cornerRadius = dp(999).toFloat()
                 setColor(pillTint)
             }
-            pill.animate().alpha(if (isSelected) 1f else 0f).setDuration(180L).setInterpolator(Curves.IOS).start()
+            val showPill = isSelected && name != "tabs"
             if (name == "tabs") {
-                // The tabs item is intentionally represented by a numeric live tab count, not a copy icon.
-                val countTint = if (dark) {
-                    if (isSelected) android.graphics.Color.WHITE else android.graphics.Color.rgb(190, 190, 190)
-                } else if (isSelected) primary else ContextCompat.getColor(this, R.color.text)
-                findViewById<TextView>(R.id.homeMainNavTabsCount).apply {
-                    setTextColor(countTint)
-                    background = android.graphics.drawable.GradientDrawable().apply {
-                        shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                        cornerRadius = dp(6).toFloat()
-                        setColor(android.graphics.Color.TRANSPARENT)
-                        setStroke(dp(2), countTint)
-                    }
+                pill.alpha = 0f
+                pill.scaleX = 0.78f
+                pill.scaleY = 0.78f
+            } else {
+                pill.animate()
+                    .alpha(if (showPill) 1f else 0f)
+                    .scaleX(if (showPill) 1f else 0.78f)
+                    .scaleY(if (showPill) 1f else 0.78f)
+                    .setDuration(220L)
+                    .setInterpolator(if (showPill) android.view.animation.OvershootInterpolator(1.15f) else Curves.IOS)
+                    .start()
+            }
+
+            if (name == "tabs") {
+                val count = findViewById<TextView>(R.id.homeMainNavTabsCount)
+                count.setTextColor(if (isSelected) activeColor else inactiveColor)
+                count.background = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                    cornerRadius = dp(6).toFloat()
+                    setColor(android.graphics.Color.TRANSPARENT)
+                    setStroke(dp(2), if (isSelected) activeColor else inactiveColor)
                 }
             } else {
                 val iconName = when (name) {
@@ -559,7 +569,9 @@ class MainActivity : AppCompatActivity() {
                     "discover" -> if (isSelected) "compass_filled" else "compass"
                     else -> if (isSelected) "profile_filled" else "profile"
                 }
-                IconLoader.applyIconColor(findViewById(iconId), iconName, if (isSelected) activeIcon else inactiveIcon)
+                IconLoader.applyIconColorAtSize(
+                    findViewById(iconId), iconName, if (isSelected) activeColor else inactiveColor, 22f
+                )
             }
         }
     }
@@ -646,12 +658,12 @@ class MainActivity : AppCompatActivity() {
         pullIndicator.bringToFront(); progress.bringToFront()
     }
 
-    /** Keep both system bars native and place profile content below the status bar. */
+    /** Keep system bars native; the status bar follows the visible profile app bar/cover. */
     private fun applyProfileEdgeToEdge(enabled: Boolean) {
         WindowCompat.setDecorFitsSystemWindows(window, true)
         val dark = ThemeManager.resolvedDark(this)
         window.statusBarColor = if (enabled) {
-            ContextCompat.getColor(this, R.color.profileCoverBg)
+            ContextCompat.getColor(this, if (profileAppbarVisible) R.color.profileBg else R.color.profileCoverBg)
         } else {
             android.graphics.Color.TRANSPARENT
         }
@@ -663,9 +675,18 @@ class MainActivity : AppCompatActivity() {
         findViewById<ImageView>(R.id.profileCoverImage)?.setPadding(0, 0, 0, 0)
     }
 
-    private fun statusBarHeightPx(): Int {
-        val resId = resources.getIdentifier("status_bar_height", "dimen", "android")
-        return if (resId > 0) resources.getDimensionPixelSize(resId) else dp(24)
+    private fun updateProfileStatusBar(appbarVisible: Boolean) {
+        val showingProfile = activeMainTab == "profile" || profilePanel.visibility == View.VISIBLE
+        window.statusBarColor = when {
+            !showingProfile -> android.graphics.Color.TRANSPARENT
+            appbarVisible -> ContextCompat.getColor(this, R.color.profileBg)
+            else -> ContextCompat.getColor(this, R.color.profileCoverBg)
+        }
+        val dark = ThemeManager.resolvedDark(this)
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            isAppearanceLightStatusBars = !dark
+            isAppearanceLightNavigationBars = !dark
+        }
     }
 
     private fun openMainBrowserSearch(initialQuery: String = "") {
@@ -680,20 +701,34 @@ class MainActivity : AppCompatActivity() {
                     .hideSoftInputFromWindow(homeAddressInput.windowToken, 0)
             }
         }
-        BrowserTransitions.configure(this, fadeSurface = false)
-        browserSharedElementArmed = true
+
+        val source = homeAddressBar
+        val canTransform = source.isLaidOut && source.width > 0 && source.height > 0
         val intent = Intent(this, BrowserSearchActivity::class.java)
             .putExtra(BrowserSearchActivity.EXTRA_INITIAL_QUERY, initialQuery)
             .putExtra("browser_private_mode", false)
-            .putExtra("transition_name", "browser_address_transform")
-        // Container Transform M3 Expressive: keyboard is requested only after the destination
-        // transform finishes (see BrowserSearchActivity), which is what caused the earlier
-        // instability. The transform itself never touches insets.
+            .putExtra("transition_name", if (canTransform) BrowserTransitions.ADDRESS_TRANSITION_NAME else "")
+
+        if (canTransform) {
+            runCatching {
+                BrowserTransitions.configure(this, fadeSurface = false)
+                ViewCompat.setTransitionName(source, BrowserTransitions.ADDRESS_TRANSITION_NAME)
+                browserSharedElementArmed = true
+                val options = android.app.ActivityOptions.makeSceneTransitionAnimation(
+                    this, source, BrowserTransitions.ADDRESS_TRANSITION_NAME
+                )
+                startActivityForResult(intent, REQUEST_MAIN_BROWSER_SEARCH, options.toBundle())
+            }.onSuccess { return }.onFailure {
+                BrowserTransitions.clearSharedElementTransitions(this)
+                browserSharedElementArmed = false
+                intent.putExtra("transition_name", "")
+            }
+        }
+
+        // If a shared-element transition cannot be started, still open a usable search screen.
         runCatching {
-            val options = android.app.ActivityOptions.makeSceneTransitionAnimation(
-                this, homeAddressBar, "browser_address_transform"
-            )
-            startActivityForResult(intent, REQUEST_MAIN_BROWSER_SEARCH, options.toBundle())
+            startActivityForResult(intent, REQUEST_MAIN_BROWSER_SEARCH)
+            overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
         }.onFailure {
             openingBrowserSearch = false
             BrowserTransitions.clearSharedElementTransitions(this)
@@ -1750,7 +1785,7 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { AppAoToast.show(this@MainActivity, "Estás a utilizar o AppAo como visitante.") }
         }
         findViewById<ImageView>(R.id.profileEditIcon)?.let {
-            IconLoader.applyIconColor(it, "edit", android.graphics.Color.WHITE)
+            IconLoader.applyIconColorAtSize(it, "edit", android.graphics.Color.WHITE, 17f)
         }
 
         val profileScroll = findViewById<ScrollView>(R.id.profileScroll)
@@ -1758,9 +1793,9 @@ class MainActivity : AppCompatActivity() {
             background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_profile_appbar)
         }
         profileAppbarVisible = false
-        updateProfileAppbar(profileScroll.scrollY >= dp(320), animate = false)
+        updateProfileAppbar(profileScroll.scrollY >= dp(296), animate = false)
         profileScroll.setOnScrollChangeListener { _, _, scrollY, _, _ ->
-            updateProfileAppbar(scrollY >= dp(320))
+            updateProfileAppbar(scrollY >= dp(296))
         }
 
         data class ProfileRow(
@@ -1785,8 +1820,12 @@ class MainActivity : AppCompatActivity() {
             addView(ImageView(this@MainActivity).apply {
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 contentDescription = null
-                IconLoader.applyIcon(this, row.icon, if (row.danger) R.color.profileDanger else R.color.profileText)
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                IconLoader.applyIconColorAtSize(
+                    this, row.icon,
+                    ContextCompat.getColor(this@MainActivity, if (row.danger) R.color.profileDanger else R.color.profileText),
+                    22f
+                )
+            }, LinearLayout.LayoutParams(dp(22), dp(22)))
 
             addView(TextView(this@MainActivity).apply {
                 text = row.label
@@ -1807,8 +1846,10 @@ class MainActivity : AppCompatActivity() {
                 addView(ImageView(this@MainActivity).apply {
                     scaleType = ImageView.ScaleType.FIT_CENTER
                     contentDescription = null
-                    IconLoader.applyIcon(this, "chevron_right", R.color.profileTextDim)
-                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                    IconLoader.applyIconColorAtSize(
+                        this, "chevron_right", ContextCompat.getColor(this@MainActivity, R.color.profileTextDim), 20f
+                    )
+                }, LinearLayout.LayoutParams(dp(20), dp(20)))
             }
             setOnClickListener { row.action() }
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
@@ -1891,10 +1932,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateProfileAppbar(show: Boolean, animate: Boolean = true) {
         val appbar = findViewById<View>(R.id.profileAppbar) ?: return
-        if (profileAppbarVisible == show && (show || appbar.visibility == View.GONE)) return
+        if (profileAppbarVisible == show && (show || appbar.visibility == View.GONE)) {
+            updateProfileStatusBar(show)
+            return
+        }
         profileAppbarVisible = show
         appbar.animate().cancel()
         if (show) {
+            updateProfileStatusBar(true)
             appbar.visibility = View.VISIBLE
             if (!animate) {
                 appbar.alpha = 1f
@@ -1914,15 +1959,21 @@ class MainActivity : AppCompatActivity() {
                 appbar.visibility = View.GONE
                 appbar.alpha = 0f
                 appbar.translationY = -dp(8).toFloat()
+                updateProfileStatusBar(false)
                 return
             }
+            // Keep the native status bar matching the app bar throughout the fade-out. Switch
+            // back to the cover color only after the app bar has actually disappeared.
             appbar.animate()
                 .alpha(0f)
                 .translationY(-dp(8).toFloat())
                 .setDuration(220L)
                 .setInterpolator(PathInterpolator(0.2f, 0f, 0f, 1f))
                 .withEndAction {
-                    if (!profileAppbarVisible) appbar.visibility = View.GONE
+                    if (!profileAppbarVisible) {
+                        appbar.visibility = View.GONE
+                        updateProfileStatusBar(false)
+                    }
                 }
                 .start()
         }

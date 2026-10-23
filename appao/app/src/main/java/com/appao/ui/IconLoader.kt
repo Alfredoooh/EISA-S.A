@@ -38,8 +38,7 @@ object IconLoader {
         add("arrow_upward", "arrow_up", "arrow_upward")
         add("arrow_downward", "arrow_down", "arrow_downward")
         add("keyboard_arrow_down", "arrow_down2", "chevron_down", "keyboard_arrow_down")
-        add("keyboard_arrow_right", "arrow_right_small")
-        add("chevron_right", "chevron_right")
+        add("keyboard_arrow_right", "chevron_right", "arrow_right_small")
         add("open_in_new", "arrow_top_right2", "arrow_up_right", "external_link", "open_outline", "open_in_new")
         add("add", "plus", "add", "add_outline")
         add("add_circle", "plus_circle", "add_circle")
@@ -235,6 +234,23 @@ object IconLoader {
     fun applyIcon(view: ImageView, name: String, tintRes: Int = 0) {
         val tint = ContextCompat.getColor(view.context, if (tintRes != 0) tintRes else R.color.iconTint)
         applyIconColor(view, name, tint)
+    }
+
+    /** Applies a Material Symbol at an explicit reference-matched size without the default intrinsic-size reset. */
+    fun applyIconColorAtSize(view: ImageView, name: String, tint: Int, sizeDp: Float) {
+        val icon = drawable(view.context, name, tint)
+        if (icon != null) {
+            view.setImageDrawable(icon)
+            view.clearColorFilter()
+        } else {
+            view.clearColorFilter()
+            view.setImageDrawable(FallbackIconDrawable(norm(name), tint, view.resources.displayMetrics.density))
+        }
+        val sizePx = (sizeDp * view.resources.displayMetrics.density + 0.5f).toInt().coerceAtLeast(1)
+        val params = view.layoutParams ?: ViewGroup.LayoutParams(sizePx, sizePx)
+        params.width = sizePx
+        params.height = sizePx
+        view.layoutParams = params
     }
 
     /** Applies an already-resolved ARGB tint (useful for runtime accent colors and night mode). */

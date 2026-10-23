@@ -15,8 +15,15 @@ import com.google.android.material.transition.platform.MaterialContainerTransfor
  * imitation is used for these navigation paths.
  */
 object BrowserTransitions {
-    fun configure(activity: Activity, fadeSurface: Boolean = true) {
+    const val ADDRESS_TRANSITION_NAME = "browser_address_transform"
+
+    /** Request the platform transition feature before an Activity installs its content view. */
+    fun prepare(activity: Activity) {
         runCatching { activity.window.requestFeature(Window.FEATURE_ACTIVITY_TRANSITIONS) }
+    }
+
+    fun configure(activity: Activity, fadeSurface: Boolean = true) {
+        prepare(activity)
         activity.window.allowEnterTransitionOverlap = true
         activity.window.allowReturnTransitionOverlap = true
 
@@ -59,6 +66,8 @@ object BrowserTransitions {
         surface: Int,
         entering: Boolean
     ): MaterialContainerTransform = MaterialContainerTransform(activity, entering).apply {
+        duration = 380L
+        interpolator = android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f)
         setTransitionDirection(
             if (entering) MaterialContainerTransform.TRANSITION_DIRECTION_ENTER
             else MaterialContainerTransform.TRANSITION_DIRECTION_RETURN

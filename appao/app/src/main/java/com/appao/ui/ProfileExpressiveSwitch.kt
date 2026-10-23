@@ -104,20 +104,33 @@ class ProfileExpressiveSwitch @JvmOverloads constructor(
             thumbPaint
         )
 
-        if (normalized > 0f) {
-            val checkSize = dp(14f) * (0.5f + 0.5f * normalized)
-            val checkLeft = thumbLeft + (thumbSize - checkSize) / 2f
-            val checkTop = thumbTop + (thumbSize - checkSize) / 2f
-            val scale = checkSize / 24f
-            val checkPath = Path().apply {
-                moveTo(checkLeft + 4f * scale, checkTop + 12.6f * scale)
-                lineTo(checkLeft + 9f * scale, checkTop + 17.6f * scale)
-                lineTo(checkLeft + 20f * scale, checkTop + 6.6f * scale)
-            }
-            checkPaint.color = primaryColor
-            checkPaint.alpha = (normalized * 255f).toInt().coerceIn(0, 255)
-            canvas.drawPath(checkPath, checkPaint)
+        // OFF uses a minus symbol, ON uses the HTML reference's check mark.
+        // Both cross-fade with the same spring-driven thumb position.
+        val iconCenterY = thumbTop + thumbSize / 2f
+        checkPaint.strokeWidth = dp(2f)
+        checkPaint.color = ContextCompat.getColor(context, R.color.profileBg)
+        checkPaint.alpha = ((1f - normalized) * 255f).toInt().coerceIn(0, 255)
+        val minusHalfWidth = dp(3.25f)
+        canvas.drawLine(
+            thumbLeft + thumbSize / 2f - minusHalfWidth,
+            iconCenterY,
+            thumbLeft + thumbSize / 2f + minusHalfWidth,
+            iconCenterY,
+            checkPaint
+        )
+
+        val checkSize = dp(14f) * (0.5f + 0.5f * normalized)
+        val checkLeft = thumbLeft + (thumbSize - checkSize) / 2f
+        val checkTop = thumbTop + (thumbSize - checkSize) / 2f
+        val scale = checkSize / 24f
+        val checkPath = Path().apply {
+            moveTo(checkLeft + 4f * scale, checkTop + 12.6f * scale)
+            lineTo(checkLeft + 9f * scale, checkTop + 17.6f * scale)
+            lineTo(checkLeft + 20f * scale, checkTop + 6.6f * scale)
         }
+        checkPaint.color = primaryColor
+        checkPaint.alpha = (normalized * 255f).toInt().coerceIn(0, 255)
+        canvas.drawPath(checkPath, checkPaint)
     }
 
     fun setChecked(value: Boolean, animate: Boolean = true) {

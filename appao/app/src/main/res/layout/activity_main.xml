@@ -184,7 +184,7 @@
     <FrameLayout android:id="@+id/profilePanel" android:layout_width="match_parent" android:layout_height="match_parent" android:layout_gravity="start" android:layout_marginBottom="58dp" android:background="@color/profileBg" android:visibility="gone" android:elevation="0dp" android:clipChildren="true" android:clipToPadding="false">
         <ScrollView android:id="@+id/profileScroll" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:scrollbars="none" android:overScrollMode="never" android:clipToPadding="false">
             <LinearLayout android:id="@+id/profilePanelColumn" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@color/profileBg" android:clipChildren="false" android:clipToPadding="false">
-                <FrameLayout android:id="@+id/profileHeaderWrap" android:layout_width="match_parent" android:layout_height="320dp" android:clipChildren="false" android:clipToPadding="false">
+                <FrameLayout android:id="@+id/profileHeaderWrap" android:layout_width="match_parent" android:layout_height="296dp" android:clipChildren="false" android:clipToPadding="false">
                     <ImageView android:id="@+id/profileCoverImage" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/profileCoverBg" android:scaleType="fitXY" android:contentDescription="@null" />
                     <FrameLayout android:id="@+id/profileHeader" android:layout_width="104dp" android:layout_height="104dp" android:layout_gravity="center" android:clipChildren="false" android:clipToPadding="false">
                         <FrameLayout android:id="@+id/profileAvatar" android:layout_width="104dp" android:layout_height="104dp" android:background="@drawable/bg_profile_avatar" android:elevation="4dp" android:clipToOutline="true" />
@@ -208,33 +208,33 @@
     </FrameLayout>
     <LinearLayout android:id="@+id/homeMainBottomNav" android:layout_width="match_parent" android:layout_height="58dp" android:layout_gravity="bottom" android:orientation="horizontal" android:gravity="center" android:paddingStart="5dp" android:paddingEnd="5dp" android:paddingTop="2dp" android:paddingBottom="2dp" android:background="@color/bg" android:elevation="0dp" android:clipChildren="false" android:clipToPadding="false">
         <LinearLayout android:id="@+id/homeMainNavHome" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:background="@drawable/bg_transparent_pressed" android:clickable="true" android:focusable="true" android:contentDescription="Início">
-            <FrameLayout android:layout_width="40dp" android:layout_height="28dp">
-                <View android:id="@+id/homeMainNavHomePill" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/bg_nav_pill" android:alpha="0" />
-                <ImageView android:id="@+id/homeMainNavHomeIcon" android:layout_width="24dp" android:layout_height="24dp" android:layout_gravity="center" android:scaleType="fitCenter" />
+            <FrameLayout android:layout_width="52dp" android:layout_height="32dp">
+                <View android:id="@+id/homeMainNavHomePill" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/bg_nav_pill" android:alpha="0" android:scaleX="0.78" android:scaleY="0.78" />
+                <ImageView android:id="@+id/homeMainNavHomeIcon" android:layout_width="22dp" android:layout_height="22dp" android:layout_gravity="center" android:scaleType="fitCenter" />
             </FrameLayout>
-            <TextView android:id="@+id/homeMainNavHomeLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Início" android:textSize="12sp" android:textColor="@color/text" />
+            <TextView android:id="@+id/homeMainNavHomeLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Início" android:textSize="12sp" android:textColor="@color/text" />
         </LinearLayout>
         <LinearLayout android:id="@+id/homeMainNavApps" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:background="@drawable/bg_transparent_pressed" android:clickable="true" android:focusable="true" android:contentDescription="Descobrir">
-            <FrameLayout android:layout_width="40dp" android:layout_height="28dp">
-                <View android:id="@+id/homeMainNavAppsPill" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/bg_nav_pill" android:alpha="0" />
-                <ImageView android:id="@+id/homeMainNavAppsIcon" android:layout_width="24dp" android:layout_height="24dp" android:layout_gravity="center" android:scaleType="fitCenter" />
+            <FrameLayout android:layout_width="52dp" android:layout_height="32dp">
+                <View android:id="@+id/homeMainNavAppsPill" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/bg_nav_pill" android:alpha="0" android:scaleX="0.78" android:scaleY="0.78" />
+                <ImageView android:id="@+id/homeMainNavAppsIcon" android:layout_width="22dp" android:layout_height="22dp" android:layout_gravity="center" android:scaleType="fitCenter" />
             </FrameLayout>
-            <TextView android:id="@+id/homeMainNavAppsLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Descobrir" android:textSize="12sp" android:textColor="@color/dim" />
+            <TextView android:id="@+id/homeMainNavAppsLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Descobrir" android:textSize="12sp" android:textColor="@color/dim" />
         </LinearLayout>
         <LinearLayout android:id="@+id/homeMainNavTabs" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:background="@drawable/bg_transparent_pressed" android:clickable="true" android:focusable="true" android:contentDescription="Abas">
-            <FrameLayout android:layout_width="40dp" android:layout_height="28dp">
-                <View android:id="@+id/homeMainNavTabsPill" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/bg_nav_pill" android:alpha="0" />
-                <ImageView android:id="@+id/homeMainNavTabsIcon" android:layout_width="24dp" android:layout_height="24dp" android:layout_gravity="center" android:scaleType="fitCenter" android:visibility="gone" />
+            <FrameLayout android:layout_width="52dp" android:layout_height="32dp">
+                <View android:id="@+id/homeMainNavTabsPill" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/bg_nav_pill" android:alpha="0" android:scaleX="0.78" android:scaleY="0.78" />
+                <ImageView android:id="@+id/homeMainNavTabsIcon" android:layout_width="22dp" android:layout_height="22dp" android:layout_gravity="center" android:scaleType="fitCenter" android:visibility="gone" />
                 <TextView android:id="@+id/homeMainNavTabsCount" android:layout_width="24dp" android:layout_height="24dp" android:layout_gravity="center" android:gravity="center" android:background="@drawable/bg_browser_tab_counter" android:text="1" android:textColor="@color/text" android:textSize="12sp" android:textStyle="normal" />
             </FrameLayout>
-            <TextView android:id="@+id/homeMainNavTabsLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Abas" android:textSize="12sp" android:textColor="@color/dim" />
+            <TextView android:id="@+id/homeMainNavTabsLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Abas" android:textSize="12sp" android:textColor="@color/dim" />
         </LinearLayout>
         <LinearLayout android:id="@+id/homeMainNavProfile" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:background="@drawable/bg_transparent_pressed" android:clickable="true" android:focusable="true" android:contentDescription="Perfil e menu">
-            <FrameLayout android:layout_width="40dp" android:layout_height="28dp">
-                <View android:id="@+id/homeMainNavProfilePill" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/bg_nav_pill" android:alpha="0" />
-                <ImageView android:id="@+id/homeMainNavProfileIcon" android:layout_width="24dp" android:layout_height="24dp" android:layout_gravity="center" android:scaleType="fitCenter" />
+            <FrameLayout android:layout_width="52dp" android:layout_height="32dp">
+                <View android:id="@+id/homeMainNavProfilePill" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/bg_nav_pill" android:alpha="0" android:scaleX="0.78" android:scaleY="0.78" />
+                <ImageView android:id="@+id/homeMainNavProfileIcon" android:layout_width="22dp" android:layout_height="22dp" android:layout_gravity="center" android:scaleType="fitCenter" />
             </FrameLayout>
-            <TextView android:id="@+id/homeMainNavProfileLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Perfil" android:textSize="12sp" android:textColor="@color/dim" />
+            <TextView android:id="@+id/homeMainNavProfileLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Perfil" android:textSize="12sp" android:textColor="@color/dim" />
         </LinearLayout>
     </LinearLayout>
     <com.appao.PullRefreshIndicatorView android:id="@+id/pullIndicator" android:layout_width="28dp" android:layout_height="28dp" android:layout_gravity="top|center_horizontal" android:alpha="0" android:elevation="30dp" />

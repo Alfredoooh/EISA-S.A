@@ -803,25 +803,33 @@ class AppViewerActivity : AppCompatActivity() {
     private fun openBrowserSearch(initialQuery: String = web.url.orEmpty()) {
         if (isFinishing || isDestroyed || openingBrowserSearch) return
         openingBrowserSearch = true
+        val pill = findViewById<View>(R.id.browserAddressPill)
+        val canTransform = pill.isAttachedToWindow && pill.isLaidOut && pill.width > 0 && pill.height > 0
         val launch = Intent(this, BrowserSearchActivity::class.java).apply {
             putExtra(BrowserSearchActivity.EXTRA_INITIAL_QUERY, initialQuery)
             putExtra("browser_private_mode", privateMode)
-            putExtra("transition_name", "browser_address_transform")
+            putExtra("transition_name", if (canTransform) BrowserTransitions.ADDRESS_TRANSITION_NAME else "")
         }
-        val pill = findViewById<View>(R.id.browserAddressPill)
-        runCatching {
-            val options = ActivityOptions.makeSceneTransitionAnimation(
-                this, pill, "browser_address_transform"
-            )
-            startActivityForResult(launch, REQUEST_BROWSER_SEARCH, options.toBundle())
-        }.onFailure {
+
+        if (canTransform) {
             runCatching {
-                startActivityForResult(launch, REQUEST_BROWSER_SEARCH)
-                overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
-            }.onFailure {
-                openingBrowserSearch = false
-                AppAoToast.show(this, "Não foi possível abrir a pesquisa. Tenta novamente.")
+                ViewCompat.setTransitionName(pill, BrowserTransitions.ADDRESS_TRANSITION_NAME)
+                val options = ActivityOptions.makeSceneTransitionAnimation(
+                    this, pill, BrowserTransitions.ADDRESS_TRANSITION_NAME
+                )
+                startActivityForResult(launch, REQUEST_BROWSER_SEARCH, options.toBundle())
+            }.onSuccess { return }.onFailure {
+                launch.putExtra("transition_name", "")
             }
+        }
+
+        // Do not let a missing/invalid shared element make the browser input bar unresponsive.
+        runCatching {
+            startActivityForResult(launch, REQUEST_BROWSER_SEARCH)
+            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
+        }.onFailure {
+            openingBrowserSearch = false
+            AppAoToast.show(this, "Não foi possível abrir a pesquisa. Tenta novamente.")
         }
     }
 

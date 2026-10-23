@@ -142,7 +142,7 @@ class BrowserSearchActivity : AppCompatActivity() {
         // This is the same 42dp toolbar pill used by activity_app_viewer.xml.
         val pill = LinearLayout(this).apply {
             id = R.id.homeAddressBar
-            transitionName = "browser_address_transform"
+            transitionName = BrowserTransitions.ADDRESS_TRANSITION_NAME
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(10), 0, dp(5), 0)

@@ -32,15 +32,12 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # A validação inicial é adiada para permitir regenerar
-      # o Wrapper que atualmente não é reconhecido.
-      - name: Setup Gradle 8.14.6
+      - name: Setup Gradle 9.6.0
         uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: "8.14.6"
+          gradle-version: "9.6.0"
           cache-provider: basic
           gradle-home-cache-cleanup: true
-          validate-wrappers: false
 
       - name: Locate Orbit project and configure Android SDK
         shell: bash
@@ -90,7 +87,7 @@ jobs:
           echo "Android module: $APP_MODULE_DIR"
           echo "Android SDK: $SDK_ROOT"
 
-      - name: Install Android SDK API 36
+      - name: Install Android SDK API 36 and 37
         shell: bash
         run: |
           set -euo pipefail
@@ -118,89 +115,12 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
 
           "$SDKMANAGER" --install \
+            "platforms;android-37" \
             "platforms;android-36" \
             "build-tools;36.0.0" \
             "platform-tools"
 
-          echo "Android SDK API 36 is ready."
-
-      # Corrige a configuração Kotlin ANTES de executar
-      # qualquer tarefa Gradle que configure o projeto.
-      - name: Migrate Kotlin JVM target to compilerOptions
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
-
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          import sys
-
-          path = Path("app/build.gradle.kts")
-
-          if not path.is_file():
-              sys.exit("ERROR: app/build.gradle.kts was not found.")
-
-          text = path.read_text(encoding="utf-8")
-
-          legacy_pattern = re.compile(
-              r"(?m)^[ \t]*kotlinOptions[ \t]*\{\r?\n"
-              r"[ \t]*jvmTarget[ \t]*=[ \t]*[\"']17[\"'][ \t]*\r?\n"
-              r"[ \t]*\}[ \t]*\r?\n?"
-          )
-
-          if "kotlinOptions" in text:
-              if not legacy_pattern.search(text):
-                  sys.exit(
-                      "ERROR: A legacy kotlinOptions block was found, "
-                      "but its structure differs from the expected JVM 17 configuration. "
-                      "The build script was not modified."
-                  )
-
-              text = legacy_pattern.sub("", text, count=1)
-
-          target_line = "jvmTarget.set(JvmTarget.JVM_17)"
-
-          if target_line not in text:
-              marker = re.search(r"(?m)^dependencies[ \t]*\{", text)
-
-              if not marker:
-                  sys.exit("ERROR: Could not find the dependencies block.")
-
-              if "kotlinOptions" in text:
-                  sys.exit("ERROR: An unsupported kotlinOptions configuration remains.")
-
-              compiler_block = (
-                  "kotlin {\n"
-                  "    compilerOptions {\n"
-                  "        jvmTarget.set(JvmTarget.JVM_17)\n"
-                  "    }\n"
-                  "}\n\n"
-              )
-
-              text = text[:marker.start()] + compiler_block + text[marker.start():]
-
-          import_line = "import org.jetbrains.kotlin.gradle.dsl.JvmTarget"
-
-          if import_line not in text:
-              text = import_line + "\n\n" + text.lstrip("\n")
-
-          if "kotlinOptions" in text:
-              sys.exit("ERROR: Legacy kotlinOptions remains in app/build.gradle.kts.")
-
-          if target_line not in text:
-              sys.exit("ERROR: Modern JVM target configuration was not applied.")
-
-          path.write_text(text, encoding="utf-8")
-
-          print("Kotlin compiler configuration: PASS")
-          print("JVM target: JVM_17")
-          print("Legacy kotlinOptions: removed")
-          PY
-
-          echo "Updated Gradle Kotlin DSL:"
-          sed -n '1,100p' app/build.gradle.kts
+          echo "Android SDK API 36 and 37 are ready."
 
       - name: Verify Orbit project structure and resources
         shell: bash
@@ -269,73 +189,7 @@ jobs:
           print("Launcher mipmap resources: PASS")
           PY
 
-      # Agora que o build.gradle.kts está corrigido,
-      # é possível regenerar o Wrapper sem o erro anterior.
-      - name: Regenerate official Gradle Wrapper
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
-
-          echo "Installed Gradle:"
-          gradle --version
-
-          gradle wrapper \
-            --gradle-version 8.14.6 \
-            --distribution-type bin \
-            --no-daemon \
-            --rerun-tasks
-
-          if [ ! -s "gradle/wrapper/gradle-wrapper.jar" ]; then
-            echo "ERROR: Gradle Wrapper JAR was not generated."
-            exit 1
-          fi
-
-          if [ ! -s "gradle/wrapper/gradle-wrapper.properties" ]; then
-            echo "ERROR: Gradle Wrapper properties are missing."
-            exit 1
-          fi
-
-          python3 - <<'PY'
-          from pathlib import Path
-          import sys
-
-          props = Path("gradle/wrapper/gradle-wrapper.properties")
-          checksum = (
-              "7988ed071b2a07900e2ec715fca15c6ab72bce6db433af301"
-              "fa7fa7e9407bd24"
-          )
-
-          content = props.read_text(encoding="utf-8")
-          lines = [
-              line for line in content.splitlines()
-              if not line.startswith("distributionSha256Sum=")
-          ]
-
-          url_line = next(
-              (line for line in lines if line.startswith("distributionUrl=")),
-              None
-          )
-
-          if url_line is None or "gradle-8.14.6-bin.zip" not in url_line:
-              sys.exit("ERROR: Wrapper does not target Gradle 8.14.6.")
-
-          lines.append(f"distributionSha256Sum={checksum}")
-          props.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-          print("Gradle distribution SHA-256 configured.")
-          PY
-
-          chmod +x ./gradlew
-
-          grep -Fq "gradle-8.14.6-bin.zip" \
-            "gradle/wrapper/gradle-wrapper.properties"
-
-          echo "Generated Wrapper JAR SHA-256:"
-          sha256sum "gradle/wrapper/gradle-wrapper.jar"
-
-      # Só depois da regeneração é feita a validação de segurança.
-      - name: Validate regenerated Gradle Wrapper
+      - name: Validate Gradle Wrapper
         uses: gradle/actions/wrapper-validation@v6
 
       - name: Verify Gradle Wrapper
@@ -439,7 +293,6 @@ jobs:
             KEY_PASSWORD="$STORE_PASSWORD"
             KEYSTORE_TYPE="PKCS12"
 
-            # Mask passwords before exporting them to later steps.
             echo "::add-mask::$STORE_PASSWORD"
             echo "::add-mask::$KEY_PASSWORD"
 

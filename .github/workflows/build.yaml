@@ -122,6 +122,47 @@ jobs:
 
           echo "Android SDK API 36 and 37 are ready."
 
+      - name: Regenerate Gradle Wrapper JAR to match declared version
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+
+          WRAPPER_PROPS="gradle/wrapper/gradle-wrapper.properties"
+
+          if [ ! -f "$WRAPPER_PROPS" ]; then
+            echo "ERROR: $WRAPPER_PROPS was not found."
+            exit 1
+          fi
+
+          DECLARED_VERSION="$(
+            grep -oP '(?<=gradle-)[0-9]+\.[0-9]+(\.[0-9]+)?(?=-bin\.zip)' \
+              "$WRAPPER_PROPS"
+          )"
+
+          if [ -z "$DECLARED_VERSION" ]; then
+            echo "ERROR: Could not parse Gradle version from $WRAPPER_PROPS."
+            exit 1
+          fi
+
+          echo "Wrapper properties declare Gradle $DECLARED_VERSION."
+          echo "Regenerating official wrapper JAR for this version..."
+
+          gradle wrapper \
+            --gradle-version "$DECLARED_VERSION" \
+            --distribution-type bin \
+            --no-daemon
+
+          if [ ! -s "gradle/wrapper/gradle-wrapper.jar" ]; then
+            echo "ERROR: Gradle Wrapper JAR was not generated."
+            exit 1
+          fi
+
+          chmod +x ./gradlew
+
+          echo "Regenerated Wrapper JAR SHA-256:"
+          sha256sum "gradle/wrapper/gradle-wrapper.jar"
+
       - name: Verify Orbit project structure and resources
         shell: bash
         run: |

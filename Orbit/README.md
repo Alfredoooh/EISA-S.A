@@ -22,3 +22,8 @@ Open the `Orbit` folder in Android Studio or run:
 The first build downloads the pinned Gradle distribution and Android/Compose dependencies. A compatible Android SDK (API 36) and JDK 17 or newer are required. The debug APK is generated at `app/build/outputs/apk/debug/app-debug.apk`.
 
 The project pins Gradle 8.14.6 with its published SHA-256 checksum, Android Gradle Plugin 8.13.2, Kotlin 2.4.21, Compose BOM 2026.09.00 and Material 3 1.5.0-beta02, the current Material 3 Expressive line as of October 2026.
+
+
+## Launcher icon resources
+
+The project includes standard density-specific launcher PNGs (`mipmap-mdpi` through `mipmap-xxxhdpi`) and adaptive launcher resources in `mipmap-anydpi-v26`. The adaptive icon includes a blue background, Orbit symbol foreground, and monochrome layer for supported themed icons. The application manifest references `@mipmap/ic_launcher` and `@mipmap/ic_launcher_round`.

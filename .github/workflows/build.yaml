@@ -32,12 +32,15 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # A validação inicial fica desativada temporariamente.
+      # O Wrapper será regenerado e validado explicitamente antes do build.
       - name: Setup Gradle 8.14.6
         uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: "8.14.6"
           cache-provider: basic
           gradle-home-cache-cleanup: true
+          validate-wrappers: false
 
       - name: Locate Orbit project and configure Android SDK
         shell: bash
@@ -52,6 +55,7 @@ jobs:
             "$GITHUB_WORKSPACE"; do
 
             if [ -f "$candidate/settings.gradle.kts" ] \
+              && [ -f "$candidate/build.gradle.kts" ] \
               && [ -f "$candidate/app/build.gradle.kts" ] \
               && [ -f "$candidate/app/src/main/AndroidManifest.xml" ]; then
               PROJECT_DIR="$candidate"
@@ -61,16 +65,15 @@ jobs:
 
           if [ -z "$PROJECT_DIR" ]; then
             echo "ERROR: Orbit Android project was not found."
-            echo "Expected settings.gradle.kts and app/build.gradle.kts inside orbit/ or Orbit/."
+            echo "Expected orbit/ or Orbit/ with settings.gradle.kts and app/build.gradle.kts."
             exit 1
           fi
 
           APP_MODULE_DIR="$PROJECT_DIR/app"
-
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
 
           if [ -z "$SDK_ROOT" ] || [ ! -d "$SDK_ROOT" ]; then
-            echo "ERROR: Android SDK was not found on this runner."
+            echo "ERROR: Android SDK was not found."
             exit 1
           fi
 
@@ -93,7 +96,6 @@ jobs:
           set -euo pipefail
 
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
-
           SDKMANAGER="$(command -v sdkmanager || true)"
 
           if [ -z "$SDKMANAGER" ]; then
@@ -120,52 +122,101 @@ jobs:
             "build-tools;36.0.0" \
             "platform-tools"
 
-          echo "Android SDK API 36 and Build Tools are ready."
+          echo "Android SDK setup completed."
 
-      - name: Verify Orbit project structure and resources
+      # Não executa ./gradlew neste ponto:
+      # o JAR existente ainda não foi validado.
+      - name: Regenerate official Gradle Wrapper
         shell: bash
         run: |
           set -euo pipefail
-
           cd "$PROJECT_DIR"
 
+          echo "Using the Gradle distribution installed by setup-gradle:"
+          gradle --version
+
+          echo "Regenerating Wrapper files with Gradle 8.14.6..."
+
+          gradle wrapper \
+            --gradle-version 8.14.6 \
+            --distribution-type bin \
+            --no-daemon \
+            --rerun-tasks
+
           if [ ! -s "gradle/wrapper/gradle-wrapper.jar" ]; then
-            echo "ERROR: Gradle Wrapper JAR is missing."
+            echo "ERROR: Gradle did not regenerate gradle-wrapper.jar."
             exit 1
           fi
 
-          if [ ! -f "gradle/wrapper/gradle-wrapper.properties" ]; then
+          if [ ! -s "gradle/wrapper/gradle-wrapper.properties" ]; then
             echo "ERROR: Gradle Wrapper properties are missing."
             exit 1
           fi
 
+          # Preserva o checksum oficial da distribuição Gradle 8.14.6
+          # utilizado pelo projeto.
+          python3 - <<'PY'
+          from pathlib import Path
+
+          props = Path("gradle/wrapper/gradle-wrapper.properties")
+          checksum = (
+              "7988ed071b2a07900e2ec715fca15c6ab72bce6db433af301"
+              "fa7fa7e9407bd24"
+          )
+
+          lines = props.read_text(encoding="utf-8").splitlines()
+
+          lines = [
+              line for line in lines
+              if not line.startswith("distributionSha256Sum=")
+          ]
+
+          lines.append(f"distributionSha256Sum={checksum}")
+          props.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+          print("Gradle distribution checksum configured.")
+          PY
+
+          chmod +x ./gradlew
+
           if ! grep -Fq "gradle-8.14.6-bin.zip" \
             "gradle/wrapper/gradle-wrapper.properties"; then
-            echo "ERROR: The project Wrapper is not configured for Gradle 8.14.6."
+            echo "ERROR: The generated Wrapper does not target Gradle 8.14.6."
             cat "gradle/wrapper/gradle-wrapper.properties"
             exit 1
           fi
 
-          if ! grep -Fq 'applicationId = "com.orbit.app"' \
-            "app/build.gradle.kts"; then
-            echo "ERROR: The applicationId does not match com.orbit.app."
-            exit 1
-          fi
+          echo "Wrapper regeneration completed."
+          sha256sum "gradle/wrapper/gradle-wrapper.jar"
 
-          if ! grep -Fq 'android:icon="@mipmap/ic_launcher"' \
-            "app/src/main/AndroidManifest.xml"; then
-            echo "ERROR: The launcher icon reference is missing from the manifest."
-            exit 1
-          fi
+      # A validação é executada depois de substituir o JAR desconhecido.
+      # Se o novo JAR continuar a ser considerado desconhecido, o build para.
+      - name: Validate regenerated Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@v6
 
-          if [ ! -s "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml" ]; then
-            echo "ERROR: The adaptive launcher icon is missing."
-            exit 1
-          fi
+      - name: Verify Orbit structure and launcher resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
 
-          chmod +x ./gradlew
+          test -s "gradle/wrapper/gradle-wrapper.jar"
+          test -s "gradle/wrapper/gradle-wrapper.properties"
+          test -x "./gradlew"
 
-          python3 - <<'PYVERIFY'
+          grep -Fq "gradle-8.14.6-bin.zip" \
+            "gradle/wrapper/gradle-wrapper.properties"
+
+          grep -Fq 'applicationId = "com.orbit.app"' \
+            "app/build.gradle.kts"
+
+          grep -Fq 'android:icon="@mipmap/ic_launcher"' \
+            "app/src/main/AndroidManifest.xml"
+
+          test -s "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml"
+          test -s "app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml"
+
+          python3 - <<'PY'
           from pathlib import Path
           import sys
           import xml.etree.ElementTree as ET
@@ -173,13 +224,13 @@ jobs:
           root = Path("app/src/main")
           errors = []
 
-          for xml_file in root.rglob("*.xml"):
+          for path in root.rglob("*.xml"):
               try:
-                  ET.parse(xml_file)
+                  ET.parse(path)
               except ET.ParseError as exc:
-                  errors.append(f"{xml_file}: {exc}")
+                  errors.append(f"{path}: {exc}")
 
-          required_icons = [
+          required = [
               "res/mipmap-mdpi/ic_launcher.png",
               "res/mipmap-hdpi/ic_launcher.png",
               "res/mipmap-xhdpi/ic_launcher.png",
@@ -189,36 +240,28 @@ jobs:
               "res/mipmap-anydpi-v26/ic_launcher_round.xml",
           ]
 
-          for relative_path in required_icons:
-              if not (root / relative_path).is_file():
-                  errors.append(f"Missing launcher resource: {relative_path}")
+          for relative in required:
+              if not (root / relative).is_file():
+                  errors.append(f"Missing launcher resource: {relative}")
 
           if errors:
-              print("ERROR: Orbit project verification failed:")
               for error in errors:
-                  print(f" - {error}")
+                  print(f"ERROR: {error}")
               sys.exit(1)
 
-          kotlin_files = list(root.rglob("*.kt"))
-          xml_files = list(root.rglob("*.xml"))
-
-          print("Orbit source verification: PASS")
-          print(f"Kotlin files: {len(kotlin_files)}")
-          print(f"XML files: {len(xml_files)}")
+          print("Orbit XML verification: PASS")
           print("Launcher mipmap resources: PASS")
-          PYVERIFY
+          print(f"Kotlin files: {len(list(root.rglob('*.kt')))}")
+          print(f"XML files: {len(list(root.rglob('*.xml')))}")
+          PY
 
-          echo "Orbit project structure: PASS"
+          echo "Orbit structure verification: PASS"
 
-      - name: Verify Gradle Wrapper
+      - name: Verify Gradle Wrapper execution
         shell: bash
         run: |
           set -euo pipefail
-
           cd "$PROJECT_DIR"
-
-          echo "Project Gradle Wrapper configuration:"
-          cat "gradle/wrapper/gradle-wrapper.properties"
 
           ./gradlew --version
 
@@ -226,25 +269,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           cd "$PROJECT_DIR"
 
           ./gradlew clean assembleDebug \
             --stacktrace \
             --no-daemon
 
-          APK_DIR="$APP_MODULE_DIR/build/outputs/apk/debug"
-          APK="$APK_DIR/app-debug.apk"
+          APK="$APP_MODULE_DIR/build/outputs/apk/debug/app-debug.apk"
 
           if [ ! -s "$APK" ]; then
             echo "ERROR: Orbit Debug APK was not generated."
-            echo "Expected location: $APK"
-            find "$APP_MODULE_DIR/build/outputs" -maxdepth 5 -type f -name "*.apk" -print || true
+            find "$APP_MODULE_DIR/build/outputs" \
+              -maxdepth 5 -type f -name "*.apk" -print || true
             exit 1
           fi
 
-          echo "Orbit Debug APK successfully generated:"
-          echo "$APK"
+          echo "Orbit Debug APK generated: $APK"
 
       - name: Create or load local signing keystore
         id: setup-signing
@@ -269,11 +309,9 @@ jobs:
 
           if [ -n "${ORBIT_KEYSTORE_BASE64:-}" ]; then
             if [ -z "${ORBIT_KEYSTORE_PASSWORD:-}" ]; then
-              echo "ERROR: The keystore was supplied, but its password is missing."
+              echo "ERROR: Keystore password is missing."
               exit 1
             fi
-
-            echo "Loading the existing signing keystore..."
 
             printf '%s' "$ORBIT_KEYSTORE_BASE64" \
               | base64 --decode > "$KEYSTORE_PATH"
@@ -290,7 +328,7 @@ jobs:
               -keystore "$KEYSTORE_PATH" \
               -storepass "$STORE_PASSWORD" \
               -alias "$KEY_ALIAS" >/dev/null 2>&1; then
-              echo "ERROR: The keystore or alias could not be verified."
+              echo "ERROR: Could not verify the keystore or alias."
               exit 1
             fi
 
@@ -307,8 +345,7 @@ jobs:
             echo "Existing signing keystore loaded."
 
           else
-            echo "No existing signing keystore was provided."
-            echo "Generating a local/testing signing keystore..."
+            echo "No existing signing key found; creating a local testing key."
 
             STORE_PASSWORD="$(openssl rand -hex 24)"
             KEY_PASSWORD="$STORE_PASSWORD"
@@ -327,23 +364,16 @@ jobs:
               -validity 10000 \
               -dname "CN=Orbit Local, OU=Development, O=Orbit, L=Luanda, ST=Luanda, C=AO"
 
-            cat > "$INFO_PATH" <<EOF
-          Orbit local/testing signing key
-          Keystore file: orbit-local.keystore
-          Keystore type: $KEYSTORE_TYPE
-          Key alias: $KEY_ALIAS
-          Keystore password: $STORE_PASSWORD
-          Key password: $KEY_PASSWORD
-
-          Keep this file and its passwords private.
-          Reuse the same keystore for future updates that must preserve signing identity.
-
-          GitHub Secrets:
-          ORBIT_KEYSTORE_BASE64
-          ORBIT_KEYSTORE_PASSWORD
-          ORBIT_KEY_ALIAS
-          ORBIT_KEY_PASSWORD
-          EOF
+            printf '%s\n' \
+              "Orbit local/testing signing key" \
+              "Keystore file: orbit-local.keystore" \
+              "Keystore type: $KEYSTORE_TYPE" \
+              "Key alias: $KEY_ALIAS" \
+              "Keystore password: $STORE_PASSWORD" \
+              "Key password: $KEY_PASSWORD" \
+              "Keep this file and its passwords private." \
+              "Configure ORBIT_KEYSTORE_BASE64, ORBIT_KEYSTORE_PASSWORD, ORBIT_KEY_ALIAS and ORBIT_KEY_PASSWORD to reuse this key." \
+              > "$INFO_PATH"
 
             chmod 600 "$INFO_PATH"
 
@@ -378,7 +408,7 @@ jobs:
           APK="$APK_DIR/app-debug.apk"
 
           if [ ! -s "$APK" ]; then
-            echo "ERROR: The unsigned-input Debug APK was not found."
+            echo "ERROR: Input APK was not found."
             exit 1
           fi
 
@@ -386,15 +416,12 @@ jobs:
 
           APKSIGNER="$(
             find "$SDK_ROOT/build-tools" \
-              -type f \
-              -name apksigner \
-              -print \
-              | sort -V \
-              | tail -n 1
+              -type f -name apksigner -print \
+              | sort -V | tail -n 1
           )"
 
           if [ -z "$APKSIGNER" ] || [ ! -x "$APKSIGNER" ]; then
-            echo "ERROR: apksigner was not found in the Android SDK."
+            echo "ERROR: apksigner was not found."
             exit 1
           fi
 
@@ -411,8 +438,7 @@ jobs:
 
           "$APKSIGNER" verify --verbose --print-certs "$SIGNED_APK"
 
-          echo "Signed Orbit APK:"
-          echo "$SIGNED_APK"
+          echo "Signed APK: $SIGNED_APK"
 
       - name: Verify APK
         shell: bash
@@ -422,7 +448,7 @@ jobs:
           APK="$APP_MODULE_DIR/build/outputs/apk/debug/orbit-local-signed.apk"
 
           if [ ! -s "$APK" ]; then
-            echo "ERROR: The signed Orbit APK was not generated."
+            echo "ERROR: Signed APK was not generated."
             exit 1
           fi
 
@@ -430,7 +456,7 @@ jobs:
           MIB="$(awk -v bytes="$BYTES" 'BEGIN { printf "%.2f", bytes / 1024 / 1024 }')"
 
           echo "APK: $APK"
-          echo "Size: $BYTES bytes"
+          echo "Bytes: $BYTES"
           echo "Size: $MIB MiB"
 
       - name: Upload Orbit Debug APK
@@ -445,7 +471,7 @@ jobs:
         if: steps.setup-signing.outputs.generated == 'true' && github.event.repository.private != true
         shell: bash
         run: |
-          echo "::warning::This repository is public, so the generated signing keystore will not be uploaded. Configure ORBIT_KEYSTORE_BASE64, ORBIT_KEYSTORE_PASSWORD, ORBIT_KEY_ALIAS and ORBIT_KEY_PASSWORD in GitHub Secrets to reuse the same key across builds."
+          echo "::warning::A new local signing key was generated and will not be uploaded because this repository is public. Configure ORBIT_KEYSTORE_BASE64, ORBIT_KEYSTORE_PASSWORD, ORBIT_KEY_ALIAS and ORBIT_KEY_PASSWORD in GitHub Secrets to reuse the same signing identity."
 
       - name: Upload generated signing keystore (private repositories only)
         if: steps.setup-signing.outputs.generated == 'true' && github.event.repository.private == true

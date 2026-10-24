@@ -61,9 +61,10 @@ import com.appao.screens.BrowserWebViewPool
 import com.appao.screens.HistorySettingsActivity
 import com.appao.ui.BrowserTransitions
 import com.appao.ui.IconLoader
-import com.appao.ui.ProfileDoodleDrawable
-import com.appao.ui.ProfileExpressiveSwitch
+import com.appao.ui.M3SwitchStyle
 import com.appao.ui.NativePopupMenu
+import com.appao.ui.ProfileDoodleDrawable
+import com.google.android.material.materialswitch.MaterialSwitch
 
 class MainActivity : AppCompatActivity() {
 
@@ -517,8 +518,6 @@ class MainActivity : AppCompatActivity() {
         val primary = AccentColorManager.resolvedOr(this, R.color.pri)
         val activeColor = ContextCompat.getColor(this, R.color.profileText)
         val inactiveColor = ContextCompat.getColor(this, R.color.profileTextDim)
-        // The HTML uses a 20%-alpha primary pill; active labels/icons retain text color.
-        // The tabs item remains the numeric counter and never displays a pill.
         val pillTint = androidx.core.graphics.ColorUtils.setAlphaComponent(primary, 51)
 
         defs.forEach { def ->
@@ -1837,11 +1836,12 @@ class MainActivity : AppCompatActivity() {
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
 
             if (row.isSwitch) {
-                addView(ProfileExpressiveSwitch(this@MainActivity).apply {
+                addView(MaterialSwitch(this@MainActivity).apply {
                     contentDescription = row.label
-                    setChecked(row.switchChecked, animate = false)
-                    onCheckedChange = { row.action() }
-                }, LinearLayout.LayoutParams(dp(52), dp(32)))
+                    isChecked = row.switchChecked
+                    M3SwitchStyle.apply(this@MainActivity, this)
+                    setOnCheckedChangeListener { _, _ -> row.action() }
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             } else {
                 addView(ImageView(this@MainActivity).apply {
                     scaleType = ImageView.ScaleType.FIT_CENTER

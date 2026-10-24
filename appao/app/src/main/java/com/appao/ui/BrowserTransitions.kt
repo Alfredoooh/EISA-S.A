@@ -13,17 +13,33 @@ import com.google.android.material.transition.platform.MaterialContainerTransfor
  * Activity shared-element transitions for the browser and tab overview.
  * Uses Material's real Container Transform in both directions; no ChangeBounds/ChangeTransform
  * imitation is used for these navigation paths.
+ *
+ * IMPORTANT: prepare() MUST be called once per Activity, in its onCreate, strictly before
+ * setContentView(). It must never be called again later (see configure() below) — the platform
+ * forbids requestFeature(FEATURE_ACTIVITY_TRANSITIONS) once content has been added.
  */
 object BrowserTransitions {
     const val ADDRESS_TRANSITION_NAME = "browser_address_transform"
 
-    /** Request the platform transition feature before an Activity installs its content view. */
+    /**
+     * Requests the platform transition feature. Legal only before the Activity installs its
+     * content view for the first time. Call this from onCreate, before setContentView().
+     */
     fun prepare(activity: Activity) {
         runCatching { activity.window.requestFeature(Window.FEATURE_ACTIVITY_TRANSITIONS) }
     }
 
+    /**
+     * Configures transitions, callbacks and shared-element transitions. Safe to call after
+     * setContentView() has already run — it only touches Window transition properties.
+     *
+     * Do NOT call requestFeature()/prepare() here. In the previous revision configure() called
+     * prepare() as its first line, and configure() is invoked again in some flows (e.g. right
+     * before a browser navigation in MainActivity.openMainBrowserSearch) long after
+     * setContentView. That produced "requestFeature() must be called before adding content"
+     * on Android, corrupting the window and crashing the browser navigation.
+     */
     fun configure(activity: Activity, fadeSurface: Boolean = true) {
-        prepare(activity)
         activity.window.allowEnterTransitionOverlap = true
         activity.window.allowReturnTransitionOverlap = true
 

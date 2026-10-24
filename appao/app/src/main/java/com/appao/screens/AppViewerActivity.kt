@@ -79,6 +79,7 @@ import com.appao.R
 import com.appao.SystemBarHelper
 import com.appao.ui.BrowserTransitions
 import com.appao.ui.IconLoader
+import com.appao.ui.M3SwitchStyle
 import com.appao.ui.NativePopupMenu
 import com.bumptech.glide.Glide
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -149,6 +150,10 @@ class AppViewerActivity : AppCompatActivity() {
             }
         }
         WindowCompat.setDecorFitsSystemWindows(window, true)
+        // requestFeature(FEATURE_ACTIVITY_TRANSITIONS) must run once, before setContentView().
+        // BrowserTransitions.configure() no longer calls it internally (that caused crashes when
+        // configure() was invoked again later, e.g. before browser navigation from MainActivity).
+        BrowserTransitions.prepare(this)
         BrowserTransitions.configure(this)
         // Container Transform M3 Expressive: postpone the enter transition until the WebView
         // has been attached and measured. Without this, the MaterialContainerTransform can
@@ -1192,6 +1197,7 @@ class AppViewerActivity : AppCompatActivity() {
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             val toggle = MaterialSwitch(this).apply {
                 isChecked = BrowserPreferences.sitePermissionAllowed(this@AppViewerActivity, host, permission)
+                M3SwitchStyle.apply(this@AppViewerActivity, this)
                 setOnCheckedChangeListener { _, checked -> BrowserPreferences.setSitePermission(this@AppViewerActivity, host, permission, checked) }
             }
             row.addView(toggle)

@@ -49,6 +49,9 @@ class BrowserTabsActivity : AppCompatActivity() {
         if (incomingTransitionName.isNotBlank()) {
             // Real Material Container Transform in both directions. Delay capture until the
             // source-matched preview exists and has been measured by RecyclerView.
+            // prepare() MUST run before setContentView() and only once per Activity — configure()
+            // no longer calls it internally so it is safe to call again later if needed.
+            BrowserTransitions.prepare(this)
             BrowserTransitions.configure(this)
             postponeEnterTransition()
         }

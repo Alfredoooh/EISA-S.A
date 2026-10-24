@@ -66,6 +66,9 @@ class BrowserSearchActivity : AppCompatActivity() {
             // Use the Material Components Container Transform for a real shared-element morph.
             // The destination is postponed until its address pill is laid out, so the incoming
             // and returning transitions use valid bounds on low-memory/slow devices too.
+            // prepare() MUST run before setContentView() and only once per Activity — configure()
+            // no longer calls it internally so it is safe to call again later if needed.
+            BrowserTransitions.prepare(this)
             BrowserTransitions.configure(this)
             postponeEnterTransition()
         }

@@ -7,16 +7,15 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import android.content.res.ColorStateList
 import com.google.android.material.materialswitch.MaterialSwitch
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.ColorUtils
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.appao.ui.IconLoader
+import com.appao.ui.M3SwitchStyle
 
 /** Full-screen category selector populated only from the server taxonomy. */
 class CategoryManagerActivity : AppCompatActivity() {
@@ -79,18 +78,8 @@ class CategoryManagerActivity : AppCompatActivity() {
             })
             row.addView(labels, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
 
-            val checkedState = intArrayOf(android.R.attr.state_checked)
-            val defaultState = intArrayOf()
             val toggle = MaterialSwitch(this).apply {
-                val accentColor = AccentColorManager.resolvedOr(this@CategoryManagerActivity, R.color.pri)
-                thumbTintList = ColorStateList(arrayOf(checkedState, defaultState), intArrayOf(
-                    AccentColorManager.onPrimaryColor(this@CategoryManagerActivity),
-                    ContextCompat.getColor(this@CategoryManagerActivity, R.color.dim)
-                ))
-                trackTintList = ColorStateList(arrayOf(checkedState, defaultState), intArrayOf(
-                    ColorUtils.setAlphaComponent(accentColor, 150),
-                    ContextCompat.getColor(this@CategoryManagerActivity, R.color.card2)
-                ))
+                M3SwitchStyle.apply(this@CategoryManagerActivity, this)
                 minimumWidth = dp(50)
                 minimumHeight = dp(32)
                 isChecked = category.id !in hiddenIds

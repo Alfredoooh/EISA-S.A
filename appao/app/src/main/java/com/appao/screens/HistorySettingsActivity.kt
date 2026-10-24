@@ -18,6 +18,7 @@ import com.appao.NativeM3Dialog
 import com.appao.R
 import com.appao.SystemBarHelper
 import com.appao.ui.IconLoader
+import com.appao.ui.M3SwitchStyle
 import com.google.android.material.materialswitch.MaterialSwitch
 
 
@@ -62,6 +63,7 @@ class HistorySettingsActivity : AppCompatActivity() {
             setTextColor(ContextCompat.getColor(this@HistorySettingsActivity, R.color.text))
             isChecked = BrowserPreferences.savePageHistory(this@HistorySettingsActivity)
             setPadding(dp(14), dp(8), dp(14), dp(8))
+            M3SwitchStyle.apply(this@HistorySettingsActivity, this)
             setOnCheckedChangeListener { _, checked -> BrowserPreferences.setSavePageHistory(this@HistorySettingsActivity, checked) }
         }
         conversationsSwitch = MaterialSwitch(this).apply {
@@ -70,6 +72,7 @@ class HistorySettingsActivity : AppCompatActivity() {
             setTextColor(ContextCompat.getColor(this@HistorySettingsActivity, R.color.text))
             isChecked = BrowserPreferences.saveConversationHistory(this@HistorySettingsActivity)
             setPadding(dp(14), dp(8), dp(14), dp(8))
+            M3SwitchStyle.apply(this@HistorySettingsActivity, this)
             setOnCheckedChangeListener { _, checked -> BrowserPreferences.setSaveConversationHistory(this@HistorySettingsActivity, checked) }
         }
         val switchGroup = LinearLayout(this).apply {

@@ -1,14 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg">#111111</color>
-    <color name="bgElevated">#1A1A1A</color>
-    <color name="card">#212121</color>
-    <color name="card2">#292929</color>
-    <color name="text">#FFFFFF</color>
-    <color name="dim">#B6B6B6</color>
-    <color name="line">#2A2A2A</color>
-    <color name="divider">#2A2A2A</color>
-    <color name="border">#343434</color>
+    <!-- M3 neutral surface tones, seeded from "pri" (#7AA6E0, hue ~214°) at low chroma
+         (~4-5%), so dark surfaces carry a subtle blue tint instead of being flat grays.
+         Values correspond approximately to the M3 tonal palette:
+           surface=tone6, surfaceContainerLow=tone10, surfaceContainer=tone12,
+           surfaceContainerHigh=tone17, onSurface=tone90, onSurfaceVariant=tone80,
+           outline=tone60, outlineVariant=tone30. -->
+    <color name="bg">#0F1114</color>
+    <color name="bgElevated">#171A1E</color>
+    <color name="card">#1D2024</color>
+    <color name="card2">#272A2E</color>
+    <color name="text">#E2E2E6</color>
+    <color name="dim">#C4C6CC</color>
+    <color name="line">#2A2D32</color>
+    <color name="divider">#42474E</color>
+    <color name="border">#42474E</color>
 
     <color name="fluent0Light">#0F6CBD</color><color name="fluent0Dark">#479EF5</color>
     <color name="fluent1Light">#8764B8</color><color name="fluent1Dark">#B4A0FF</color>
@@ -23,7 +29,7 @@
 
     <color name="accent">#7AA6E0</color>
     <color name="pri">#7AA6E0</color>
-    <color name="onpri">#111111</color>
+    <color name="onpri">#0F1114</color>
     <color name="scrim">#00000000</color>
     <color name="heroScrim">#26000000</color>
     <color name="progressStart">#FFFFFF</color>
@@ -31,28 +37,29 @@
     <color name="bubbleBlue">#FFFFFF</color>
     <color name="bubbleCyan">#4DD0D6</color>
     <color name="dotGreen">#6BCB6B</color>
-    <color name="pillBg">#212121</color>
-    <color name="pillBorder">#303030</color>
-    <color name="iconTint">#FFFFFF</color>
-    <color name="skeleton">#242424</color>
-    <color name="popupBg">#292929</color>
+    <color name="pillBg">#1D2024</color>
+    <color name="pillBorder">#42474E</color>
+    <color name="iconTint">#E2E2E6</color>
+    <color name="skeleton">#1D2024</color>
+    <color name="popupBg">#272A2E</color>
     <color name="popupBorder">#00000000</color>
-    <color name="dialogSurface">#292929</color>
+    <color name="dialogSurface">#272A2E</color>
     <color name="authYellow">#FFFFFF</color>
-    <color name="authYellowPressed">#E6E6E6</color>
-    <color name="authYellowText">#111111</color>
-    <color name="stackBorder">#FFFFFF</color>
-    <color name="splash_logo_center">#F2F2F2</color>
+    <color name="authYellowPressed">#E2E2E6</color>
+    <color name="authYellowText">#0F1114</color>
+    <color name="stackBorder">#E2E2E6</color>
+    <color name="splash_logo_center">#E2E2E6</color>
 
-    <color name="profileBg">#0F0F10</color>
-    <color name="profileText">#F0F0F0</color>
-    <color name="profileTextDim">#9A9A9F</color>
-    <color name="profileSurface">#1C1C1F</color>
+    <color name="profileBg">#0F1114</color>
+    <color name="profileText">#E2E2E6</color>
+    <color name="profileTextDim">#C4C6CC</color>
+    <color name="profileSurface">#1D2024</color>
     <color name="profileDanger">#E08A86</color>
-    <color name="profileHandle">#3A3A3E</color>
+    <color name="profileHandle">#42474E</color>
     <color name="profileCoverBg">#0B141A</color>
     <color name="profileDoodle">#0FFFFFFF</color>
-    <color name="switchOutline">#938F99</color>
-    <color name="snackbarBg">#2A2A2E</color>
+    <!-- M3 "outline" role: tone ~60 from the same pri-seeded neutral palette. -->
+    <color name="switchOutline">#8D9199</color>
+    <color name="snackbarBg">#272A2E</color>
     <color name="snackbarText">#FFFFFF</color>
 </resources>

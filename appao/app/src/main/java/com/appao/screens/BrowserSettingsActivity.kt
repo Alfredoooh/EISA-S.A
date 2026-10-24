@@ -21,6 +21,7 @@ import com.appao.BrowserPreferences
 import com.appao.R
 import com.appao.SystemBarHelper
 import com.appao.ui.IconLoader
+import com.appao.ui.M3SwitchStyle
 import com.appao.ui.NativePopupMenu
 import com.google.android.material.materialswitch.MaterialSwitch
 
@@ -167,33 +168,12 @@ class BrowserSettingsActivity : AppCompatActivity() {
             isClickable = false
             isFocusable = false
             contentDescription = title
-            styleRowSwitch(this)
+            M3SwitchStyle.apply(this@BrowserSettingsActivity, this)
             setOnCheckedChangeListener { _, enabled -> onChange(enabled) }
         }
         row.addView(toggle, LinearLayout.LayoutParams(-2, dp(48)))
         row.setOnClickListener { toggle.isChecked = !toggle.isChecked }
         content.addView(row, LinearLayout.LayoutParams(-1, -2))
-    }
-
-    /** Matches the switch style used across the rest of the app (SettingsActivity, Profile, etc.). */
-    private fun styleRowSwitch(switch: MaterialSwitch) {
-        val checkedState = intArrayOf(android.R.attr.state_checked)
-        val defaultState = intArrayOf()
-        val accentColor = AccentColorManager.resolvedOr(this, R.color.pri)
-        switch.thumbTintList = android.content.res.ColorStateList(
-            arrayOf(checkedState, defaultState),
-            intArrayOf(
-                AccentColorManager.onPrimaryColor(this),
-                ContextCompat.getColor(this, R.color.dim)
-            )
-        )
-        switch.trackTintList = android.content.res.ColorStateList(
-            arrayOf(checkedState, defaultState),
-            intArrayOf(
-                androidx.core.graphics.ColorUtils.setAlphaComponent(accentColor, 150),
-                ContextCompat.getColor(this, R.color.card2)
-            )
-        )
     }
 
     private fun rowBase(iconName: String, title: String, subtitle: String): LinearLayout {

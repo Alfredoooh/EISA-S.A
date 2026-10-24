@@ -1,22 +1,22 @@
-name: appao-android-debug
+name: orbit-android-debug
 
 on:
   repository_dispatch:
     types: [build-apk]
 
 concurrency:
-  group: appao-android-debug-${{ github.ref }}
+  group: orbit-android-debug-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 env:
-  PACKAGE_NAME: "com.appao"
+  PACKAGE_NAME: "com.orbit.app"
 
 jobs:
   build:
-    name: appao-android-debug
+    name: orbit-android-debug
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -30,140 +30,286 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
-      # ⬇ Gradle 8.13: versão mínima compatível com AGP 8.11.1 (declarado no build.gradle raiz)
-      - name: Setup Gradle 8.13
+      - name: Setup Gradle 8.14.6
         uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: '8.13'
+          gradle-version: "8.14.6"
           cache-provider: basic
           gradle-home-cache-cleanup: true
 
-      - name: Configure Android SDK
+      - name: Locate Orbit project and configure Android SDK
         shell: bash
         run: |
           set -euo pipefail
-          PROJECT_DIR="$GITHUB_WORKSPACE/appao"
-          if [ ! -d "$PROJECT_DIR/app" ]; then PROJECT_DIR="$GITHUB_WORKSPACE"; fi
-          if [ -d "$PROJECT_DIR/app/src/main" ]; then
-            APP_MODULE_DIR="$PROJECT_DIR/app"
-          elif [ -d "$PROJECT_DIR/src/main" ]; then
-            APP_MODULE_DIR="$PROJECT_DIR"
-          else
-            echo "ERROR: No Android module was found below $PROJECT_DIR."
+
+          PROJECT_DIR=""
+
+          for candidate in \
+            "$GITHUB_WORKSPACE/orbit" \
+            "$GITHUB_WORKSPACE/Orbit" \
+            "$GITHUB_WORKSPACE"; do
+
+            if [ -f "$candidate/settings.gradle.kts" ] \
+              && [ -f "$candidate/app/build.gradle.kts" ] \
+              && [ -f "$candidate/app/src/main/AndroidManifest.xml" ]; then
+              PROJECT_DIR="$candidate"
+              break
+            fi
+          done
+
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "ERROR: Orbit Android project was not found."
+            echo "Expected settings.gradle.kts and app/build.gradle.kts inside orbit/ or Orbit/."
             exit 1
           fi
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$PROJECT_DIR/local.properties"
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "APP_MODULE_DIR=$APP_MODULE_DIR" >> "$GITHUB_ENV"
 
-      - name: Download official Material Symbols Rounded icons
+          APP_MODULE_DIR="$PROJECT_DIR/app"
+
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+
+          if [ -z "$SDK_ROOT" ] || [ ! -d "$SDK_ROOT" ]; then
+            echo "ERROR: Android SDK was not found on this runner."
+            exit 1
+          fi
+
+          printf 'sdk.dir=%s\n' "$SDK_ROOT" > "$PROJECT_DIR/local.properties"
+
+          {
+            echo "PROJECT_DIR=$PROJECT_DIR"
+            echo "APP_MODULE_DIR=$APP_MODULE_DIR"
+            echo "ANDROID_SDK_ROOT=$SDK_ROOT"
+            echo "ANDROID_HOME=$SDK_ROOT"
+          } >> "$GITHUB_ENV"
+
+          echo "Orbit project: $PROJECT_DIR"
+          echo "Android module: $APP_MODULE_DIR"
+          echo "Android SDK: $SDK_ROOT"
+
+      - name: Install Android SDK API 36
         shell: bash
         run: |
           set -euo pipefail
-          cd "$PROJECT_DIR"
-          python3 tools/download_material_symbols_rounded.py
-          python3 - <<'PYVERIFY'
-          from pathlib import Path
-          folder = Path("app/src/main/assets/icons/material-symbols-rounded")
-          files = list(folder.glob("*.svg"))
-          required = {
-              "home_24px.svg", "home_fill1_24px.svg",
-              "explore_24px.svg", "explore_fill1_24px.svg",
-              "person_24px.svg", "person_fill1_24px.svg",
-              "search_24px.svg", "menu_24px.svg",
-          }
-          missing = sorted(required - {file.name for file in files})
-          if len(files) < 70 or missing:
-              raise SystemExit(
-                  f"ERROR: Incomplete Material Symbols Rounded set: {len(files)} SVGs; missing={missing}"
-              )
-          print(f"Material Symbols Rounded ready: {len(files)} SVG icons including outline and fill1 variants")
-          PYVERIFY
 
-      - name: Stop Gradle and clear generated-JAR cache
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+
+          SDKMANAGER="$(command -v sdkmanager || true)"
+
+          if [ -z "$SDKMANAGER" ]; then
+            for candidate in \
+              "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+              "$SDK_ROOT/cmdline-tools/bin/sdkmanager"; do
+
+              if [ -x "$candidate" ]; then
+                SDKMANAGER="$candidate"
+                break
+              fi
+            done
+          fi
+
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then
+            echo "ERROR: Android SDK sdkmanager was not found."
+            exit 1
+          fi
+
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+
+          "$SDKMANAGER" --install \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "platform-tools"
+
+          echo "Android SDK API 36 and Build Tools are ready."
+
+      - name: Verify Orbit project structure and resources
         shell: bash
         run: |
           set -euo pipefail
+
           cd "$PROJECT_DIR"
-          gradle --stop || true
-          GRADLE_CACHE="${GRADLE_USER_HOME:-$HOME/.gradle}"
-          echo "Clearing generated-JAR cache: $GRADLE_CACHE/caches/jars-9"
-          rm -rf "$GRADLE_CACHE/caches/jars-9"
-
-      - name: Generate official Gradle Wrapper
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
-
-          echo "Gradle installed by setup-gradle:"
-          gradle --version
-
-          echo "Generating the official Gradle Wrapper for Gradle 8.13..."
-          gradle wrapper --gradle-version 8.13 --distribution-type bin --no-daemon --no-parallel
 
           if [ ! -s "gradle/wrapper/gradle-wrapper.jar" ]; then
-            echo "ERROR: Gradle did not generate gradle/wrapper/gradle-wrapper.jar."
+            echo "ERROR: Gradle Wrapper JAR is missing."
             exit 1
           fi
 
-          if ! grep -Fq "gradle-8.13-bin.zip" "gradle/wrapper/gradle-wrapper.properties"; then
-            echo "ERROR: Gradle Wrapper is not configured for Gradle 8.13."
+          if [ ! -f "gradle/wrapper/gradle-wrapper.properties" ]; then
+            echo "ERROR: Gradle Wrapper properties are missing."
+            exit 1
+          fi
+
+          if ! grep -Fq "gradle-8.14.6-bin.zip" \
+            "gradle/wrapper/gradle-wrapper.properties"; then
+            echo "ERROR: The project Wrapper is not configured for Gradle 8.14.6."
             cat "gradle/wrapper/gradle-wrapper.properties"
             exit 1
           fi
 
-          chmod +x ./gradlew
-          echo "Gradle Wrapper generated and verified."
-          ./gradlew --version
+          if ! grep -Fq 'applicationId = "com.orbit.app"' \
+            "app/build.gradle.kts"; then
+            echo "ERROR: The applicationId does not match com.orbit.app."
+            exit 1
+          fi
 
-      - name: Create or load local signing keystore
-        id: setup-signing
-        env:
-          LOOPLY_KEYSTORE_BASE64: ${{ secrets.LOOPLY_KEYSTORE_BASE64 }}
-          LOOPLY_KEYSTORE_PASSWORD: ${{ secrets.LOOPLY_KEYSTORE_PASSWORD }}
-          LOOPLY_KEY_ALIAS: ${{ secrets.LOOPLY_KEY_ALIAS }}
-          LOOPLY_KEY_PASSWORD: ${{ secrets.LOOPLY_KEY_PASSWORD }}
+          if ! grep -Fq 'android:icon="@mipmap/ic_launcher"' \
+            "app/src/main/AndroidManifest.xml"; then
+            echo "ERROR: The launcher icon reference is missing from the manifest."
+            exit 1
+          fi
+
+          if [ ! -s "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml" ]; then
+            echo "ERROR: The adaptive launcher icon is missing."
+            exit 1
+          fi
+
+          chmod +x ./gradlew
+
+          python3 - <<'PYVERIFY'
+          from pathlib import Path
+          import sys
+          import xml.etree.ElementTree as ET
+
+          root = Path("app/src/main")
+          errors = []
+
+          for xml_file in root.rglob("*.xml"):
+              try:
+                  ET.parse(xml_file)
+              except ET.ParseError as exc:
+                  errors.append(f"{xml_file}: {exc}")
+
+          required_icons = [
+              "res/mipmap-mdpi/ic_launcher.png",
+              "res/mipmap-hdpi/ic_launcher.png",
+              "res/mipmap-xhdpi/ic_launcher.png",
+              "res/mipmap-xxhdpi/ic_launcher.png",
+              "res/mipmap-xxxhdpi/ic_launcher.png",
+              "res/mipmap-anydpi-v26/ic_launcher.xml",
+              "res/mipmap-anydpi-v26/ic_launcher_round.xml",
+          ]
+
+          for relative_path in required_icons:
+              if not (root / relative_path).is_file():
+                  errors.append(f"Missing launcher resource: {relative_path}")
+
+          if errors:
+              print("ERROR: Orbit project verification failed:")
+              for error in errors:
+                  print(f" - {error}")
+              sys.exit(1)
+
+          kotlin_files = list(root.rglob("*.kt"))
+          xml_files = list(root.rglob("*.xml"))
+
+          print("Orbit source verification: PASS")
+          print(f"Kotlin files: {len(kotlin_files)}")
+          print(f"XML files: {len(xml_files)}")
+          print("Launcher mipmap resources: PASS")
+          PYVERIFY
+
+          echo "Orbit project structure: PASS"
+
+      - name: Verify Gradle Wrapper
         shell: bash
         run: |
           set -euo pipefail
 
-          SIGNING_DIR="$RUNNER_TEMP/appao-local-signing-material"
+          cd "$PROJECT_DIR"
+
+          echo "Project Gradle Wrapper configuration:"
+          cat "gradle/wrapper/gradle-wrapper.properties"
+
+          ./gradlew --version
+
+      - name: Build Orbit Debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd "$PROJECT_DIR"
+
+          ./gradlew clean assembleDebug \
+            --stacktrace \
+            --no-daemon
+
+          APK_DIR="$APP_MODULE_DIR/build/outputs/apk/debug"
+          APK="$APK_DIR/app-debug.apk"
+
+          if [ ! -s "$APK" ]; then
+            echo "ERROR: Orbit Debug APK was not generated."
+            echo "Expected location: $APK"
+            find "$APP_MODULE_DIR/build/outputs" -maxdepth 5 -type f -name "*.apk" -print || true
+            exit 1
+          fi
+
+          echo "Orbit Debug APK successfully generated:"
+          echo "$APK"
+
+      - name: Create or load local signing keystore
+        id: setup-signing
+        env:
+          ORBIT_KEYSTORE_BASE64: ${{ secrets.ORBIT_KEYSTORE_BASE64 || secrets.LOOPLY_KEYSTORE_BASE64 }}
+          ORBIT_KEYSTORE_PASSWORD: ${{ secrets.ORBIT_KEYSTORE_PASSWORD || secrets.LOOPLY_KEYSTORE_PASSWORD }}
+          ORBIT_KEY_ALIAS: ${{ secrets.ORBIT_KEY_ALIAS || secrets.LOOPLY_KEY_ALIAS }}
+          ORBIT_KEY_PASSWORD: ${{ secrets.ORBIT_KEY_PASSWORD || secrets.LOOPLY_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SIGNING_DIR="$RUNNER_TEMP/orbit-local-signing-material"
           mkdir -p "$SIGNING_DIR"
           chmod 700 "$SIGNING_DIR"
-          KEYSTORE_PATH="$SIGNING_DIR/appao-local.keystore"
+
+          KEYSTORE_PATH="$SIGNING_DIR/orbit-local.keystore"
           INFO_PATH="$SIGNING_DIR/SIGNING-INFO.txt"
-          KEY_ALIAS="${LOOPLY_KEY_ALIAS:-appao-local}"
+
+          KEY_ALIAS="${ORBIT_KEY_ALIAS:-orbit-local}"
           GENERATED=false
 
-          if [ -n "${LOOPLY_KEYSTORE_BASE64:-}" ]; then
-            if [ -z "${LOOPLY_KEYSTORE_PASSWORD:-}" ]; then
-              echo "ERROR: LOOPLY_KEYSTORE_BASE64 is set, but LOOPLY_KEYSTORE_PASSWORD is missing."
+          if [ -n "${ORBIT_KEYSTORE_BASE64:-}" ]; then
+            if [ -z "${ORBIT_KEYSTORE_PASSWORD:-}" ]; then
+              echo "ERROR: The keystore was supplied, but its password is missing."
               exit 1
             fi
 
-            echo "Loading the existing local keystore from GitHub Secrets..."
-            printf '%s' "$LOOPLY_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
-            STORE_PASSWORD="$LOOPLY_KEYSTORE_PASSWORD"
-            KEY_PASSWORD="${LOOPLY_KEY_PASSWORD:-$STORE_PASSWORD}"
+            echo "Loading the existing signing keystore..."
+
+            printf '%s' "$ORBIT_KEYSTORE_BASE64" \
+              | base64 --decode > "$KEYSTORE_PATH"
+
+            STORE_PASSWORD="$ORBIT_KEYSTORE_PASSWORD"
+            KEY_PASSWORD="${ORBIT_KEY_PASSWORD:-$STORE_PASSWORD}"
 
             if [ ! -s "$KEYSTORE_PATH" ]; then
-              echo "ERROR: The decoded keystore is empty. Check LOOPLY_KEYSTORE_BASE64."
+              echo "ERROR: The decoded keystore is empty."
               exit 1
             fi
 
-            if ! keytool -list -keystore "$KEYSTORE_PATH" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
-              echo "ERROR: Could not open the keystore or find alias '$KEY_ALIAS'. Check the keystore secrets."
+            if ! keytool -list \
+              -keystore "$KEYSTORE_PATH" \
+              -storepass "$STORE_PASSWORD" \
+              -alias "$KEY_ALIAS" >/dev/null 2>&1; then
+              echo "ERROR: The keystore or alias could not be verified."
               exit 1
             fi
 
-            KEYSTORE_TYPE="$(keytool -list -keystore "$KEYSTORE_PATH" -storepass "$STORE_PASSWORD" 2>&1 | sed -n 's/^Keystore type: //p' | head -n 1)"
+            KEYSTORE_TYPE="$(
+              keytool -list \
+                -keystore "$KEYSTORE_PATH" \
+                -storepass "$STORE_PASSWORD" 2>&1 \
+                | sed -n 's/^Keystore type: //p' \
+                | head -n 1
+            )"
+
             KEYSTORE_TYPE="${KEYSTORE_TYPE:-PKCS12}"
-            echo "Existing keystore loaded. It will not be uploaded again as an artifact."
+
+            echo "Existing signing keystore loaded."
+
           else
-            echo "No existing keystore secret found. Creating a local/testing-only keystore..."
+            echo "No existing signing keystore was provided."
+            echo "Generating a local/testing signing keystore..."
+
             STORE_PASSWORD="$(openssl rand -hex 24)"
             KEY_PASSWORD="$STORE_PASSWORD"
             KEYSTORE_TYPE="PKCS12"
@@ -179,29 +325,39 @@ jobs:
               -keyalg RSA \
               -keysize 3072 \
               -validity 10000 \
-              -dname "CN=AppAo Local, OU=Development, O=AppAo, L=Luanda, ST=Luanda, C=AO"
+              -dname "CN=Orbit Local, OU=Development, O=Orbit, L=Luanda, ST=Luanda, C=AO"
 
             cat > "$INFO_PATH" <<EOF
-          AppAo local/testing signing key — NOT intended as a Play Store release key
-          Keystore file: appao-local.keystore
+          Orbit local/testing signing key
+          Keystore file: orbit-local.keystore
           Keystore type: $KEYSTORE_TYPE
           Key alias: $KEY_ALIAS
           Keystore password: $STORE_PASSWORD
           Key password: $KEY_PASSWORD
 
-          Keep this keystore and its passwords private. Use the same keystore for future APK updates.
-          To reuse it in later workflow runs, store the keystore as Base64 in the LOOPLY_KEYSTORE_BASE64 GitHub Secret,
-          set LOOPLY_KEYSTORE_PASSWORD to the keystore password, LOOPLY_KEY_ALIAS to the alias,
-          and LOOPLY_KEY_PASSWORD to the key password (the same as the keystore password for this generated key).
+          Keep this file and its passwords private.
+          Reuse the same keystore for future updates that must preserve signing identity.
+
+          GitHub Secrets:
+          ORBIT_KEYSTORE_BASE64
+          ORBIT_KEYSTORE_PASSWORD
+          ORBIT_KEY_ALIAS
+          ORBIT_KEY_PASSWORD
           EOF
+
             chmod 600 "$INFO_PATH"
-            base64 -w 0 "$KEYSTORE_PATH" > "$SIGNING_DIR/appao-local.keystore.base64.txt"
-            chmod 600 "$SIGNING_DIR/appao-local.keystore.base64.txt"
+
+            base64 -w 0 "$KEYSTORE_PATH" \
+              > "$SIGNING_DIR/orbit-local.keystore.base64.txt"
+
+            chmod 600 "$SIGNING_DIR/orbit-local.keystore.base64.txt"
+
             GENERATED=true
-            echo "A new local keystore was created."
+            echo "Local testing keystore created."
           fi
 
           chmod 600 "$KEYSTORE_PATH"
+
           {
             echo "APP_KEYSTORE_PATH=$KEYSTORE_PATH"
             echo "APP_KEYSTORE_TYPE=$KEYSTORE_TYPE"
@@ -213,69 +369,37 @@ jobs:
           echo "generated=$GENERATED" >> "$GITHUB_OUTPUT"
           echo "signing_dir=$SIGNING_DIR" >> "$GITHUB_OUTPUT"
 
-      - name: Build app ao Debug APK
+      - name: Sign Orbit APK
         shell: bash
         run: |
           set -euo pipefail
-          cd "$PROJECT_DIR"
-
-          python3 - <<'PYVERIFY'
-          from pathlib import Path
-          import hashlib
-
-          bad = []
-          forbidden = ("getChildAte", "R.drawable/")
-          for src in Path("app/src/main/java").rglob("*.kt"):
-              text = src.read_text(encoding="utf-8")
-              for needle in forbidden:
-                  if needle in text:
-                      bad.append(f"{src}: {needle}")
-          if bad:
-              raise SystemExit("Invalid Kotlin source remains:\n" + "\n".join(bad))
-
-          main_candidates = list(Path("app/src/main/java").rglob("MainActivity.kt"))
-          if not main_candidates:
-              raise SystemExit("MainActivity.kt was not found under app/src/main/java")
-          main = main_candidates[0]
-          print("Build source sanity check: PASS")
-          print("MainActivity SHA-256:", hashlib.sha256(main.read_bytes()).hexdigest())
-          PYVERIFY
-
-          python3 verify_project.py
-
-          if [ ! -s "gradle/wrapper/gradle-wrapper.jar" ]; then
-            echo "ERROR: Gradle Wrapper JAR is missing after the generation step."
-            exit 1
-          fi
-
-          ./gradlew clean assembleDebug --stacktrace --no-daemon
-
-      - name: Sign APK with local keystore
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
 
           APK_DIR="$APP_MODULE_DIR/build/outputs/apk/debug"
-          APK="$(find "$APK_DIR" -maxdepth 1 -type f -name '*-debug.apk' ! -name 'appao-local-signed.apk' -print -quit)"
-          if [ -z "$APK" ] || [ ! -s "$APK" ]; then
-            echo "ERROR: The Debug APK was not found in $APK_DIR."
+          APK="$APK_DIR/app-debug.apk"
+
+          if [ ! -s "$APK" ]; then
+            echo "ERROR: The unsigned-input Debug APK was not found."
             exit 1
           fi
 
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
-          if [ -z "$SDK_ROOT" ] || [ ! -d "$SDK_ROOT/build-tools" ]; then
-            echo "ERROR: Android SDK Build Tools directory was not found."
-            exit 1
-          fi
 
-          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner -print | sort -V | tail -n 1)"
+          APKSIGNER="$(
+            find "$SDK_ROOT/build-tools" \
+              -type f \
+              -name apksigner \
+              -print \
+              | sort -V \
+              | tail -n 1
+          )"
+
           if [ -z "$APKSIGNER" ] || [ ! -x "$APKSIGNER" ]; then
-            echo "ERROR: apksigner was not found in Android SDK Build Tools."
+            echo "ERROR: apksigner was not found in the Android SDK."
             exit 1
           fi
 
-          SIGNED_APK="$APK_DIR/appao-local-signed.apk"
+          SIGNED_APK="$APK_DIR/orbit-local-signed.apk"
+
           "$APKSIGNER" sign \
             --ks "$APP_KEYSTORE_PATH" \
             --ks-type "$APP_KEYSTORE_TYPE" \
@@ -286,50 +410,48 @@ jobs:
             "$APK"
 
           "$APKSIGNER" verify --verbose --print-certs "$SIGNED_APK"
-          echo "Signed local APK: $SIGNED_APK"
 
-      - name: Verify APK size
+          echo "Signed Orbit APK:"
+          echo "$SIGNED_APK"
+
+      - name: Verify APK
         shell: bash
         run: |
           set -euo pipefail
-          APK="$APP_MODULE_DIR/build/outputs/apk/debug/appao-local-signed.apk"
+
+          APK="$APP_MODULE_DIR/build/outputs/apk/debug/orbit-local-signed.apk"
+
           if [ ! -s "$APK" ]; then
-            echo "ERROR: Signed local APK was not generated."
+            echo "ERROR: The signed Orbit APK was not generated."
             exit 1
           fi
 
-          bytes=$(stat -c%s "$APK")
-          mib=$((bytes / 1024 / 1024))
+          BYTES="$(stat -c%s "$APK")"
+          MIB="$(awk -v bytes="$BYTES" 'BEGIN { printf "%.2f", bytes / 1024 / 1024 }')"
+
           echo "APK: $APK"
-          echo "Bytes: $bytes"
-          echo "Size: ${mib} MiB"
-          echo "Target: below 5 MiB (informational; Debug shrinking is disabled)"
+          echo "Size: $BYTES bytes"
+          echo "Size: $MIB MiB"
 
-          if [ "$bytes" -lt 5242880 ]; then
-            echo "APK is below the 5 MiB target."
-          else
-            echo "WARNING: APK is above 5 MiB. This Debug build has code minification and resource shrinking disabled."
-          fi
-
-      - name: Upload locally signed APK
+      - name: Upload Orbit Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: appao-local-signed-apk
-          path: '**/build/outputs/apk/debug/appao-local-signed.apk'
+          name: orbit-local-signed-apk
+          path: '**/build/outputs/apk/debug/orbit-local-signed.apk'
           if-no-files-found: error
           retention-days: 30
 
-      - name: Warn if repository is public and key material is not being archived
+      - name: Warn if repository is public and signing key is not archived
         if: steps.setup-signing.outputs.generated == 'true' && github.event.repository.private != true
         shell: bash
         run: |
-          echo "::warning::This repository is public, so the generated keystore and its passwords will not be uploaded. Configure LOOPLY_KEYSTORE_BASE64, LOOPLY_KEYSTORE_PASSWORD, LOOPLY_KEY_ALIAS and LOOPLY_KEY_PASSWORD in GitHub Secrets to reuse one private key across builds."
+          echo "::warning::This repository is public, so the generated signing keystore will not be uploaded. Configure ORBIT_KEYSTORE_BASE64, ORBIT_KEYSTORE_PASSWORD, ORBIT_KEY_ALIAS and ORBIT_KEY_PASSWORD in GitHub Secrets to reuse the same key across builds."
 
-      - name: Upload newly generated local keystore (private repositories only)
+      - name: Upload generated signing keystore (private repositories only)
         if: steps.setup-signing.outputs.generated == 'true' && github.event.repository.private == true
         uses: actions/upload-artifact@v4
         with:
-          name: appao-local-signing-keystore
+          name: orbit-local-signing-keystore
           path: ${{ steps.setup-signing.outputs.signing_dir }}/*
           if-no-files-found: error
           retention-days: 90

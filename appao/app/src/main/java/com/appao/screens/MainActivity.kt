@@ -4,6 +4,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Rect
 import android.os.Bundle
 import android.widget.PopupWindow
@@ -124,6 +125,7 @@ class MainActivity : AppCompatActivity() {
     private var profileOpen = false
     private var profileAppbarVisible = false
     private var feedEmptyOverlay: View? = null
+    private var suppressNavSelectionCallback = false
 
     private val items = mutableListOf<NewsItem>()
     private val savedToggleDebounce = mutableSetOf<String>()
@@ -470,18 +472,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupHomeNavigation() {
-        findViewById<View>(R.id.homeMainNavHome).setOnClickListener { switchMainTab("home") }
-        findViewById<View>(R.id.homeMainNavApps).setOnClickListener { switchMainTab("discover") }
-        findViewById<View>(R.id.homeMainNavTabs).setOnClickListener {
-            hideHomeSuggestions()
-            openBrowserTabs()
+        val nav = findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.homeMainBottomNav)
+        nav.setOnItemSelectedListener { item ->
+            if (suppressNavSelectionCallback) return@setOnItemSelectedListener true
+            when (item.itemId) {
+                R.id.navHomeItem -> { switchMainTab("home"); true }
+                R.id.navDiscoverItem -> { switchMainTab("discover"); true }
+                R.id.navTabsItem -> { hideHomeSuggestions(); openBrowserTabs(); false }
+                R.id.navProfileItem -> { switchMainTab("profile"); true }
+                else -> false
+            }
         }
-        findViewById<View>(R.id.homeMainNavProfile).setOnClickListener { switchMainTab("profile") }
         updateHomeTabCount()
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.homeMainBottomNav)) { view, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(nav) { view, insets ->
             val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
             systemBottomInsetPx = systemBottom
-            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, dp(2) + systemBottom)
+            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, systemBottom)
             view.layoutParams = view.layoutParams.apply { height = dp(58) + systemBottom }
             if (::homeContentScroll.isInitialized) {
                 (homeContentScroll.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
@@ -509,68 +515,34 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateMainTabSelection(selected: String) {
         val effective = if (selected == "apps") "discover" else selected
-        val defs = listOf(
-            arrayOf("home", R.id.homeMainNavHomeLabel, R.id.homeMainNavHomeIcon, R.id.homeMainNavHomePill),
-            arrayOf("discover", R.id.homeMainNavAppsLabel, R.id.homeMainNavAppsIcon, R.id.homeMainNavAppsPill),
-            arrayOf("tabs", R.id.homeMainNavTabsLabel, R.id.homeMainNavTabsIcon, R.id.homeMainNavTabsPill),
-            arrayOf("profile", R.id.homeMainNavProfileLabel, R.id.homeMainNavProfileIcon, R.id.homeMainNavProfilePill)
-        )
+        val nav = findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.homeMainBottomNav)
         val primary = AccentColorManager.resolvedOr(this, R.color.pri)
         val activeColor = ContextCompat.getColor(this, R.color.profileText)
         val inactiveColor = ContextCompat.getColor(this, R.color.profileTextDim)
-        val pillTint = androidx.core.graphics.ColorUtils.setAlphaComponent(primary, 51)
+        val indicatorTint = androidx.core.graphics.ColorUtils.setAlphaComponent(primary, 51)
 
-        defs.forEach { def ->
-            val name = def[0] as String
-            val labelId = def[1] as Int
-            val iconId = def[2] as Int
-            val pillId = def[3] as Int
-            val isSelected = name == effective
-            findViewById<TextView>(labelId).apply {
-                setTextColor(if (isSelected) activeColor else inactiveColor)
-                typeface = android.graphics.Typeface.create(if (isSelected) "sans-serif-medium" else "sans-serif", android.graphics.Typeface.NORMAL)
-            }
+        nav.itemActiveIndicatorColor = ColorStateList.valueOf(indicatorTint)
+        nav.itemIconTintList = ColorStateList(
+            arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+            intArrayOf(activeColor, inactiveColor)
+        )
+        nav.itemTextColor = ColorStateList(
+            arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+            intArrayOf(activeColor, inactiveColor)
+        )
 
-            val pill = findViewById<View>(pillId)
-            pill.animate().cancel()
-            pill.background = android.graphics.drawable.GradientDrawable().apply {
-                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                cornerRadius = dp(999).toFloat()
-                setColor(pillTint)
-            }
-            val showPill = isSelected && name != "tabs"
-            if (name == "tabs") {
-                pill.alpha = 0f
-                pill.scaleX = 0.78f
-                pill.scaleY = 0.78f
-            } else {
-                pill.animate()
-                    .alpha(if (showPill) 1f else 0f)
-                    .scaleX(if (showPill) 1f else 0.78f)
-                    .scaleY(if (showPill) 1f else 0.78f)
-                    .setDuration(220L)
-                    .setInterpolator(if (showPill) android.view.animation.OvershootInterpolator(1.15f) else Curves.IOS)
-                    .start()
-            }
-
-            if (name == "tabs") {
-                val count = findViewById<TextView>(R.id.homeMainNavTabsCount)
-                count.setTextColor(if (isSelected) activeColor else inactiveColor)
-                count.background = android.graphics.drawable.GradientDrawable().apply {
-                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                    cornerRadius = dp(6).toFloat()
-                    setColor(android.graphics.Color.TRANSPARENT)
-                    setStroke(dp(2), if (isSelected) activeColor else inactiveColor)
-                }
-            } else {
-                val iconName = when (name) {
-                    "home" -> if (isSelected) "home_filled" else "home"
-                    "discover" -> if (isSelected) "compass_filled" else "compass"
-                    else -> if (isSelected) "profile_filled" else "profile"
-                }
-                IconLoader.applyIconColorAtSize(
-                    findViewById(iconId), iconName, if (isSelected) activeColor else inactiveColor, 22f
-                )
+        val targetItemId = when (effective) {
+            "home" -> R.id.navHomeItem
+            "discover" -> R.id.navDiscoverItem
+            "profile" -> R.id.navProfileItem
+            else -> null
+        }
+        if (targetItemId != null && nav.selectedItemId != targetItemId) {
+            suppressNavSelectionCallback = true
+            try {
+                nav.selectedItemId = targetItemId
+            } finally {
+                suppressNavSelectionCallback = false
             }
         }
     }
@@ -737,7 +709,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateHomeTabCount() {
-        findViewById<TextView>(R.id.homeMainNavTabsCount).text = (BrowserTabStore.count(this) + 1).coerceAtMost(99).toString()
+        val nav = findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.homeMainBottomNav)
+        val count = (BrowserTabStore.count(this) + 1).coerceAtMost(99)
+        val badge = nav.getOrCreateBadge(R.id.navTabsItem)
+        badge.isVisible = true
+        badge.number = count
+        badge.maxCharacterCount = 2
+        badge.backgroundColor = AccentColorManager.resolvedOr(this, R.color.pri)
+        badge.badgeTextColor = AccentColorManager.onPrimaryColor(this)
     }
 
     private var homeSearchMode = false

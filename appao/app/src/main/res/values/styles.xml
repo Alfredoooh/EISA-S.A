@@ -93,4 +93,18 @@
         <item name="android:windowExitAnimation">@anim/dialog_scale_out</item>
     </style>
 
+    <!-- M3 Expressive active-indicator (pill) for the main BottomNavigationView. The native
+         indicator is what slides between items on its own; the color is applied at runtime via
+         MainActivity so it always follows the app's current accent color. -->
+    <style name="AppAoBottomNavActiveIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:width">52dp</item>
+        <item name="android:height">32dp</item>
+        <item name="shapeAppearance">@style/AppAoBottomNavActiveIndicatorShape</item>
+    </style>
+
+    <style name="AppAoBottomNavActiveIndicatorShape" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
 </resources>

@@ -236,7 +236,9 @@ object IconLoader {
         applyIconColor(view, name, tint)
     }
 
-    /** Applies a Material Symbol at an explicit reference-matched size without the default intrinsic-size reset. */
+    /** Applies a Material Symbol at an explicit pixel size, overriding whatever the view's
+        current LayoutParams say. Useful when a caller needs a larger/smaller icon than what
+        the layout XML declared. Most callers should just set the size in the layout. */
     fun applyIconColorAtSize(view: ImageView, name: String, tint: Int, sizeDp: Float) {
         val icon = drawable(view.context, name, tint)
         if (icon != null) {
@@ -263,24 +265,12 @@ object IconLoader {
             view.clearColorFilter()
             view.setImageDrawable(FallbackIconDrawable(norm(name), tint, view.resources.displayMetrics.density))
         }
-
-        // Official Material Symbols define their own intrinsic canvas (24px by default).
-        // Do not clamp these icons to arbitrary caller sizes. Run once now and once after attach
-        // because several call sites pass LayoutParams to addView() after calling applyIcon().
-        if (symbolFor(name) != null) {
-            useIntrinsicSymbolSize(view)
-            view.post { useIntrinsicSymbolSize(view) }
-        }
-    }
-
-    private fun useIntrinsicSymbolSize(view: ImageView) {
-        val params = view.layoutParams ?: return
-        if (params.width == ViewGroup.LayoutParams.WRAP_CONTENT &&
-            params.height == ViewGroup.LayoutParams.WRAP_CONTENT
-        ) return
-        params.width = ViewGroup.LayoutParams.WRAP_CONTENT
-        params.height = ViewGroup.LayoutParams.WRAP_CONTENT
-        view.layoutParams = params
+        // Material Symbols render at whatever pixel size the ImageView ends up with — RoundedSvgDrawable
+        // maps its draw bounds onto the SVG viewport, so an explicit width/height declared in the layout
+        // (e.g. 32dp on a "32dp x 32dp" ImageView) is now respected as-is. Previously this call site
+        // forced WRAP_CONTENT unconditionally, silently shrinking every icon that asked for a larger
+        // explicit size to the SVG's 24dp-equivalent intrinsic size. Do NOT re-introduce that behaviour:
+        // the intrinsic size only applies when the layout itself left the ImageView at WRAP_CONTENT.
     }
 
     fun applyIconThin(view: ImageView, name: String, tintRes: Int = 0) {

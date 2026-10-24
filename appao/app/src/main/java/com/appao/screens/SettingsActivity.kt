@@ -13,6 +13,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import com.appao.screens.BrowserDownloadsActivity
 import com.appao.ui.IconLoader
+import com.appao.ui.M3SwitchStyle
 import com.appao.ui.NativePopupMenu
 
 class SettingsActivity : AppCompatActivity() {
@@ -244,25 +245,12 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    /** Matches the switch style used in Categories and Data Saver so every toggle in the app looks the same. */
+    /** Delegates to the app-wide M3 switch style (native MaterialSwitch with check icon on the
+        thumb when ON, tinted from the current primary/accent color). Previously this screen kept
+        its own partial copy of the styling that omitted the check-icon attributes, which is why
+        the switches here didn't match the rest of the app. */
     private fun styleRowSwitch(switch: com.google.android.material.materialswitch.MaterialSwitch) {
-        val checkedState = intArrayOf(android.R.attr.state_checked)
-        val defaultState = intArrayOf()
-        val accentColor = AccentColorManager.resolvedOr(this, R.color.pri)
-        switch.thumbTintList = android.content.res.ColorStateList(
-            arrayOf(checkedState, defaultState),
-            intArrayOf(
-                AccentColorManager.onPrimaryColor(this),
-                ContextCompat.getColor(this, R.color.dim)
-            )
-        )
-        switch.trackTintList = android.content.res.ColorStateList(
-            arrayOf(checkedState, defaultState),
-            intArrayOf(
-                androidx.core.graphics.ColorUtils.setAlphaComponent(accentColor, 150),
-                ContextCompat.getColor(this, R.color.card2)
-            )
-        )
+        M3SwitchStyle.apply(this, switch)
     }
 
     private fun showAddressPositionPicker(anchor: View) {

@@ -92,15 +92,16 @@
             android:focusable="true">
             <TextView
                 android:id="@+id/browserTabsCountTop"
-                android:layout_width="25dp"
-                android:layout_height="25dp"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
                 android:layout_gravity="center"
                 android:gravity="center"
-                android:background="@drawable/bg_browser_tab_counter"
+                android:background="@drawable/bg_tabs_square_outline"
                 android:text="1"
-                android:textColor="@color/text"
-                android:textSize="12sp"
-                android:textStyle="bold" />
+                android:textColor="@color/dim"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:includeFontPadding="false" />
         </FrameLayout>
 
         <FrameLayout
@@ -182,7 +183,6 @@
 
     <com.google.android.material.loadingindicator.LoadingIndicator
         android:id="@+id/browserPullIndicator"
-       
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:layout_gravity="top|center_horizontal"

@@ -4,7 +4,6 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Intent
-import android.content.res.ColorStateList
 import android.graphics.Rect
 import android.os.Bundle
 import android.widget.PopupWindow
@@ -120,12 +119,10 @@ class MainActivity : AppCompatActivity() {
     private val REQUEST_MAIN_BROWSER_SEARCH = 7416
     private var openingBrowserSearch = false
     private var browserSharedElementArmed = false
-    private var tabOverviewTransitionStandIn: ImageView? = null
     private var activeMainTab = "home"
     private var profileOpen = false
     private var profileAppbarVisible = false
     private var feedEmptyOverlay: View? = null
-    private var suppressNavSelectionCallback = false
 
     private val items = mutableListOf<NewsItem>()
     private val savedToggleDebounce = mutableSetOf<String>()
@@ -472,22 +469,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupHomeNavigation() {
-        val nav = findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.homeMainBottomNav)
-        nav.setOnItemSelectedListener { item ->
-            if (suppressNavSelectionCallback) return@setOnItemSelectedListener true
-            when (item.itemId) {
-                R.id.navHomeItem -> { switchMainTab("home"); true }
-                R.id.navDiscoverItem -> { switchMainTab("discover"); true }
-                R.id.navTabsItem -> { hideHomeSuggestions(); openBrowserTabs(); false }
-                R.id.navProfileItem -> { switchMainTab("profile"); true }
-                else -> false
-            }
+        val nav = findViewById<View>(R.id.homeMainBottomNav)
+        findViewById<View>(R.id.homeMainNavHome).setOnClickListener { switchMainTab("home") }
+        findViewById<View>(R.id.homeMainNavApps).setOnClickListener { switchMainTab("discover") }
+        findViewById<View>(R.id.homeMainNavTabs).setOnClickListener {
+            hideHomeSuggestions()
+            openBrowserTabs()
         }
+        findViewById<View>(R.id.homeMainNavProfile).setOnClickListener { switchMainTab("profile") }
         updateHomeTabCount()
         ViewCompat.setOnApplyWindowInsetsListener(nav) { view, insets ->
             val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
             systemBottomInsetPx = systemBottom
-            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, systemBottom)
+            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, dp(2) + systemBottom)
             view.layoutParams = view.layoutParams.apply { height = dp(58) + systemBottom }
             if (::homeContentScroll.isInitialized) {
                 (homeContentScroll.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
@@ -515,36 +509,43 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateMainTabSelection(selected: String) {
         val effective = if (selected == "apps") "discover" else selected
-        val nav = findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.homeMainBottomNav)
+        val defs = listOf(
+            Triple("home", R.id.homeMainNavHomeLabel, R.id.homeMainNavHomeIcon),
+            Triple("discover", R.id.homeMainNavAppsLabel, R.id.homeMainNavAppsIcon),
+            Triple("profile", R.id.homeMainNavProfileLabel, R.id.homeMainNavProfileIcon)
+        )
         val primary = AccentColorManager.resolvedOr(this, R.color.pri)
         val activeColor = ContextCompat.getColor(this, R.color.profileText)
         val inactiveColor = ContextCompat.getColor(this, R.color.profileTextDim)
-        val indicatorTint = androidx.core.graphics.ColorUtils.setAlphaComponent(primary, 51)
 
-        nav.itemActiveIndicatorColor = ColorStateList.valueOf(indicatorTint)
-        nav.itemIconTintList = ColorStateList(
-            arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-            intArrayOf(activeColor, inactiveColor)
-        )
-        nav.itemTextColor = ColorStateList(
-            arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-            intArrayOf(activeColor, inactiveColor)
-        )
-
-        val targetItemId = when (effective) {
-            "home" -> R.id.navHomeItem
-            "discover" -> R.id.navDiscoverItem
-            "profile" -> R.id.navProfileItem
-            else -> null
-        }
-        if (targetItemId != null && nav.selectedItemId != targetItemId) {
-            suppressNavSelectionCallback = true
-            try {
-                nav.selectedItemId = targetItemId
-            } finally {
-                suppressNavSelectionCallback = false
+        defs.forEach { (name, labelId, iconId) ->
+            val isSelected = name == effective
+            findViewById<TextView>(labelId).apply {
+                setTextColor(if (isSelected) activeColor else inactiveColor)
+                typeface = android.graphics.Typeface.create(if (isSelected) "sans-serif-medium" else "sans-serif", android.graphics.Typeface.NORMAL)
             }
+            val iconName = when (name) {
+                "home" -> if (isSelected) "home_filled" else "home"
+                "discover" -> if (isSelected) "compass_filled" else "compass"
+                else -> if (isSelected) "profile_filled" else "profile"
+            }
+            IconLoader.applyIconColor(findViewById(iconId), iconName, if (isSelected) activeColor else inactiveColor)
         }
+
+        // "Abas" never becomes the persistently selected tab (tapping it opens the tab overview
+        // rather than switching the home content), so it is styled separately, matching whether
+        // the tab overview is the active screen or not.
+        val tabsSelected = effective == "tabs"
+        val tabsColor = if (tabsSelected) activeColor else inactiveColor
+        findViewById<TextView>(R.id.homeMainNavTabsLabel).apply {
+            setTextColor(tabsColor)
+            typeface = android.graphics.Typeface.create(if (tabsSelected) "sans-serif-medium" else "sans-serif", android.graphics.Typeface.NORMAL)
+        }
+        findViewById<View>(R.id.homeMainNavTabsSquare).background =
+            ContextCompat.getDrawable(this, if (tabsSelected) R.drawable.bg_tabs_square_filled else R.drawable.bg_tabs_square_outline)?.mutate()?.apply {
+                if (this is android.graphics.drawable.GradientDrawable) setStroke(dp(2), tabsColor)
+            }
+        findViewById<TextView>(R.id.homeMainNavTabsCount).setTextColor(tabsColor)
     }
 
     private fun switchMainTab(target: String, animate: Boolean = true) {
@@ -682,7 +683,7 @@ class MainActivity : AppCompatActivity() {
 
         if (canTransform) {
             runCatching {
-                BrowserTransitions.configure(this, fadeSurface = false)
+                BrowserTransitions.configure(this, fadeSurface = false, sharedTransitionName = BrowserTransitions.ADDRESS_TRANSITION_NAME)
                 ViewCompat.setTransitionName(source, BrowserTransitions.ADDRESS_TRANSITION_NAME)
                 browserSharedElementArmed = true
                 val options = android.app.ActivityOptions.makeSceneTransitionAnimation(
@@ -709,14 +710,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateHomeTabCount() {
-        val nav = findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.homeMainBottomNav)
         val count = (BrowserTabStore.count(this) + 1).coerceAtMost(99)
-        val badge = nav.getOrCreateBadge(R.id.navTabsItem)
-        badge.isVisible = true
-        badge.number = count
-        badge.maxCharacterCount = 2
-        badge.backgroundColor = AccentColorManager.resolvedOr(this, R.color.pri)
-        badge.badgeTextColor = AccentColorManager.onPrimaryColor(this)
+        findViewById<TextView>(R.id.homeMainNavTabsCount).text = count.toString()
     }
 
     private var homeSearchMode = false
@@ -2450,58 +2445,42 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openBrowserTabs() {
-    hideHomeSuggestions()
-    if (homeSearchMode) animateHomeSearchMode(false)
-    if (::homeAddressInput.isInitialized) homeAddressInput.clearFocus()
-    runCatching { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(homeAddressBar.windowToken, 0) }
-    val homeSnapshot = saveHomeTabScreenshot()
-    val transitionName = "browser_tab_card___home__"
-    val launch = Intent(this, BrowserTabsActivity::class.java)
-        .putExtra("source_tab_id", "__home__")
-        .putExtra("home_snapshot_path", homeSnapshot.orEmpty())
-        .putExtra("transition_name", transitionName)
-    BrowserTransitions.configure(this, fadeSurface = false)
-    browserSharedElementArmed = true
+        hideHomeSuggestions()
+        if (homeSearchMode) animateHomeSearchMode(false)
+        if (::homeAddressInput.isInitialized) homeAddressInput.clearFocus()
+        runCatching { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(homeAddressBar.windowToken, 0) }
+        val homeSnapshot = saveHomeTabScreenshot()
+        val transitionName = BrowserTransitions.TABS_BUTTON_TRANSITION_NAME
+        val launch = Intent(this, BrowserTabsActivity::class.java)
+            .putExtra("source_tab_id", "__home__")
+            .putExtra("home_snapshot_path", homeSnapshot.orEmpty())
+            .putExtra("transition_name", transitionName)
+        BrowserTransitions.configure(this, fadeSurface = false, sharedTransitionName = transitionName)
+        browserSharedElementArmed = true
 
-    // Container Transform M3 Expressive: a short-lived ImageView holding the screenshot we
-    // just captured stands in for the live Home screen (the real root view is never used as
-    // a shared element — it keeps running state/animations that a cross-Activity transform
-    // should not touch), positioned over the same area and removed right after the switch.
-    val snapshotFile = homeSnapshot?.takeIf { it.isNotBlank() }?.let { java.io.File(it) }
-    val stand = if (::rootHost.isInitialized && snapshotFile != null && snapshotFile.exists() && rootHost.width > 0 && rootHost.height > 0) {
-        android.widget.ImageView(this).apply {
-            scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
-            Glide.with(this@MainActivity).load(snapshotFile).centerCrop().into(this)
-            ViewCompat.setTransitionName(this, transitionName)
-        }
-    } else null
-
-    if (stand != null && rootHost is ViewGroup) {
-        tabOverviewTransitionStandIn = stand
-        (rootHost as ViewGroup).addView(
-            stand,
-            FrameLayout.LayoutParams(rootHost.width, rootHost.height)
-        )
-        runCatching {
-            val options = android.app.ActivityOptions.makeSceneTransitionAnimation(this, stand, transitionName)
-            startActivity(launch, options.toBundle())
-        }.onFailure {
-            (stand.parent as? ViewGroup)?.removeView(stand)
-            if (tabOverviewTransitionStandIn === stand) tabOverviewTransitionStandIn = null
+        // Container Transform M3 Expressive: the shared element is now the fixed "Abas" button
+        // itself (the square+count icon), not a screenshot of the current page. The tab overview
+        // visually "is born" from that button. A single always-present, already-measured View is
+        // far more reliable than a dynamically captured snapshot image, which is what made this
+        // transition fragile before.
+        val tabsButton = findViewById<View>(R.id.homeMainNavTabsSquare)
+        val canTransform = tabsButton != null && tabsButton.isAttachedToWindow && tabsButton.isLaidOut && tabsButton.width > 0 && tabsButton.height > 0
+        if (canTransform) {
+            runCatching {
+                ViewCompat.setTransitionName(tabsButton, transitionName)
+                val options = android.app.ActivityOptions.makeSceneTransitionAnimation(this, tabsButton, transitionName)
+                startActivity(launch, options.toBundle())
+            }.onSuccess { return }.onFailure {
+                BrowserTransitions.clearSharedElementTransitions(this)
+                browserSharedElementArmed = false
+            }
+        } else {
             BrowserTransitions.clearSharedElementTransitions(this)
             browserSharedElementArmed = false
-            startActivity(launch)
-            overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
         }
-    } else {
-        // No measured snapshot means no matching shared element; keep navigation stable and
-        // remove the transitions armed for the path that will not use Container Transform.
-        BrowserTransitions.clearSharedElementTransitions(this)
-        browserSharedElementArmed = false
         startActivity(launch)
         overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
     }
-}
 
     private fun saveHomeTabScreenshot(): String? {
         if (!::rootHost.isInitialized || !::homePage.isInitialized) return null
@@ -3028,10 +3007,6 @@ class MainActivity : AppCompatActivity() {
         openingBrowserSearch = false
         if (browserSharedElementArmed) {
             rootHost.postDelayed({
-                tabOverviewTransitionStandIn?.let { stand ->
-                    (stand.parent as? ViewGroup)?.removeView(stand)
-                }
-                tabOverviewTransitionStandIn = null
                 BrowserTransitions.clearSharedElementTransitions(this)
                 browserSharedElementArmed = false
             }, 700L)
@@ -3139,6 +3114,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<ImageView>(R.id.appsProfileAvatar).setImageResource(R.mipmap.ic_launcher_round)
         selectAppsTab(appsTabIsApps, false)
         if (::adapter.isInitialized) adapter.refreshTheme(recycler)
+        updateMainTabSelection(activeMainTab)
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {

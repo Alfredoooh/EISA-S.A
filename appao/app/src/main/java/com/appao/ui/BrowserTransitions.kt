@@ -20,6 +20,10 @@ import com.google.android.material.transition.platform.MaterialContainerTransfor
  */
 object BrowserTransitions {
     const val ADDRESS_TRANSITION_NAME = "browser_address_transform"
+    // Shared element used by the "Abas" square+count button on both MainActivity (bottombar) and
+    // AppViewerActivity (browser top bar): the tab overview now always morphs out of this fixed,
+    // always-measured button instead of a dynamically captured page snapshot.
+    const val TABS_BUTTON_TRANSITION_NAME = "tabs_button_transform"
 
     /**
      * Requests the platform transition feature. Legal only before the Activity installs its
@@ -39,17 +43,36 @@ object BrowserTransitions {
      * setContentView. That produced "requestFeature() must be called before adding content"
      * on Android, corrupting the window and crashing the browser navigation.
      */
-    fun configure(activity: Activity, fadeSurface: Boolean = true) {
+    fun configure(activity: Activity, fadeSurface: Boolean = true, sharedTransitionName: String? = null) {
         activity.window.allowEnterTransitionOverlap = true
         activity.window.allowReturnTransitionOverlap = true
 
         // Fade the non-shared content on browser Activities only. MainActivity arms the shared
         // element just before a browser navigation so other app transitions remain untouched.
+        // The shared element itself MUST be excluded from this Fade by transitionName: without
+        // this, both the Fade and the MaterialContainerTransform try to animate the very same
+        // View at once, which crashes inside the platform's TransitionSet on several OEMs/API
+        // levels the moment the shared element starts moving. The two known browser shared
+        // element names are always excluded here regardless of the caller's parameter, because
+        // an Activity may enter via one (e.g. address pill) and exit via the other (tabs button),
+        // and both paths run through this same Fade.
         if (fadeSurface) {
-            activity.window.enterTransition = Fade(Fade.IN).apply { duration = 180L }
-            activity.window.exitTransition = Fade(Fade.OUT).apply { duration = 140L }
-            activity.window.reenterTransition = Fade(Fade.IN).apply { duration = 180L }
-            activity.window.returnTransition = Fade(Fade.OUT).apply { duration = 140L }
+            fun fade(mode: Int, dur: Long) = Fade(mode).apply {
+                duration = dur
+                excludeTarget(android.R.id.statusBarBackground, true)
+                excludeTarget(android.R.id.navigationBarBackground, true)
+                excludeTarget(ADDRESS_TRANSITION_NAME, true)
+                excludeTarget(TABS_BUTTON_TRANSITION_NAME, true)
+                if (!sharedTransitionName.isNullOrBlank() && sharedTransitionName != ADDRESS_TRANSITION_NAME &&
+                    sharedTransitionName != TABS_BUTTON_TRANSITION_NAME
+                ) {
+                    excludeTarget(sharedTransitionName, true)
+                }
+            }
+            activity.window.enterTransition = fade(Fade.IN, 180L)
+            activity.window.exitTransition = fade(Fade.OUT, 140L)
+            activity.window.reenterTransition = fade(Fade.IN, 180L)
+            activity.window.returnTransition = fade(Fade.OUT, 140L)
         }
 
         activity.setEnterSharedElementCallback(MaterialContainerTransformSharedElementCallback())

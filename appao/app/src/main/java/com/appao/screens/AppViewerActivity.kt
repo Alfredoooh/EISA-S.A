@@ -108,7 +108,6 @@ class AppViewerActivity : AppCompatActivity() {
     private var tabId: String = ""
     private var privateMode = false
     private var openingBrowserSearch = false
-    private var tabOverviewTransitionStandIn: ImageView? = null
     private var addressSuggestionGeneration = 0L
     private var reusedWebView = false
     private lateinit var findBar: View
@@ -154,12 +153,21 @@ class AppViewerActivity : AppCompatActivity() {
         // BrowserTransitions.configure() no longer calls it internally (that caused crashes when
         // configure() was invoked again later, e.g. before browser navigation from MainActivity).
         BrowserTransitions.prepare(this)
-        BrowserTransitions.configure(this)
+        // Read the incoming transition BEFORE configure(), because configure() needs to know
+        // which shared element to exclude from the Fade. The most common exit path from
+        // AppViewerActivity is via the address pill, so ADDRESS_TRANSITION_NAME is the fallback
+        // when this Activity was opened directly (no shared element on the way in). Both
+        // ADDRESS and TABS names are always excluded from the Fade inside configure(), so it
+        // doesn't matter if the user entered via one and will exit via the other.
+        val incomingTransitionName = intent.getStringExtra("transition_name").orEmpty()
+        BrowserTransitions.configure(
+            this,
+            sharedTransitionName = incomingTransitionName.ifBlank { BrowserTransitions.ADDRESS_TRANSITION_NAME }
+        )
         // Container Transform M3 Expressive: postpone the enter transition until the WebView
         // has been attached and measured. Without this, the MaterialContainerTransform can
         // start before the WebView has valid bounds, producing a visible "flash" before the
-        // morph actually begins. Started at the end of onCreate once web.loadUrl() has fired.
-        val incomingTransitionName = intent.getStringExtra("transition_name").orEmpty()
+        // morph actually begins. Released below with a bounded retry.
         if (incomingTransitionName.isNotBlank()) {
             postponeEnterTransition()
         }
@@ -322,10 +330,23 @@ class AppViewerActivity : AppCompatActivity() {
         }
 
         // Container Transform M3 Expressive — release the postponed transition once the WebView
-        // is attached and measured. web.post ensures we wait until after the first layout pass,
-        // so the shared element (the WebView bounds) is valid when the transform begins.
+        // is attached and measured. Bounded retry (same pattern as BrowserTabsActivity.armIncomingTransition)
+        // instead of a single web.post {}: a bare post() never fires if the WebView is not yet
+        // attached, or if the Activity is destroyed/recreated before the runnable's turn — leaving
+        // the transition postponed forever, which is what produced the crash when reopening tabs.
         if (incomingTransitionName.isNotBlank()) {
-            web.post { startPostponedEnterTransition() }
+            var transitionReleaseAttempts = 0
+            fun releaseIncomingTransition() {
+                if (isFinishing || isDestroyed) return
+                if (::web.isInitialized && web.isAttachedToWindow && web.width > 0 && web.height > 0) {
+                    runCatching { startPostponedEnterTransition() }
+                } else if (transitionReleaseAttempts++ < 24) {
+                    root.postDelayed({ releaseIncomingTransition() }, 16L)
+                } else {
+                    runCatching { startPostponedEnterTransition() }
+                }
+            }
+            root.post { releaseIncomingTransition() }
         }
     }
 
@@ -875,53 +896,27 @@ class AppViewerActivity : AppCompatActivity() {
 
     private fun openTabs() {
         runCatching { savePageSnapshot() }
+        val transitionName = BrowserTransitions.TABS_BUTTON_TRANSITION_NAME
         val launch = Intent(this, BrowserTabsActivity::class.java)
             .putExtra("source_tab_id", tabId)
             .putExtra("browser_private_mode", privateMode)
-            .putExtra("transition_name", "browser_tab_card_$tabId")
+            .putExtra("transition_name", transitionName)
 
-        // Container Transform M3 Expressive. The live WebView itself is never used as the
-        // shared element — sharing a real WebView surface across Activities misbehaves on some
-        // OEMs. Instead, a short-lived ImageView holding the snapshot we just saved is placed
-        // exactly over the WebView and used as the transform source; it is removed right after
-        // the Activity switch, so it never lingers on screen.
-        val root = findViewById<android.widget.FrameLayout>(R.id.appViewerRoot)
-        val snapshotPath = tabList().firstOrNull { it.id == tabId }?.snapshotPath.orEmpty()
-        val snapshotFile = snapshotPath.takeIf { it.isNotBlank() }?.let { java.io.File(it) }
-        val stand = if (snapshotFile != null && snapshotFile.exists() && ::web.isInitialized && web.width > 0 && web.height > 0) {
-            android.widget.ImageView(this).apply {
-                scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
-                Glide.with(this@AppViewerActivity).load(snapshotFile).centerCrop().into(this)
-                ViewCompat.setTransitionName(this, "browser_tab_card_$tabId")
-            }
-        } else null
-
-        if (stand != null) {
-            tabOverviewTransitionStandIn = stand
-            val location = IntArray(2)
-            web.getLocationInWindow(location)
-            val rootLocation = IntArray(2)
-            root.getLocationInWindow(rootLocation)
-            root.addView(
-                stand,
-                android.widget.FrameLayout.LayoutParams(web.width, web.height).apply {
-                    leftMargin = location[0] - rootLocation[0]
-                    topMargin = location[1] - rootLocation[1]
-                }
-            )
+        // Container Transform M3 Expressive. The shared element is the fixed "Abas" square+count
+        // button in the top bar, not a screenshot of the current page — the tab overview
+        // visually "is born" from that button. This mirrors MainActivity.openBrowserTabs() and
+        // avoids the snapshot-based stand-in, which was fragile when a snapshot wasn't ready yet.
+        val tabsButton = findViewById<View>(R.id.browserTabsTop)
+        val canTransform = tabsButton.isAttachedToWindow && tabsButton.isLaidOut && tabsButton.width > 0 && tabsButton.height > 0
+        if (canTransform) {
             runCatching {
-                val options = android.app.ActivityOptions.makeSceneTransitionAnimation(this, stand, "browser_tab_card_$tabId")
+                ViewCompat.setTransitionName(tabsButton, transitionName)
+                val options = android.app.ActivityOptions.makeSceneTransitionAnimation(this, tabsButton, transitionName)
                 startActivity(launch, options.toBundle())
-            }.onFailure {
-                (stand.parent as? ViewGroup)?.removeView(stand)
-                if (tabOverviewTransitionStandIn === stand) tabOverviewTransitionStandIn = null
-                startActivity(launch)
-                overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
-            }
-        } else {
-            startActivity(launch)
-            overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
+            }.onSuccess { return }.onFailure { }
         }
+        startActivity(launch)
+        overridePendingTransition(R.anim.browser_fade_in, R.anim.browser_fade_out)
     }
 
     private fun openNewBrowserTab(url: String) {
@@ -1406,9 +1401,9 @@ class AppViewerActivity : AppCompatActivity() {
                 setTextColor(contrast)
                 background = android.graphics.drawable.GradientDrawable().apply {
                     shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                    cornerRadius = dp(7).toFloat()
-                    setColor(inputColor)
-                    setStroke(dp(1), blendColors(color, contrast, 0.78f))
+                    cornerRadius = dp(5).toFloat()
+                    setColor(android.graphics.Color.TRANSPARENT)
+                    setStroke(dp(2), blendColors(color, contrast, 0.78f))
                 }
             }
             findViewById<ImageView>(R.id.appViewerMoreIcon).setColorFilter(contrast)
@@ -1419,8 +1414,8 @@ class AppViewerActivity : AppCompatActivity() {
             address.setTextColor(ContextCompat.getColor(this, R.color.text))
             address.setHintTextColor(ContextCompat.getColor(this, R.color.dim))
             findViewById<TextView>(R.id.browserTabsCountTop).apply {
-                setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.text))
-                setBackgroundResource(R.drawable.bg_browser_tab_counter)
+                setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dim))
+                background = ContextCompat.getDrawable(this@AppViewerActivity, R.drawable.bg_tabs_square_outline)
             }
             findViewById<ImageView>(R.id.appViewerMoreIcon).clearColorFilter()
             findViewById<ImageView>(R.id.browserAddressClearIcon).clearColorFilter()
@@ -1523,13 +1518,6 @@ class AppViewerActivity : AppCompatActivity() {
         super.onResume()
         openingBrowserSearch = false
         SystemBarHelper.sync(this)
-        tabOverviewTransitionStandIn?.let { stand ->
-            val root = findViewById<android.widget.FrameLayout>(R.id.appViewerRoot)
-            root?.postDelayed({
-                (stand.parent as? ViewGroup)?.removeView(stand)
-                if (tabOverviewTransitionStandIn === stand) tabOverviewTransitionStandIn = null
-            }, 700L)
-        }
         if (::web.isInitialized) {
             applyBrowserPreferences()
             BrowserLoadingBooster.configure(web)

@@ -4,21 +4,34 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Apresentação</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0..1,0" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
   :root {
     --craft-primary: #0F6CBD;
     --craft-on-primary: #FFFFFF;
 
-    /* A folha é SEMPRE clara — nunca segue o dark mode do app.
-       Estas variáveis não têm par "dark"; ficam fixas. */
+    /* A folha é SEMPRE clara — nunca segue o dark mode do app. */
     --slide-bg: #FFFFFF;
     --slide-text: #1A1A1A;
     --slide-shadow: rgba(0,0,0,0.20);
     --slide-border: rgba(0,0,0,0.06);
 
-    /* Já a tira de miniaturas e o resto da chrome seguem o tema do
-       app, como pedido — combinando com o resto do sistema de design. */
+    /* ===== M3 Expressive: superfícies/texto/outline da chrome ===== */
+    --surface: #FFFFFF;
+    --surface-container-low: #F7F7F7;
+    --surface-container: #F0F0F0;
+    --surface-container-high: #E8E8E8;
+    --surface-container-highest: #E0E0E0;
+    --on-surface: #1A1A1A;
+    --on-surface-variant: #5C5C5C;
+    --outline: #767676;
+    --outline-variant: #D6D6D6;
+    --primary: #0F6CBD;
+    --on-primary: #FFFFFF;
+    --primary-container: #D7E7FB;
+    --on-primary-container: #082E52;
+
     --strip-bg: #FFFFFF;
     --strip-border: rgba(0,0,0,0.06);
     --strip-shadow: rgba(0,0,0,0.09);
@@ -28,8 +41,6 @@
     --thumb-surface-bg: #FFFFFF;
     --thumb-surface-text: #1A1A1A;
     --control-bg: #FFFFFF;
-    --onSurface: #1C1C1E;
-    --onSurfaceVariant: #6E6E73;
   }
 
   body.dark {
@@ -37,6 +48,21 @@
     --slide-text: #F2F2F2;
     --slide-shadow: rgba(0,0,0,0.45);
     --slide-border: rgba(255,255,255,0.08);
+
+    --surface: #121316;
+    --surface-container-low: #1A1C1E;
+    --surface-container: #1E2022;
+    --surface-container-high: #282A2D;
+    --surface-container-highest: #333538;
+    --on-surface: #E3E2E6;
+    --on-surface-variant: #C4C6D0;
+    --outline: #8E9099;
+    --outline-variant: #44474F;
+    --primary: #9BCBFF;
+    --on-primary: #00304F;
+    --primary-container: #0B4E80;
+    --on-primary-container: #D7E7FB;
+
     --strip-bg: #141414;
     --strip-border: rgba(255,255,255,0.06);
     --strip-shadow: rgba(0,0,0,0.55);
@@ -46,8 +72,6 @@
     --thumb-surface-bg: #1A1A1A;
     --thumb-surface-text: #F2F2F2;
     --control-bg: #292929;
-    --onSurface: #F2F2F2;
-    --onSurfaceVariant: #9B9B9F;
   }
 
   * {
@@ -61,11 +85,15 @@
     height: 100%;
     background: transparent !important;
     overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
 
-  /* Fundo do ecrã inteiro: sempre transparente. Só as folhas
-     (.slide-16-9) têm fundo próprio (branco, fixo). */
+  .material-symbols-rounded {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    font-size: 22px;
+    line-height: 1;
+  }
+
   #root {
     display: flex;
     flex-direction: column;
@@ -83,8 +111,7 @@
     align-items: center;
     justify-content: center;
     background: transparent;
-    /* Espaço para a tira de miniaturas flutuante não tapar o slide */
-    padding-bottom: 118px;
+    padding-bottom: 190px;
   }
 
   #slideCanvas {
@@ -102,8 +129,6 @@
     position: relative;
     transform-origin: center;
     overflow: hidden;
-    /* Apenas suaviza trocas de escala/zoom — sem animação de
-       entrada/saída ao trocar de slide, como pedido. */
     transition: transform 0.15s ease;
   }
 
@@ -146,9 +171,6 @@
     height: 100% !important;
     pointer-events: none;
   }
-  /* Wrapper de HTML livre embebido — nunca deixa o conteúdo
-     injetado "rebentar" o layout do slide nem travar o resto do
-     editor caso o HTML/CSS/JS seja inválido. */
   .slide-element[data-type="html"] {
     overflow: hidden;
     border-radius: 8px;
@@ -194,14 +216,13 @@
   }
 
   /* ══════════════════════════════════════════════
-     TIRA DE MINIATURAS — flutuante sobre o bottomtoolbar,
-     mesmas curvas dele, um pouco mais alta por causa das folhas.
+     TIRA DE MINIATURAS — flutuante sobre o bottomtoolbar
      ══════════════════════════════════════════════ */
   #thumbStripWrap {
     position: absolute;
     left: 12px;
     right: 12px;
-    bottom: 76px;
+    bottom: 96px;
     z-index: 5;
     pointer-events: none;
   }
@@ -273,7 +294,241 @@
     background: rgba(127,127,127,0.08);
   }
 
-  body.preview-mode #thumbStripWrap {
+  /* ══════════════════════════════════════════════
+     BOTTOM TOOLBAR — M3 Expressive
+     ══════════════════════════════════════════════ */
+  #bottomToolbarWrap {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 16px;
+    z-index: 6;
+  }
+
+  #bottomToolbar {
+    height: 64px;
+    background: var(--strip-bg);
+    border-radius: 999px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.10), 0 8px 22px var(--strip-shadow);
+    border: 1px solid var(--strip-border);
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    gap: 2px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tb-btn {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 58px;
+    height: 54px;
+    border: none;
+    background: none;
+    border-radius: 18px;
+    color: var(--on-surface-variant);
+    cursor: pointer;
+    transition: background-color 0.2s cubic-bezier(0.2,0,0,1), color 0.2s cubic-bezier(0.2,0,0,1);
+  }
+
+  .tb-btn:active {
+    background: var(--surface-container-high);
+  }
+
+  .tb-btn.active {
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+  }
+
+  .tb-btn .tb-label {
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .tb-sep {
+    flex-shrink: 0;
+    width: 1px;
+    height: 32px;
+    background: var(--outline-variant);
+    margin: 0 4px;
+  }
+
+  .tb-btn.tb-danger {
+    color: #BA1A1A;
+  }
+
+  /* ===== Popup (nunca modal): fade + scale discreto, ancorado ===== */
+  #popupScrim {
+    position: fixed;
+    inset: 0;
+    z-index: 998;
+  }
+
+  .popup {
+    position: fixed;
+    z-index: 999;
+    background: var(--surface-container-low);
+    border-radius: 24px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.28);
+    opacity: 0;
+    transform: scale(0.9);
+    transition: opacity 0.15s cubic-bezier(0.2,0,0,1), transform 0.15s cubic-bezier(0.2,0,0,1);
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  .popup.in {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .popup.out {
+    opacity: 0;
+    transform: scale(0.95);
+    transition: opacity 0.1s cubic-bezier(0.2,0,0,1), transform 0.1s cubic-bezier(0.2,0,0,1);
+  }
+
+  /* popup tipo menu (lista de ações) */
+  .popup-menu {
+    min-width: 220px;
+    padding: 8px;
+  }
+
+  .popup-menu button {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 12px 14px;
+    border: none;
+    background: none;
+    border-radius: 16px;
+    text-align: left;
+    font-family: inherit;
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--on-surface);
+    cursor: pointer;
+  }
+
+  .popup-menu button:active {
+    background: var(--surface-container-high);
+  }
+
+  .popup-menu button .material-symbols-rounded {
+    color: var(--on-surface-variant);
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .popup-menu .popup-swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid var(--outline-variant);
+  }
+
+  /* popup tipo painel (cores, tamanhos, html) */
+  .popup-panel {
+    width: 280px;
+    padding: 16px;
+  }
+
+  .popup-panel h4 {
+    margin: 0 0 12px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    color: var(--on-surface-variant);
+  }
+
+  .color-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .color-swatch {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 999px;
+    border: 2px solid var(--outline-variant);
+    cursor: pointer;
+  }
+
+  .color-swatch.selected {
+    border-color: var(--primary);
+    border-width: 3px;
+  }
+
+  .size-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .size-row button {
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    border: none;
+    background: var(--surface-container-high);
+    color: var(--on-surface);
+    font-size: 18px;
+    cursor: pointer;
+  }
+
+  .size-row span {
+    flex: 1;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--on-surface);
+  }
+
+  .popup-panel textarea {
+    width: 100%;
+    min-height: 160px;
+    border: 1px solid var(--outline-variant);
+    border-radius: 14px;
+    padding: 10px 12px;
+    font-family: 'Courier New', monospace;
+    font-size: 12.5px;
+    background: var(--surface);
+    color: var(--on-surface);
+    resize: vertical;
+    outline: none;
+  }
+
+  .popup-confirm-btn {
+    width: 100%;
+    margin-top: 12px;
+    padding: 12px;
+    border: none;
+    border-radius: 999px;
+    background: var(--primary);
+    color: var(--on-primary);
+    font-family: inherit;
+    font-size: 14.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .popup-confirm-btn:active {
+    opacity: 0.85;
+  }
+
+  body.preview-mode #thumbStripWrap,
+  body.preview-mode #bottomToolbarWrap {
     display: none;
   }
   body.preview-mode #mainStage {
@@ -292,6 +547,56 @@
   </div>
   <div id="thumbStripWrap">
     <div id="thumbStrip"></div>
+  </div>
+  <div id="bottomToolbarWrap">
+    <div id="bottomToolbar">
+      <button class="tb-btn" id="tbText" title="Texto">
+        <span class="material-symbols-rounded">title</span>
+        <span class="tb-label">Texto</span>
+      </button>
+      <button class="tb-btn" id="tbImage" title="Imagem">
+        <span class="material-symbols-rounded">image</span>
+        <span class="tb-label">Imagem</span>
+      </button>
+      <button class="tb-btn" id="tbShape" title="Forma">
+        <span class="material-symbols-rounded">category</span>
+        <span class="tb-label">Forma</span>
+      </button>
+      <button class="tb-btn" id="tbChart" title="Gráfico">
+        <span class="material-symbols-rounded">bar_chart</span>
+        <span class="tb-label">Gráfico</span>
+      </button>
+      <button class="tb-btn" id="tbHtml" title="HTML">
+        <span class="material-symbols-rounded">code</span>
+        <span class="tb-label">HTML</span>
+      </button>
+
+      <div class="tb-sep"></div>
+
+      <button class="tb-btn" id="tbFormat" title="Formatar texto">
+        <span class="material-symbols-rounded">format_bold</span>
+        <span class="tb-label">Formato</span>
+      </button>
+      <button class="tb-btn" id="tbColor" title="Cor">
+        <span class="material-symbols-rounded">palette</span>
+        <span class="tb-label">Cor</span>
+      </button>
+      <button class="tb-btn" id="tbSize" title="Tamanho do texto">
+        <span class="material-symbols-rounded">format_size</span>
+        <span class="tb-label">Tamanho</span>
+      </button>
+
+      <div class="tb-sep"></div>
+
+      <button class="tb-btn tb-danger" id="tbDelete" title="Apagar elemento">
+        <span class="material-symbols-rounded">delete</span>
+        <span class="tb-label">Apagar</span>
+      </button>
+      <button class="tb-btn" id="tbDeleteSlide" title="Apagar slide">
+        <span class="material-symbols-rounded">delete_sweep</span>
+        <span class="tb-label">Slide</span>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -349,13 +654,6 @@
     });
   }
 
-  /*
-   * Renderiza um elemento de HTML livre dentro de uma sandbox
-   * isolada (iframe com sandbox="allow-scripts"), para que HTML,
-   * CSS e JS arbitrários possam ser desenhados no slide sem nunca
-   * travar o editor ou quebrar o resto da página caso o conteúdo
-   * seja inválido ou lance uma exceção.
-   */
   function montarFrameHtml(el) {
     var wrap = document.createElement('div');
     wrap.className = 'html-frame-wrap';
@@ -378,9 +676,6 @@
 
     wrap.appendChild(iframe);
 
-    // srcdoc falha silenciosamente em conteúdo malformado em vez de
-    // travar; um try/catch extra protege contra ambientes onde
-    // srcdoc não é suportado.
     try {
       iframe.srcdoc = doc;
     } catch (e) {
@@ -443,8 +738,6 @@
           div.appendChild(montarFrameHtml(el));
         }
       } catch (erroElemento) {
-        // Um elemento malformado nunca deve impedir os restantes de
-        // aparecerem — mostra um placeholder discreto no lugar dele.
         div.innerHTML = '';
         div.style.background = 'rgba(0,0,0,0.04)';
         div.style.border = '1px dashed rgba(0,0,0,0.2)';
@@ -465,6 +758,7 @@
     });
 
     atualizarThumbAtiva();
+    atualizarEstadoToolbar();
   }
 
   function criarHandlesDeRedimensionamento(div, el) {
@@ -634,6 +928,7 @@
     currentSlideEl.querySelectorAll('.slide-element').forEach(function (elDiv) {
       elDiv.classList.toggle('selected', elDiv.getAttribute('data-id') === String(id));
     });
+    atualizarEstadoToolbar();
     if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
       window.flutter_inappwebview.callHandler('onElementSelected', String(id));
     }
@@ -645,6 +940,7 @@
       currentSlideEl.querySelectorAll('.slide-element').forEach(function (elDiv) {
         elDiv.classList.remove('selected');
       });
+      atualizarEstadoToolbar();
     }
   });
 
@@ -739,8 +1035,6 @@
     agendarGravacao();
   }
 
-  // Sem animação de "papel entrando" — troca instantânea, apenas
-  // o zoom (transform:scale) mantém uma transição suave.
   function goToSlide(index) {
     if (index < 0 || index >= slides.length) return;
     currentSlideIndex = index;
@@ -818,13 +1112,6 @@
     agendarGravacao();
   }
 
-  /*
-   * Insere um bloco de HTML/CSS/JS livre no slide, isolado numa
-   * sandbox (iframe). Aceita tanto uma string HTML simples como
-   * um objeto {html, w, h}. Nunca lança exceção para fora — um
-   * conteúdo malformado apenas resulta num quadro vazio/quebrado,
-   * sem travar o resto do editor.
-   */
   function insertHtml(htmlOrConfig) {
     var slide = slides[currentSlideIndex];
     var htmlContent = '';
@@ -959,8 +1246,6 @@
     return slides.length;
   }
 
-  /* O modo claro/escuro é sincronizado pela atividade nativa.
-     A folha, a tira de miniaturas e os gráficos seguem a paleta AppAo. */
   function setThemeMode(mode) {
     var isDark = (mode === 'dark') || (mode === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
     document.body.classList.toggle('dark', isDark);
@@ -983,12 +1268,9 @@
   function setPrimaryColor(hex) {
     if (!hex || typeof hex !== 'string') return;
     document.documentElement.style.setProperty('--craft-primary', hex);
+    document.documentElement.style.setProperty('--primary', hex);
   }
 
-  // Protege o editor inteiro contra exceções não tratadas (por
-  // exemplo, vindas de JS injetado dentro de um elemento HTML
-  // livre que escape da sandbox de alguma forma) — nunca deixa o
-  // WebView "morrer" silenciosamente.
   window.addEventListener('error', function () { return true; });
 
   window.editorApi = {
@@ -1013,6 +1295,273 @@
     setPrimaryColor: setPrimaryColor
   };
 
+  /* ══════════════════════════════════════════════
+     BOTTOM TOOLBAR — ações + popups (nunca modais)
+     ══════════════════════════════════════════════ */
+
+  var PALETTE = [
+    '#1A1A1A', '#FFFFFF', '#BA1A1A', '#E8890C', '#F2C300',
+    '#0B6A0B', '#00767A', '#0F6CBD', '#8764B8', '#C239B3',
+    '#515C6B', '#9AA0A6'
+  ];
+
+  var activePopup = null;
+
+  function fecharPopup() {
+    if (!activePopup) return;
+    var p = activePopup;
+    activePopup = null;
+    p.popupEl.classList.remove('in');
+    p.popupEl.classList.add('out');
+    p.scrimEl.remove();
+    setTimeout(function () { p.popupEl.remove(); }, 100);
+  }
+
+  function abrirPopup(anchorEl, contentEl, opts) {
+    fecharPopup();
+    opts = opts || {};
+    var scrim = document.createElement('div');
+    scrim.id = 'popupScrim';
+    var popup = document.createElement('div');
+    popup.className = 'popup ' + (opts.panel ? 'popup-panel' : 'popup-menu');
+    popup.appendChild(contentEl);
+    document.body.appendChild(scrim);
+    document.body.appendChild(popup);
+
+    void popup.offsetHeight;
+
+    var rect = anchorEl.getBoundingClientRect();
+    var vw = innerWidth, vh = innerHeight, gap = 12;
+    var w = popup.offsetWidth, h = popup.offsetHeight;
+
+    var left = rect.left + rect.width / 2 - w / 2;
+    var top = rect.top - h - 10;
+    if (top < gap) top = rect.bottom + 10;
+
+    left = Math.max(gap, Math.min(left, vw - w - gap));
+    top = Math.max(gap, Math.min(top, vh - h - gap));
+
+    popup.style.left = left + 'px';
+    popup.style.top = top + 'px';
+    popup.style.transformOrigin = (rect.left + rect.width / 2 - left) + 'px ' + (rect.top + rect.height / 2 - top) + 'px';
+
+    activePopup = { popupEl: popup, scrimEl: scrim };
+
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { popup.classList.add('in'); });
+    });
+
+    scrim.addEventListener('click', fecharPopup);
+    return popup;
+  }
+
+  function criarMenuItem(iconName, label, onClick, swatchColor) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    var iconHtml = swatchColor
+      ? '<span class="popup-swatch" style="background:' + swatchColor + '"></span>'
+      : '<span class="material-symbols-rounded">' + iconName + '</span>';
+    btn.innerHTML = iconHtml + '<span>' + label + '</span>';
+    btn.addEventListener('click', function () {
+      fecharPopup();
+      setTimeout(onClick, 80);
+    });
+    return btn;
+  }
+
+  function atualizarEstadoToolbar() {
+    var temSelecao = selectedElementId !== null;
+    var slide = slides[currentSlideIndex];
+    var elSelecionado = temSelecao && slide ? slide.elements.find(function (e) { return e.id === selectedElementId; }) : null;
+    var ehTexto = elSelecionado && elSelecionado.type === 'text';
+    var ehForma = elSelecionado && elSelecionado.type === 'shape';
+
+    document.getElementById('tbDelete').style.opacity = temSelecao ? '1' : '0.35';
+    document.getElementById('tbFormat').style.opacity = ehTexto ? '1' : '0.35';
+    document.getElementById('tbSize').style.opacity = ehTexto ? '1' : '0.35';
+    document.getElementById('tbColor').style.opacity = (ehTexto || ehForma) ? '1' : '0.35';
+  }
+
+  // Inserir texto
+  document.getElementById('tbText').addEventListener('click', function () {
+    insertTextBox();
+  });
+
+  // Inserir imagem (via URL, popup simples)
+  document.getElementById('tbImage').addEventListener('click', function (e) {
+    var wrap = document.createElement('div');
+    var h4 = document.createElement('h4');
+    h4.textContent = 'URL da imagem';
+    var input = document.createElement('input');
+    input.type = 'url';
+    input.placeholder = 'https://...';
+    input.style.cssText = 'width:100%;padding:10px 12px;border-radius:14px;border:1px solid var(--outline-variant);background:var(--surface);color:var(--on-surface);font-size:14px;outline:none;box-sizing:border-box;';
+    var btn = document.createElement('button');
+    btn.className = 'popup-confirm-btn';
+    btn.textContent = 'Inserir';
+    btn.addEventListener('click', function () {
+      if (input.value.trim()) {
+        insertImage(input.value.trim());
+        fecharPopup();
+      }
+    });
+    wrap.appendChild(h4);
+    wrap.appendChild(input);
+    wrap.appendChild(btn);
+    abrirPopup(document.getElementById('tbImage'), wrap, { panel: true });
+    setTimeout(function () { input.focus(); }, 150);
+  });
+
+  // Inserir forma
+  document.getElementById('tbShape').addEventListener('click', function () {
+    var wrap = document.createElement('div');
+    wrap.appendChild(criarMenuItem('crop_square', 'Retângulo', function () {
+      insertShape('rect', '#2F7BF6');
+    }));
+    wrap.appendChild(criarMenuItem('circle', 'Círculo', function () {
+      insertShape('circle', '#2F7BF6');
+    }));
+    abrirPopup(document.getElementById('tbShape'), wrap);
+  });
+
+  // Inserir gráfico
+  document.getElementById('tbChart').addEventListener('click', function () {
+    var wrap = document.createElement('div');
+    var configs = {
+      bar: { type: 'bar', data: { labels: ['A', 'B', 'C', 'D'], datasets: [{ label: 'Série 1', data: [12, 19, 8, 15], backgroundColor: '#0F6CBD' }] } },
+      line: { type: 'line', data: { labels: ['Jan', 'Fev', 'Mar', 'Abr'], datasets: [{ label: 'Série 1', data: [5, 12, 9, 18], borderColor: '#0F6CBD', tension: 0.3 }] } },
+      pie: { type: 'pie', data: { labels: ['A', 'B', 'C'], datasets: [{ data: [30, 45, 25], backgroundColor: ['#0F6CBD', '#8764B8', '#C239B3'] }] } },
+      doughnut: { type: 'doughnut', data: { labels: ['A', 'B', 'C'], datasets: [{ data: [40, 35, 25], backgroundColor: ['#0F6CBD', '#00767A', '#CA5010'] }] } }
+    };
+    wrap.appendChild(criarMenuItem('bar_chart', 'Barras', function () { insertChart(configs.bar); }));
+    wrap.appendChild(criarMenuItem('show_chart', 'Linha', function () { insertChart(configs.line); }));
+    wrap.appendChild(criarMenuItem('pie_chart', 'Circular', function () { insertChart(configs.pie); }));
+    wrap.appendChild(criarMenuItem('donut_small', 'Rosca', function () { insertChart(configs.doughnut); }));
+    abrirPopup(document.getElementById('tbChart'), wrap);
+  });
+
+  // Inserir HTML livre
+  document.getElementById('tbHtml').addEventListener('click', function () {
+    var wrap = document.createElement('div');
+    var h4 = document.createElement('h4');
+    h4.textContent = 'HTML / CSS / JS';
+    var textarea = document.createElement('textarea');
+    textarea.placeholder = '<div style="color:#333">Olá mundo</div>';
+    var btn = document.createElement('button');
+    btn.className = 'popup-confirm-btn';
+    btn.textContent = 'Inserir';
+    btn.addEventListener('click', function () {
+      if (textarea.value.trim()) {
+        insertHtml(textarea.value);
+        fecharPopup();
+      }
+    });
+    wrap.appendChild(h4);
+    wrap.appendChild(textarea);
+    wrap.appendChild(btn);
+    abrirPopup(document.getElementById('tbHtml'), wrap, { panel: true });
+  });
+
+  // Formatar texto
+  document.getElementById('tbFormat').addEventListener('click', function () {
+    if (selectedElementId === null) return;
+    var wrap = document.createElement('div');
+    wrap.appendChild(criarMenuItem('format_bold', 'Negrito', function () { applyTextFormat('bold'); }));
+    wrap.appendChild(criarMenuItem('format_italic', 'Itálico', function () { applyTextFormat('italic'); }));
+    wrap.appendChild(criarMenuItem('format_underlined', 'Sublinhado', function () { applyTextFormat('underline'); }));
+    abrirPopup(document.getElementById('tbFormat'), wrap);
+  });
+
+  // Cor (texto ou forma, conforme seleção)
+  document.getElementById('tbColor').addEventListener('click', function () {
+    if (selectedElementId === null) return;
+    var slide = slides[currentSlideIndex];
+    var el = slide.elements.find(function (e) { return e.id === selectedElementId; });
+    if (!el || (el.type !== 'text' && el.type !== 'shape')) return;
+
+    var wrap = document.createElement('div');
+    var h4 = document.createElement('h4');
+    h4.textContent = 'Cor';
+    var grid = document.createElement('div');
+    grid.className = 'color-grid';
+    PALETTE.forEach(function (hex) {
+      var sw = document.createElement('div');
+      sw.className = 'color-swatch' + (el.color === hex ? ' selected' : '');
+      sw.style.background = hex;
+      sw.addEventListener('click', function () {
+        if (el.type === 'text') setSelectedTextColor(hex);
+        else setSelectedShapeColor(hex);
+        fecharPopup();
+      });
+      grid.appendChild(sw);
+    });
+    wrap.appendChild(h4);
+    wrap.appendChild(grid);
+    abrirPopup(document.getElementById('tbColor'), wrap, { panel: true });
+  });
+
+  // Tamanho do texto
+  document.getElementById('tbSize').addEventListener('click', function () {
+    if (selectedElementId === null) return;
+    var slide = slides[currentSlideIndex];
+    var el = slide.elements.find(function (e) { return e.id === selectedElementId; });
+    if (!el || el.type !== 'text') return;
+
+    var wrap = document.createElement('div');
+    var h4 = document.createElement('h4');
+    h4.textContent = 'Tamanho do texto';
+    var row = document.createElement('div');
+    row.className = 'size-row';
+    var minus = document.createElement('button');
+    minus.textContent = '−';
+    var valueSpan = document.createElement('span');
+    valueSpan.textContent = (el.fontSize || 24) + 'px';
+    var plus = document.createElement('button');
+    plus.textContent = '+';
+
+    minus.addEventListener('click', function () {
+      var novo = Math.max(10, (el.fontSize || 24) - 2);
+      setSelectedFontSize(novo);
+      valueSpan.textContent = novo + 'px';
+    });
+    plus.addEventListener('click', function () {
+      var novo = Math.min(120, (el.fontSize || 24) + 2);
+      setSelectedFontSize(novo);
+      valueSpan.textContent = novo + 'px';
+    });
+
+    row.appendChild(minus);
+    row.appendChild(valueSpan);
+    row.appendChild(plus);
+    wrap.appendChild(h4);
+    wrap.appendChild(row);
+    abrirPopup(document.getElementById('tbSize'), wrap, { panel: true });
+  });
+
+  // Apagar elemento selecionado
+  document.getElementById('tbDelete').addEventListener('click', function () {
+    deleteSelectedElement();
+  });
+
+  // Apagar slide atual (confirmação via popup, não modal)
+  document.getElementById('tbDeleteSlide').addEventListener('click', function () {
+    if (slides.length <= 1) return;
+    var wrap = document.createElement('div');
+    var h4 = document.createElement('h4');
+    h4.textContent = 'Apagar este slide?';
+    var btn = document.createElement('button');
+    btn.className = 'popup-confirm-btn';
+    btn.style.background = '#BA1A1A';
+    btn.textContent = 'Apagar';
+    btn.addEventListener('click', function () {
+      deleteCurrentSlide();
+      fecharPopup();
+    });
+    wrap.appendChild(h4);
+    wrap.appendChild(btn);
+    abrirPopup(document.getElementById('tbDeleteSlide'), wrap, { panel: true });
+  });
+
   function iniciar() {
     detectarModoPreview();
     ajustarZoom();
@@ -1027,6 +1576,7 @@
     }
     renderizarThumbs();
     setThemeMode('system');
+    atualizarEstadoToolbar();
   }
 
   if (document.readyState === 'loading') {

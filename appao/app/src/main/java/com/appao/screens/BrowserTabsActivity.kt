@@ -35,6 +35,7 @@ class BrowserTabsActivity : AppCompatActivity() {
     private lateinit var emptyState: TextView
     private lateinit var normalModeTab: TextView
     private lateinit var privateModeTab: TextView
+    private lateinit var tabsButtonLandingView: View
     private var sourceTabId: String = ""
     private var sourcePrivateMode: Boolean = false
     private var privateMode: Boolean = false
@@ -47,12 +48,13 @@ class BrowserTabsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         incomingTransitionName = intent.getStringExtra("transition_name").orEmpty()
         if (incomingTransitionName.isNotBlank()) {
-            // Real Material Container Transform in both directions. Delay capture until the
-            // source-matched preview exists and has been measured by RecyclerView.
+            // Real Material Container Transform in both directions. The destination shared element
+            // is now the whole content area (see tabsButtonLandingView below) rather than a single
+            // grid item — the tab overview morphs out of the "Abas" button on the previous screen.
             // prepare() MUST run before setContentView() and only once per Activity — configure()
             // no longer calls it internally so it is safe to call again later if needed.
             BrowserTransitions.prepare(this)
-            BrowserTransitions.configure(this)
+            BrowserTransitions.configure(this, sharedTransitionName = incomingTransitionName)
             postponeEnterTransition()
         }
         WindowCompat.setDecorFitsSystemWindows(window, true)
@@ -143,6 +145,13 @@ class BrowserTabsActivity : AppCompatActivity() {
         content.addView(emptyState, FrameLayout.LayoutParams(-1, -1))
         root.addView(content)
         setContentView(root)
+
+        // Container Transform M3 Expressive landing point: the whole content area is the
+        // destination the "Abas" square+count button morphs into. Unlike a specific grid item,
+        // this container is always present and measured as soon as the toolbar has laid out,
+        // which is what makes the button-driven transform reliable on every device.
+        tabsButtonLandingView = content
+
         refreshSegment()
         refreshTabs()
     }
@@ -207,35 +216,32 @@ class BrowserTabsActivity : AppCompatActivity() {
     }
 
     /**
-     * Scrolls the source tab into view, assigns the matching shared-element name only after its
-     * preview has real bounds, then releases the postponed Material transform. Retries are bounded
-     * so a missing/recycled item can never post an endless chain of main-thread callbacks.
+     * Assigns the incoming transitionName to the fixed "Abas" button landing container (the
+     * whole content area, always present in the layout, not dependent on the grid having bound
+     * any particular item), then releases the postponed Material transform once it has real
+     * bounds. Retries are bounded so a delayed layout pass can never post an endless chain of
+     * main-thread callbacks.
      */
     private fun armIncomingTransition(display: List<BrowserTab>) {
-        val targetId = sourceTabId.ifBlank { "__home__" }
-        val targetIndex = display.indexOfFirst { it.id == targetId }
-        if (targetIndex < 0) {
+        if (!::tabsButtonLandingView.isInitialized) {
             startPostponedEnterTransition()
             return
         }
-
-        list.scrollToPosition(targetIndex)
         var attempts = 0
         fun tryArm() {
             if (isFinishing || isDestroyed) return
-            val holder = list.findViewHolderForAdapterPosition(targetIndex) as? TabHolder
-            if (holder != null && holder.preview.isAttachedToWindow &&
-                holder.preview.width > 0 && holder.preview.height > 0) {
-                ViewCompat.setTransitionName(holder.preview, incomingTransitionName)
+            if (tabsButtonLandingView.isAttachedToWindow &&
+                tabsButtonLandingView.width > 0 && tabsButtonLandingView.height > 0) {
+                ViewCompat.setTransitionName(tabsButtonLandingView, incomingTransitionName)
                 startPostponedEnterTransition()
             } else if (attempts++ < 24) {
-                list.postDelayed({ tryArm() }, 16L)
+                tabsButtonLandingView.postDelayed({ tryArm() }, 16L)
             } else {
                 // Never leave the Activity stuck behind a postponed transition on unusual OEMs.
                 startPostponedEnterTransition()
             }
         }
-        list.post { tryArm() }
+        tabsButtonLandingView.post { tryArm() }
     }
 
     private fun openNewTab(preview: View? = null) {

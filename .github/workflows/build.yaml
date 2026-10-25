@@ -39,6 +39,7 @@ jobs:
           gradle-version: '8.13'
           cache-provider: basic
           gradle-home-cache-cleanup: true
+          validate-wrappers: false
 
       - name: Configure Android SDK
         shell: bash

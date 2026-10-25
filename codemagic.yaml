@@ -90,6 +90,12 @@ workflows:
         script: |
           set -euo pipefail
 
+          # openssl está sempre presente (Linux e macOS) e produz Base64 numa única linha
+          # com -A, eliminando a necessidade de detetar a variante de `base64` (GNU vs BSD).
+          b64_oneline() {
+            openssl base64 -A -in "$1"
+          }
+
           SIGNING_DIR="$CM_BUILD_DIR/appao-local-signing-material"
           mkdir -p "$SIGNING_DIR"
           chmod 700 "$SIGNING_DIR"
@@ -98,15 +104,6 @@ workflows:
           KEY_ALIAS="${LOOPLY_KEY_ALIAS:-appao-local}"
           GENERATED=false
 
-          # Wrapper compatível com GNU base64 (Linux, suporta -w) e BSD base64 (macOS, sem -w)
-          b64_oneline() {
-            if base64 --help 2>&1 | grep -q -- '-w'; then
-              base64 -w 0 "$1"
-            else
-              base64 "$1" | tr -d '\n'
-            fi
-          }
-
           if [ -n "${LOOPLY_KEYSTORE_BASE64:-}" ]; then
             if [ -z "${LOOPLY_KEYSTORE_PASSWORD:-}" ]; then
               echo "ERROR: LOOPLY_KEYSTORE_BASE64 is set, but LOOPLY_KEYSTORE_PASSWORD is missing."
@@ -114,7 +111,7 @@ workflows:
             fi
 
             echo "Loading the existing local keystore from secrets..."
-            printf '%s' "$LOOPLY_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+            printf '%s' "$LOOPLY_KEYSTORE_BASE64" | openssl base64 -A -d > "$KEYSTORE_PATH"
             STORE_PASSWORD="$LOOPLY_KEYSTORE_PASSWORD"
             KEY_PASSWORD="${LOOPLY_KEY_PASSWORD:-$STORE_PASSWORD}"
 
@@ -263,7 +260,8 @@ workflows:
             exit 1
           fi
 
-          bytes=$(stat -f%z "$APK" 2>/dev/null || stat -c%s "$APK")
+          # wc -c é POSIX puro — funciona igual em Linux e macOS, sem flags divergentes de `stat`
+          bytes=$(wc -c < "$APK" | tr -d ' ')
           mib=$((bytes / 1024 / 1024))
           echo "APK: $APK"
           echo "Bytes: $bytes"

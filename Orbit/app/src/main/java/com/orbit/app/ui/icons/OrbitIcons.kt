@@ -27,15 +27,15 @@ object OrbitIcons {
                 strokeLineJoin = StrokeJoin.Round,
                 pathFillType = PathFillType.NonZero,
             ) {
-                moveTo(3f, 10f)
+                moveTo(3f, 11f)
                 lineTo(12f, 3f)
-                lineTo(21f, 10f)
-                lineTo(21f, 21f)
-                lineTo(14f, 21f)
-                lineTo(14f, 14f)
-                lineTo(10f, 14f)
-                lineTo(10f, 21f)
-                lineTo(3f, 21f)
+                lineTo(21f, 11f)
+                lineTo(21f, 20f)
+                lineTo(15f, 20f)
+                lineTo(15f, 14f)
+                lineTo(9f, 14f)
+                lineTo(9f, 20f)
+                lineTo(3f, 20f)
                 close()
             }
         }.build()
@@ -58,10 +58,10 @@ object OrbitIcons {
                 pathFillType = PathFillType.NonZero,
             ) {
                 moveTo(12f, 3f)
-                cubicTo(7.03f, 3f, 3f, 7.03f, 3f, 12f)
-                cubicTo(3f, 16.97f, 7.03f, 21f, 12f, 21f)
-                cubicTo(16.97f, 21f, 21f, 16.97f, 21f, 12f)
-                cubicTo(21f, 7.03f, 16.97f, 3f, 12f, 3f)
+                curveTo(7.03f, 3f, 3f, 7.03f, 3f, 12f)
+                curveTo(3f, 16.97f, 7.03f, 21f, 12f, 21f)
+                curveTo(16.97f, 21f, 21f, 16.97f, 21f, 12f)
+                curveTo(21f, 7.03f, 16.97f, 3f, 12f, 3f)
                 close()
             }
             path(
@@ -71,10 +71,10 @@ object OrbitIcons {
                 strokeLineCap = StrokeCap.Round,
                 strokeLineJoin = StrokeJoin.Round,
             ) {
-                moveTo(15.8f, 8.2f)
-                lineTo(13.2f, 13.2f)
-                lineTo(8.2f, 15.8f)
-                lineTo(10.8f, 10.8f)
+                moveTo(16f, 8f)
+                lineTo(13.5f, 13.5f)
+                lineTo(8f, 16f)
+                lineTo(10.5f, 10.5f)
                 close()
             }
         }.build()
@@ -97,9 +97,9 @@ object OrbitIcons {
                 pathFillType = PathFillType.NonZero,
             ) {
                 moveTo(6f, 4f)
-                cubicTo(6f, 3.45f, 6.45f, 3f, 7f, 3f)
+                curveTo(6f, 3.45f, 6.45f, 3f, 7f, 3f)
                 lineTo(17f, 3f)
-                cubicTo(17.55f, 3f, 18f, 3.45f, 18f, 4f)
+                curveTo(17.55f, 3f, 18f, 3.45f, 18f, 4f)
                 lineTo(18f, 21f)
                 lineTo(12f, 17f)
                 lineTo(6f, 21f)
@@ -125,10 +125,10 @@ object OrbitIcons {
                 pathFillType = PathFillType.NonZero,
             ) {
                 moveTo(12f, 12f)
-                cubicTo(14.49f, 12f, 16.5f, 9.99f, 16.5f, 7.5f)
-                cubicTo(16.5f, 5.01f, 14.49f, 3f, 12f, 3f)
-                cubicTo(9.51f, 3f, 7.5f, 5.01f, 7.5f, 7.5f)
-                cubicTo(7.5f, 9.99f, 9.51f, 12f, 12f, 12f)
+                curveTo(14.49f, 12f, 16.5f, 9.99f, 16.5f, 7.5f)
+                curveTo(16.5f, 5.01f, 14.49f, 3f, 12f, 3f)
+                curveTo(9.51f, 3f, 7.5f, 5.01f, 7.5f, 7.5f)
+                curveTo(7.5f, 9.99f, 9.51f, 12f, 12f, 12f)
                 close()
             }
             path(
@@ -139,9 +139,9 @@ object OrbitIcons {
                 strokeLineJoin = StrokeJoin.Round,
             ) {
                 moveTo(4f, 21f)
-                cubicTo(4f, 17.7f, 7.35f, 15f, 12f, 15f)
-                cubicTo(16.65f, 15f, 20f, 17.7f, 20f, 21f)
+                curveTo(4f, 17.7f, 7.35f, 15f, 12f, 15f)
+                curveTo(16.65f, 15f, 20f, 17.7f, 20f, 21f)
             }
         }.build()
     }
-}
+}l

@@ -16,6 +16,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.ActionMode
@@ -46,7 +48,6 @@ import android.webkit.WebViewClient
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.PopupWindow
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
@@ -65,6 +66,7 @@ import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 import com.appao.AccentColorManager
 import com.appao.AppAoToast
+import com.appao.BrowserAutocomplete
 import com.appao.BrowserPreferences
 import com.appao.BrowsingHistoryStore
 import com.appao.ConversationHistoryStore
@@ -102,12 +104,14 @@ class AppViewerActivity : AppCompatActivity() {
     private lateinit var faviconLoader: PullRefreshIndicatorView
     private lateinit var browserPullIndicator: LoadingIndicator
     private var faviconLoaderAnimator: android.animation.ValueAnimator? = null
-    private lateinit var address: EditText
+    private lateinit var searchBar: com.google.android.material.search.SearchBar
+    private lateinit var searchView: com.google.android.material.search.SearchView
+    private lateinit var searchSuggestionsRows: LinearLayout
+    private lateinit var searchEngineLabel: TextView
     private lateinit var favicon: ImageView
     private var rendererRecoveryAttempted = false
     private var tabId: String = ""
     private var privateMode = false
-    private var openingBrowserSearch = false
     private var addressSuggestionGeneration = 0L
     private var reusedWebView = false
     private lateinit var findBar: View
@@ -116,13 +120,11 @@ class AppViewerActivity : AppCompatActivity() {
     private var browserBarHidden = false
     private var browserBarOffsetPx = 0
     private var zoomBar: View? = null
-    private var addressSuggestionsPopup: PopupWindow? = null
     private var elementActionsPopup: androidx.appcompat.widget.PopupMenu? = null
     private var lastTouchRawX = 0f
     private var lastTouchRawY = 0f
-    private val REQUEST_BROWSER_SEARCH = 7415
     private val ACTION_USE_SELECTED_TEXT = 0xA001
-    private val addressSuggestionHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val addressSuggestionHandler = Handler(Looper.getMainLooper())
     private var addressSuggestionRunnable: Runnable? = null
     private var pendingWebPermissionRequest: PermissionRequest? = null
     private var pendingWebPermissions: Array<String> = emptyArray()
@@ -150,24 +152,16 @@ class AppViewerActivity : AppCompatActivity() {
         }
         WindowCompat.setDecorFitsSystemWindows(window, true)
         // requestFeature(FEATURE_ACTIVITY_TRANSITIONS) must run once, before setContentView().
-        // BrowserTransitions.configure() no longer calls it internally (that caused crashes when
-        // configure() was invoked again later, e.g. before browser navigation from MainActivity).
         BrowserTransitions.prepare(this)
         // Read the incoming transition BEFORE configure(), because configure() needs to know
-        // which shared element to exclude from the Fade. The most common exit path from
-        // AppViewerActivity is via the address pill, so ADDRESS_TRANSITION_NAME is the fallback
-        // when this Activity was opened directly (no shared element on the way in). Both
-        // ADDRESS and TABS names are always excluded from the Fade inside configure(), so it
-        // doesn't matter if the user entered via one and will exit via the other.
+        // which shared element to exclude from the Fade (both ADDRESS and TABS names are
+        // always excluded inside configure, so entering via one and exiting via the other is
+        // safe regardless of which value we pass here).
         val incomingTransitionName = intent.getStringExtra("transition_name").orEmpty()
         BrowserTransitions.configure(
             this,
             sharedTransitionName = incomingTransitionName.ifBlank { BrowserTransitions.ADDRESS_TRANSITION_NAME }
         )
-        // Container Transform M3 Expressive: postpone the enter transition until the WebView
-        // has been attached and measured. Without this, the MaterialContainerTransform can
-        // start before the WebView has valid bounds, producing a visible "flash" before the
-        // morph actually begins. Released below with a bounded retry.
         if (incomingTransitionName.isNotBlank()) {
             postponeEnterTransition()
         }
@@ -181,7 +175,8 @@ class AppViewerActivity : AppCompatActivity() {
         browserPullIndicator = findViewById(R.id.browserPullIndicator)
         browserPullIndicator.setIndicatorColor(AccentColorManager.resolvedOr(this, R.color.pri))
         browserPullIndicator.contentDescription = "A atualizar página"
-        address = findViewById(R.id.browserAddress)
+        searchBar = findViewById(R.id.browserSearchBar)
+        searchView = findViewById(R.id.browserSearchView)
         favicon = findViewById(R.id.browserFavicon)
         findBar = findViewById(R.id.browserFindBar)
         findInput = findViewById(R.id.browserFindInput)
@@ -214,8 +209,6 @@ class AppViewerActivity : AppCompatActivity() {
 
         IconLoader.applyIcon(findViewById(R.id.appViewerMoreIcon), "more_vert", R.color.iconTint)
         IconLoader.applyIcon(findViewById(R.id.browserFindCloseIcon), "close", R.color.iconTint)
-        IconLoader.applyIcon(findViewById(R.id.browserAddressClearIcon), "close", R.color.iconTint)
-        findViewById<View>(R.id.browserAddressClear).visibility = View.GONE
         web.setOnTouchListener { _, event ->
             if (event.actionMasked == MotionEvent.ACTION_DOWN) {
                 lastTouchRawX = event.rawX
@@ -280,7 +273,7 @@ class AppViewerActivity : AppCompatActivity() {
         findViewById<View>(R.id.appViewerMore).setOnClickListener { showPageMenu(it) }
 
         web.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
-            if (findMode || address.hasFocus() || isFinishing || isDestroyed) return@setOnScrollChangeListener
+            if (findMode || searchView.isShowing || isFinishing || isDestroyed) return@setOnScrollChangeListener
             if (scrollY <= 0) {
                 setBrowserBarOffset(0)
                 return@setOnScrollChangeListener
@@ -293,6 +286,7 @@ class AppViewerActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
+                    searchView.isShowing -> searchView.hide()
                     findMode -> closeFindInPage()
                     web.canGoBack() -> web.goBack()
                     else -> closeCurrentTabAndGoHome()
@@ -303,10 +297,10 @@ class AppViewerActivity : AppCompatActivity() {
         swipeRefresh.setProgressBackgroundColorSchemeColor(ContextCompat.getColor(this, R.color.bg))
         swipeRefresh.setColorSchemeColors(ContextCompat.getColor(this, R.color.bg))
         swipeRefresh.setOnChildScrollUpCallback { _, _ ->
-            address.hasFocus() || findMode || (this::web.isInitialized && web.canScrollVertically(-1))
+            searchView.isShowing || findMode || (this::web.isInitialized && web.canScrollVertically(-1))
         }
         swipeRefresh.canExpressivePull = {
-            !address.hasFocus() && !findMode && ::web.isInitialized && !web.canScrollVertically(-1)
+            !searchView.isShowing && !findMode && ::web.isInitialized && !web.canScrollVertically(-1)
         }
         swipeRefresh.onExpressivePullProgress = { pull ->
             if (!swipeRefresh.isRefreshing) {
@@ -320,7 +314,7 @@ class AppViewerActivity : AppCompatActivity() {
         }
 
         val activeUrl = if (reusedWebView) web.url.orEmpty().ifBlank { initialUrl } else initialUrl
-        address.setText(activeUrl)
+        searchBar.setText(activeUrl)
         loadFavicon(activeUrl)
         updateTabCounters()
         if (reusedWebView) {
@@ -330,10 +324,8 @@ class AppViewerActivity : AppCompatActivity() {
         }
 
         // Container Transform M3 Expressive — release the postponed transition once the WebView
-        // is attached and measured. Bounded retry (same pattern as BrowserTabsActivity.armIncomingTransition)
-        // instead of a single web.post {}: a bare post() never fires if the WebView is not yet
-        // attached, or if the Activity is destroyed/recreated before the runnable's turn — leaving
-        // the transition postponed forever, which is what produced the crash when reopening tabs.
+        // is attached and measured, with a bounded retry so a missed post (Activity destroyed,
+        // WebView not yet measured, etc.) can never leave the Activity stuck.
         if (incomingTransitionName.isNotBlank()) {
             var transitionReleaseAttempts = 0
             fun releaseIncomingTransition() {
@@ -371,9 +363,10 @@ class AppViewerActivity : AppCompatActivity() {
         web.evaluateJavascript("(function(){return String(window.getSelection ? window.getSelection().toString() : '').trim()})()") { encoded ->
             val selected = runCatching { org.json.JSONTokener(encoded ?: "\"\"").nextValue() as? String }.getOrNull().orEmpty().trim()
             if (selected.isBlank() || isFinishing || isDestroyed) return@evaluateJavascript
-            address.setText(selected)
-            address.setSelection(address.text?.length ?: 0)
-            openBrowserSearch(selected)
+            searchView.show()
+            searchView.editText.setText(selected)
+            searchView.editText.setSelection(selected.length)
+            renderSearchSuggestions(selected.trim(), emptyList())
         }
     }
 
@@ -381,12 +374,12 @@ class AppViewerActivity : AppCompatActivity() {
     private fun configureWebViewClients() {
         web.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String, faviconBitmap: Bitmap?) {
-                if (!address.hasFocus()) address.setText(url)
+                if (!searchView.isShowing) searchBar.setText(url)
                 startFaviconLoader()
             }
 
             override fun onPageFinished(view: WebView, url: String) {
-                if (!address.hasFocus()) address.setText(url)
+                if (!searchView.isShowing) searchBar.setText(url)
                 val title = view.title?.take(250).orEmpty().ifBlank { hostFor(url).ifBlank { "Nova aba" } }
                 if (!privateMode) BrowsingHistoryStore.record(this@AppViewerActivity, url, title)
                 lifecycleScope.launch(Dispatchers.IO) { updateTabPage(tabId, url, title) }
@@ -511,19 +504,153 @@ class AppViewerActivity : AppCompatActivity() {
     }
 
     private fun configureAddressInput() {
-        address.isFocusable = false
-        address.isFocusableInTouchMode = false
-        address.isCursorVisible = false
-        address.showSoftInputOnFocus = false
-        address.setOnClickListener { openBrowserSearch() }
-        findViewById<View>(R.id.browserAddressPill).setOnClickListener { openBrowserSearch() }
-        ViewCompat.setTransitionName(findViewById(R.id.browserAddressPill), "browser_address_transform")
+        // Native M3 SearchBar + SearchView: setupWithSearchBar wires the expand/collapse animation
+        // entirely inside this Activity. No second Activity, no MaterialContainerTransform, no
+        // postponeEnterTransition for this flow — this is what removes the historical crash at
+        // its root.
+        searchView.setupWithSearchBar(searchBar)
+        buildSearchSuggestionsUi()
+
+        val editText = searchView.editText
+        editText.setSingleLine(true)
+        editText.imeOptions = EditorInfo.IME_ACTION_GO
+        editText.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_AUTO_CORRECT
+        editText.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_GO ||
+                actionId == EditorInfo.IME_ACTION_DONE ||
+                actionId == EditorInfo.IME_ACTION_SEARCH
+            ) {
+                submitSearchValue(editText.text?.toString().orEmpty())
+                true
+            } else false
+        }
+        editText.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun afterTextChanged(s: Editable?) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                addressSuggestionRunnable?.let(addressSuggestionHandler::removeCallbacks)
+                val query = s?.toString().orEmpty().trim()
+                renderSearchSuggestions(query, emptyList())
+                if (query.isBlank()) return
+                val callGeneration = ++addressSuggestionGeneration
+                val runnable = Runnable {
+                    lifecycleScope.launch {
+                        val remote = withContext(Dispatchers.IO) { BrowserAutocomplete.googleSuggestions(query, 7) }
+                        if (isFinishing || isDestroyed || callGeneration != addressSuggestionGeneration) return@launch
+                        if (editText.text?.toString()?.trim() == query) renderSearchSuggestions(query, remote)
+                    }
+                }
+                addressSuggestionRunnable = runnable
+                addressSuggestionHandler.postDelayed(runnable, 130L)
+            }
+        })
+        searchView.addTransitionListener { _, _, newState ->
+            if (newState == com.google.android.material.search.SearchView.TransitionState.SHOWN) {
+                editText.setText(web.url.orEmpty())
+                editText.setSelection(editText.text?.length ?: 0)
+                renderSearchSuggestions(editText.text?.toString().orEmpty().trim(), emptyList())
+            }
+        }
     }
 
     private fun hideAddressSuggestions() {
         addressSuggestionRunnable?.let(addressSuggestionHandler::removeCallbacks)
-        addressSuggestionsPopup?.dismiss()
-        addressSuggestionsPopup = null
+        if (::searchView.isInitialized && searchView.isShowing) searchView.hide()
+    }
+
+    private fun buildSearchSuggestionsUi() {
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        searchEngineLabel = TextView(this).apply {
+            textSize = 12f
+            setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dim))
+            setPadding(dp(18), dp(6), dp(18), dp(6))
+        }
+        root.addView(searchEngineLabel)
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            overScrollMode = View.OVER_SCROLL_NEVER
+            clipToPadding = false
+            setPadding(dp(8), dp(3), dp(8), dp(18))
+        }
+        searchSuggestionsRows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        scroll.addView(searchSuggestionsRows, android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        searchView.addView(root)
+    }
+
+    private fun renderSearchSuggestions(query: String, remote: List<String>) {
+        if (!::searchSuggestionsRows.isInitialized) return
+        searchSuggestionsRows.removeAllViews()
+        searchEngineLabel.text = "Motor de pesquisa: ${BrowserPreferences.searchEngine(this)}"
+
+        fun addRow(title: String, subtitle: String, iconName: String, value: String, faviconUrl: String? = null) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(52)
+                setPadding(dp(12), dp(6), dp(12), dp(6))
+                background = ContextCompat.getDrawable(this@AppViewerActivity, R.drawable.bg_transparent_pressed)
+                isClickable = true
+                isFocusable = true
+            }
+            val leadingIcon = ImageView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+            }
+            if (!faviconUrl.isNullOrBlank()) {
+                Glide.with(this@AppViewerActivity).load(faviconUrl)
+                    .circleCrop().override(dp(24), dp(24)).dontAnimate()
+                    .placeholder(R.drawable.ic_globe_outline).error(R.drawable.ic_globe_outline)
+                    .into(leadingIcon)
+            } else {
+                IconLoader.applyIcon(leadingIcon, iconName, R.color.iconTint)
+            }
+            row.addView(leadingIcon)
+            val labels = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(13), 0, 0, 0)
+            }
+            labels.addView(TextView(this).apply {
+                text = title
+                textSize = 14f
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.text))
+            })
+            if (subtitle.isNotBlank()) labels.addView(TextView(this).apply {
+                text = subtitle
+                textSize = 11.5f
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dim))
+            })
+            row.addView(labels, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            row.setOnClickListener { submitSearchValue(value) }
+            searchSuggestionsRows.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+
+        if (query.isNotBlank()) addRow("Pesquisar '$query'", BrowserPreferences.searchEngine(this), "search", query)
+        remote.distinctBy { it.lowercase(java.util.Locale.ROOT) }.take(7).forEach {
+            addRow(it, "Sugestão de pesquisa", "search", it)
+        }
+        val history = if (privateMode) emptyList() else BrowsingHistoryStore.all(this)
+            .filter { query.isBlank() || it.title.contains(query, true) || it.url.contains(query, true) }
+            .take(if (query.isBlank()) 10 else 4)
+        history.forEach { entry ->
+            val host = runCatching { Uri.parse(entry.url).host.orEmpty().removePrefix("www.") }.getOrDefault("")
+            val title = entry.title.trim().ifBlank { host.ifBlank { "Site visitado" } }
+            addRow(title, "", "history", entry.url, BrowserTabStore.faviconFor(entry.url))
+        }
+        if (query.isBlank() && history.isEmpty()) addRow("Nova pesquisa", "Escreve uma palavra ou endereço", "search", "")
+    }
+
+    private fun submitSearchValue(value: String) {
+        val target = value.trim()
+        if (target.isBlank()) return
+        addressSuggestionRunnable?.let(addressSuggestionHandler::removeCallbacks)
+        (getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager)?.hideSoftInputFromWindow(searchView.editText.windowToken, 0)
+        searchView.hide()
+        loadAddressValue(target)
     }
 
     private fun configureFindInPage() {
@@ -570,18 +697,27 @@ class AppViewerActivity : AppCompatActivity() {
 
     private fun applyAddressBarPosition() {
         if (!::web.isInitialized) return
-        val topBar = findViewById<View>(R.id.browserTopBar)
         val bottom = BrowserPreferences.addressBarPosition(this).equals("bottom", true)
-        fun place(view: View) {
-            val params = (view.layoutParams as? android.widget.FrameLayout.LayoutParams)
-                ?: android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58))
-            params.gravity = if (bottom) Gravity.BOTTOM else Gravity.TOP
-            params.topMargin = 0
-            params.bottomMargin = 0
-            view.layoutParams = params
+        // The SearchBar lives inside an AppBarLayout inside a CoordinatorLayout. Moving the whole
+        // CoordinatorLayout would also move the SearchView overlay (anchored to the SearchBar),
+        // which breaks the expand animation. Moving only the AppBarLayout keeps the SearchView
+        // anchored and lets it morph out of the SearchBar at whichever end of the screen it sits.
+        findViewById<com.google.android.material.appbar.AppBarLayout>(R.id.browserAppBar)?.let { appBar ->
+            val params = appBar.layoutParams as? androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
+            if (params != null) {
+                params.gravity = if (bottom) Gravity.BOTTOM else Gravity.TOP
+                params.topMargin = 0
+                params.bottomMargin = 0
+                appBar.layoutParams = params
+            }
         }
-        place(topBar)
-        place(findBar)
+        val findBarParams = findBar.layoutParams as? android.widget.FrameLayout.LayoutParams
+        if (findBarParams != null) {
+            findBarParams.gravity = if (bottom) Gravity.BOTTOM else Gravity.TOP
+            findBarParams.topMargin = 0
+            findBarParams.bottomMargin = 0
+            findBar.layoutParams = findBarParams
+        }
         applyBrowserBarOffset()
     }
 
@@ -631,7 +767,7 @@ class AppViewerActivity : AppCompatActivity() {
     }
 
     private fun setBrowserBarOffset(requestedOffset: Int, force: Boolean = false) {
-        if (!force && (address.hasFocus() || findMode || isFinishing || isDestroyed)) return
+        if (!force && (searchView.isShowing || findMode || isFinishing || isDestroyed)) return
         val bar = findViewById<View>(R.id.browserTopBar)
         val barHeight = (bar.height.takeIf { it > 0 } ?: dp(58)).coerceAtLeast(1)
         browserBarOffsetPx = requestedOffset.coerceIn(0, barHeight)
@@ -826,62 +962,22 @@ class AppViewerActivity : AppCompatActivity() {
         overridePendingTransition(R.anim.publish_return_enter, R.anim.publish_return_exit)
     }
 
-    private fun openBrowserSearch(initialQuery: String = web.url.orEmpty()) {
-        if (isFinishing || isDestroyed || openingBrowserSearch) return
-        openingBrowserSearch = true
-        val pill = findViewById<View>(R.id.browserAddressPill)
-        val canTransform = pill.isAttachedToWindow && pill.isLaidOut && pill.width > 0 && pill.height > 0
-        val launch = Intent(this, BrowserSearchActivity::class.java).apply {
-            putExtra(BrowserSearchActivity.EXTRA_INITIAL_QUERY, initialQuery)
-            putExtra("browser_private_mode", privateMode)
-            putExtra("transition_name", if (canTransform) BrowserTransitions.ADDRESS_TRANSITION_NAME else "")
-        }
+    // openBrowserSearch()/onActivityResult()/REQUEST_BROWSER_SEARCH removed: the address bar now
+    // uses the native M3 SearchBar/SearchView (configureAddressInput, buildSearchSuggestionsUi,
+    // submitSearchValue), which handles its own expand/collapse animation inside this Activity —
+    // no second Activity, no MaterialContainerTransform, no postponeEnterTransition for this flow.
 
-        if (canTransform) {
-            runCatching {
-                ViewCompat.setTransitionName(pill, BrowserTransitions.ADDRESS_TRANSITION_NAME)
-                val options = ActivityOptions.makeSceneTransitionAnimation(
-                    this, pill, BrowserTransitions.ADDRESS_TRANSITION_NAME
-                )
-                startActivityForResult(launch, REQUEST_BROWSER_SEARCH, options.toBundle())
-            }.onSuccess { return }.onFailure {
-                launch.putExtra("transition_name", "")
-            }
-        }
-
-        // Do not let a missing/invalid shared element make the browser input bar unresponsive.
-        runCatching {
-            startActivityForResult(launch, REQUEST_BROWSER_SEARCH)
-            overridePendingTransition(R.anim.publish_enter, R.anim.publish_exit)
-        }.onFailure {
-            openingBrowserSearch = false
-            AppAoToast.show(this, "Não foi possível abrir a pesquisa. Tenta novamente.")
-        }
-    }
-
-    @Deprecated("Deprecated by Android, retained for compatibility with this project's existing Activity setup")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_BROWSER_SEARCH) openingBrowserSearch = false
-        if (requestCode != REQUEST_BROWSER_SEARCH || resultCode != Activity.RESULT_OK) return
-        val target = data?.getStringExtra(BrowserSearchActivity.EXTRA_RESULT_VALUE)?.trim().orEmpty()
-        if (target.isBlank()) return
-        val root = findViewById<android.widget.FrameLayout>(R.id.appViewerRoot)
-        root?.postDelayed({
-            if (!isFinishing && !isDestroyed && ::web.isInitialized) loadAddressValue(target)
-        }, 360L)
-    }
-
-    private fun loadAddressFromInput() = loadAddressValue(address.text?.toString().orEmpty())
+    private fun loadAddressFromInput() = loadAddressValue(searchBar.text?.toString().orEmpty())
 
     private fun loadAddressValue(rawValue: String) {
         val raw = rawValue.trim()
         if (raw.isBlank()) return
         val target = normalizeTarget(raw)
-        address.setText(target)
-        address.clearFocus()
+        searchBar.setText(target)
         hideAddressSuggestions()
-        (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(address.windowToken, 0)
+        if (::searchView.isInitialized) {
+            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(searchView.editText.windowToken, 0)
+        }
         BrowserLoadingBooster.preResolve(target)
         web.loadUrl(target)
     }
@@ -903,9 +999,8 @@ class AppViewerActivity : AppCompatActivity() {
             .putExtra("transition_name", transitionName)
 
         // Container Transform M3 Expressive. The shared element is the fixed "Abas" square+count
-        // button in the top bar, not a screenshot of the current page — the tab overview
-        // visually "is born" from that button. This mirrors MainActivity.openBrowserTabs() and
-        // avoids the snapshot-based stand-in, which was fragile when a snapshot wasn't ready yet.
+        // button in the top bar, not a screenshot of the current page — the tab overview visually
+        // "is born" from that button. Mirrors MainActivity.openBrowserTabs().
         val tabsButton = findViewById<View>(R.id.browserTabsTop)
         val canTransform = tabsButton.isAttachedToWindow && tabsButton.isLaidOut && tabsButton.width > 0 && tabsButton.height > 0
         if (canTransform) {
@@ -1378,7 +1473,6 @@ class AppViewerActivity : AppCompatActivity() {
 
     private fun applyAdaptiveChrome(color: Int, adaptive: Boolean) {
         val bar = findViewById<View>(R.id.browserTopBar)
-        val pill = findViewById<View>(R.id.browserAddressPill)
         bar.setBackgroundColor(color)
         window.statusBarColor = color
 
@@ -1389,36 +1483,34 @@ class AppViewerActivity : AppCompatActivity() {
 
         if (adaptive) {
             val inputColor = blendColors(color, if (lightBackground) android.graphics.Color.BLACK else android.graphics.Color.WHITE, 0.12f)
-            pill.background = android.graphics.drawable.GradientDrawable().apply {
+            searchBar.background = android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.RECTANGLE
                 cornerRadius = dp(26).toFloat()
                 setColor(inputColor)
                 setStroke(dp(1), blendColors(color, contrast, 0.17f))
             }
-            address.setTextColor(contrast)
-            address.setHintTextColor(blendColors(contrast, color, 0.48f))
+            searchBar.textView.setTextColor(contrast)
+            searchBar.textView.setHintTextColor(blendColors(contrast, color, 0.48f))
             findViewById<TextView>(R.id.browserTabsCountTop).apply {
                 setTextColor(contrast)
                 background = android.graphics.drawable.GradientDrawable().apply {
                     shape = android.graphics.drawable.GradientDrawable.RECTANGLE
                     cornerRadius = dp(5).toFloat()
                     setColor(android.graphics.Color.TRANSPARENT)
-                    setStroke(dp(2), blendColors(color, contrast, 0.78f))
+                    setStroke(dp(2), contrast)
                 }
             }
             findViewById<ImageView>(R.id.appViewerMoreIcon).setColorFilter(contrast)
-            findViewById<ImageView>(R.id.browserAddressClearIcon).setColorFilter(contrast)
             findViewById<ImageView>(R.id.browserFindCloseIcon).setColorFilter(contrast)
         } else {
-            pill.setBackgroundResource(R.drawable.bg_toolbar_actions)
-            address.setTextColor(ContextCompat.getColor(this, R.color.text))
-            address.setHintTextColor(ContextCompat.getColor(this, R.color.dim))
+            searchBar.background = ContextCompat.getDrawable(this, R.drawable.bg_toolbar_actions)
+            searchBar.textView.setTextColor(ContextCompat.getColor(this, R.color.text))
+            searchBar.textView.setHintTextColor(ContextCompat.getColor(this, R.color.dim))
             findViewById<TextView>(R.id.browserTabsCountTop).apply {
                 setTextColor(ContextCompat.getColor(this@AppViewerActivity, R.color.dim))
                 background = ContextCompat.getDrawable(this@AppViewerActivity, R.drawable.bg_tabs_square_outline)
             }
             findViewById<ImageView>(R.id.appViewerMoreIcon).clearColorFilter()
-            findViewById<ImageView>(R.id.browserAddressClearIcon).clearColorFilter()
             findViewById<ImageView>(R.id.browserFindCloseIcon).clearColorFilter()
             WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars =
                 ContextCompat.getColor(this, R.color.bg).let { defaultColor ->
@@ -1516,7 +1608,6 @@ class AppViewerActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        openingBrowserSearch = false
         SystemBarHelper.sync(this)
         if (::web.isInitialized) {
             applyBrowserPreferences()

@@ -144,4 +144,4 @@ object OrbitIcons {
             }
         }.build()
     }
-}l
+}

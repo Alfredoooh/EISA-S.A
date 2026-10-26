@@ -32,19 +32,23 @@
                 android:background="@color/bg"
                 app:layout_scrollFlags="scroll|enterAlways|snap">
 
-                <com.google.android.material.search.SearchBar
-                    android:id="@+id/browserSearchBar"
+                <FrameLayout
                     android:layout_width="0dp"
                     android:layout_height="42dp"
-                    android:layout_weight="1"
-                    android:hint="Pesquisar ou inserir endereço"
-                    android:textColor="@color/text"
-                    android:textColorHint="@color/dim"
-                    android:textSize="14sp"
-                    app:background="@drawable/bg_toolbar_actions"
-                    app:backgroundTint="@null"
-                    app:elevation="0dp"
-                    app:hideNavigationIcon="true">
+                    android:layout_weight="1">
+
+                    <com.google.android.material.search.SearchBar
+                        android:id="@+id/browserSearchBar"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:hint="Pesquisar ou inserir endereço"
+                        android:textColor="@color/text"
+                        android:textColorHint="@color/dim"
+                        android:textSize="14sp"
+                        app:background="@drawable/bg_toolbar_actions"
+                        app:backgroundTint="@null"
+                        app:elevation="0dp"
+                        app:hideNavigationIcon="true" />
 
                     <ImageView
                         android:id="@+id/browserFavicon"
@@ -63,7 +67,7 @@
                         android:layout_marginEnd="14dp"
                         android:visibility="gone" />
 
-                </com.google.android.material.search.SearchBar>
+                </FrameLayout>
 
                 <FrameLayout
                     android:id="@+id/browserTabsTop"

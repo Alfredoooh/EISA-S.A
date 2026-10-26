@@ -113,7 +113,7 @@
             android:layout_height="match_parent"
             android:background="@color/bg"
             app:backgroundTint="@null"
-            app:hint="Pesquisar ou inserir endereço"
+            android:hint="Pesquisar ou inserir endereço"
             app:layout_anchor="@id/browserSearchBar" />
 
         <LinearLayout

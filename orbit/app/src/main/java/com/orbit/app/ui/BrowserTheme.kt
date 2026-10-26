@@ -2,8 +2,13 @@ package com.orbit.app.ui
 
 import android.content.Context
 import android.content.res.Configuration
+import android.graphics.Color
 
-internal enum class BrowserThemeMode { SYSTEM, LIGHT, DARK }
+internal enum class BrowserThemeMode {
+    SYSTEM,
+    LIGHT,
+    DARK
+}
 
 internal data class BrowserPalette(
     val isDark: Boolean,
@@ -22,14 +27,24 @@ internal data class BrowserPalette(
     val unsafe: Int,
 ) {
     companion object {
-        fun from(context: Context, mode: BrowserThemeMode): BrowserPalette {
-            val systemDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
-                Configuration.UI_MODE_NIGHT_YES
+
+        fun from(
+            context: Context,
+            mode: BrowserThemeMode,
+        ): BrowserPalette {
+
+            val systemDark =
+                (
+                    context.resources.configuration.uiMode and
+                        Configuration.UI_MODE_NIGHT_MASK
+                    ) == Configuration.UI_MODE_NIGHT_YES
+
             val dark = when (mode) {
                 BrowserThemeMode.SYSTEM -> systemDark
                 BrowserThemeMode.LIGHT -> false
                 BrowserThemeMode.DARK -> true
             }
+
             return if (dark) {
                 BrowserPalette(
                     isDark = true,

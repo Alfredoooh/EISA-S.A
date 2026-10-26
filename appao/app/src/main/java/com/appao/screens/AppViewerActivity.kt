@@ -272,16 +272,12 @@ class AppViewerActivity : AppCompatActivity() {
         findViewById<View>(R.id.browserTabsTop).setOnClickListener { openTabs() }
         findViewById<View>(R.id.appViewerMore).setOnClickListener { showPageMenu(it) }
 
-        web.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
-            if (findMode || searchView.isShowing || isFinishing || isDestroyed) return@setOnScrollChangeListener
-            if (scrollY <= 0) {
-                setBrowserBarOffset(0)
-                return@setOnScrollChangeListener
+        findViewById<com.google.android.material.appbar.AppBarLayout>(R.id.browserAppBar)?.addOnOffsetChangedListener(
+            com.google.android.material.appbar.AppBarLayout.OnOffsetChangedListener { appBar, verticalOffset ->
+                if (findMode || searchView.isShowing || isFinishing || isDestroyed) return@OnOffsetChangedListener
+                setBrowserBarOffset(-verticalOffset)
             }
-            val delta = scrollY - oldScrollY
-            if (delta == 0) return@setOnScrollChangeListener
-            setBrowserBarOffset(browserBarOffsetPx + delta.coerceIn(-dp(24), dp(24)))
-        }
+        )
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -724,8 +720,11 @@ class AppViewerActivity : AppCompatActivity() {
     private fun applyBrowserBarOffset() {
         if (!::web.isInitialized || !::swipeRefresh.isInitialized) return
         val topBar = findViewById<View>(R.id.browserTopBar)
+        val appBar = findViewById<com.google.android.material.appbar.AppBarLayout>(R.id.browserAppBar)
         val bottom = BrowserPreferences.addressBarPosition(this).equals("bottom", true)
-        val barHeight = (topBar.height.takeIf { it > 0 } ?: dp(58)).coerceAtLeast(1)
+        val barHeight = (appBar?.totalScrollRange?.takeIf { it > 0 }
+            ?: topBar.height.takeIf { it > 0 }
+            ?: dp(58)).coerceAtLeast(1)
         browserBarOffsetPx = browserBarOffsetPx.coerceIn(0, barHeight)
         val offset = if (findMode) 0 else browserBarOffsetPx
         val fraction = offset.toFloat() / barHeight.toFloat()

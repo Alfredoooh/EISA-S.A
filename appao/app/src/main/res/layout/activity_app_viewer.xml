@@ -1,12 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/appViewerRoot"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/bg">
-
-    <androidx.coordinatorlayout.widget.CoordinatorLayout
+<androidx.coordinatorlayout.widget.CoordinatorLayout
         android:id="@+id/browserSearchCoordinator"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -29,7 +21,8 @@
                 android:gravity="center_vertical"
                 android:paddingStart="8dp"
                 android:paddingEnd="8dp"
-                android:background="@color/bg">
+                android:background="@color/bg"
+                app:layout_scrollFlags="scroll|enterAlways|snap">
 
                 <com.google.android.material.search.SearchBar
                     android:id="@+id/browserSearchBar"
@@ -43,7 +36,26 @@
                     app:background="@drawable/bg_toolbar_actions"
                     app:backgroundTint="@null"
                     app:elevation="0dp"
-                    app:hideNavigationIcon="true" />
+                    app:hideNavigationIcon="true">
+
+                    <ImageView
+                        android:id="@+id/browserFavicon"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center_vertical|end"
+                        android:layout_marginEnd="14dp"
+                        android:scaleType="centerCrop"
+                        android:contentDescription="Ícone do site" />
+
+                    <com.appao.PullRefreshIndicatorView
+                        android:id="@+id/browserFaviconLoader"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center_vertical|end"
+                        android:layout_marginEnd="14dp"
+                        android:visibility="gone" />
+
+                </com.google.android.material.search.SearchBar>
 
                 <FrameLayout
                     android:id="@+id/browserTabsTop"
@@ -92,81 +104,80 @@
             app:hint="Pesquisar ou inserir endereço"
             app:layout_anchor="@id/browserSearchBar" />
 
-    </androidx.coordinatorlayout.widget.CoordinatorLayout>
+        <LinearLayout
+            android:id="@+id/browserFindBar"
+            android:layout_width="match_parent"
+            android:layout_height="58dp"
+            android:layout_gravity="top"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:background="@color/bg"
+            android:elevation="8dp"
+            android:visibility="gone">
+            <EditText
+                android:id="@+id/browserFindInput"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_toolbar_actions"
+                android:singleLine="true"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:hint="Pesquisar nesta página"
+                android:textColor="@color/text"
+                android:textColorHint="@color/dim"
+                android:textSize="15sp"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp" />
+            <FrameLayout
+                android:id="@+id/browserFindClose"
+                android:layout_width="42dp"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_transparent_pressed"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="Fechar pesquisa">
+                <ImageView
+                    android:id="@+id/browserFindCloseIcon"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:scaleType="fitCenter" />
+            </FrameLayout>
+        </LinearLayout>
 
-    <LinearLayout
-        android:id="@+id/browserFindBar"
-        android:layout_width="match_parent"
-        android:layout_height="58dp"
-        android:layout_gravity="top"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:background="@color/bg"
-        android:elevation="8dp"
-        android:visibility="gone">
-        <EditText
-            android:id="@+id/browserFindInput"
-            android:layout_width="0dp"
-            android:layout_height="42dp"
-            android:layout_weight="1"
-            android:background="@drawable/bg_toolbar_actions"
-            android:singleLine="true"
-            android:imeOptions="actionSearch"
-            android:inputType="text"
-            android:hint="Pesquisar nesta página"
-            android:textColor="@color/text"
-            android:textColorHint="@color/dim"
-            android:textSize="15sp"
-            android:paddingStart="14dp"
-            android:paddingEnd="14dp" />
-        <FrameLayout
-            android:id="@+id/browserFindClose"
-            android:layout_width="42dp"
-            android:layout_height="44dp"
-            android:background="@drawable/bg_transparent_pressed"
-            android:clickable="true"
-            android:focusable="true"
-            android:contentDescription="Fechar pesquisa">
-            <ImageView
-                android:id="@+id/browserFindCloseIcon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:layout_gravity="center"
-                android:scaleType="fitCenter" />
-        </FrameLayout>
-    </LinearLayout>
-
-    <com.appao.ExpressiveSwipeRefreshLayout
-        android:id="@+id/webSwipeRefresh"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
-
-        <WebView
-            android:id="@+id/webView"
+        <com.appao.ExpressiveSwipeRefreshLayout
+            android:id="@+id/webSwipeRefresh"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_marginTop="0dp"
-            android:layout_marginBottom="0dp"
-            android:elevation="0dp"
-            android:background="@color/bg"
-            android:transitionName="browser_tab_preview" />
+            app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-    </com.appao.ExpressiveSwipeRefreshLayout>
+            <com.appao.NestedScrollWebView
+                android:id="@+id/webView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginTop="0dp"
+                android:layout_marginBottom="0dp"
+                android:elevation="0dp"
+                android:background="@color/bg"
+                android:transitionName="browser_tab_preview" />
 
-    <com.google.android.material.loadingindicator.LoadingIndicator
-        android:id="@+id/browserPullIndicator"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_gravity="top|center_horizontal"
-        android:alpha="0"
-        android:elevation="12dp"
-        android:visibility="gone"
-        android:contentDescription="A atualizar página"
-        app:indicatorColor="@color/pri"
-        app:indicatorSize="38dp"
-        app:containerWidth="48dp"
-        app:containerHeight="48dp" />
+        </com.appao.ExpressiveSwipeRefreshLayout>
 
-</FrameLayout>
+        <com.google.android.material.loadingindicator.LoadingIndicator
+            android:id="@+id/browserPullIndicator"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="top|center_horizontal"
+            android:alpha="0"
+            android:elevation="12dp"
+            android:visibility="gone"
+            android:contentDescription="A atualizar página"
+            app:indicatorColor="@color/pri"
+            app:indicatorSize="38dp"
+            app:containerWidth="48dp"
+            app:containerHeight="48dp" />
+
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -36,7 +36,11 @@ jobs:
             echo "ERROR: No Android module was found below $PROJECT_DIR."
             exit 1
           fi
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$PROJECT_DIR/local.properties"
+          if [ ! -f "$PROJECT_DIR/local.properties" ]; then
+            echo "sdk.dir=$ANDROID_SDK_ROOT" > "$PROJECT_DIR/local.properties"
+          else
+            echo "local.properties already exists, leaving it untouched."
+          fi
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           echo "APP_MODULE_DIR=$APP_MODULE_DIR" >> "$GITHUB_ENV"
 
@@ -254,7 +258,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ "${SIGNING_GENERATED:-false}" = "true" ]; then
-            echo "::warning::A new local keystore was generated. Configure secrets ORBIT_KEYSTORE_BASE64, ORBIT_KEYSTORE_PASSWORD, ORBIT_KEY_ALIAS and ORBIT_KEY_PASSWORD in your GitHub repository to reuse one private key across builds."
+            echo "A new local keystore was generated for this build only. Configure secrets ORBIT_KEYSTORE_BASE64, ORBIT_KEYSTORE_PASSWORD, ORBIT_KEY_ALIAS and ORBIT_KEY_PASSWORD in your GitHub repository to reuse one private key across builds."
           fi
 
       - name: Upload signed APK

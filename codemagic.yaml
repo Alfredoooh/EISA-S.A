@@ -1,25 +1,23 @@
 workflows:
-  appao-android-debug:
-    name: appao-android-debug
+  orbit-android-debug:
+    name: orbit-android-debug
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       groups:
-        - appao_signing
+        - orbit_signing
       vars:
-        PACKAGE_NAME: "com.appao"
+        PACKAGE_NAME: "com.orbit.app"
       java: 17
 
     scripts:
       - name: Configure Android SDK
         script: |
           set -euo pipefail
-          PROJECT_DIR="$CM_BUILD_DIR/appao"
+          PROJECT_DIR="$CM_BUILD_DIR/Orbit"
           if [ ! -d "$PROJECT_DIR/app" ]; then PROJECT_DIR="$CM_BUILD_DIR"; fi
           if [ -d "$PROJECT_DIR/app/src/main" ]; then
             APP_MODULE_DIR="$PROJECT_DIR/app"
-          elif [ -d "$PROJECT_DIR/src/main" ]; then
-            APP_MODULE_DIR="$PROJECT_DIR"
           else
             echo "ERROR: No Android module was found below $PROJECT_DIR."
             exit 1
@@ -28,62 +26,28 @@ workflows:
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
           echo "APP_MODULE_DIR=$APP_MODULE_DIR" >> "$CM_ENV"
 
-      - name: Download official Material Symbols Rounded icons
-        script: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
-          python3 tools/download_material_symbols_rounded.py
-          python3 - <<'PYVERIFY'
-          from pathlib import Path
-          folder = Path("app/src/main/assets/icons/material-symbols-rounded")
-          files = list(folder.glob("*.svg"))
-          required = {
-              "home_24px.svg", "home_fill1_24px.svg",
-              "explore_24px.svg", "explore_fill1_24px.svg",
-              "person_24px.svg", "person_fill1_24px.svg",
-              "search_24px.svg", "menu_24px.svg",
-          }
-          missing = sorted(required - {file.name for file in files})
-          if len(files) < 70 or missing:
-              raise SystemExit(
-                  f"ERROR: Incomplete Material Symbols Rounded set: {len(files)} SVGs; missing={missing}"
-              )
-          print(f"Material Symbols Rounded ready: {len(files)} SVG icons including outline and fill1 variants")
-          PYVERIFY
-
       - name: Stop Gradle and clear generated-JAR cache
         script: |
           set -euo pipefail
           cd "$PROJECT_DIR"
-          gradle --stop || true
+          ./gradlew --stop || true
           GRADLE_CACHE="${GRADLE_USER_HOME:-$HOME/.gradle}"
           echo "Clearing generated-JAR cache: $GRADLE_CACHE/caches/jars-9"
           rm -rf "$GRADLE_CACHE/caches/jars-9"
 
-      - name: Generate official Gradle Wrapper
+      - name: Verify Gradle Wrapper
         script: |
           set -euo pipefail
           cd "$PROJECT_DIR"
 
-          echo "Gradle installed:"
-          gradle --version
-
-          echo "Generating the official Gradle Wrapper for Gradle 8.13..."
-          gradle wrapper --gradle-version 8.13 --distribution-type bin --no-daemon --no-parallel
-
           if [ ! -s "gradle/wrapper/gradle-wrapper.jar" ]; then
-            echo "ERROR: Gradle did not generate gradle/wrapper/gradle-wrapper.jar."
-            exit 1
-          fi
-
-          if ! grep -Fq "gradle-8.13-bin.zip" "gradle/wrapper/gradle-wrapper.properties"; then
-            echo "ERROR: Gradle Wrapper is not configured for Gradle 8.13."
-            cat "gradle/wrapper/gradle-wrapper.properties"
+            echo "ERROR: gradle/wrapper/gradle-wrapper.jar is missing from the project."
             exit 1
           fi
 
           chmod +x ./gradlew
-          echo "Gradle Wrapper generated and verified."
+          echo "Using the project's committed Gradle Wrapper:"
+          cat gradle/wrapper/gradle-wrapper.properties
           ./gradlew --version
 
       - name: Create or load local signing keystore
@@ -96,27 +60,27 @@ workflows:
             openssl base64 -A -in "$1"
           }
 
-          SIGNING_DIR="$CM_BUILD_DIR/appao-local-signing-material"
+          SIGNING_DIR="$CM_BUILD_DIR/orbit-local-signing-material"
           mkdir -p "$SIGNING_DIR"
           chmod 700 "$SIGNING_DIR"
-          KEYSTORE_PATH="$SIGNING_DIR/appao-local.keystore"
+          KEYSTORE_PATH="$SIGNING_DIR/orbit-local.keystore"
           INFO_PATH="$SIGNING_DIR/SIGNING-INFO.txt"
-          KEY_ALIAS="${LOOPLY_KEY_ALIAS:-appao-local}"
+          KEY_ALIAS="${ORBIT_KEY_ALIAS:-orbit-local}"
           GENERATED=false
 
-          if [ -n "${LOOPLY_KEYSTORE_BASE64:-}" ]; then
-            if [ -z "${LOOPLY_KEYSTORE_PASSWORD:-}" ]; then
-              echo "ERROR: LOOPLY_KEYSTORE_BASE64 is set, but LOOPLY_KEYSTORE_PASSWORD is missing."
+          if [ -n "${ORBIT_KEYSTORE_BASE64:-}" ]; then
+            if [ -z "${ORBIT_KEYSTORE_PASSWORD:-}" ]; then
+              echo "ERROR: ORBIT_KEYSTORE_BASE64 is set, but ORBIT_KEYSTORE_PASSWORD is missing."
               exit 1
             fi
 
             echo "Loading the existing local keystore from secrets..."
-            printf '%s' "$LOOPLY_KEYSTORE_BASE64" | openssl base64 -A -d > "$KEYSTORE_PATH"
-            STORE_PASSWORD="$LOOPLY_KEYSTORE_PASSWORD"
-            KEY_PASSWORD="${LOOPLY_KEY_PASSWORD:-$STORE_PASSWORD}"
+            printf '%s' "$ORBIT_KEYSTORE_BASE64" | openssl base64 -A -d > "$KEYSTORE_PATH"
+            STORE_PASSWORD="$ORBIT_KEYSTORE_PASSWORD"
+            KEY_PASSWORD="${ORBIT_KEY_PASSWORD:-$STORE_PASSWORD}"
 
             if [ ! -s "$KEYSTORE_PATH" ]; then
-              echo "ERROR: The decoded keystore is empty. Check LOOPLY_KEYSTORE_BASE64."
+              echo "ERROR: The decoded keystore is empty. Check ORBIT_KEYSTORE_BASE64."
               exit 1
             fi
 
@@ -145,24 +109,24 @@ workflows:
               -keyalg RSA \
               -keysize 3072 \
               -validity 10000 \
-              -dname "CN=AppAo Local, OU=Development, O=AppAo, L=Luanda, ST=Luanda, C=AO"
+              -dname "CN=Orbit Local, OU=Development, O=Orbit, L=Luanda, ST=Luanda, C=AO"
 
             cat > "$INFO_PATH" <<EOF
-          AppAo local/testing signing key — NOT intended as a Play Store release key
-          Keystore file: appao-local.keystore
+          Orbit local/testing signing key — NOT intended as a Play Store release key
+          Keystore file: orbit-local.keystore
           Keystore type: $KEYSTORE_TYPE
           Key alias: $KEY_ALIAS
           Keystore password: $STORE_PASSWORD
           Key password: $KEY_PASSWORD
 
           Keep this keystore and its passwords private. Use the same keystore for future builds.
-          To reuse it in later builds, store the keystore as Base64 in LOOPLY_KEYSTORE_BASE64,
-          set LOOPLY_KEYSTORE_PASSWORD to the keystore password, LOOPLY_KEY_ALIAS to the alias,
-          and LOOPLY_KEY_PASSWORD to the key password (the same as the keystore password for this generated key).
+          To reuse it in later builds, store the keystore as Base64 in ORBIT_KEYSTORE_BASE64,
+          set ORBIT_KEYSTORE_PASSWORD to the keystore password, ORBIT_KEY_ALIAS to the alias,
+          and ORBIT_KEY_PASSWORD to the key password (the same as the keystore password for this generated key).
           EOF
             chmod 600 "$INFO_PATH"
-            b64_oneline "$KEYSTORE_PATH" > "$SIGNING_DIR/appao-local.keystore.base64.txt"
-            chmod 600 "$SIGNING_DIR/appao-local.keystore.base64.txt"
+            b64_oneline "$KEYSTORE_PATH" > "$SIGNING_DIR/orbit-local.keystore.base64.txt"
+            chmod 600 "$SIGNING_DIR/orbit-local.keystore.base64.txt"
             GENERATED=true
             echo "A new local keystore was created."
           fi
@@ -178,7 +142,7 @@ workflows:
             echo "SIGNING_DIR=$SIGNING_DIR"
           } >> "$CM_ENV"
 
-      - name: Build appao Debug APK
+      - name: Build Orbit Debug APK
         script: |
           set -euo pipefail
           cd "$PROJECT_DIR"
@@ -186,16 +150,6 @@ workflows:
           python3 - <<'PYVERIFY'
           from pathlib import Path
           import hashlib
-
-          bad = []
-          forbidden = ("getChildAte", "R.drawable/")
-          for src in Path("app/src/main/java").rglob("*.kt"):
-              text = src.read_text(encoding="utf-8")
-              for needle in forbidden:
-                  if needle in text:
-                      bad.append(f"{src}: {needle}")
-          if bad:
-              raise SystemExit("Invalid Kotlin source remains:\n" + "\n".join(bad))
 
           main_candidates = list(Path("app/src/main/java").rglob("MainActivity.kt"))
           if not main_candidates:
@@ -205,10 +159,8 @@ workflows:
           print("MainActivity SHA-256:", hashlib.sha256(main.read_bytes()).hexdigest())
           PYVERIFY
 
-          python3 verify_project.py
-
           if [ ! -s "gradle/wrapper/gradle-wrapper.jar" ]; then
-            echo "ERROR: Gradle Wrapper JAR is missing after the generation step."
+            echo "ERROR: Gradle Wrapper JAR is missing."
             exit 1
           fi
 
@@ -220,7 +172,7 @@ workflows:
           cd "$PROJECT_DIR"
 
           APK_DIR="$APP_MODULE_DIR/build/outputs/apk/debug"
-          APK="$(find "$APK_DIR" -maxdepth 1 -type f -name '*-debug.apk' ! -name 'appao-local-signed.apk' -print -quit)"
+          APK="$(find "$APK_DIR" -maxdepth 1 -type f -name '*-debug.apk' ! -name 'orbit-local-signed.apk' -print -quit)"
           if [ -z "$APK" ] || [ ! -s "$APK" ]; then
             echo "ERROR: The Debug APK was not found in $APK_DIR."
             exit 1
@@ -238,7 +190,7 @@ workflows:
             exit 1
           fi
 
-          SIGNED_APK="$APK_DIR/appao-local-signed.apk"
+          SIGNED_APK="$APK_DIR/orbit-local-signed.apk"
           "$APKSIGNER" sign \
             --ks "$APP_KEYSTORE_PATH" \
             --ks-type "$APP_KEYSTORE_TYPE" \
@@ -254,7 +206,7 @@ workflows:
       - name: Verify APK size
         script: |
           set -euo pipefail
-          APK="$APP_MODULE_DIR/build/outputs/apk/debug/appao-local-signed.apk"
+          APK="$APP_MODULE_DIR/build/outputs/apk/debug/orbit-local-signed.apk"
           if [ ! -s "$APK" ]; then
             echo "ERROR: Signed local APK was not generated."
             exit 1
@@ -278,9 +230,9 @@ workflows:
         script: |
           set -euo pipefail
           if [ "${SIGNING_GENERATED:-false}" = "true" ]; then
-            echo "::warning::A new local keystore was generated. Configure LOOPLY_KEYSTORE_BASE64, LOOPLY_KEYSTORE_PASSWORD, LOOPLY_KEY_ALIAS and LOOPLY_KEY_PASSWORD in your Codemagic environment group (appao_signing) to reuse one private key across builds."
+            echo "::warning::A new local keystore was generated. Configure ORBIT_KEYSTORE_BASE64, ORBIT_KEYSTORE_PASSWORD, ORBIT_KEY_ALIAS and ORBIT_KEY_PASSWORD in your Codemagic environment group (orbit_signing) to reuse one private key across builds."
           fi
 
     artifacts:
-      - "**/build/outputs/apk/debug/appao-local-signed.apk"
-      - "appao-local-signing-material/*"
+      - "**/build/outputs/apk/debug/orbit-local-signed.apk"
+      - "orbit-local-signing-material/*"

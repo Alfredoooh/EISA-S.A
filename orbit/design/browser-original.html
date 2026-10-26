@@ -1,0 +1,1072 @@
+chat gpt eu te confio coloque animações totalmente avançados e dinâmicas e também xom container tranform nativos e no input coloque somente o título do site sem menhum link em baixo desse mesmo título e também quero o favicon desse mesmo link no input e o botão de cadeado tem que estar em container circular e ao clicar mostrar um modal escrevendo site seguro ou uma informação que tem haver com conexão segura https
+
+Tem mais um problema:
+
+A animação de contianer tranform não está assim tão suave então use dependências nativas pata tal porra e já agora a foda do html tem que capturar realmente a imagem da página atual ele só pode pegar a captura da última atividade antes de clicar no botão de abas e também o container tranform de voltar só está acontecendo ao clicar em close mas ao clicar no separador a animação parece totalmente bem diferente e já agora as bordas sólidos nos separadores ativos está muito grosso e muito forte e o botão de close lá no appbar da tela de separadores tinha que estar num container cinza curclar
+
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Browser</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" />
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body {
+    height:100%; width:100%;
+    font-family:-apple-system, Roboto, Arial, sans-serif;
+    background:#fff;
+    overflow:hidden;
+    position:fixed;
+    inset:0;
+  }
+
+  .material-symbols-rounded {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    font-size:22px;
+    user-select:none;
+  }
+
+  /* O browser agora tem transform-origin no canto para o FLIP ficar perfeito */
+  .browser {
+    position:fixed;
+    inset:0;
+    background:#fff;
+    transform-origin: 0 0;
+    will-change: transform, opacity, border-radius;
+  }
+
+  .frame-wrap {
+    position:absolute;
+    inset:0;
+    background:#fff;
+  }
+  
+  /* Correção do espaço branco: usar calc para a altura */
+  .web-frame {
+    position:absolute;
+    left:0; right:0; bottom:0;
+    top:0;
+    width:100%; 
+    height:100%; 
+    border:none; background:#fff; display:none;
+    transition: top .22s cubic-bezier(.2,.8,.3,1), height .22s cubic-bezier(.2,.8,.3,1);
+  }
+  .web-frame.active { display:block; }
+
+  .state-msg {
+    position:absolute;
+    inset:0;
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    color:#5f6368;
+    font-size:14px;
+    background:#fff;
+    text-align:center;
+    padding:24px;
+    z-index:1;
+    transition: top .22s cubic-bezier(.2,.8,.3,1);
+  }
+  .state-msg.show { display:flex; }
+  .state-msg .material-symbols-rounded { font-size:40px; color:#dadce0; }
+
+  .appbar-layer {
+    position:absolute;
+    top:0; left:0; right:0;
+    z-index:25;
+    transform:translateY(0);
+    will-change:transform;
+    background:#fff;
+  }
+
+  .toolbar {
+    display:flex;
+    align-items:center;
+    gap:4px;
+    padding:10px 10px;
+    padding-top:calc(10px + env(safe-area-inset-top));
+    background:#fff;
+    box-shadow:0 1px 3px rgba(60,64,67,0.12);
+  }
+
+  .nav-btn {
+    display:flex; align-items:center; justify-content:center;
+    width:38px; height:38px;
+    border:none; background:transparent;
+    border-radius:50%;
+    color:#3c4043;
+    flex-shrink:0;
+  }
+  .nav-btn:active { background:#f1f3f4; }
+  .nav-btn:disabled { color:#c4c7c5; }
+
+  .address-bar {
+    flex:1;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:#f0f1f3;
+    border-radius:26px;
+    padding:11px 16px;
+    min-width:0;
+  }
+  .address-bar .material-symbols-rounded { font-size:17px; color:#5f6368; flex-shrink:0; }
+
+  .address-display {
+    flex:1; min-width:0;
+    display:flex; flex-direction:column; justify-content:center;
+    line-height:1.15;
+  }
+  .address-display .title {
+    font-size:14.5px; color:#202124; font-weight:500;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .address-display .domain {
+    font-size:11.5px; color:#5f6368;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+
+  .progress {
+    height:2.5px;
+    background:#1a73e8;
+    width:0%;
+    transition:width 0.2s ease;
+  }
+
+  .gesture-zone {
+    position:absolute;
+    left:0; right:0;
+    top:0;
+    height:26px;
+    z-index:24;
+    touch-action:pan-y;
+  }
+
+  /* Modal de pesquisa */
+  .search-modal {
+    position:fixed;
+    inset:0;
+    z-index:60;
+    background:#fff;
+    display:none;
+    flex-direction:column;
+    opacity:0;
+    transition:opacity .2s ease;
+  }
+  .search-modal.show { display:flex; }
+  .search-modal.visible { opacity:1; }
+
+  .search-modal .modal-topbar {
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:10px 10px;
+    padding-top:calc(10px + env(safe-area-inset-top));
+    flex-shrink:0;
+  }
+
+  .search-modal .modal-address-bar {
+    flex:1;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:#f0f1f3;
+    border-radius:26px;
+    padding:11px 16px;
+    min-width:0;
+  }
+  .search-modal .modal-address-bar .material-symbols-rounded { font-size:18px; color:#5f6368; flex-shrink:0; }
+  .search-modal .modal-input {
+    flex:1; border:none; outline:none;
+    font-size:15px; color:#202124; background:transparent; min-width:0;
+  }
+  .search-modal .modal-clear {
+    display:flex; align-items:center; justify-content:center;
+    border:none; background:#dfe1e5; border-radius:50%;
+    width:20px; height:20px; padding:0; color:#5f6368; flex-shrink:0;
+    opacity:0; transform:scale(.5);
+    transition:opacity .15s ease, transform .15s ease;
+  }
+  .search-modal .modal-clear.show { opacity:1; transform:scale(1); }
+  .search-modal .modal-clear .material-symbols-rounded { font-size:14px; }
+
+  .modal-close-icon {
+    display:flex; align-items:center; justify-content:center;
+    width:40px; height:40px;
+    border:none; background:transparent;
+    border-radius:50%;
+    color:#3c4043;
+    flex-shrink:0;
+  }
+  .modal-close-icon:active { background:#f1f3f4; }
+
+  .search-modal .modal-suggestions {
+    flex:1;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  .suggestion-item {
+    display:flex; align-items:center; gap:16px;
+    padding:13px 18px; color:#202124; font-size:15px;
+  }
+  .suggestion-item:active { background:#f1f3f4; }
+  .suggestion-item .material-symbols-rounded { color:#5f6368; font-size:20px; flex-shrink:0; }
+  .suggestion-item span.text { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .suggestion-item .insert-arrow { color:#80868b; font-size:18px; transform:rotate(-45deg); }
+  .suggestions-empty { padding:24px 18px; color:#80868b; font-size:13px; text-align:center; }
+
+  /* Bottom Sheet */
+  .sheet-overlay {
+    position:fixed; inset:0;
+    background:rgba(0,0,0,0);
+    z-index:40; display:none;
+    transition:background .25s ease;
+  }
+  .sheet-overlay.show { display:block; background:rgba(0,0,0,0.4); }
+
+  .bottom-sheet {
+    position:fixed; left:0; right:0; bottom:0;
+    background:#fff;
+    border-radius:20px 20px 0 0;
+    z-index:41;
+    transform:translateY(100%);
+    transition:transform .28s cubic-bezier(.2,.9,.3,1);
+    padding-bottom:env(safe-area-inset-bottom);
+    box-shadow:0 -4px 24px rgba(0,0,0,0.15);
+  }
+  .bottom-sheet.show { transform:translateY(0); }
+
+  .sheet-handle { width:36px; height:4px; background:#dadce0; border-radius:2px; margin:10px auto; }
+
+  .sheet-options {
+    display:grid; grid-template-columns:repeat(5, 1fr); gap:2px;
+    padding:8px 4px 16px;
+  }
+  .sheet-option {
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    padding:10px 2px; border:none; background:transparent; border-radius:12px; color:#202124;
+  }
+  .sheet-option:active { background:#f1f3f4; }
+  .sheet-option .material-symbols-rounded { font-size:23px; color:#444; }
+  .sheet-option span.label { font-size:10.5px; color:#444; text-align:center; line-height:1.15; }
+  .sheet-option:disabled { opacity:0.35; }
+
+  /* Ícone de Abas */
+  .tab-counter-icon {
+    width:24px; height:24px;
+    border:2px solid #444;
+    border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:700; color:#444;
+    line-height:1;
+  }
+
+  .sheet-divider { height:1px; background:#eee; margin:0 8px; }
+
+  .sheet-list { padding:4px 0 8px; }
+  .sheet-list-item {
+    display:flex; align-items:center; gap:20px; width:100%;
+    padding:13px 20px; border:none; background:transparent;
+    text-align:left; font-size:15px; color:#202124;
+  }
+  .sheet-list-item:active { background:#f1f3f4; }
+  .sheet-list-item .material-symbols-rounded { color:#5f6368; }
+
+  /* ===================================================== */
+  /* TABS VIEW (Container Transform)                       */
+  /* ===================================================== */
+  .tabs-view {
+    position:fixed;
+    inset:0;
+    background:#f8f9fa;
+    z-index:55;
+    display:flex;
+    flex-direction:column;
+    opacity:0;
+    pointer-events:none;
+    padding-top:env(safe-area-inset-top);
+    transition: opacity 0.35s ease;
+  }
+  .tabs-view.show {
+    opacity:1;
+    pointer-events:auto;
+  }
+
+  .tabs-header {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:14px 18px 10px;
+    flex-shrink:0;
+  }
+  .tabs-header .tabs-title { font-size:18px; font-weight:600; color:#202124; }
+  .tabs-close-btn {
+    display:flex; align-items:center; justify-content:center;
+    width:38px; height:38px;
+    border:none; background:transparent; border-radius:50%;
+    color:#3c4043;
+  }
+  .tabs-close-btn:active { background:#e8eaed; }
+
+  .tabs-scroll {
+    flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;
+    padding:0 12px; padding-bottom:calc(90px + env(safe-area-inset-bottom));
+  }
+
+  .tabs-grid {
+    display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; padding:4px;
+  }
+
+  .tab-card {
+    position:relative;
+    background:#fff;
+    border-radius:14px;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    box-shadow:0 1px 3px rgba(60,64,67,.15);
+    cursor:pointer;
+    transform-origin: 0 0;
+  }
+  .tab-card.active {
+    box-shadow: 0 0 0 2.5px #1a73e8, 0 2px 8px rgba(26,115,232,.25);
+  }
+
+  /* MOCK DE PREVIEW DA PÁGINA (Já que não dá pra tirar print de cross-origin) */
+  .tab-preview {
+    aspect-ratio: 9 / 13;
+    display:flex;
+    flex-direction:column;
+    background: #fff;
+    overflow:hidden;
+    position:relative;
+  }
+  .mock-address-bar {
+    height: 16px;
+    background: #f0f1f3;
+    margin: 6px 6px 0;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+  }
+  .mock-address-bar::before {
+    content: '';
+    width: 40%;
+    height: 4px;
+    background: #dfe1e5;
+    border-radius: 2px;
+  }
+  .mock-content {
+    flex: 1;
+    padding: 12px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #fff;
+  }
+  .mock-favicon {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: #f0f1f3;
+    margin-bottom: 4px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mock-favicon img { width: 18px; height: 18px; }
+  .mock-line { height: 6px; background: #e8eaed; border-radius: 3px; }
+  .mock-line.w-60 { width: 60%; }
+  .mock-line.w-40 { width: 40%; }
+  .mock-line.w-80 { width: 80%; }
+  .mock-line.w-90 { width: 90%; background: #dadce0; }
+
+  .tab-close {
+    position:absolute;
+    top:8px; right:8px;
+    width:26px; height:26px;
+    border-radius:50%;
+    background:rgba(255,255,255,.9);
+    display:flex; align-items:center; justify-content:center;
+    border:none;
+    color:#202124;
+    z-index:2;
+    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  }
+  .tab-close .material-symbols-rounded { font-size:15px; }
+
+  .tab-footer {
+    padding:9px 10px 11px;
+    display:flex; flex-direction:column; gap:2px;
+    background:#fff;
+    border-top: 1px solid #f0f1f3;
+  }
+  .tab-footer .tab-title {
+    font-size:12.5px; font-weight:600; color:#202124;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    line-height:1.2;
+  }
+  .tab-footer .tab-domain {
+    font-size:10.5px; color:#5f6368;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+
+  .tabs-add-fab {
+    position:absolute;
+    bottom: calc(20px + env(safe-area-inset-bottom));
+    left:50%;
+    transform:translateX(-50%);
+    display:flex; align-items:center; gap:8px;
+    padding:12px 22px;
+    background:#1a73e8;
+    color:#fff; border:none; border-radius:24px;
+    font-size:14px; font-weight:500;
+    box-shadow:0 4px 12px rgba(26,115,232,.4);
+    z-index:3;
+  }
+  .tabs-add-fab:active { transform:translateX(-50%) scale(.95); }
+  .tabs-add-fab .material-symbols-rounded { color:#fff; font-size:20px; }
+</style>
+</head>
+<body>
+
+<div class="browser" id="browserView">
+
+  <div class="frame-wrap" id="frameWrap">
+    <div class="state-msg" id="emptyState">
+      <span class="material-symbols-rounded">public</span>
+      <div>Escreve um URL acima para começar a navegar</div>
+    </div>
+  </div>
+
+  <div class="gesture-zone" id="gestureZone"></div>
+
+  <div class="appbar-layer" id="appbarLayer">
+    <div class="toolbar">
+      <button class="nav-btn" id="backBtn" disabled>
+        <span class="material-symbols-rounded">arrow_back</span>
+      </button>
+      <button class="nav-btn" id="fwdBtn" disabled>
+        <span class="material-symbols-rounded">arrow_forward</span>
+      </button>
+
+      <div class="address-bar" id="addressBarTrigger">
+        <span class="material-symbols-rounded lead-icon" id="lockIcon">lock</span>
+        <div class="address-display" id="addressDisplay">
+          <div class="title" id="displayTitle">Nova aba</div>
+          <div class="domain" id="displayDomain"></div>
+        </div>
+      </div>
+
+      <button class="nav-btn" id="menuBtn">
+        <span class="material-symbols-rounded">menu</span>
+      </button>
+    </div>
+
+    <div class="progress" id="progress"></div>
+  </div>
+
+</div>
+
+<div class="search-modal" id="searchModal">
+  <div class="modal-topbar">
+    <div class="modal-address-bar">
+      <span class="material-symbols-rounded">search</span>
+      <input type="text" class="modal-input" id="modalInput" placeholder="Pesquisar ou escrever um URL" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <button class="modal-clear" id="modalClear"><span class="material-symbols-rounded">close</span></button>
+    </div>
+    <button class="modal-close-icon" id="modalClose"><span class="material-symbols-rounded">close</span></button>
+  </div>
+  <div class="modal-suggestions" id="modalSuggestions"></div>
+</div>
+
+<div class="sheet-overlay" id="sheetOverlay"></div>
+<div class="bottom-sheet" id="bottomSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-options">
+    <button class="sheet-option" id="optTabs">
+      <div class="tab-counter-icon" id="tabCounterIcon">1</div>
+      <span class="label">Abas</span>
+    </button>
+    <button class="sheet-option" id="optBack">
+      <span class="material-symbols-rounded">arrow_back</span>
+      <span class="label">Voltar</span>
+    </button>
+    <button class="sheet-option" id="optForward">
+      <span class="material-symbols-rounded">arrow_forward</span>
+      <span class="label">Avançar</span>
+    </button>
+    <button class="sheet-option" id="optReload">
+      <span class="material-symbols-rounded">refresh</span>
+      <span class="label">Recarregar</span>
+    </button>
+    <button class="sheet-option" id="optHome">
+      <span class="material-symbols-rounded">home</span>
+      <span class="label">Início</span>
+    </button>
+  </div>
+  <div class="sheet-divider"></div>
+  <div class="sheet-list">
+    <button class="sheet-list-item" id="optNewTab"><span class="material-symbols-rounded">add</span> Nova aba</button>
+    <button class="sheet-list-item" id="optShare"><span class="material-symbols-rounded">ios_share</span> Partilhar</button>
+    <button class="sheet-list-item" id="optCopy"><span class="material-symbols-rounded">content_copy</span> Copiar link</button>
+    <button class="sheet-list-item" id="optDesktop"><span class="material-symbols-rounded">desktop_windows</span> Versão desktop</button>
+  </div>
+</div>
+
+<div class="tabs-view" id="tabsView">
+  <div class="tabs-header">
+    <span class="tabs-title">Separadores</span>
+    <button class="tabs-close-btn" id="tabsCloseBtn"><span class="material-symbols-rounded">close</span></button>
+  </div>
+  <div class="tabs-scroll">
+    <div class="tabs-grid" id="tabsGrid"></div>
+  </div>
+  <button class="tabs-add-fab" id="tabsAddBtn">
+    <span class="material-symbols-rounded">add</span> Nova aba
+  </button>
+</div>
+
+<script>
+const HOME_URL = "https://www.google.com/webhp?igu=1";
+
+const browserView = document.getElementById('browserView');
+const frameWrap = document.getElementById('frameWrap');
+const appbarLayer = document.getElementById('appbarLayer');
+const gestureZone = document.getElementById('gestureZone');
+const backBtn = document.getElementById('backBtn');
+const fwdBtn = document.getElementById('fwdBtn');
+const menuBtn = document.getElementById('menuBtn');
+const progress = document.getElementById('progress');
+const emptyState = document.getElementById('emptyState');
+const lockIcon = document.getElementById('lockIcon');
+const addressBarTrigger = document.getElementById('addressBarTrigger');
+const displayTitle = document.getElementById('displayTitle');
+const displayDomain = document.getElementById('displayDomain');
+
+const searchModal = document.getElementById('searchModal');
+const modalInput = document.getElementById('modalInput');
+const modalClear = document.getElementById('modalClear');
+const modalClose = document.getElementById('modalClose');
+const modalSuggestions = document.getElementById('modalSuggestions');
+
+const sheetOverlay = document.getElementById('sheetOverlay');
+const bottomSheet = document.getElementById('bottomSheet');
+
+const tabsView = document.getElementById('tabsView');
+const tabsGrid = document.getElementById('tabsGrid');
+const tabsCloseBtn = document.getElementById('tabsCloseBtn');
+const tabsAddBtn = document.getElementById('tabsAddBtn');
+const tabCounterIcon = document.getElementById('tabCounterIcon');
+
+let tabs = [];
+let activeTabIndex = -1;
+let appbarOffset = 0;
+let appbarHeight = 64;
+let isLoading = false;
+let suggestTimer = null;
+
+// Utilitários
+function computeAppbarHeight() {
+  appbarHeight = appbarLayer.getBoundingClientRect().height;
+  applyAppbarOffset(false);
+}
+
+function normalizeUrl(input) {
+  let v = input.trim();
+  if (!v) return null;
+  const looksLikeUrl = /^(https?:\/\/)/i.test(v) || (/^[\w-]+(\.[\w-]+)+/.test(v) && !v.includes(' '));
+  if (/^https?:\/\//i.test(v)) return v;
+  if (looksLikeUrl) return "https://" + v;
+  return "https://www.google.com/search?igu=1&q=" + encodeURIComponent(v);
+}
+
+function getDomain(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); }
+  catch { return url; }
+}
+
+function getDomainColor(domain) {
+  let hash = 0;
+  for (let i = 0; i < domain.length; i++) hash = domain.charCodeAt(i) + ((hash << 5) - hash);
+  const h = ((hash % 360) + 360) % 360;
+  return `hsl(${h}, 55%, 95%)`; // Cor clara para o fundo da mock page
+}
+
+function setLoading(state) {
+  isLoading = state;
+  progress.style.width = state ? "70%" : "0%";
+  if (!state) setTimeout(() => { progress.style.width = "0%"; }, 200);
+}
+
+/* --- Controle Appbar --- */
+function applyAppbarOffset(animate) {
+  const t = animate ? 'transform .22s cubic-bezier(.2,.8,.3,1)' : 'none';
+  const tProp = animate ? 'top .22s cubic-bezier(.2,.8,.3,1), height .22s cubic-bezier(.2,.8,.3,1)' : 'none';
+
+  appbarLayer.style.transition = t;
+  appbarLayer.style.transform = `translateY(${appbarOffset}px)`;
+
+  const iframeTop = Math.max(0, appbarHeight + appbarOffset);
+  
+  tabs.forEach(tab => {
+    if (tab.iframe) {
+      tab.iframe.style.transition = tProp;
+      tab.iframe.style.top = iframeTop + 'px';
+      // Correção do espaço branco: força o height a ser o restante da tela
+      tab.iframe.style.height = `calc(100% - ${iframeTop}px)`;
+    }
+  });
+  emptyState.style.transition = tProp;
+  emptyState.style.top = iframeTop + 'px';
+  emptyState.style.height = `calc(100% - ${iframeTop}px)`;
+}
+
+function setAppbarOffset(offset, animate) {
+  appbarOffset = Math.max(-appbarHeight, Math.min(0, offset));
+  applyAppbarOffset(animate);
+}
+function hideAppbar() { setAppbarOffset(-appbarHeight, true); }
+function showAppbar() { setAppbarOffset(0, true); }
+
+/* --- Gestão de Abas --- */
+function getActiveTab() { return tabs[activeTabIndex] || null; }
+
+function createTab(url = null, switchTo = true) {
+  const tab = {
+    url: url || null,
+    title: 'Nova aba',
+    history: url ? [url] : [],
+    historyIndex: url ? 0 : -1,
+    iframe: null
+  };
+
+  const iframe = document.createElement('iframe');
+  iframe.className = 'web-frame';
+  iframe.src = url ? url : 'about:blank';
+  frameWrap.appendChild(iframe);
+  tab.iframe = iframe;
+
+  iframe.addEventListener('load', () => {
+    if (getActiveTab() === tab) {
+      setLoading(false);
+      updateAddressDisplayForTab(tab);
+      updateEmptyStateForTab(tab);
+    }
+    updateTabTitle(tab);
+  });
+
+  attachIframeScrollBehavior(iframe);
+  tabs.push(tab);
+  if (switchTo) switchToTab(tabs.length - 1);
+  updateTabCounter();
+  return tab;
+}
+
+function switchToTab(index) {
+  if (index < 0 || index >= tabs.length) return;
+  if (activeTabIndex >= 0 && tabs[activeTabIndex]) tabs[activeTabIndex].iframe.classList.remove('active');
+  activeTabIndex = index;
+  tabs[index].iframe.classList.add('active');
+  updateAddressDisplayForTab(tabs[index]);
+  updateNavButtons();
+  updateEmptyStateForTab(tabs[index]);
+  applyAppbarOffset(false);
+}
+
+function closeTab(index) {
+  if (index < 0 || index >= tabs.length) return;
+  tabs[index].iframe.remove();
+  tabs.splice(index, 1);
+
+  if (tabs.length === 0) {
+    createTab(null, true);
+    return;
+  }
+
+  if (activeTabIndex > index) activeTabIndex--;
+  else if (activeTabIndex === index) activeTabIndex = Math.min(index, tabs.length - 1);
+
+  tabs.forEach(t => t.iframe.classList.remove('active'));
+  tabs[activeTabIndex].iframe.classList.add('active');
+  updateAddressDisplayForTab(tabs[activeTabIndex]);
+  updateNavButtons();
+  updateEmptyStateForTab(tabs[activeTabIndex]);
+  updateTabCounter();
+}
+
+function updateTabTitle(tab) {
+  let title = getDomain(tab.url || '');
+  try {
+    if (tab.iframe.contentDocument && tab.iframe.contentDocument.title) title = tab.iframe.contentDocument.title;
+  } catch (e) {}
+  if (title) tab.title = title;
+  if (getActiveTab() === tab) displayTitle.textContent = title || getDomain(tab.url || '') || 'Nova aba';
+}
+
+function updateAddressDisplayForTab(tab) {
+  if (!tab || !tab.url) {
+    displayTitle.textContent = 'Nova aba';
+    displayDomain.textContent = '';
+    lockIcon.textContent = 'search';
+    return;
+  }
+  displayDomain.textContent = getDomain(tab.url);
+  displayTitle.textContent = tab.title || getDomain(tab.url);
+  lockIcon.textContent = tab.url.startsWith('https://') ? 'lock' : 'info';
+}
+
+function updateEmptyStateForTab(tab) {
+  if (!tab || !tab.url) emptyState.classList.add('show');
+  else emptyState.classList.remove('show');
+}
+
+function updateNavButtons() {
+  const tab = getActiveTab();
+  backBtn.disabled = !(tab && tab.historyIndex > 0);
+  fwdBtn.disabled = !(tab && tab.historyIndex < tab.history.length - 1);
+  document.getElementById('optBack').disabled = backBtn.disabled;
+  document.getElementById('optForward').disabled = fwdBtn.disabled;
+}
+
+function updateTabCounter() { tabCounterIcon.textContent = tabs.length; }
+
+/* --- Navegação --- */
+function navigate(url, pushToHistory = true) {
+  const finalUrl = normalizeUrl(url);
+  if (!finalUrl) return;
+  let tab = getActiveTab();
+  if (!tab) tab = createTab(null, true);
+
+  closeSearchModal();
+  setLoading(true);
+  tab.url = finalUrl;
+  tab.title = getDomain(finalUrl);
+  tab.iframe.src = finalUrl;
+  displayTitle.textContent = getDomain(finalUrl);
+  displayDomain.textContent = getDomain(finalUrl);
+  lockIcon.textContent = finalUrl.startsWith('https://') ? 'lock' : 'info';
+  emptyState.classList.remove('show');
+  showAppbar();
+
+  if (pushToHistory) {
+    tab.history = tab.history.slice(0, tab.historyIndex + 1);
+    tab.history.push(finalUrl);
+    tab.historyIndex = tab.history.length - 1;
+  }
+  updateNavButtons();
+}
+
+function goBack() {
+  const tab = getActiveTab();
+  if (tab && tab.historyIndex > 0) {
+    tab.historyIndex--;
+    navigate(tab.history[tab.historyIndex], false);
+  }
+}
+function goForward() {
+  const tab = getActiveTab();
+  if (tab && tab.historyIndex < tab.history.length - 1) {
+    tab.historyIndex++;
+    navigate(tab.history[tab.historyIndex], false);
+  }
+}
+
+/* --- Scroll no iframe (Appbar hide) --- */
+function attachIframeScrollBehavior(iframe) {
+  let lastY = 0, accum = 0, active = false;
+  iframe.addEventListener('touchstart', (e) => { active = true; lastY = e.touches[0].clientY; accum = 0; }, { passive: true });
+  iframe.addEventListener('touchmove', (e) => {
+    if (!active) return;
+    const y = e.touches[0].clientY;
+    const delta = y - lastY;
+    lastY = y;
+    if (Math.abs(delta) < 1.5) return;
+    accum += delta;
+    if (accum <= -40 && appbarOffset === 0) { hideAppbar(); accum = 0; }
+    else if (accum >= 40 && appbarOffset < 0) { showAppbar(); accum = 0; }
+    else if (Math.abs(accum) > 240) accum = 0;
+  }, { passive: true });
+  iframe.addEventListener('touchend', () => { active = false; }, { passive: true });
+}
+
+/* Gesto no topo */
+let gestureTouchActive = false, gestureStartY = 0, offsetAtStart = 0, gestureLastY = 0, gestureLastT = 0, gestureVelocity = 0;
+gestureZone.addEventListener('touchstart', (e) => {
+  gestureTouchActive = true;
+  gestureStartY = e.touches[0].clientY;
+  gestureLastY = gestureStartY;
+  gestureLastT = Date.now();
+  offsetAtStart = appbarOffset;
+  gestureVelocity = 0;
+}, { passive: true });
+
+gestureZone.addEventListener('touchmove', (e) => {
+  if (!gestureTouchActive) return;
+  const y = e.touches[0].clientY;
+  const dy = y - gestureStartY;
+  const now = Date.now();
+  const dt = Math.max(1, now - gestureLastT);
+  gestureVelocity = (y - gestureLastY) / dt;
+  gestureLastY = y; gestureLastT = now;
+  setAppbarOffset(offsetAtStart + dy, false);
+}, { passive: true });
+
+function finishGesture() {
+  if (!gestureTouchActive) return;
+  gestureTouchActive = false;
+  const halfway = -appbarHeight / 2;
+  let goOpen = Math.abs(gestureVelocity) > 0.5 ? (gestureVelocity > 0) : (appbarOffset > halfway);
+  setAppbarOffset(goOpen ? 0 : -appbarHeight, true);
+}
+gestureZone.addEventListener('touchend', finishGesture);
+gestureZone.addEventListener('touchcancel', finishGesture);
+
+/* --- Sugestões --- */
+function loadSuggestScript(query) {
+  const old = document.getElementById('suggestJsonp');
+  if (old) old.remove();
+  const script = document.createElement('script');
+  script.id = 'suggestJsonp';
+  script.src = "https://suggestqueries.google.com/complete/search?client=chrome&callback=handleSuggestions&q=" + encodeURIComponent(query);
+  document.body.appendChild(script);
+}
+window.handleSuggestions = function(data) { renderSuggestions(data[0], data[1] || []); };
+
+function renderSuggestions(query, results) {
+  modalSuggestions.innerHTML = '';
+  if (!query) { modalSuggestions.innerHTML = '<div class="suggestions-empty">Escreve algo...</div>'; return; }
+  modalSuggestions.appendChild(makeSuggestionItem(query, 'search', true));
+  results.forEach(text => modalSuggestions.appendChild(makeSuggestionItem(text, 'history')));
+}
+
+function makeSuggestionItem(text, icon, isDirect) {
+  const el = document.createElement('div');
+  el.className = 'suggestion-item';
+  el.innerHTML = `<span class="material-symbols-rounded">${icon === 'search' ? 'search' : 'history'}</span><span class="text"></span>${isDirect ? '' : '<span class="material-symbols-rounded insert-arrow">north</span>'}`;
+  el.querySelector('.text').textContent = text;
+  el.addEventListener('click', () => navigate(text));
+  if (!isDirect) {
+    el.querySelector('.insert-arrow').addEventListener('click', (e) => {
+      e.stopPropagation();
+      modalInput.value = text;
+      modalInput.focus();
+      triggerSuggest(text);
+    });
+  }
+  return el;
+}
+
+function triggerSuggest(query) {
+  clearTimeout(suggestTimer);
+  suggestTimer = setTimeout(() => { query.trim() ? loadSuggestScript(query.trim()) : renderSuggestions('', []); }, 180);
+}
+
+/* --- Modal Pesquisa --- */
+function openSearchModal() {
+  const tab = getActiveTab();
+  modalInput.value = tab && tab.url ? tab.url : '';
+  searchModal.classList.add('show');
+  requestAnimationFrame(() => searchModal.classList.add('visible'));
+  renderSuggestions(modalInput.value, []);
+  if (modalInput.value.trim()) triggerSuggest(modalInput.value);
+  setTimeout(() => { modalInput.focus(); modalInput.select(); }, 60);
+  modalClear.classList.toggle('show', modalInput.value.length > 0);
+}
+function closeSearchModal() {
+  searchModal.classList.remove('visible');
+  modalInput.blur();
+  setTimeout(() => searchModal.classList.remove('show'), 180);
+}
+
+addressBarTrigger.addEventListener('click', openSearchModal);
+modalInput.addEventListener('input', () => {
+  modalClear.classList.toggle('show', modalInput.value.length > 0);
+  triggerSuggest(modalInput.value);
+});
+modalInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') navigate(modalInput.value); });
+modalClear.addEventListener('click', () => { modalInput.value = ''; modalInput.focus(); renderSuggestions('', []); modalClear.classList.remove('show'); });
+modalClose.addEventListener('click', closeSearchModal);
+backBtn.addEventListener('click', goBack);
+fwdBtn.addEventListener('click', goForward);
+
+/* --- Bottom Sheet --- */
+function openSheet() { sheetOverlay.classList.add('show'); bottomSheet.classList.add('show'); }
+function closeSheet() { sheetOverlay.classList.remove('show'); bottomSheet.classList.remove('show'); }
+menuBtn.addEventListener('click', openSheet);
+sheetOverlay.addEventListener('click', closeSheet);
+
+document.getElementById('optBack').addEventListener('click', () => { closeSheet(); goBack(); });
+document.getElementById('optForward').addEventListener('click', () => { closeSheet(); goForward(); });
+document.getElementById('optReload').addEventListener('click', () => { closeSheet(); const t = getActiveTab(); if (t && t.url) { setLoading(true); t.iframe.src = t.url; } showAppbar(); });
+document.getElementById('optHome').addEventListener('click', () => { closeSheet(); navigate(HOME_URL); });
+document.getElementById('optNewTab').addEventListener('click', () => { closeSheet(); createTab(null, true); openSearchModal(); modalInput.value = ''; });
+document.getElementById('optShare').addEventListener('click', () => { closeSheet(); const t = getActiveTab(); if (t && t.url) navigator.share ? navigator.share({ url: t.url }).catch(() => {}) : navigator.clipboard?.writeText(t.url); });
+document.getElementById('optCopy').addEventListener('click', () => { closeSheet(); const t = getActiveTab(); if (t && t.url) navigator.clipboard?.writeText(t.url); });
+document.getElementById('optDesktop').addEventListener('click', () => { closeSheet(); const t = getActiveTab(); if (t && t.url) { setLoading(true); t.iframe.src = t.url; } });
+document.getElementById('optTabs').addEventListener('click', () => { closeSheet(); openTabsView(); });
+
+/* ===================================================== */
+/* CONTAINER TRANSFORM E ABAS                            */
+/* ===================================================== */
+function openTabsView() {
+  renderTabsGrid();
+  tabsView.style.opacity = '1';
+  tabsView.style.pointerEvents = 'auto';
+
+  // O browser atual encolhe até o tamanho da aba ativa
+  const activeCard = tabsGrid.children[activeTabIndex];
+  if (activeCard) {
+    const cardRect = activeCard.getBoundingClientRect();
+    const browserRect = browserView.getBoundingClientRect();
+    
+    // Calcula o Scale
+    const scaleX = cardRect.width / browserRect.width;
+    const scaleY = cardRect.height / browserRect.height;
+    const scale = Math.min(scaleX, scaleY);
+
+    // Calcula o Translate para alinhar o centro do browser ao centro do cartão
+    const translateX = cardRect.left + (cardRect.width - browserRect.width * scale) / 2;
+    const translateY = cardRect.top + (cardRect.height - browserRect.height * scale) / 2;
+
+    // Aplica estado inicial (invert)
+    browserView.style.transition = 'none';
+    browserView.style.transform = `translate(0, 0) scale(1)`;
+    browserView.style.opacity = '1';
+    browserView.style.borderRadius = '0px';
+
+    browserView.offsetHeight; // Força reflow
+
+    // Anima (Play)
+    browserView.style.transition = 'transform 0.35s cubic-bezier(0.2, 0.8, 0.3, 1), opacity 0.3s ease, border-radius 0.35s ease';
+    browserView.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+    browserView.style.opacity = '0';
+    browserView.style.borderRadius = '16px';
+    browserView.style.pointerEvents = 'none';
+  }
+}
+
+function closeTabsView(tabIndex, cardRect) {
+  if (tabIndex !== activeTabIndex) switchToTab(tabIndex);
+
+  // Esconde o painel de abas
+  tabsView.style.opacity = '0';
+  tabsView.style.pointerEvents = 'none';
+
+  if (cardRect) {
+    const browserRect = browserView.getBoundingClientRect();
+    const scaleX = cardRect.width / browserRect.width;
+    const scaleY = cardRect.height / browserRect.height;
+    const scale = Math.min(scaleX, scaleY);
+
+    const translateX = cardRect.left + (cardRect.width - browserRect.width * scale) / 2;
+    const translateY = cardRect.top + (cardRect.height - browserRect.height * scale) / 2;
+
+    // Estado inicial (Invert)
+    browserView.style.transition = 'none';
+    browserView.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+    browserView.style.opacity = '0';
+    browserView.style.borderRadius = '16px';
+    browserView.style.pointerEvents = 'auto';
+
+    browserView.offsetHeight; // Força reflow
+
+    // Anima de volta para fullscreen (Play)
+    browserView.style.transition = 'transform 0.35s cubic-bezier(0.2, 0.8, 0.3, 1), opacity 0.3s ease, border-radius 0.35s ease';
+    browserView.style.transform = `translate(0, 0) scale(1)`;
+    browserView.style.opacity = '1';
+    browserView.style.borderRadius = '0px';
+  } else {
+    browserView.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+    browserView.style.transform = `translate(0, 0) scale(1)`;
+    browserView.style.opacity = '1';
+    browserView.style.borderRadius = '0px';
+    browserView.style.pointerEvents = 'auto';
+  }
+}
+
+tabsCloseBtn.addEventListener('click', () => closeTabsView(activeTabIndex, null)); // Fecha sem usar cardRect para animar pro meio (opcional, ou poderia achar o activeCard)
+
+tabsAddBtn.addEventListener('click', () => {
+  closeTabsView(activeTabIndex, null);
+  setTimeout(() => {
+    createTab(null, true);
+    openSearchModal();
+    modalInput.value = '';
+  }, 200);
+});
+
+function renderTabsGrid() {
+  tabsGrid.innerHTML = '';
+
+  tabs.forEach((tab, index) => {
+    const domain = tab.url ? getDomain(tab.url) : '';
+    const title = tab.title || (tab.url ? domain : 'Nova aba');
+    const subtitle = tab.url ? domain : 'Página em branco';
+    const color = domain ? getDomainColor(domain) : '#f0f1f3';
+    const faviconUrl = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=64` : '';
+
+    const card = document.createElement('div');
+    card.className = 'tab-card' + (index === activeTabIndex ? ' active' : '');
+    card.style.animationDelay = (index * 30) + 'ms';
+
+    // Construção do Mock Preview
+    card.innerHTML = `
+      <button class="tab-close" data-close-index="${index}">
+        <span class="material-symbols-rounded">close</span>
+      </button>
+      
+      <div class="tab-preview" style="background:${color}">
+        <div class="mock-address-bar"></div>
+        <div class="mock-content">
+          <div class="mock-favicon">
+            ${faviconUrl ? `<img src="${faviconUrl}" onerror="this.style.display='none'">` : ''}
+          </div>
+          <div class="mock-line w-60"></div>
+          <div class="mock-line w-80"></div>
+          <div class="mock-line w-40"></div>
+          <div style="height:10px"></div>
+          <div class="mock-line w-90"></div>
+          <div class="mock-line w-90"></div>
+          <div class="mock-line w-60"></div>
+        </div>
+      </div>
+      
+      <div class="tab-footer">
+        <div class="tab-title"></div>
+        <div class="tab-domain"></div>
+      </div>
+    `;
+    card.querySelector('.tab-title').textContent = title;
+    card.querySelector('.tab-domain').textContent = subtitle;
+
+    // Clique no cartão aciona a animação Container Transform de volta
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.tab-close')) return;
+      const rect = card.getBoundingClientRect();
+      closeTabsView(index, rect);
+    });
+
+    card.querySelector('.tab-close').addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeTab(index);
+      // Se apagou a aba ativa, atualiza a grid e a tela
+      renderTabsGrid();
+    });
+
+    tabsGrid.appendChild(card);
+  });
+}
+
+/* --- Inicialização --- */
+window.addEventListener('load', computeAppbarHeight);
+window.addEventListener('resize', computeAppbarHeight);
+
+createTab(null, true);
+setTimeout(computeAppbarHeight, 50);
+</script>
+</body>
+</html>

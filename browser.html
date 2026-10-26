@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>Browser</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0">
+<style>
+  :root {
+    color-scheme: light;
+    --surface: #ffffff;
+    --surface-soft: #f8f9fa;
+    --surface-pill: #f0f1f3;
+    --ink: #202124;
+    --ink-secondary: #5f6368;
+    --line: #e8eaed;
+    --brand: #1a73e8;
+    --motion: cubic-bezier(.2,.8,.2,1);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden; position: fixed; inset: 0;
+    background: var(--surface); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+  }
+  button, input { font: inherit; }
+  button { cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .material-symbols-rounded {
+    font-family: 'Material Symbols Rounded'; font-weight: normal; font-style: normal;
+    line-height: 1; letter-spacing: normal; text-transform: none; display: inline-block;
+    white-space: nowrap; word-wrap: normal; direction: ltr; -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased; font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    user-select: none;
+  }
+
+  /* Navegador */
+  .browser {
+    position: fixed; inset: 0; z-index: 1; background: var(--surface);
+    transform-origin: 0 0; will-change: transform, opacity, border-radius;
+  }
+  .browser.is-covered { visibility: hidden; pointer-events: none; }
+  .frame-wrap { position: absolute; inset: 0; background: var(--surface); overflow: hidden; }
+  .web-frame {
+    position: absolute; left: 0; right: 0; top: 0; bottom: 0; width: 100%; height: 100%;
+    border: 0; background: var(--surface); display: none;
+  }
+  .web-frame.active { display: block; }
+  .state-msg {
+    position: absolute; inset: 0; display: none; flex-direction: column; align-items: center;
+    justify-content: center; gap: 10px; color: var(--ink-secondary); font-size: 14px;
+    background: var(--surface); text-align: center; padding: 24px; z-index: 1;
+  }
+  .state-msg.show { display: flex; }
+  .state-msg .material-symbols-rounded { font-size: 42px; color: #c5c9ce; }
+  .appbar-layer { position: absolute; left: 0; right: 0; top: 0; z-index: 25; background: var(--surface); will-change: transform; }
+  .toolbar {
+    display: flex; align-items: center; gap: 4px; padding: 9px 8px;
+    padding-top: calc(9px + env(safe-area-inset-top)); background: var(--surface);
+    box-shadow: 0 1px 3px rgba(60,64,67,.10);
+  }
+  .nav-btn, .security-btn, .modal-close-icon, .tabs-close-btn {
+    flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+    border: 0; border-radius: 50%; color: #3c4043;
+  }
+  .nav-btn { width: 36px; height: 36px; background: transparent; }
+  .nav-btn .material-symbols-rounded { font-size: 22px; }
+  .nav-btn:active { background: #f1f3f4; }
+  .nav-btn:disabled { color: #c4c7c5; }
+  .address-bar {
+    flex: 1 1 auto; min-width: 0; height: 42px; display: flex; align-items: center; gap: 10px;
+    padding: 0 12px; border-radius: 24px; background: var(--surface-pill); border: 1px solid transparent;
+    text-align: left;
+  }
+  .address-bar:active { background: #e9ebee; }
+  .site-favicon { width: 19px; height: 19px; flex: 0 0 19px; object-fit: contain; border-radius: 4px; display: none; }
+  .site-favicon.visible { display: block; }
+  .address-display { display: flex; flex: 1 1 auto; min-width: 0; align-items: center; }
+  .address-display .title {
+    min-width: 0; width: 100%; color: var(--ink); font-size: 14px; font-weight: 500;
+    line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .security-btn { width: 34px; height: 34px; background: #edf1f4; color: #5f6368; }
+  .security-btn .material-symbols-rounded { font-size: 19px; }
+  .security-btn.secure { background: #e3f3e7; color: #137333; }
+  .security-btn.insecure { background: #fce8e6; color: #b3261e; }
+  .security-btn:active { transform: scale(.94); }
+  .progress { height: 2px; width: 0; background: var(--brand); transition: width .18s linear; }
+  .gesture-zone { position: absolute; left: 0; right: 0; top: 0; height: 26px; z-index: 24; touch-action: pan-y; }
+
+  /* Pesquisa */
+  .search-modal {
+    position: fixed; inset: 0; z-index: 60; display: none; flex-direction: column;
+    opacity: 0; background: var(--surface); transition: opacity .18s ease;
+  }
+  .search-modal.show { display: flex; }
+  .search-modal.visible { opacity: 1; }
+  .modal-topbar {
+    display: flex; align-items: center; gap: 8px; padding: 9px 10px;
+    padding-top: calc(9px + env(safe-area-inset-top)); flex-shrink: 0;
+  }
+  .modal-address-bar {
+    flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px;
+    padding: 0 14px; height: 42px; border-radius: 24px; background: var(--surface-pill);
+  }
+  .modal-address-bar > .material-symbols-rounded { font-size: 20px; color: var(--ink-secondary); }
+  .modal-input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 15px; }
+  .modal-clear {
+    display: flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 22px; height: 22px;
+    border: 0; border-radius: 50%; color: #5f6368; background: #dfe1e5; opacity: 0; transform: scale(.7);
+    pointer-events: none; transition: opacity .14s ease, transform .14s ease;
+  }
+  .modal-clear.show { opacity: 1; transform: scale(1); pointer-events: auto; }
+  .modal-clear .material-symbols-rounded { font-size: 15px; }
+  .modal-close-icon { width: 38px; height: 38px; background: transparent; }
+  .modal-close-icon:active { background: #f1f3f4; }
+  .modal-suggestions { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .suggestion-item { display: flex; align-items: center; gap: 15px; padding: 13px 18px; color: var(--ink); font-size: 15px; }
+  .suggestion-item:active { background: #f1f3f4; }
+  .suggestion-item .material-symbols-rounded { color: var(--ink-secondary); font-size: 20px; flex: 0 0 auto; }
+  .suggestion-item .text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .suggestion-item .insert-arrow { font-size: 18px; color: #80868b; transform: rotate(-45deg); }
+  .suggestions-empty { padding: 24px 18px; color: #80868b; font-size: 13px; text-align: center; }
+
+  /* Menu inferior */
+  .sheet-overlay {
+    position: fixed; inset: 0; z-index: 40; display: none; background: rgba(0,0,0,0);
+    transition: background .24s ease;
+  }
+  .sheet-overlay.show { display: block; background: rgba(0,0,0,.38); }
+  .bottom-sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 41; padding-bottom: env(safe-area-inset-bottom);
+    background: var(--surface); border-radius: 20px 20px 0 0; transform: translateY(105%);
+    transition: transform .28s var(--motion); box-shadow: 0 -4px 24px rgba(0,0,0,.13);
+  }
+  .bottom-sheet.show { transform: translateY(0); }
+  .sheet-handle { width: 36px; height: 4px; margin: 10px auto; border-radius: 3px; background: #dadce0; }
+  .sheet-options { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 2px; padding: 8px 4px 16px; }
+  .sheet-option { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 6px; padding: 10px 2px; border: 0; border-radius: 12px; background: transparent; color: var(--ink); }
+  .sheet-option:active { background: #f1f3f4; }
+  .sheet-option > .material-symbols-rounded { font-size: 23px; color: #444; }
+  .sheet-option .label { font-size: 10.5px; color: #444; line-height: 1.15; text-align: center; }
+  .sheet-option:disabled { opacity: .35; }
+  .tab-counter-icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border: 1.6px solid #555; border-radius: 6px; font-size: 11px; font-weight: 650; line-height: 1; color: #444; }
+  .sheet-divider { height: 1px; margin: 0 8px; background: #eee; }
+  .sheet-list { padding: 4px 0 8px; }
+  .sheet-list-item { display: flex; align-items: center; gap: 20px; width: 100%; padding: 13px 20px; border: 0; background: transparent; text-align: left; font-size: 15px; color: var(--ink); }
+  .sheet-list-item:active { background: #f1f3f4; }
+  .sheet-list-item .material-symbols-rounded { color: var(--ink-secondary); }
+
+  /* Separadores */
+  .tabs-view {
+    position: fixed; inset: 0; z-index: 55; display: flex; flex-direction: column;
+    padding-top: env(safe-area-inset-top); background: var(--surface-soft); opacity: 0;
+    visibility: hidden; pointer-events: none; overflow: hidden;
+  }
+  .tabs-view.show { opacity: 1; visibility: visible; pointer-events: auto; }
+  .tabs-header { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px 10px; flex: 0 0 auto; }
+  .tabs-title { font-size: 18px; font-weight: 650; color: var(--ink); }
+  .tabs-close-btn { width: 38px; height: 38px; background: #e9ebee; color: #3c4043; transition: transform .15s ease, background .15s ease; }
+  .tabs-close-btn:active { background: #dfe1e5; transform: scale(.94); }
+  .tabs-close-btn .material-symbols-rounded { font-size: 21px; }
+  .tabs-scroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 12px calc(94px + env(safe-area-inset-bottom)); }
+  .tabs-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; padding: 4px; align-items: start; }
+  .tab-card {
+    position: relative; min-width: 0; overflow: hidden; display: flex; flex-direction: column;
+    border-radius: 14px; background: var(--surface); box-shadow: 0 1px 3px rgba(60,64,67,.12);
+    cursor: pointer; transform-origin: 0 0; contain: layout paint;
+    animation: card-enter .22s var(--motion) both;
+  }
+  .tab-card.active { box-shadow: 0 1px 4px rgba(60,64,67,.10), inset 0 0 0 1px rgba(26,115,232,.68); }
+  @keyframes card-enter { from { opacity: 0; transform: translateY(5px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  .tab-preview { position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; aspect-ratio: 9 / 13; background: #f0f1f3; }
+  .tab-preview-image { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; background: #fff; }
+  .preview-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; width: 100%; height: 100%; padding: 16px; color: #8a9096; text-align: center; }
+  .preview-placeholder .material-symbols-rounded { font-size: 30px; }
+  .preview-placeholder-text { font-size: 11px; line-height: 1.35; }
+  .preview-placeholder-favicon { width: 24px; height: 24px; object-fit: contain; border-radius: 5px; }
+  .tab-close {
+    position: absolute; top: 7px; right: 7px; z-index: 2; display: flex; align-items: center; justify-content: center;
+    width: 27px; height: 27px; border: 0; border-radius: 50%; background: rgba(255,255,255,.94); color: #333;
+    box-shadow: 0 1px 3px rgba(0,0,0,.16); backdrop-filter: blur(8px);
+  }
+  .tab-close:active { transform: scale(.92); }
+  .tab-close .material-symbols-rounded { font-size: 17px; }
+  .tab-footer { display: flex; flex-direction: column; gap: 3px; padding: 9px 10px 11px; border-top: 1px solid #f0f1f3; background: #fff; }
+  .tab-footer .tab-title { color: var(--ink); font-size: 12.5px; font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tab-footer .tab-domain { color: var(--ink-secondary); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tabs-add-fab {
+    position: absolute; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); z-index: 3;
+    display: flex; align-items: center; gap: 8px; padding: 12px 21px; transform: translateX(-50%);
+    border: 0; border-radius: 26px; background: var(--brand); color: #fff; font-size: 14px; font-weight: 550;
+    box-shadow: 0 3px 10px rgba(26,115,232,.24); white-space: nowrap;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .tabs-add-fab:active { transform: translateX(-50%) scale(.96); box-shadow: 0 1px 4px rgba(26,115,232,.2); }
+  .tabs-add-fab .material-symbols-rounded { font-size: 20px; }
+
+  /* Modal de segurança HTTPS */
+  .security-modal {
+    position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center;
+    padding: 24px; background: rgba(32,33,36,0); opacity: 0; visibility: hidden;
+    transition: opacity .18s ease, background .18s ease, visibility .18s ease;
+  }
+  .security-modal.show { opacity: 1; visibility: visible; background: rgba(32,33,36,.38); }
+  .security-dialog {
+    width: min(100%, 340px); padding: 22px 20px 18px; border-radius: 24px; background: #fff;
+    box-shadow: 0 12px 40px rgba(0,0,0,.2); transform: translateY(8px) scale(.98);
+    transition: transform .22s var(--motion);
+  }
+  .security-modal.show .security-dialog { transform: translateY(0) scale(1); }
+  .security-dialog-head { display: flex; align-items: center; gap: 13px; margin-bottom: 14px; }
+  .security-status-icon { width: 46px; height: 46px; flex: 0 0 46px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #e3f3e7; color: #137333; }
+  .security-status-icon .material-symbols-rounded { font-size: 25px; }
+  .security-status-icon.insecure { background: #fce8e6; color: #b3261e; }
+  .security-dialog-title { font-size: 17px; font-weight: 650; color: var(--ink); }
+  .security-dialog-subtitle { margin-top: 3px; font-size: 12px; line-height: 1.35; color: var(--ink-secondary); overflow-wrap: anywhere; }
+  .security-description { font-size: 14px; line-height: 1.5; color: #3c4043; }
+  .security-detail { display: flex; align-items: flex-start; gap: 10px; margin-top: 16px; padding: 12px; border-radius: 14px; background: #f6f8f9; }
+  .security-detail .material-symbols-rounded { margin-top: 1px; font-size: 20px; color: #5f6368; }
+  .security-detail-text { min-width: 0; font-size: 12px; line-height: 1.45; color: #5f6368; overflow-wrap: anywhere; }
+  .security-dialog-actions { display: flex; justify-content: flex-end; margin-top: 18px; }
+  .security-dialog-close { min-width: 84px; padding: 10px 17px; border: 0; border-radius: 20px; background: #e8f0fe; color: #174ea6; font-size: 13px; font-weight: 600; }
+  .security-dialog-close:active { background: #d9e6fb; }
+
+  /* View Transition API: snapshots criados pelo motor do navegador. */
+  ::view-transition-group(browser-shared) {
+    animation-duration: 420ms;
+    animation-timing-function: cubic-bezier(.2,.82,.2,1);
+  }
+  ::view-transition-image-pair(browser-shared) { isolation: isolate; }
+  ::view-transition-old(browser-shared),
+  ::view-transition-new(browser-shared) { height: 100%; width: 100%; object-fit: fill; }
+  ::view-transition-old(root) { animation: root-fade-out 180ms ease both; }
+  ::view-transition-new(root) { animation: root-fade-in 220ms ease both; }
+  @keyframes root-fade-out { to { opacity: .96; } }
+  @keyframes root-fade-in { from { opacity: .96; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+    ::view-transition-group(browser-shared) { animation-duration: .01ms; }
+  }
+</style>
+</head>
+<body>
+<div class="browser" id="browserView">
+  <div class="frame-wrap" id="frameWrap">
+    <div class="state-msg show" id="emptyState">
+      <span class="material-symbols-rounded">public</span>
+      <div>Escreve um URL acima para começar a navegar</div>
+    </div>
+  </div>
+  <div class="gesture-zone" id="gestureZone"></div>
+  <div class="appbar-layer" id="appbarLayer">
+    <div class="toolbar">
+      <button class="nav-btn" id="backBtn" aria-label="Voltar" disabled><span class="material-symbols-rounded">arrow_back</span></button>
+      <button class="nav-btn" id="fwdBtn" aria-label="Avançar" disabled><span class="material-symbols-rounded">arrow_forward</span></button>
+      <button class="address-bar" id="addressBarTrigger" aria-label="Pesquisar ou escrever endereço">
+        <img class="site-favicon" id="siteFavicon" alt="" referrerpolicy="no-referrer">
+        <span class="address-display"><span class="title" id="displayTitle">Nova aba</span></span>
+      </button>
+      <button class="security-btn" id="securityBtn" aria-label="Informações de segurança"><span class="material-symbols-rounded" id="lockIcon">lock</span></button>
+      <button class="nav-btn" id="menuBtn" aria-label="Menu"><span class="material-symbols-rounded">menu</span></button>
+    </div>
+    <div class="progress" id="progress"></div>
+  </div>
+</div>
+
+<div class="search-modal" id="searchModal" aria-hidden="true">
+  <div class="modal-topbar">
+    <div class="modal-address-bar">
+      <span class="material-symbols-rounded">search</span>
+      <input type="text" class="modal-input" id="modalInput" placeholder="Pesquisar ou escrever um URL" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off">
+      <button class="modal-clear" id="modalClear" aria-label="Limpar"><span class="material-symbols-rounded">close</span></button>
+    </div>
+    <button class="modal-close-icon" id="modalClose" aria-label="Fechar pesquisa"><span class="material-symbols-rounded">close</span></button>
+  </div>
+  <div class="modal-suggestions" id="modalSuggestions"></div>
+</div>
+
+<div class="sheet-overlay" id="sheetOverlay"></div>
+<div class="bottom-sheet" id="bottomSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-options">
+    <button class="sheet-option" id="optTabs"><div class="tab-counter-icon" id="tabCounterIcon">1</div><span class="label">Abas</span></button>
+    <button class="sheet-option" id="optBack"><span class="material-symbols-rounded">arrow_back</span><span class="label">Voltar</span></button>
+    <button class="sheet-option" id="optForward"><span class="material-symbols-rounded">arrow_forward</span><span class="label">Avançar</span></button>
+    <button class="sheet-option" id="optReload"><span class="material-symbols-rounded">refresh</span><span class="label">Recarregar</span></button>
+    <button class="sheet-option" id="optHome"><span class="material-symbols-rounded">home</span><span class="label">Início</span></button>
+  </div>
+  <div class="sheet-divider"></div>
+  <div class="sheet-list">
+    <button class="sheet-list-item" id="optNewTab"><span class="material-symbols-rounded">add</span> Nova aba</button>
+    <button class="sheet-list-item" id="optShare"><span class="material-symbols-rounded">ios_share</span> Partilhar</button>
+    <button class="sheet-list-item" id="optCopy"><span class="material-symbols-rounded">content_copy</span> Copiar link</button>
+    <button class="sheet-list-item" id="optDesktop"><span class="material-symbols-rounded">desktop_windows</span> Versão desktop</button>
+  </div>
+</div>
+
+<div class="tabs-view" id="tabsView" aria-hidden="true">
+  <div class="tabs-header">
+    <span class="tabs-title">Separadores</span>
+    <button class="tabs-close-btn" id="tabsCloseBtn" aria-label="Fechar separadores"><span class="material-symbols-rounded">close</span></button>
+  </div>
+  <div class="tabs-scroll"><div class="tabs-grid" id="tabsGrid"></div></div>
+  <button class="tabs-add-fab" id="tabsAddBtn"><span class="material-symbols-rounded">add</span> Nova aba</button>
+</div>
+
+<div class="security-modal" id="securityModal" role="dialog" aria-modal="true" aria-labelledby="securityDialogTitle" aria-hidden="true">
+  <div class="security-dialog">
+    <div class="security-dialog-head">
+      <div class="security-status-icon" id="securityStatusIcon"><span class="material-symbols-rounded" id="securityStatusGlyph">verified_user</span></div>
+      <div>
+        <div class="security-dialog-title" id="securityDialogTitle">Ligação segura</div>
+        <div class="security-dialog-subtitle" id="securityHost">Sem site aberto</div>
+      </div>
+    </div>
+    <p class="security-description" id="securityDescription">As informações de segurança serão apresentadas aqui.</p>
+    <div class="security-detail">
+      <span class="material-symbols-rounded">info</span>
+      <div class="security-detail-text" id="securityDetailText">O estado HTTPS é verificado pelo motor do navegador durante a ligação.</div>
+    </div>
+    <div class="security-dialog-actions"><button class="security-dialog-close" id="securityModalClose">Entendi</button></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const HOME_URL = 'https://www.google.com/webhp?igu=1';
+const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = (id) => document.getElementById(id);
+
+const browserView = $('browserView');
+const frameWrap = $('frameWrap');
+const appbarLayer = $('appbarLayer');
+const gestureZone = $('gestureZone');
+const backBtn = $('backBtn');
+const fwdBtn = $('fwdBtn');
+const menuBtn = $('menuBtn');
+const progress = $('progress');
+const emptyState = $('emptyState');
+const lockIcon = $('lockIcon');
+const securityBtn = $('securityBtn');
+const addressBarTrigger = $('addressBarTrigger');
+const displayTitle = $('displayTitle');
+const siteFavicon = $('siteFavicon');
+const searchModal = $('searchModal');
+const modalInput = $('modalInput');
+const modalClear = $('modalClear');
+const modalClose = $('modalClose');
+const modalSuggestions = $('modalSuggestions');
+const sheetOverlay = $('sheetOverlay');
+const bottomSheet = $('bottomSheet');
+const tabsView = $('tabsView');
+const tabsGrid = $('tabsGrid');
+const tabsCloseBtn = $('tabsCloseBtn');
+const tabsAddBtn = $('tabsAddBtn');
+const tabCounterIcon = $('tabCounterIcon');
+const securityModal = $('securityModal');
+
+let tabs = [];
+let activeTabIndex = -1;
+let appbarOffset = 0;
+let appbarHeight = 64;
+let isLoading = false;
+let suggestTimer = null;
+let nextTabId = 1;
+let nextScreenshotRequest = 1;
+let tabsViewOpen = false;
+let transitionBusy = false;
+const screenshotRequests = new Map();
+
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const nextFrame = () => new Promise(resolve => requestAnimationFrame(() => resolve()));
+
+function normalizeUrl(input) {
+  const value = String(input || '').trim();
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  const looksLikeUrl = /^(localhost|\d{1,3}(?:\.\d{1,3}){3})(:\d+)?(?:\/|$)/i.test(value) ||
+    (/^[\w-]+(?:\.[\w-]+)+(?:\:\d+)?(?:[/?#].*)?$/i.test(value) && !value.includes(' '));
+  if (looksLikeUrl) return 'https://' + value;
+  return 'https://www.google.com/search?igu=1&q=' + encodeURIComponent(value);
+}
+
+function getDomain(url) {
+  try { return new URL(url).hostname.replace(/^www\./i, ''); }
+  catch (_) { return ''; }
+}
+
+function getFaviconUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (!/^https?:$/.test(parsed.protocol)) return '';
+    return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(parsed.hostname) + '&sz=64';
+  } catch (_) { return ''; }
+}
+
+function computeAppbarHeight() {
+  appbarHeight = appbarLayer.getBoundingClientRect().height;
+  applyAppbarOffset(false);
+}
+
+function setLoading(state) {
+  isLoading = !!state;
+  progress.style.width = state ? '72%' : '0%';
+  if (!state) setTimeout(() => { progress.style.width = '0%'; }, 180);
+}
+
+function applyAppbarOffset(animate) {
+  appbarLayer.style.transition = animate ? 'transform .22s var(--motion)' : 'none';
+  appbarLayer.style.transform = `translateY(${appbarOffset}px)`;
+  const iframeTop = Math.max(0, appbarHeight + appbarOffset);
+  tabs.forEach(tab => {
+    if (!tab.iframe) return;
+    tab.iframe.style.transition = animate ? 'top .22s var(--motion), height .22s var(--motion)' : 'none';
+    tab.iframe.style.top = iframeTop + 'px';
+    tab.iframe.style.height = `calc(100% - ${iframeTop}px)`;
+  });
+  emptyState.style.transition = animate ? 'top .22s var(--motion), height .22s var(--motion)' : 'none';
+  emptyState.style.top = iframeTop + 'px';
+  emptyState.style.height = `calc(100% - ${iframeTop}px)`;
+}
+
+function setAppbarOffset(offset, animate) {
+  appbarOffset = Math.max(-appbarHeight, Math.min(0, offset));
+  applyAppbarOffset(animate);
+}
+function hideAppbar() { setAppbarOffset(-appbarHeight, true); }
+function showAppbar() { setAppbarOffset(0, true); }
+function getActiveTab() { return tabs[activeTabIndex] || null; }
+
+function createTab(url = null, switchTo = true) {
+  const tab = {
+    id: 'tab-' + nextTabId++, url: url || null, title: 'Nova aba',
+    history: url ? [url] : [], historyIndex: url ? 0 : -1, iframe: null,
+    thumbnail: null, thumbnailAt: 0
+  };
+  const iframe = document.createElement('iframe');
+  iframe.className = 'web-frame';
+  iframe.title = 'Conteúdo da página';
+  iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+  iframe.src = url || 'about:blank';
+  frameWrap.appendChild(iframe);
+  tab.iframe = iframe;
+  iframe.addEventListener('load', () => {
+    if (getActiveTab() === tab) {
+      setLoading(false);
+      updateAddressDisplayForTab(tab);
+      updateEmptyStateForTab(tab);
+    }
+    updateTabTitle(tab);
+  });
+  attachIframeScrollBehavior(iframe);
+  tabs.push(tab);
+  if (switchTo) switchToTab(tabs.length - 1);
+  updateTabCounter();
+  return tab;
+}
+
+function switchToTab(index) {
+  if (index < 0 || index >= tabs.length) return;
+  if (tabs[activeTabIndex]) tabs[activeTabIndex].iframe.classList.remove('active');
+  activeTabIndex = index;
+  tabs[index].iframe.classList.add('active');
+  updateAddressDisplayForTab(tabs[index]);
+  updateNavButtons();
+  updateEmptyStateForTab(tabs[index]);
+  applyAppbarOffset(false);
+}
+
+function closeTab(index) {
+  if (index < 0 || index >= tabs.length) return;
+  const wasActive = index === activeTabIndex;
+  tabs[index].iframe.remove();
+  tabs.splice(index, 1);
+  if (!tabs.length) {
+    activeTabIndex = -1;
+    createTab(null, true);
+    updateTabCounter();
+    return;
+  }
+  if (activeTabIndex > index) activeTabIndex--;
+  else if (wasActive) activeTabIndex = Math.min(index, tabs.length - 1);
+  tabs.forEach(tab => tab.iframe.classList.remove('active'));
+  tabs[activeTabIndex].iframe.classList.add('active');
+  updateAddressDisplayForTab(tabs[activeTabIndex]);
+  updateNavButtons();
+  updateEmptyStateForTab(tabs[activeTabIndex]);
+  updateTabCounter();
+}
+
+function updateTabTitle(tab) {
+  let title = getDomain(tab.url || '') || 'Nova aba';
+  try {
+    const actualTitle = tab.iframe.contentDocument && tab.iframe.contentDocument.title;
+    if (actualTitle && actualTitle.trim()) title = actualTitle.trim();
+  } catch (_) { /* O conteúdo cross-origin não pode ser lido por JavaScript. */ }
+  tab.title = title;
+  if (getActiveTab() === tab) updateAddressDisplayForTab(tab);
+}
+
+function updateAddressDisplayForTab(tab) {
+  if (!tab || !tab.url) {
+    displayTitle.textContent = 'Nova aba';
+    siteFavicon.removeAttribute('src');
+    siteFavicon.classList.remove('visible');
+    lockIcon.textContent = 'lock';
+    securityBtn.classList.remove('secure', 'insecure');
+    return;
+  }
+  displayTitle.textContent = tab.title || getDomain(tab.url) || tab.url;
+  const favicon = getFaviconUrl(tab.url);
+  if (favicon) {
+    siteFavicon.onerror = () => siteFavicon.classList.remove('visible');
+    siteFavicon.onload = () => siteFavicon.classList.add('visible');
+    siteFavicon.src = favicon;
+  } else {
+    siteFavicon.removeAttribute('src');
+    siteFavicon.classList.remove('visible');
+  }
+  const secure = /^https:\/\//i.test(tab.url);
+  lockIcon.textContent = secure ? 'lock' : 'gpp_bad';
+  securityBtn.classList.toggle('secure', secure);
+  securityBtn.classList.toggle('insecure', !secure);
+}
+
+function updateEmptyStateForTab(tab) {
+  if (!tab || !tab.url) emptyState.classList.add('show');
+  else emptyState.classList.remove('show');
+}
+
+function updateNavButtons() {
+  const tab = getActiveTab();
+  backBtn.disabled = !(tab && tab.historyIndex > 0);
+  fwdBtn.disabled = !(tab && tab.historyIndex < tab.history.length - 1);
+  $('optBack').disabled = backBtn.disabled;
+  $('optForward').disabled = fwdBtn.disabled;
+}
+function updateTabCounter() { tabCounterIcon.textContent = String(tabs.length); }
+
+function navigate(input, pushToHistory = true) {
+  const finalUrl = normalizeUrl(input);
+  if (!finalUrl) return;
+  let tab = getActiveTab();
+  if (!tab) tab = createTab(null, true);
+  closeSearchModal();
+  setLoading(true);
+  tab.url = finalUrl;
+  tab.title = getDomain(finalUrl) || finalUrl;
+  tab.thumbnail = null;
+  tab.iframe.src = finalUrl;
+  updateAddressDisplayForTab(tab);
+  emptyState.classList.remove('show');
+  showAppbar();
+  if (pushToHistory) {
+    tab.history = tab.history.slice(0, tab.historyIndex + 1);
+    tab.history.push(finalUrl);
+    tab.historyIndex = tab.history.length - 1;
+  }
+  updateNavButtons();
+}
+
+function goBack() {
+  const tab = getActiveTab();
+  if (tab && tab.historyIndex > 0) {
+    tab.historyIndex--;
+    navigate(tab.history[tab.historyIndex], false);
+  }
+}
+function goForward() {
+  const tab = getActiveTab();
+  if (tab && tab.historyIndex < tab.history.length - 1) {
+    tab.historyIndex++;
+    navigate(tab.history[tab.historyIndex], false);
+  }
+}
+
+function attachIframeScrollBehavior(iframe) {
+  let lastY = 0, accumulated = 0, active = false;
+  iframe.addEventListener('touchstart', event => { active = true; lastY = event.touches[0].clientY; accumulated = 0; }, { passive: true });
+  iframe.addEventListener('touchmove', event => {
+    if (!active) return;
+    const y = event.touches[0].clientY;
+    const delta = y - lastY;
+    lastY = y;
+    if (Math.abs(delta) < 1.5) return;
+    accumulated += delta;
+    if (accumulated <= -42 && appbarOffset === 0) { hideAppbar(); accumulated = 0; }
+    else if (accumulated >= 42 && appbarOffset < 0) { showAppbar(); accumulated = 0; }
+    else if (Math.abs(accumulated) > 240) accumulated = 0;
+  }, { passive: true });
+  iframe.addEventListener('touchend', () => { active = false; }, { passive: true });
+  iframe.addEventListener('touchcancel', () => { active = false; }, { passive: true });
+}
+
+/* Gesto de revelar/ocultar a barra superior. */
+let gestureTouchActive = false, gestureStartY = 0, offsetAtStart = 0, gestureLastY = 0, gestureLastT = 0, gestureVelocity = 0;
+gestureZone.addEventListener('touchstart', event => {
+  gestureTouchActive = true; gestureStartY = event.touches[0].clientY; gestureLastY = gestureStartY;
+  gestureLastT = performance.now(); offsetAtStart = appbarOffset; gestureVelocity = 0;
+}, { passive: true });
+gestureZone.addEventListener('touchmove', event => {
+  if (!gestureTouchActive) return;
+  const y = event.touches[0].clientY;
+  const now = performance.now();
+  gestureVelocity = (y - gestureLastY) / Math.max(1, now - gestureLastT);
+  gestureLastY = y; gestureLastT = now;
+  setAppbarOffset(offsetAtStart + y - gestureStartY, false);
+}, { passive: true });
+function finishGesture() {
+  if (!gestureTouchActive) return;
+  gestureTouchActive = false;
+  const open = Math.abs(gestureVelocity) > .5 ? gestureVelocity > 0 : appbarOffset > -appbarHeight / 2;
+  setAppbarOffset(open ? 0 : -appbarHeight, true);
+}
+gestureZone.addEventListener('touchend', finishGesture);
+gestureZone.addEventListener('touchcancel', finishGesture);
+
+/* Sugestões de pesquisa. */
+function loadSuggestScript(query) {
+  const previous = $('suggestJsonp');
+  if (previous) previous.remove();
+  const script = document.createElement('script');
+  script.id = 'suggestJsonp';
+  script.src = 'https://suggestqueries.google.com/complete/search?client=chrome&callback=handleSuggestions&q=' + encodeURIComponent(query);
+  script.onerror = () => renderSuggestions(query, []);
+  document.body.appendChild(script);
+}
+window.handleSuggestions = function(data) { renderSuggestions(data && data[0] || '', data && data[1] || []); };
+function renderSuggestions(query, results) {
+  modalSuggestions.replaceChildren();
+  if (!query) {
+    const empty = document.createElement('div'); empty.className = 'suggestions-empty'; empty.textContent = 'Escreve algo para pesquisar';
+    modalSuggestions.appendChild(empty); return;
+  }
+  modalSuggestions.appendChild(makeSuggestionItem(query, 'search', true));
+  results.slice(0, 8).forEach(text => modalSuggestions.appendChild(makeSuggestionItem(text, 'history', false)));
+}
+function makeSuggestionItem(text, icon, isDirect) {
+  const item = document.createElement('div'); item.className = 'suggestion-item';
+  const glyph = document.createElement('span'); glyph.className = 'material-symbols-rounded'; glyph.textContent = icon === 'search' ? 'search' : 'history';
+  const label = document.createElement('span'); label.className = 'text'; label.textContent = text;
+  item.append(glyph, label);
+  let arrow = null;
+  if (!isDirect) { arrow = document.createElement('span'); arrow.className = 'material-symbols-rounded insert-arrow'; arrow.textContent = 'north'; item.appendChild(arrow); }
+  item.addEventListener('click', () => navigate(text));
+  if (arrow) arrow.addEventListener('click', event => {
+    event.stopPropagation(); modalInput.value = text; modalInput.focus(); modalInput.setSelectionRange(text.length, text.length); triggerSuggest(text);
+  });
+  return item;
+}
+function triggerSuggest(query) {
+  clearTimeout(suggestTimer);
+  suggestTimer = setTimeout(() => query.trim() ? loadSuggestScript(query.trim()) : renderSuggestions('', []), 180);
+}
+function openSearchModal() {
+  const tab = getActiveTab();
+  modalInput.value = tab && tab.url ? tab.url : '';
+  searchModal.classList.add('show'); searchModal.setAttribute('aria-hidden', 'false');
+  requestAnimationFrame(() => searchModal.classList.add('visible'));
+  renderSuggestions(modalInput.value, []);
+  if (modalInput.value.trim()) triggerSuggest(modalInput.value);
+  modalClear.classList.toggle('show', modalInput.value.length > 0);
+  setTimeout(() => { modalInput.focus(); modalInput.select(); }, 60);
+}
+function closeSearchModal() {
+  searchModal.classList.remove('visible'); modalInput.blur();
+  searchModal.setAttribute('aria-hidden', 'true');
+  setTimeout(() => searchModal.classList.remove('show'), 190);
+}
+addressBarTrigger.addEventListener('click', openSearchModal);
+modalInput.addEventListener('input', () => {
+  modalClear.classList.toggle('show', modalInput.value.length > 0); triggerSuggest(modalInput.value);
+});
+modalInput.addEventListener('keydown', event => { if (event.key === 'Enter') navigate(modalInput.value); if (event.key === 'Escape') closeSearchModal(); });
+modalClear.addEventListener('click', () => { modalInput.value = ''; modalInput.focus(); renderSuggestions('', []); modalClear.classList.remove('show'); });
+modalClose.addEventListener('click', closeSearchModal);
+backBtn.addEventListener('click', goBack);
+fwdBtn.addEventListener('click', goForward);
+
+/* Menu inferior. */
+function openSheet() { sheetOverlay.classList.add('show'); bottomSheet.classList.add('show'); }
+function closeSheet() { sheetOverlay.classList.remove('show'); bottomSheet.classList.remove('show'); }
+menuBtn.addEventListener('click', openSheet);
+sheetOverlay.addEventListener('click', closeSheet);
+$('optBack').addEventListener('click', () => { closeSheet(); goBack(); });
+$('optForward').addEventListener('click', () => { closeSheet(); goForward(); });
+$('optReload').addEventListener('click', () => { closeSheet(); const tab = getActiveTab(); if (tab && tab.url) { setLoading(true); tab.iframe.src = tab.url; } showAppbar(); });
+$('optHome').addEventListener('click', () => { closeSheet(); navigate(HOME_URL); });
+$('optNewTab').addEventListener('click', () => { closeSheet(); createTab(null, true); openSearchModal(); modalInput.value = ''; modalClear.classList.remove('show'); });
+$('optShare').addEventListener('click', async () => {
+  closeSheet(); const tab = getActiveTab(); if (!tab || !tab.url) return;
+  try { if (navigator.share) await navigator.share({ title: tab.title, url: tab.url }); else await navigator.clipboard.writeText(tab.url); } catch (_) {}
+});
+$('optCopy').addEventListener('click', async () => { closeSheet(); const tab = getActiveTab(); if (tab && tab.url && navigator.clipboard) { try { await navigator.clipboard.writeText(tab.url); } catch (_) {} } });
+$('optDesktop').addEventListener('click', () => { closeSheet(); const tab = getActiveTab(); if (tab && tab.url) { setLoading(true); tab.iframe.src = tab.url; } showAppbar(); });
+$('optTabs').addEventListener('click', () => { closeSheet(); openTabsView({ afterSheet: true }); });
+
+/*
+ * Captura real do conteúdo do separador:
+ * - Se estiver num Android WebView com AndroidBrowserBridge, pede ao host uma captura
+ *   recortada da área visível do iframe.
+ * - Um HTML isolado não consegue ler os pixels de um iframe cross-origin via canvas.
+ *   Por isso, sem ponte nativa, não inventa uma miniatura falsa; mostra um estado neutro.
+ *
+ * Contrato do host: captureTabScreenshot(tabId, x, y, width, height,
+ * viewportWidth, viewportHeight, requestId). O host deve devolver a imagem chamando
+ * window.__deliverNativeTabScreenshot(requestId, dataUrl) no WebView principal.
+ */
+window.__deliverNativeTabScreenshot = function(requestId, dataUrl) {
+  const pending = screenshotRequests.get(String(requestId));
+  if (!pending) return;
+  clearTimeout(pending.timeout);
+  screenshotRequests.delete(String(requestId));
+  const tab = tabs.find(item => item.id === pending.tabId);
+  if (tab && typeof dataUrl === 'string' && /^data:image\/(png|jpeg|webp);base64,/i.test(dataUrl)) {
+    tab.thumbnail = dataUrl;
+    tab.thumbnailAt = Date.now();
+    pending.resolve(true);
+  } else pending.resolve(false);
+};
+
+function requestNativeScreenshot(tab) {
+  if (!tab || !tab.url || !tab.iframe || !window.AndroidBrowserBridge || typeof window.AndroidBrowserBridge.captureTabScreenshot !== 'function') {
+    return Promise.resolve(false);
+  }
+  const rect = tab.iframe.getBoundingClientRect();
+  const x = Math.max(0, rect.left);
+  const y = Math.max(0, rect.top);
+  const width = Math.min(rect.width, window.innerWidth - x);
+  const height = Math.min(rect.height, window.innerHeight - y);
+  if (width < 1 || height < 1) return Promise.resolve(false);
+  const requestId = 'capture-' + nextScreenshotRequest++;
+  return new Promise(resolve => {
+    const pending = { tabId: tab.id, resolve, timeout: null };
+    pending.timeout = setTimeout(() => { screenshotRequests.delete(requestId); resolve(false); }, 1200);
+    screenshotRequests.set(requestId, pending);
+    try {
+      window.AndroidBrowserBridge.captureTabScreenshot(
+        tab.id, x, y, width, height,
+        document.documentElement.clientWidth, document.documentElement.clientHeight, requestId
+      );
+    } catch (_) {
+      clearTimeout(pending.timeout); screenshotRequests.delete(requestId); resolve(false);
+    }
+  });
+}
+
+function makePreview(tab) {
+  const preview = document.createElement('div'); preview.className = 'tab-preview';
+  if (tab.thumbnail) {
+    const image = document.createElement('img'); image.className = 'tab-preview-image'; image.alt = 'Captura da página ' + (tab.title || 'aberta');
+    image.src = tab.thumbnail; preview.appendChild(image);
+  } else {
+    const placeholder = document.createElement('div'); placeholder.className = 'preview-placeholder';
+    const faviconUrl = getFaviconUrl(tab.url || '');
+    if (faviconUrl) {
+      const favicon = document.createElement('img'); favicon.className = 'preview-placeholder-favicon'; favicon.alt = ''; favicon.src = faviconUrl;
+      favicon.onerror = () => favicon.remove(); placeholder.appendChild(favicon);
+    } else {
+      const glyph = document.createElement('span'); glyph.className = 'material-symbols-rounded'; glyph.textContent = 'public'; placeholder.appendChild(glyph);
+    }
+    const text = document.createElement('span'); text.className = 'preview-placeholder-text';
+    text.textContent = tab.url ? 'A captura desta página não está disponível neste momento.' : 'Página em branco';
+    placeholder.appendChild(text); preview.appendChild(placeholder);
+  }
+  return preview;
+}
+
+function renderTabsGrid() {
+  tabsGrid.replaceChildren();
+  tabs.forEach((tab, index) => {
+    const domain = tab.url ? getDomain(tab.url) : '';
+    const card = document.createElement('div');
+    card.className = 'tab-card' + (index === activeTabIndex ? ' active' : '');
+    card.style.animationDelay = Math.min(index * 18, 180) + 'ms';
+    card.dataset.tabId = tab.id;
+    const close = document.createElement('button'); close.className = 'tab-close'; close.type = 'button'; close.setAttribute('aria-label', 'Fechar ' + (tab.title || 'separador'));
+    const closeGlyph = document.createElement('span'); closeGlyph.className = 'material-symbols-rounded'; closeGlyph.textContent = 'close'; close.appendChild(closeGlyph);
+    const preview = makePreview(tab);
+    const footer = document.createElement('div'); footer.className = 'tab-footer';
+    const title = document.createElement('div'); title.className = 'tab-title'; title.textContent = tab.title || domain || 'Nova aba';
+    const subtitle = document.createElement('div'); subtitle.className = 'tab-domain'; subtitle.textContent = domain || 'Página em branco';
+    footer.append(title, subtitle); card.append(close, preview, footer);
+    card.addEventListener('click', event => {
+      if (event.target.closest('.tab-close')) return;
+      closeTabsView(index, card);
+    });
+    close.addEventListener('click', event => {
+      event.stopPropagation(); closeTab(index); renderTabsGrid();
+    });
+    tabsGrid.appendChild(card);
+  });
+}
+
+function setTransitionName(element, name) {
+  if (element) element.style.viewTransitionName = name || 'none';
+}
+
+function cardForIndex(index) { return tabsGrid.querySelectorAll('.tab-card')[index] || null; }
+
+async function openTabsView(options = {}) {
+  if (tabsViewOpen || transitionBusy) return;
+  transitionBusy = true;
+  if (options.afterSheet) await delay(290); // deixa o bottom sheet desaparecer antes da captura
+  const activeTab = getActiveTab();
+  if (activeTab) await requestNativeScreenshot(activeTab);
+  renderTabsGrid();
+  await nextFrame();
+
+  const targetCard = cardForIndex(activeTabIndex);
+  if (typeof document.startViewTransition === 'function' && !REDUCED_MOTION) {
+    setTransitionName(browserView, 'browser-shared');
+    try {
+      const transition = document.startViewTransition(() => {
+        setTransitionName(browserView, 'none');
+        tabsView.classList.add('show');
+        tabsView.setAttribute('aria-hidden', 'false');
+        browserView.classList.add('is-covered');
+        setTransitionName(targetCard, 'browser-shared');
+      });
+      tabsViewOpen = true;
+      try { await transition.finished; } catch (_) {}
+    } catch (_) {
+      await openTabsWithFlip(targetCard);
+    } finally {
+      setTransitionName(targetCard, 'none');
+      setTransitionName(browserView, 'none');
+      transitionBusy = false;
+    }
+    return;
+  }
+  await openTabsWithFlip(targetCard);
+  transitionBusy = false;
+}
+
+async function openTabsWithFlip(targetCard) {
+  if (!targetCard) {
+    tabsView.classList.add('show'); tabsView.setAttribute('aria-hidden', 'false');
+    browserView.classList.add('is-covered'); tabsViewOpen = true; return;
+  }
+  const cardRect = targetCard.getBoundingClientRect();
+  const browserRect = browserView.getBoundingClientRect();
+  const sx = cardRect.width / Math.max(1, browserRect.width);
+  const sy = cardRect.height / Math.max(1, browserRect.height);
+  tabsView.style.opacity = '0';
+  tabsView.classList.add('show'); tabsView.setAttribute('aria-hidden', 'false');
+  browserView.classList.remove('is-covered');
+  const browserAnimation = browserView.animate([
+    { transform: 'translate3d(0,0,0) scale(1,1)', opacity: 1, borderRadius: '0px' },
+    { transform: `translate3d(${cardRect.left}px,${cardRect.top}px,0) scale(${sx},${sy})`, opacity: .06, borderRadius: '16px' }
+  ], { duration: REDUCED_MOTION ? 1 : 420, easing: 'cubic-bezier(.2,.82,.2,1)', fill: 'forwards' });
+  const panelAnimation = tabsView.animate([{ opacity: 0 }, { opacity: 1 }], { duration: REDUCED_MOTION ? 1 : 240, easing: 'ease-out', fill: 'forwards' });
+  await Promise.allSettled([browserAnimation.finished, panelAnimation.finished]);
+  browserView.classList.add('is-covered');
+  browserView.style.transform = 'none'; browserView.style.opacity = ''; browserView.style.borderRadius = '';
+  tabsView.style.opacity = ''; tabsViewOpen = true;
+}
+
+async function closeTabsView(index = activeTabIndex, sourceCard = null) {
+  if (!tabsViewOpen || transitionBusy) return;
+  transitionBusy = true;
+  const card = sourceCard || cardForIndex(index);
+  if (index >= 0 && index < tabs.length && index !== activeTabIndex) {
+    // A mudança acontece dentro da transição para a captura de saída continuar a ser o cartão tocado.
+  }
+
+  if (typeof document.startViewTransition === 'function' && !REDUCED_MOTION && card) {
+    setTransitionName(card, 'browser-shared');
+    try {
+      const transition = document.startViewTransition(() => {
+        setTransitionName(card, 'none');
+        if (index >= 0 && index < tabs.length) switchToTab(index);
+        tabsView.classList.remove('show');
+        tabsView.setAttribute('aria-hidden', 'true');
+        browserView.classList.remove('is-covered');
+        setTransitionName(browserView, 'browser-shared');
+      });
+      tabsViewOpen = false;
+      try { await transition.finished; } catch (_) {}
+    } catch (_) {
+      await closeTabsWithFlip(index, card);
+    } finally {
+      setTransitionName(card, 'none');
+      setTransitionName(browserView, 'none');
+      transitionBusy = false;
+    }
+    return;
+  }
+  await closeTabsWithFlip(index, card);
+  transitionBusy = false;
+}
+
+async function closeTabsWithFlip(index, card) {
+  if (index >= 0 && index < tabs.length) switchToTab(index);
+  if (!card) {
+    tabsView.classList.remove('show'); tabsView.setAttribute('aria-hidden', 'true');
+    browserView.classList.remove('is-covered'); tabsViewOpen = false; return;
+  }
+  const rect = card.getBoundingClientRect();
+  const browserRect = browserView.getBoundingClientRect();
+  const sx = rect.width / Math.max(1, browserRect.width);
+  const sy = rect.height / Math.max(1, browserRect.height);
+  browserView.classList.remove('is-covered');
+  browserView.style.zIndex = '57';
+  browserView.style.transformOrigin = '0 0';
+  const browserAnimation = browserView.animate([
+    { transform: `translate3d(${rect.left}px,${rect.top}px,0) scale(${sx},${sy})`, opacity: .06, borderRadius: '16px' },
+    { transform: 'translate3d(0,0,0) scale(1,1)', opacity: 1, borderRadius: '0px' }
+  ], { duration: REDUCED_MOTION ? 1 : 420, easing: 'cubic-bezier(.2,.82,.2,1)', fill: 'forwards' });
+  const panelAnimation = tabsView.animate([{ opacity: 1 }, { opacity: 0 }], { duration: REDUCED_MOTION ? 1 : 220, easing: 'ease-in', fill: 'forwards' });
+  await Promise.allSettled([browserAnimation.finished, panelAnimation.finished]);
+  tabsView.classList.remove('show'); tabsView.setAttribute('aria-hidden', 'true');
+  tabsView.style.opacity = ''; browserView.style.transform = 'none'; browserView.style.opacity = '';
+  browserView.style.borderRadius = ''; browserView.style.zIndex = ''; browserView.classList.remove('is-covered');
+  tabsViewOpen = false;
+}
+
+tabsCloseBtn.addEventListener('click', () => closeTabsView(activeTabIndex, cardForIndex(activeTabIndex)));
+tabsAddBtn.addEventListener('click', async () => {
+  await closeTabsView(activeTabIndex, cardForIndex(activeTabIndex));
+  if (tabsViewOpen || transitionBusy) return;
+  createTab(null, true); openSearchModal(); modalInput.value = ''; modalClear.classList.remove('show');
+});
+
+/* Modal de segurança. */
+function openSecurityModal() {
+  const tab = getActiveTab();
+  const url = tab && tab.url ? tab.url : '';
+  const secure = /^https:\/\//i.test(url);
+  const host = getDomain(url);
+  $('securityDialogTitle').textContent = secure ? 'Ligação segura por HTTPS' : (url ? 'Ligação sem HTTPS' : 'Nenhum site aberto');
+  $('securityHost').textContent = host || 'Nova aba';
+  $('securityDescription').textContent = secure
+    ? 'Este endereço usa HTTPS, que encripta os dados trocados entre o navegador e o site durante a ligação.'
+    : url
+      ? 'Este endereço não começa por HTTPS. Evita introduzir palavras-passe ou dados pessoais enquanto a ligação não estiver protegida.'
+      : 'Abre um site para veres as informações da ligação.';
+  $('securityDetailText').textContent = secure
+    ? 'O certificado e os detalhes TLS são verificados pelo motor do navegador. Este painel confirma o esquema HTTPS do endereço, não substitui os avisos de segurança do navegador.'
+    : 'A presença de HTTPS, por si só, não garante que o site seja legítimo. Confirma o domínio e presta atenção aos avisos do navegador.';
+  $('securityStatusIcon').classList.toggle('insecure', !!url && !secure);
+  $('securityStatusGlyph').textContent = secure ? 'verified_user' : (url ? 'gpp_bad' : 'info');
+  securityModal.classList.add('show'); securityModal.setAttribute('aria-hidden', 'false');
+}
+function closeSecurityModal() { securityModal.classList.remove('show'); securityModal.setAttribute('aria-hidden', 'true'); }
+securityBtn.addEventListener('click', event => { event.stopPropagation(); openSecurityModal(); });
+$('securityModalClose').addEventListener('click', closeSecurityModal);
+securityModal.addEventListener('click', event => { if (event.target === securityModal) closeSecurityModal(); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeSecurityModal(); closeSearchModal(); if (tabsViewOpen) closeTabsView(activeTabIndex, cardForIndex(activeTabIndex)); } });
+
+/* Inicialização. */
+window.addEventListener('load', computeAppbarHeight);
+window.addEventListener('resize', computeAppbarHeight);
+createTab(null, true);
+setTimeout(computeAppbarHeight, 50);
+</script>
+</body>
+</html>

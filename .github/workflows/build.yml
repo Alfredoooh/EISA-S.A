@@ -36,7 +36,7 @@ jobs:
       - name: Configure Android SDK
         run: |
           set -euo pipefail
-          PROJECT_DIR="$GITHUB_WORKSPACE/Orbit"
+          PROJECT_DIR="$GITHUB_WORKSPACE/orbit"
           if [ ! -d "$PROJECT_DIR/app" ]; then PROJECT_DIR="$GITHUB_WORKSPACE"; fi
           if [ -d "$PROJECT_DIR/app/src/main" ]; then
             APP_MODULE_DIR="$PROJECT_DIR/app"

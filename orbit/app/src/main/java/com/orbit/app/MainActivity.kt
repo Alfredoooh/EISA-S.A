@@ -329,12 +329,17 @@ class MainActivity : AppCompatActivity() {
             window.isNavigationBarContrastEnforced = false
         }
 
-        updateSystemBarIconContrast()
+        // Do not query WindowInsetsController here: on some Android versions the
+        // Window decor has not been created yet. initializeBrowser() applies icon
+        // contrast after buildBrowserSurface() has called setContentView().
     }
 
     private fun updateSystemBarIconContrast() {
         if (Build.VERSION.SDK_INT >= 30) {
-            val controller = window.insetsController ?: return
+            // Access through decorView so the Window creates its decor before the
+            // controller is requested. window.insetsController can dereference a
+            // null internal decor during the early Activity startup phase.
+            val controller = window.decorView.windowInsetsController ?: return
 
             val mask =
                 android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or

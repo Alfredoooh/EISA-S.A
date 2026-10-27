@@ -50,3 +50,10 @@ Se a aplicação fechar por uma exceção não tratada, `OrbitApplication` guard
 - Ligações `mailto:` e `tel:` são encaminhadas para aplicações compatíveis; esquemas não reconhecidos não são executados dentro do WebView.
 - HTTPS cifra o transporte, mas não é uma garantia de legitimidade do site.
 - As miniaturas são capturas nativas do desenho visível do WebView. Alguns conteúdos protegidos por DRM, vídeo protegido ou superfícies externas podem não aparecer na captura devido às restrições da plataforma.
+
+
+## Correção de arranque — Crash Diagnostics Fix 2
+
+Foi corrigida a falha de inicialização causada por consultar `window.insetsController` antes de existir uma `DecorView`. `configureSystemBars()` já não solicita o controlador nessa fase; o contraste dos ícones é aplicado depois de `setContentView()`, e a rotina usa `window.decorView.windowInsetsController` para obter o controlador de forma segura.
+
+A compilação Android completa precisa de ser confirmada pelo workflow de CI do projeto.

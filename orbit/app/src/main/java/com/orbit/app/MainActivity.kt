@@ -122,7 +122,6 @@ class MainActivity : AppCompatActivity() {
     private var searchOverlay: FrameLayout? = null
     private var suggestionsContainer: LinearLayout? = null
     private var searchInput: EditText? = null
-    private var clearSearchButton: FrameLayout? = null
 
     private var suggestionFuture: Future<*>? = null
     private var suggestionRunnable: Runnable? = null
@@ -1453,7 +1452,6 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(10), 0, dp(4), 0)
             background = null
 
-            // Corrigido: usa o método real de TextView/EditText.
             setSelectAllOnFocus(true)
 
             inputType =
@@ -1544,8 +1542,6 @@ class MainActivity : AppCompatActivity() {
             setPadding(0, dp(2), 0, dp(16))
         }
 
-        // ScrollView herda de FrameLayout.
-        // Por isso, utiliza FrameLayout.LayoutParams.
         suggestionsScroll.addView(
             suggestions,
             FrameLayout.LayoutParams(
@@ -1581,7 +1577,6 @@ class MainActivity : AppCompatActivity() {
 
         searchOverlay = overlay
         searchInput = input
-        clearSearchButton = clearButton
         suggestionsContainer = suggestions
         searchVisible = true
 
@@ -1708,7 +1703,6 @@ class MainActivity : AppCompatActivity() {
                 return@Runnable
             }
 
-            // Reject obsolete responses using the query generation.
             suggestionFuture = suggestionExecutor.submit {
                 var connection: HttpURLConnection? = null
 
@@ -1968,7 +1962,6 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 searchInput = null
-                clearSearchButton = null
                 suggestionsContainer = null
             }
             .start()
@@ -2478,7 +2471,6 @@ class MainActivity : AppCompatActivity() {
 
         val active = tabs.activeTab ?: return
 
-        // Capture the live WebView immediately before showing the tab switcher.
         tabs.tabs.forEach { tab ->
             val captured = captureView(
                 tab.webView,
@@ -2539,7 +2531,6 @@ class MainActivity : AppCompatActivity() {
             val targetView = cardViews[active.id]?.preview
             val targetRect = targetView?.let(::boundsInRoot)
 
-            // Rect.width() and Rect.height() are methods.
             if (
                 targetRect == null ||
                 targetRect.width() <= 0 ||
@@ -2688,7 +2679,6 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(12), dp(4), dp(12), dp(100))
         }
 
-        // ScrollView inherits from FrameLayout.
         scroller.addView(
             tabsGrid,
             FrameLayout.LayoutParams(
@@ -3193,7 +3183,6 @@ class MainActivity : AppCompatActivity() {
             captureView(it, 1280, 2400)
         }
 
-        // Rect.width() and Rect.height() must be invoked as functions.
         if (
             sourceRect == null ||
             bitmap == null ||
@@ -3933,7 +3922,6 @@ class MainActivity : AppCompatActivity() {
         updateAddressDisplay(tabs.activeTab)
         updateEmptyState(tabs.activeTab)
 
-        // Website content itself is deliberately not force-darkened.
         tabs.tabs.forEach { tab ->
             if (
                 tab.url.isNullOrBlank() ||
@@ -4177,7 +4165,6 @@ class MainActivity : AppCompatActivity() {
 
             searchOverlay = null
             searchInput = null
-            clearSearchButton = null
             suggestionsContainer = null
             searchVisible = false
 

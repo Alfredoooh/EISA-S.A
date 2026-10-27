@@ -255,7 +255,7 @@ class MainActivity : AppCompatActivity() {
         }
         reportScroll.addView(
             reportText,
-            ScrollView.LayoutParams(
+            FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
             ),

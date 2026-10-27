@@ -157,6 +157,16 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val previousCrash = OrbitApplication.readLastCrash(this)
+        if (!previousCrash.isNullOrBlank()) {
+            showPreviousCrash(previousCrash)
+            return
+        }
+
+        initializeBrowser()
+    }
+
+    private fun initializeBrowser() {
         themeMode = runCatching {
             BrowserThemeMode.valueOf(
                 getSharedPreferences(PREFS, MODE_PRIVATE)
@@ -186,6 +196,117 @@ class MainActivity : AppCompatActivity() {
                 updateSystemBarIconContrast()
             }
         }
+    }
+
+    /** Shows the last uncaught exception so it can be copied from the phone. */
+    private fun showPreviousCrash(report: String) {
+        val screen = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(22), dp(18), dp(18))
+            setBackgroundColor(Color.rgb(250, 250, 250))
+        }
+
+        val heading = TextView(this).apply {
+            text = "Relatório do erro do Orbit"
+            textSize = 20f
+            setTextColor(Color.rgb(32, 33, 36))
+            typeface = android.graphics.Typeface.create(
+                "sans-serif-medium",
+                android.graphics.Typeface.NORMAL,
+            )
+        }
+        screen.addView(
+            heading,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ),
+        )
+
+        val explanation = TextView(this).apply {
+            text = "O erro da abertura anterior foi guardado. Copia o relatório e envia-o para identificar a linha responsável."
+            textSize = 14f
+            setTextColor(Color.rgb(80, 80, 80))
+            setPadding(0, dp(8), 0, dp(12))
+        }
+        screen.addView(
+            explanation,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ),
+        )
+
+        val reportScroll = ScrollView(this).apply {
+            isFillViewport = false
+            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+        }
+        val reportText = TextView(this).apply {
+            text = report
+            textSize = 12f
+            setTextColor(Color.rgb(40, 40, 40))
+            typeface = android.graphics.Typeface.MONOSPACE
+            setTextIsSelectable(true)
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+            background = roundedBackground(
+                Color.rgb(240, 241, 243),
+                dp(8).toFloat(),
+            )
+        }
+        reportScroll.addView(
+            reportText,
+            ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ),
+        )
+        screen.addView(
+            reportScroll,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
+                1f,
+            ),
+        )
+
+        val copyButton = android.widget.Button(this).apply {
+            text = "Copiar relatório"
+            setOnClickListener {
+                val clipboard = getSystemService(CLIPBOARD_SERVICE) as? ClipboardManager
+                clipboard?.setPrimaryClip(
+                    ClipData.newPlainText("Orbit crash report", report),
+                )
+                Toast.makeText(
+                    this@MainActivity,
+                    "Relatório copiado. Cola-o na conversa.",
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
+        }
+        screen.addView(
+            copyButton,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = dp(12) },
+        )
+
+        val retryButton = android.widget.Button(this).apply {
+            text = "Tentar abrir novamente"
+            setOnClickListener {
+                OrbitApplication.clearLastCrash(this@MainActivity)
+                recreate()
+            }
+        }
+        screen.addView(
+            retryButton,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ),
+        )
+
+        setContentView(screen)
     }
 
     private fun configureSystemBars() {

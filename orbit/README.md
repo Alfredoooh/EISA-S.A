@@ -13,6 +13,7 @@ O Orbit foi adaptado para um navegador Android com interface construída em View
 - Modos Claro, Escuro e Sistema, aplicados à interface e às barras do sistema sem reiniciar a Activity.
 - Progressbar abaixo da barra de estado nativa, respeito pelos insets, suporte a HTTP/HTTPS, bloqueio de erros de certificado TLS e recuperação do renderer do WebView.
 - Recursos do launcher originais mantidos nas respetivas pastas `mipmap` e `drawable`.
+- Captura local de exceções não tratadas: na abertura seguinte, o ecrã de diagnóstico mostra o relatório e permite copiá-lo para identificar a causa real do crash.
 
 ## Estrutura importante
 
@@ -37,6 +38,10 @@ O APK de depuração deverá ser produzido em `app/build/outputs/apk/debug/app-d
 ### Estado da validação neste ambiente
 
 Foram verificados estaticamente os ficheiros XML e as referências de recursos, e foi feita uma pesquisa por dependências/ referências de Compose e Material Components. **Não foi possível executar a build Android neste ambiente**: o Gradle Wrapper precisou de descarregar o Gradle 9.6.0 de `services.gradle.org`, mas a resolução DNS/rede desta sessão falhou, e não existe um Android SDK local instalado. Assim, não é correto afirmar que `assembleDebug` passou; a compilação real deve ser confirmada no Android Studio ou no Codemagic.
+
+## Diagnóstico do crash
+
+Se a aplicação fechar por uma exceção não tratada, `OrbitApplication` guarda o stack trace na área privada da aplicação. Ao abri-la novamente, aparece o ecrã **Relatório do erro do Orbit**, com o botão **Copiar relatório**. Cola aqui o texto copiado; a partir da exceção e da linha indicada é possível corrigir a causa em vez de alterar o código às cegas. O ecrã de diagnóstico não é a correção final do crash: serve para recolher o erro real no dispositivo.
 
 ## Segurança e limites do navegador
 

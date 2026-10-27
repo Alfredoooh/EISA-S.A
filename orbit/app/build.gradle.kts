@@ -51,4 +51,5 @@ kotlin {
 dependencies {
     // AppCompat only for the native UI. No Material Components or Compose runtime.
     implementation("androidx.appcompat:appcompat:1.8.0")
+    implementation("com.caverock:androidsvg-aar:1.4")
 }

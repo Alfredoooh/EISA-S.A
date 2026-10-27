@@ -34,6 +34,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.view.VelocityTracker
 import android.view.ViewConfiguration
+import androidx.core.view.doOnPreDraw
 import android.graphics.BitmapFactory
 import android.net.http.SslError
 import android.os.Message
@@ -1489,9 +1490,15 @@ class MainActivity : AppCompatActivity() {
             View.GONE
         }
 
+        toolbarLayer.animate().withEndAction {
+            toolbarLayer.visibility =
+                if (toolbarHidden) View.INVISIBLE else View.VISIBLE
+        }
+
         if (hidden) {
             gestureZone.bringToFront()
         } else {
+            toolbarLayer.visibility = View.VISIBLE
             toolbarLayer.bringToFront()
         }
     }
@@ -2295,6 +2302,9 @@ class MainActivity : AppCompatActivity() {
 
         attachSheetDragGesture(sheet, scrim)
 
+        sheet.alpha = 0f
+        overlay.alpha = 0f
+
         root.addView(
             overlay,
             FrameLayout.LayoutParams(
@@ -2305,11 +2315,14 @@ class MainActivity : AppCompatActivity() {
 
         sheetVisible = true
         overlay.tag = "orbit_bottom_sheet"
+        window.statusBarColor = palette.scrim
 
-        overlay.post {
-            if (!sheetVisible || destroyed) return@post
+        sheet.doOnPreDraw {
+            if (!sheetVisible || destroyed) return@doOnPreDraw
 
             sheet.translationY = sheet.height.toFloat()
+            sheet.alpha = 1f
+            overlay.alpha = 1f
 
             scrim.animate()
                 .alpha(if (palette.isDark) 0.58f else 0.40f)
@@ -2593,6 +2606,7 @@ class MainActivity : AppCompatActivity() {
         if (!sheetVisible) return
 
         sheetVisible = false
+        window.statusBarColor = palette.surface
 
         val sheet = overlay.getChildAt(1)
         val scrim = overlay.getChildAt(0)

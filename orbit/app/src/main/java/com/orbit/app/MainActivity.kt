@@ -105,6 +105,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var menuButton: FrameLayout
     private lateinit var emptyState: LinearLayout
     private lateinit var emptyIcon: BrowserIconView
+    private lateinit var homeBottomBar: LinearLayout
+    private lateinit var homeBottomButton: FrameLayout
+    private lateinit var tabsBottomButton: FrameLayout
     private lateinit var emptyText: TextView
     private lateinit var gestureZone: View
     private lateinit var tabsGrid: LinearLayout
@@ -448,6 +451,15 @@ class MainActivity : AppCompatActivity() {
             ),
         )
 
+        browserLayer.addView(
+            homeBottomBar,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM,
+            ),
+        )
+
         buildToolbar()
 
         browserLayer.addView(
@@ -767,6 +779,53 @@ class MainActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
             ),
+        )
+
+        buildHomeBottomBar()
+    }
+
+    private fun buildHomeBottomBar() {
+        homeBottomBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(palette.surface)
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+        }
+
+        homeBottomButton = makeIconButton(
+            this,
+            "home",
+            sizeDp = 44,
+            tint = palette.blue,
+            description = "Início",
+        ) {
+            // Já estamos na tela principal; sem ação.
+        }
+
+        tabsBottomButton = makeIconButton(
+            this,
+            "tabs",
+            sizeDp = 44,
+            tint = palette.foreground,
+            description = "Separadores",
+        ) {
+            openTabsView()
+        }
+
+        addLinearChild(
+            homeBottomBar,
+            homeBottomButton,
+            dp(44),
+            dp(44),
+            weight = 1f,
+        )
+
+        addLinearChild(
+            homeBottomBar,
+            tabsBottomButton,
+            dp(44),
+            dp(44),
+            weight = 1f,
         )
     }
 
@@ -1330,12 +1389,16 @@ class MainActivity : AppCompatActivity() {
     private fun updateEmptyState(tab: BrowserTab?) {
         val url = tab?.webView?.url ?: tab?.url
 
-        emptyState.visibility =
-            if (tab == null || url.isNullOrBlank() || url == "about:blank") {
-                View.VISIBLE
-            } else {
-                View.GONE
-            }
+        val isHome =
+            tab == null || url.isNullOrBlank() || url == "about:blank"
+
+        emptyState.visibility = if (isHome) View.VISIBLE else View.GONE
+        homeBottomBar.visibility = if (isHome) View.VISIBLE else View.GONE
+
+        backButton.visibility = if (isHome) View.GONE else View.VISIBLE
+        forwardButton.visibility = if (isHome) View.GONE else View.VISIBLE
+        lockButton.visibility = if (isHome) View.GONE else View.VISIBLE
+        menuButton.visibility = if (isHome) View.GONE else View.VISIBLE
     }
 
     private fun updateNavigationButtons() {
@@ -1561,6 +1624,7 @@ class MainActivity : AppCompatActivity() {
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(60)
             setPadding(dp(10), dp(10), dp(10), dp(10))
         }
 
@@ -1607,7 +1671,7 @@ class MainActivity : AppCompatActivity() {
             inputPill,
             input,
             0,
-            dp(48),
+            dp(40),
             weight = 1f,
         )
 
@@ -1640,7 +1704,7 @@ class MainActivity : AppCompatActivity() {
             top,
             inputPill,
             0,
-            dp(48),
+            dp(40),
             weight = 1f,
             right = dp(8),
         )

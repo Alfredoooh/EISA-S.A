@@ -2818,6 +2818,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun createTabsOverlay(): FrameLayout {
+        window.statusBarColor = palette.softSurface
+
         val overlay = FrameLayout(this).apply {
             setBackgroundColor(palette.softSurface)
             isFocusableInTouchMode = true
@@ -3375,6 +3377,7 @@ class MainActivity : AppCompatActivity() {
         if (overlay == null) {
             tabsVisible = false
             browserLayer.visibility = View.VISIBLE
+            window.statusBarColor = palette.surface
 
             if (addNewTab) {
                 tabs.createTab(true)
@@ -3448,6 +3451,7 @@ class MainActivity : AppCompatActivity() {
 
                 browserLayer.alpha = 1f
                 browserLayer.visibility = View.VISIBLE
+                window.statusBarColor = palette.surface
 
                 tabsVisible = false
                 animatingTabs = false
@@ -3462,7 +3466,7 @@ class MainActivity : AppCompatActivity() {
             },
         )
     }
-
+    
     private fun fadeTabsOut(
         overlay: FrameLayout,
         addNewTab: Boolean,
@@ -3476,6 +3480,7 @@ class MainActivity : AppCompatActivity() {
 
                 browserLayer.visibility = View.VISIBLE
                 browserLayer.alpha = 1f
+                window.statusBarColor = palette.surface
 
                 tabsVisible = false
                 animatingTabs = false

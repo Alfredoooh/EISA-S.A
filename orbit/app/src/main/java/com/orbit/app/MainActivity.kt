@@ -32,6 +32,8 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.view.VelocityTracker
+import android.view.ViewConfiguration
 import android.graphics.BitmapFactory
 import android.net.http.SslError
 import android.os.Message
@@ -423,6 +425,8 @@ class MainActivity : AppCompatActivity() {
 
         webViewHost = FrameLayout(this).apply {
             setBackgroundColor(palette.surface)
+            clipToPadding = false
+            clipChildren = false
         }
 
         browserLayer.addView(
@@ -477,6 +481,7 @@ class MainActivity : AppCompatActivity() {
             toolbarHeightPx = toolbarLayer.height
 
             if (toolbarHeightPx > 0) {
+                webViewHost.setPadding(0, toolbarHeightPx, 0, 0)
                 setToolbarHidden(toolbarHidden, false)
             }
         }
@@ -1459,6 +1464,8 @@ class MainActivity : AppCompatActivity() {
         if (toolbarHeightPx <= 0) {
             toolbarHeightPx =
                 toolbarLayer.height.takeIf { it > 0 } ?: dp(54)
+
+            webViewHost.setPadding(0, toolbarHeightPx, 0, 0)
         }
 
         toolbarLayer.animate().cancel()
@@ -2286,6 +2293,8 @@ class MainActivity : AppCompatActivity() {
             // Consume taps inside the sheet.
         }
 
+        attachSheetDragGesture(sheet, scrim)
+
         root.addView(
             overlay,
             FrameLayout.LayoutParams(
@@ -2313,6 +2322,95 @@ class MainActivity : AppCompatActivity() {
                 .setDuration(280L)
                 .setInterpolator(ease)
                 .start()
+        }
+    }
+
+    private var sheetDragStartY = 0f
+    private var sheetDragging = false
+    private var sheetVelocityTracker: VelocityTracker? = null
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun attachSheetDragGesture(sheet: LinearLayout, scrim: View) {
+        val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
+        val maxAlpha = if (palette.isDark) 0.58f else 0.40f
+
+        sheet.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    sheetDragStartY = event.rawY
+                    sheetDragging = false
+
+                    sheetVelocityTracker?.recycle()
+                    sheetVelocityTracker = VelocityTracker.obtain().apply {
+                        addMovement(event)
+                    }
+
+                    sheet.animate().cancel()
+                    true
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    val dy = event.rawY - sheetDragStartY
+
+                    if (!sheetDragging && dy > touchSlop) {
+                        sheetDragging = true
+                    }
+
+                    if (sheetDragging) {
+                        val translation = max(0f, dy)
+                        sheet.translationY = translation
+
+                        val progress =
+                            1f - min(1f, translation / sheet.height.toFloat())
+                        scrim.alpha = maxAlpha * progress
+
+                        sheetVelocityTracker?.addMovement(event)
+                    }
+
+                    sheetDragging
+                }
+
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL -> {
+                    if (!sheetDragging) {
+                        sheetVelocityTracker?.recycle()
+                        sheetVelocityTracker = null
+                        return@setOnTouchListener false
+                    }
+
+                    sheetVelocityTracker?.apply {
+                        addMovement(event)
+                        computeCurrentVelocity(1000)
+                    }
+
+                    val flingVelocity = sheetVelocityTracker?.yVelocity ?: 0f
+                    val travel = sheet.translationY
+                    val threshold = sheet.height.toFloat() * 0.35f
+
+                    sheetVelocityTracker?.recycle()
+                    sheetVelocityTracker = null
+                    sheetDragging = false
+
+                    if (travel > threshold || flingVelocity > dp(800)) {
+                        closeBottomSheet()
+                    } else {
+                        sheet.animate()
+                            .translationY(0f)
+                            .setDuration(200L)
+                            .setInterpolator(ease)
+                            .start()
+
+                        scrim.animate()
+                            .alpha(maxAlpha)
+                            .setDuration(200L)
+                            .start()
+                    }
+
+                    true
+                }
+
+                else -> false
+            }
         }
     }
 
@@ -2499,16 +2597,18 @@ class MainActivity : AppCompatActivity() {
         val sheet = overlay.getChildAt(1)
         val scrim = overlay.getChildAt(0)
         val travel = (sheet?.height ?: dp(260)).toFloat()
+        val remaining = travel - (sheet?.translationY ?: 0f)
+        val duration = (220L * (remaining / travel).coerceIn(0.35f, 1f)).toLong()
 
         sheet?.animate()
             ?.translationY(travel)
-            ?.setDuration(220L)
+            ?.setDuration(duration)
             ?.setInterpolator(ease)
             ?.start()
 
         scrim?.animate()
             ?.alpha(0f)
-            ?.setDuration(180L)
+            ?.setDuration((duration * 0.8f).toLong())
             ?.withEndAction {
                 (overlay.parent as? ViewGroup)?.removeView(overlay)
             }

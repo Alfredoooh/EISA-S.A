@@ -2,63 +2,56 @@ name: orbit-android-debug
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
-
-env:
-  PACKAGE_NAME: "com.orbit.app"
+  repository_dispatch:
+    types: [orbit-build]
 
 jobs:
   build:
-    name: Build and sign Orbit Debug APK
-    runs-on: macos-14
+    name: Build Orbit Debug APK
+    runs-on: ubuntu-latest
     timeout-minutes: 60
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    env:
+      PACKAGE_NAME: "com.orbit.app"
+      ORBIT_KEYSTORE_BASE64: ${{ secrets.ORBIT_KEYSTORE_BASE64 }}
+      ORBIT_KEYSTORE_PASSWORD: ${{ secrets.ORBIT_KEYSTORE_PASSWORD }}
+      ORBIT_KEY_ALIAS: ${{ secrets.ORBIT_KEY_ALIAS }}
+      ORBIT_KEY_PASSWORD: ${{ secrets.ORBIT_KEY_PASSWORD }}
 
-      - name: Set up JDK 17
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.branch || 'main' }}
+
+      - name: Configurar JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: "temurin"
-          java-version: "17"
+          distribution: 'temurin'
+          java-version: '17'
 
       - name: Configure Android SDK
         run: |
           set -euo pipefail
-          PROJECT_DIR="$GITHUB_WORKSPACE"
+          PROJECT_DIR="$GITHUB_WORKSPACE/Orbit"
+          if [ ! -d "$PROJECT_DIR/app" ]; then PROJECT_DIR="$GITHUB_WORKSPACE"; fi
           if [ -d "$PROJECT_DIR/app/src/main" ]; then
             APP_MODULE_DIR="$PROJECT_DIR/app"
           else
             echo "ERROR: No Android module was found below $PROJECT_DIR."
             exit 1
           fi
-          if [ ! -f "$PROJECT_DIR/local.properties" ]; then
-            echo "sdk.dir=$ANDROID_SDK_ROOT" > "$PROJECT_DIR/local.properties"
-          else
-            echo "local.properties already exists, leaving it untouched."
-          fi
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$PROJECT_DIR/local.properties"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           echo "APP_MODULE_DIR=$APP_MODULE_DIR" >> "$GITHUB_ENV"
-
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
 
       - name: Stop Gradle and clear generated-JAR cache
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
-          chmod +x ./gradlew
           ./gradlew --stop || true
           GRADLE_CACHE="${GRADLE_USER_HOME:-$HOME/.gradle}"
           echo "Clearing generated-JAR cache: $GRADLE_CACHE/caches/jars-9"
@@ -68,20 +61,18 @@ jobs:
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
+
           if [ ! -s "gradle/wrapper/gradle-wrapper.jar" ]; then
             echo "ERROR: gradle/wrapper/gradle-wrapper.jar is missing from the project."
             exit 1
           fi
+
+          chmod +x ./gradlew
           echo "Using the project's committed Gradle Wrapper:"
           cat gradle/wrapper/gradle-wrapper.properties
           ./gradlew --version
 
       - name: Create or load local signing keystore
-        env:
-          ORBIT_KEYSTORE_BASE64: ${{ secrets.ORBIT_KEYSTORE_BASE64 }}
-          ORBIT_KEYSTORE_PASSWORD: ${{ secrets.ORBIT_KEYSTORE_PASSWORD }}
-          ORBIT_KEY_ALIAS: ${{ secrets.ORBIT_KEY_ALIAS }}
-          ORBIT_KEY_PASSWORD: ${{ secrets.ORBIT_KEY_PASSWORD }}
         run: |
           set -euo pipefail
 
@@ -89,7 +80,7 @@ jobs:
             openssl base64 -A -in "$1"
           }
 
-          SIGNING_DIR="$RUNNER_TEMP/orbit-local-signing-material"
+          SIGNING_DIR="$GITHUB_WORKSPACE/orbit-local-signing-material"
           mkdir -p "$SIGNING_DIR"
           chmod 700 "$SIGNING_DIR"
           KEYSTORE_PATH="$SIGNING_DIR/orbit-local.keystore"
@@ -149,7 +140,7 @@ jobs:
           Key password: $KEY_PASSWORD
 
           Keep this keystore and its passwords private. Use the same keystore for future builds.
-          To reuse it in later builds, store the keystore as Base64 in secret ORBIT_KEYSTORE_BASE64,
+          To reuse it in later builds, store the keystore as Base64 in ORBIT_KEYSTORE_BASE64,
           set ORBIT_KEYSTORE_PASSWORD to the keystore password, ORBIT_KEY_ALIAS to the alias,
           and ORBIT_KEY_PASSWORD to the key password (the same as the keystore password for this generated key).
           EOF
@@ -251,26 +242,25 @@ jobs:
           if [ "$bytes" -lt 5242880 ]; then
             echo "APK is below the 5 MiB target."
           else
-            echo "::warning::APK is above 5 MiB. This Debug build has code minification and resource shrinking disabled."
+            echo "WARNING: APK is above 5 MiB. This Debug build has code minification and resource shrinking disabled."
           fi
 
       - name: Warn if key material is not being archived
         run: |
           set -euo pipefail
           if [ "${SIGNING_GENERATED:-false}" = "true" ]; then
-            echo "A new local keystore was generated for this build only. Configure secrets ORBIT_KEYSTORE_BASE64, ORBIT_KEYSTORE_PASSWORD, ORBIT_KEY_ALIAS and ORBIT_KEY_PASSWORD in your GitHub repository to reuse one private key across builds."
+            echo "::warning::A new local keystore was generated. Configure ORBIT_KEYSTORE_BASE64, ORBIT_KEYSTORE_PASSWORD, ORBIT_KEY_ALIAS and ORBIT_KEY_PASSWORD in your GitHub repository secrets to reuse one private key across builds."
           fi
 
-      - name: Upload signed APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: orbit-local-signed-apk
+          name: orbit-debug-apk
           path: "**/build/outputs/apk/debug/orbit-local-signed.apk"
-          if-no-files-found: error
 
-      - name: Upload signing material
+      - name: Upload signing material (only when generated)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: orbit-local-signing-material
-          path: "${{ runner.temp }}/orbit-local-signing-material/*"
-          if-no-files-found: ignore
+          name: orbit-signing-material
+          path: orbit-local-signing-material/*

@@ -49,7 +49,9 @@ kotlin {
 }
 
 dependencies {
-    // AppCompat only for the native UI. No Material Components or Compose runtime.
     implementation("androidx.appcompat:appcompat:1.8.0")
     implementation("com.caverock:androidsvg-aar:1.4")
+
+    // Real native bottom sheet (BottomSheetDialog) and PopupMenu styling
+    implementation("com.google.android.material:material:1.13.0")
 }

@@ -129,8 +129,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var emptyEngineIcon: ImageView
     private lateinit var homeBottomBar: LinearLayout
     private lateinit var homeBottomButton: FrameLayout
-    private lateinit var tabsBottomButton: FrameLayout
-    private lateinit var emptyText: TextView
+    private lateinit var tabsBottomButton: View
+    // A página inicial usa um único pill de pesquisa; não há texto separado no corpo.
     private lateinit var gestureZone: View
     private lateinit var tabsGrid: LinearLayout
 
@@ -752,83 +752,176 @@ class MainActivity : AppCompatActivity() {
             isClickable = false
         }
 
+        val homePill = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(10), 0, dp(14), 0)
+            background = roundedBackground(palette.pill, dp(10).toFloat())
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { openSearch() }
+        }
+
         emptyIcon = BrowserIconView(this, "globe").apply {
             tint = if (palette.isDark) 0xFF5F6368.toInt() else 0xFFDADCE0.toInt()
             visibility = View.GONE
         }
+
         emptyEngineIcon = ImageView(this).apply {
             scaleType = ImageView.ScaleType.FIT_CENTER
             contentDescription = "Motor de pesquisa atual; tocar para trocar"
             isClickable = true
             isFocusable = true
-            background = rippleBackground(this@MainActivity, Color.TRANSPARENT, 22f, palette.pressed)
+            background = rippleBackground(this@MainActivity, Color.TRANSPARENT, 17f, palette.pressed)
             setOnClickListener { showSearchEngineMenu(this) }
         }
+
         val engineIconFrame = FrameLayout(this)
-        engineIconFrame.addView(emptyIcon, FrameLayout.LayoutParams(dp(44), dp(44), Gravity.CENTER))
-        engineIconFrame.addView(emptyEngineIcon, FrameLayout.LayoutParams(dp(44), dp(44), Gravity.CENTER))
-        emptyState.addView(engineIconFrame, LinearLayout.LayoutParams(dp(44), dp(44)))
+        engineIconFrame.addView(emptyIcon, FrameLayout.LayoutParams(dp(26), dp(26), Gravity.CENTER))
+        engineIconFrame.addView(emptyEngineIcon, FrameLayout.LayoutParams(dp(34), dp(34), Gravity.CENTER))
+        addLinearChild(homePill, engineIconFrame, dp(34), dp(34), right = dp(10))
         loadEmptyEngineIcon()
 
-        emptyText = makeText(
+        val placeholder = makeText(
             this,
-            "Escreve um URL acima para começar a navegar",
-            14f,
+            "Pesquisar ou digitar o endereço da web",
+            15f,
             palette.secondary,
-        ).apply {
-            gravity = Gravity.CENTER
-            textAlignment = View.TEXT_ALIGNMENT_CENTER
-            setPadding(0, dp(12), 0, 0)
-        }
+        )
+        addLinearChild(homePill, placeholder, 0, dp(48), weight = 1f)
 
         emptyState.addView(
-            emptyText,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-            ),
+            homePill,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)),
         )
 
         buildHomeBottomBar()
     }
+
+    private var selectedBottomTab = "home"
+    private val bottomTabIconHolders = mutableMapOf<String, FrameLayout>()
+    private val bottomTabLabels = mutableMapOf<String, TextView>()
 
     private fun buildHomeBottomBar() {
         homeBottomBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(palette.surface)
-            setPadding(dp(12), dp(8), dp(12), dp(8))
+            setPadding(dp(4), dp(8), dp(4), dp(8))
         }
 
-        homeBottomButton = makeIconButton(
-            this,
-            "home",
-            sizeDp = 44,
-            tint = palette.blue,
-            description = "Início",
-        ) {
-            // Já estamos na tela principal; sem ação.
+        bottomTabIconHolders.clear()
+        bottomTabLabels.clear()
+
+        homeBottomButton = makeBottomBarTab("home", "Início") {
+            selectBottomTab("home")
         }
 
-        tabsBottomButton = makeTabsCounterButton(sizeDp = 44, squareDp = 26) {
+        val gamesBottomButton = makeBottomBarTab("games", "Jogos") {
+            selectBottomTab("games")
+        }
+
+        tabsBottomButton = makeBottomBarTabsTab("Abas") {
             openTabsView()
         }
 
-        addLinearChild(
-            homeBottomBar,
-            homeBottomButton,
-            dp(44),
-            dp(44),
-            weight = 1f,
+        val activityBottomButton = makeBottomBarTab("history", "Atividade") {
+            selectBottomTab("activity")
+        }
+
+        listOf(homeBottomButton, gamesBottomButton, tabsBottomButton, activityBottomButton).forEach { tab ->
+            addLinearChild(homeBottomBar, tab, 0, dp(56), weight = 1f)
+        }
+
+        selectBottomTab("home")
+    }
+
+    private fun makeBottomBarTab(
+        baseIcon: String,
+        label: String,
+        onClick: () -> Unit,
+    ): LinearLayout {
+        val tab = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            isClickable = true
+            isFocusable = true
+            background = rippleBackground(this@MainActivity, Color.TRANSPARENT, 12f, palette.pressed)
+            setOnClickListener { onClick() }
+        }
+
+        val iconHolder = FrameLayout(this)
+        bottomTabIconHolders[baseIcon] = iconHolder
+        tab.addView(iconHolder, LinearLayout.LayoutParams(dp(24), dp(24)))
+
+        val labelView = makeText(this, label, 11f, palette.foreground).apply {
+            setPadding(0, dp(3), 0, 0)
+        }
+        bottomTabLabels[baseIcon] = labelView
+        tab.addView(labelView)
+
+        return tab
+    }
+
+    private fun selectBottomTab(tab: String) {
+        selectedBottomTab = tab
+
+        val iconKeyFor = mapOf(
+            "home" to "home",
+            "games" to "games",
+            "activity" to "history",
         )
 
-        addLinearChild(
-            homeBottomBar,
-            tabsBottomButton,
-            dp(44),
-            dp(44),
-            weight = 1f,
-        )
+        iconKeyFor.forEach { (tabKey, baseIcon) ->
+            val holder = bottomTabIconHolders[baseIcon] ?: return@forEach
+            val label = bottomTabLabels[baseIcon] ?: return@forEach
+
+            val isActive = tabKey == tab
+            val color = if (isActive) palette.blue else palette.foreground
+
+            val svgName = if (isActive) {
+                when (baseIcon) {
+                    "home" -> "homeFilled"
+                    "games" -> "gamesFilled"
+                    "history" -> "historyFilled"
+                    else -> baseIcon
+                }
+            } else {
+                baseIcon
+            }
+
+            holder.removeAllViews()
+
+            val iconView = BrowserIconView(this, svgName).apply {
+                this.tint = color
+            }
+
+            holder.addView(iconView, FrameLayout.LayoutParams(dp(24), dp(24)))
+            label.setTextColor(color)
+        }
+    }
+
+    private fun makeBottomBarTabsTab(label: String, onClick: () -> Unit): LinearLayout {
+        val tab = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            isClickable = true
+            isFocusable = true
+            background = rippleBackground(this@MainActivity, Color.TRANSPARENT, 12f, palette.pressed)
+            setOnClickListener { onClick() }
+        }
+        val counter = TextView(this).apply {
+            text = tabs.size.toString()
+            tag = "tabs_counter_text"
+            textSize = 12f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(palette.foreground)
+            gravity = Gravity.CENTER
+            background = roundedBackground(Color.TRANSPARENT, dp(6).toFloat(), palette.foreground, dp(1))
+        }
+        tab.addView(counter, LinearLayout.LayoutParams(dp(24), dp(24)))
+        tab.addView(makeText(this, label, 11f, palette.foreground).apply { setPadding(0, dp(3), 0, 0) })
+        return tab
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -1246,10 +1339,50 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showSearchEngineMenu(anchor: View) {
-        val popup = android.widget.PopupMenu(this, anchor)
-        SEARCH_ENGINES.forEach { (key, data) -> popup.menu.add(0, key.hashCode(), 0, data.first) }
-        popup.setOnMenuItemClickListener { item -> SEARCH_ENGINES.entries.firstOrNull { it.key.hashCode() == item.itemId }?.let { setSearchEngine(it.key) }; true }
-        popup.show()
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(6), 0, dp(6))
+            background = roundedBackground(palette.surface, dp(12).toFloat())
+            elevation = dp(10).toFloat()
+        }
+
+        val popupWindow = android.widget.PopupWindow(
+            card, dp(220), ViewGroup.LayoutParams.WRAP_CONTENT, true,
+        ).apply {
+            isOutsideTouchable = true
+            elevation = dp(10).toFloat()
+        }
+
+        SEARCH_ENGINES.entries.forEachIndexed { index, (key, data) ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(14), 0, dp(14), 0)
+                minimumHeight = dp(46)
+                background = rippleBackground(this@MainActivity, Color.TRANSPARENT, 0f, palette.pressed)
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { setSearchEngine(key); popupWindow.dismiss() }
+            }
+
+            val icon = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
+            Thread {
+                val bitmap = runCatching {
+                    URL(data.third).openStream().use { stream -> BitmapFactory.decodeStream(stream) }
+                }.getOrNull()
+                mainHandler.post { if (!destroyed) bitmap?.let(icon::setImageBitmap) }
+            }.start()
+            row.addView(icon, LinearLayout.LayoutParams(dp(20), dp(20)))
+            addLinearChild(row, makeText(this, data.first, 14.5f, palette.foreground).apply { setPadding(dp(12), 0, 0, 0) }, 0, dp(46), weight = 1f)
+            card.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(46)))
+
+            if (index < SEARCH_ENGINES.size - 1) {
+                card.addView(View(this).apply { setBackgroundColor(palette.line) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)).apply {
+                    leftMargin = dp(14); rightMargin = dp(14)
+                })
+            }
+        }
+        popupWindow.showAsDropDown(anchor, 0, dp(6))
     }
 
     private fun isAdHost(uri: Uri): Boolean {
@@ -1271,7 +1404,7 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { onClick() }
         }
         val counter = TextView(this).apply {
-            text = if (::tabs.isInitialized) tabs.size.toString() else "1"; tag = "tabs_counter_text"; textSize = 12f
+            text = tabs.size.toString(); tag = "tabs_counter_text"; textSize = 12f
             typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(palette.foreground); gravity = Gravity.CENTER
             background = roundedBackground(Color.TRANSPARENT, dp(5).toFloat(), palette.foreground, dp(1))
         }
@@ -1280,13 +1413,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshTabsCounters() {
-        // The toolbar and home bar are built before BrowserTabManager is assigned.
-        // Never access lateinit property `tabs` until initialization has completed.
-        val count = if (::tabs.isInitialized) tabs.size.toString() else "1"
         listOfNotNull(
             if (::tabsBottomButton.isInitialized) tabsBottomButton else null,
             if (::toolbarTabsButton.isInitialized) toolbarTabsButton else null,
-        ).forEach { it.findViewWithTag<TextView>("tabs_counter_text")?.text = count }
+        ).forEach { it.findViewWithTag<TextView>("tabs_counter_text")?.text = tabs.size.toString() }
     }
 
     private fun recordHistoryEntry(url: String, title: String) {
@@ -4405,8 +4535,6 @@ class MainActivity : AppCompatActivity() {
         } else {
             0xFFDADCE0.toInt()
         }
-
-        emptyText.setTextColor(palette.secondary)
 
         progressBar.progressTintList =
             android.content.res.ColorStateList.valueOf(palette.blue)

@@ -1271,7 +1271,7 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { onClick() }
         }
         val counter = TextView(this).apply {
-            text = tabs.size.toString(); tag = "tabs_counter_text"; textSize = 12f
+            text = if (::tabs.isInitialized) tabs.size.toString() else "1"; tag = "tabs_counter_text"; textSize = 12f
             typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(palette.foreground); gravity = Gravity.CENTER
             background = roundedBackground(Color.TRANSPARENT, dp(5).toFloat(), palette.foreground, dp(1))
         }
@@ -1280,10 +1280,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshTabsCounters() {
+        // The toolbar and home bar are built before BrowserTabManager is assigned.
+        // Never access lateinit property `tabs` until initialization has completed.
+        val count = if (::tabs.isInitialized) tabs.size.toString() else "1"
         listOfNotNull(
             if (::tabsBottomButton.isInitialized) tabsBottomButton else null,
             if (::toolbarTabsButton.isInitialized) toolbarTabsButton else null,
-        ).forEach { it.findViewWithTag<TextView>("tabs_counter_text")?.text = tabs.size.toString() }
+        ).forEach { it.findViewWithTag<TextView>("tabs_counter_text")?.text = count }
     }
 
     private fun recordHistoryEntry(url: String, title: String) {

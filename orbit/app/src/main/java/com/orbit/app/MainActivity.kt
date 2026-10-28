@@ -83,9 +83,30 @@ class MainActivity : AppCompatActivity() {
         private const val HOME_URL = "https://www.google.com/webhp?igu=1"
         private const val PREFS = "orbit_browser_preferences"
         private const val PREF_THEME = "theme_mode"
+        private const val PREF_SEARCH_ENGINE = "search_engine"
+        private const val PREF_FORCE_DARK_SITES = "force_dark_sites"
+        private const val PREF_AD_BLOCK = "ad_block_enabled"
+        private const val PREF_HISTORY = "history_entries_json"
         private const val ANIM_DURATION = 420L
         private const val MAX_THUMB_WIDTH = 360
         private const val MAX_THUMB_HEIGHT = 780
+
+        private val AD_BLOCK_HOSTS = setOf(
+            "doubleclick.net", "googlesyndication.com", "googleadservices.com",
+            "adservice.google.com", "google-analytics.com", "googletagmanager.com",
+            "googletagservices.com", "adnxs.com", "adsrvr.org", "taboola.com",
+            "outbrain.com", "criteo.com", "scorecardresearch.com", "moatads.com",
+            "popads.net", "popcash.net", "propellerads.com", "adroll.com",
+            "pubmatic.com", "rubiconproject.com", "openx.net", "media.net",
+            "bidswitch.net", "casalemedia.com",
+        )
+
+        private val SEARCH_ENGINES = linkedMapOf(
+            "google" to Triple("Google", "https://www.google.com/webhp?igu=1", "https://www.google.com/s2/favicons?domain=google.com&sz=64"),
+            "bing" to Triple("Bing", "https://www.bing.com", "https://www.google.com/s2/favicons?domain=bing.com&sz=64"),
+            "duckduckgo" to Triple("DuckDuckGo", "https://duckduckgo.com", "https://www.google.com/s2/favicons?domain=duckduckgo.com&sz=64"),
+            "brave" to Triple("Brave Search", "https://search.brave.com", "https://www.google.com/s2/favicons?domain=search.brave.com&sz=64"),
+        )
     }
 
     private lateinit var root: FrameLayout
@@ -94,8 +115,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var toolbarLayer: LinearLayout
     private lateinit var toolbarRow: LinearLayout
     private lateinit var progressBar: ProgressBar
-    private lateinit var backButton: FrameLayout
-    private lateinit var forwardButton: FrameLayout
+    private lateinit var homeButton: FrameLayout
+    private lateinit var toolbarTabsButton: FrameLayout
     private lateinit var addressPill: LinearLayout
     private lateinit var faviconImage: ImageView
     private lateinit var fallbackFavicon: BrowserIconView
@@ -105,6 +126,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var menuButton: FrameLayout
     private lateinit var emptyState: LinearLayout
     private lateinit var emptyIcon: BrowserIconView
+    private lateinit var emptyEngineIcon: ImageView
     private lateinit var homeBottomBar: LinearLayout
     private lateinit var homeBottomButton: FrameLayout
     private lateinit var tabsBottomButton: FrameLayout
@@ -116,6 +138,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var palette: BrowserPalette
 
     private var themeMode = BrowserThemeMode.SYSTEM
+    private var searchEngineKey = "google"
+    private var forceDarkSites = false
+    private var adBlockEnabled = true
     private var toolbarHeightPx = 0
     private var toolbarHidden = false
     private var tabsVisible = false
@@ -173,12 +198,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initializeBrowser() {
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         themeMode = runCatching {
-            BrowserThemeMode.valueOf(
-                getSharedPreferences(PREFS, MODE_PRIVATE)
-                    .getString(PREF_THEME, "SYSTEM") ?: "SYSTEM",
-            )
+            BrowserThemeMode.valueOf(prefs.getString(PREF_THEME, "SYSTEM") ?: "SYSTEM")
         }.getOrDefault(BrowserThemeMode.SYSTEM)
+        searchEngineKey = prefs.getString(PREF_SEARCH_ENGINE, "google")
+            ?.takeIf { SEARCH_ENGINES.containsKey(it) } ?: "google"
+        forceDarkSites = prefs.getBoolean(PREF_FORCE_DARK_SITES, false)
+        adBlockEnabled = prefs.getBoolean(PREF_AD_BLOCK, true)
 
         palette = BrowserPalette.from(this, themeMode)
 
@@ -515,41 +542,12 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(palette.surface)
         }
 
-        backButton = makeIconButton(
-            this,
-            "back",
-            sizeDp = 38,
-            tint = palette.foreground,
-            description = "Voltar",
-        ) {
-            goBack()
-        }
+        homeButton = makeIconButton(
+            this, "home", sizeDp = 38, tint = palette.foreground,
+            description = "Ir para a tela principal",
+        ) { navigateFromInput(currentHomeUrl()) }
 
-        forwardButton = makeIconButton(
-            this,
-            "forward",
-            sizeDp = 38,
-            tint = palette.foreground,
-            description = "Avançar",
-        ) {
-            goForward()
-        }
-
-        addLinearChild(
-            toolbarRow,
-            backButton,
-            dp(38),
-            dp(40),
-            right = dp(2),
-        )
-
-        addLinearChild(
-            toolbarRow,
-            forwardButton,
-            dp(38),
-            dp(40),
-            right = dp(4),
-        )
+        addLinearChild(toolbarRow, homeButton, dp(38), dp(40), right = dp(2))
 
         addressPill = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -557,7 +555,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(8), 0, dp(5), 0)
             background = roundedBackground(
                 palette.pill,
-                dp(28).toFloat(),
+                dp(10).toFloat(),
             )
             isClickable = true
             isFocusable = true
@@ -683,8 +681,13 @@ class MainActivity : AppCompatActivity() {
             dp(40),
             weight = 1f,
             right = dp(4),
-            left = dp(1),
+            left = dp(0),
         )
+
+        toolbarTabsButton = makeTabsCounterButton(sizeDp = 38, squareDp = 22) {
+            openTabsView()
+        }
+        addLinearChild(toolbarRow, toolbarTabsButton, dp(38), dp(40), left = dp(1))
 
         menuButton = makeIconButton(
             this,
@@ -750,17 +753,22 @@ class MainActivity : AppCompatActivity() {
         }
 
         emptyIcon = BrowserIconView(this, "globe").apply {
-            tint = if (palette.isDark) {
-                0xFF5F6368.toInt()
-            } else {
-                0xFFDADCE0.toInt()
-            }
+            tint = if (palette.isDark) 0xFF5F6368.toInt() else 0xFFDADCE0.toInt()
+            visibility = View.GONE
         }
-
-        emptyState.addView(
-            emptyIcon,
-            LinearLayout.LayoutParams(dp(44), dp(44)),
-        )
+        emptyEngineIcon = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            contentDescription = "Motor de pesquisa atual; tocar para trocar"
+            isClickable = true
+            isFocusable = true
+            background = rippleBackground(this@MainActivity, Color.TRANSPARENT, 22f, palette.pressed)
+            setOnClickListener { showSearchEngineMenu(this) }
+        }
+        val engineIconFrame = FrameLayout(this)
+        engineIconFrame.addView(emptyIcon, FrameLayout.LayoutParams(dp(44), dp(44), Gravity.CENTER))
+        engineIconFrame.addView(emptyEngineIcon, FrameLayout.LayoutParams(dp(44), dp(44), Gravity.CENTER))
+        emptyState.addView(engineIconFrame, LinearLayout.LayoutParams(dp(44), dp(44)))
+        loadEmptyEngineIcon()
 
         emptyText = makeText(
             this,
@@ -802,13 +810,7 @@ class MainActivity : AppCompatActivity() {
             // Já estamos na tela principal; sem ação.
         }
 
-        tabsBottomButton = makeIconButton(
-            this,
-            "tabs",
-            sizeDp = 44,
-            tint = palette.foreground,
-            description = "Separadores",
-        ) {
+        tabsBottomButton = makeTabsCounterButton(sizeDp = 44, squareDp = 26) {
             openTabsView()
         }
 
@@ -849,8 +851,12 @@ class MainActivity : AppCompatActivity() {
             setSupportMultipleWindows(true)
             builtInZoomControls = true
             displayZoomControls = false
-            cacheMode = WebSettings.LOAD_DEFAULT
+            cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            @Suppress("DEPRECATION")
+            setRenderPriority(WebSettings.RenderPriority.HIGH)
+            setGeolocationEnabled(false)
+            databaseEnabled = true
 
             if (Build.VERSION.SDK_INT >= 26) {
                 safeBrowsingEnabled = true
@@ -859,6 +865,9 @@ class MainActivity : AppCompatActivity() {
             allowFileAccess = false
             allowContentAccess = true
         }
+
+        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        applyForceDarkTo(webView)
 
         webView.webViewClient = object : WebViewClient() {
 
@@ -889,6 +898,18 @@ class MainActivity : AppCompatActivity() {
 
                     else -> true
                 }
+            }
+
+            override fun shouldInterceptRequest(
+                view: WebView,
+                request: WebResourceRequest,
+            ): android.webkit.WebResourceResponse? {
+                if (adBlockEnabled && isAdHost(request.url)) {
+                    return android.webkit.WebResourceResponse(
+                        "text/plain", "UTF-8", java.io.ByteArrayInputStream(ByteArray(0)),
+                    )
+                }
+                return super.shouldInterceptRequest(view, request)
             }
 
             override fun onPageStarted(
@@ -935,6 +956,7 @@ class MainActivity : AppCompatActivity() {
                 if (!isTabAlive(tab) || tab.webView !== view) return
 
                 super.onPageFinished(view, url)
+                recordHistoryEntry(url, tab.title.ifBlank { url })
 
                 tab.url = view.url ?: url
 
@@ -1201,6 +1223,79 @@ class MainActivity : AppCompatActivity() {
         return webView
     }
 
+    private fun currentHomeUrl(): String = SEARCH_ENGINES[searchEngineKey]?.second ?: HOME_URL
+    private fun currentEngineFaviconUrl(): String = SEARCH_ENGINES[searchEngineKey]?.third
+        ?: "https://www.google.com/s2/favicons?domain=google.com&sz=64"
+
+    private fun setSearchEngine(key: String) {
+        if (!SEARCH_ENGINES.containsKey(key)) return
+        searchEngineKey = key
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(PREF_SEARCH_ENGINE, key).apply()
+        loadEmptyEngineIcon()
+    }
+
+    private fun loadEmptyEngineIcon() {
+        Thread {
+            val bitmap = runCatching { URL(currentEngineFaviconUrl()).openStream().use { stream -> BitmapFactory.decodeStream(stream) } }.getOrNull()
+            mainHandler.post {
+                if (destroyed || !::emptyEngineIcon.isInitialized) return@post
+                if (bitmap != null) { emptyEngineIcon.setImageBitmap(bitmap); emptyEngineIcon.visibility = View.VISIBLE; emptyIcon.visibility = View.GONE }
+                else { emptyEngineIcon.visibility = View.GONE; emptyIcon.visibility = View.VISIBLE }
+            }
+        }.start()
+    }
+
+    private fun showSearchEngineMenu(anchor: View) {
+        val popup = android.widget.PopupMenu(this, anchor)
+        SEARCH_ENGINES.forEach { (key, data) -> popup.menu.add(0, key.hashCode(), 0, data.first) }
+        popup.setOnMenuItemClickListener { item -> SEARCH_ENGINES.entries.firstOrNull { it.key.hashCode() == item.itemId }?.let { setSearchEngine(it.key) }; true }
+        popup.show()
+    }
+
+    private fun isAdHost(uri: Uri): Boolean {
+        val host = uri.host?.lowercase(Locale.ROOT) ?: return false
+        return AD_BLOCK_HOSTS.any { host == it || host.endsWith(".$it") }
+    }
+
+    private fun applyForceDarkTo(webView: WebView) {
+        if (Build.VERSION.SDK_INT >= 29) {
+            @Suppress("DEPRECATION")
+            webView.settings.forceDark = if (forceDarkSites || palette.isDark) WebSettings.FORCE_DARK_ON else WebSettings.FORCE_DARK_OFF
+        }
+    }
+
+    private fun makeTabsCounterButton(sizeDp: Int, squareDp: Int, onClick: () -> Unit): FrameLayout {
+        val button = FrameLayout(this).apply {
+            isClickable = true; isFocusable = true; contentDescription = "Separadores"
+            background = rippleBackground(this@MainActivity, Color.TRANSPARENT, sizeDp / 2f, palette.pressed)
+            setOnClickListener { onClick() }
+        }
+        val counter = TextView(this).apply {
+            text = tabs.size.toString(); tag = "tabs_counter_text"; textSize = 12f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD; setTextColor(palette.foreground); gravity = Gravity.CENTER
+            background = roundedBackground(Color.TRANSPARENT, dp(5).toFloat(), palette.foreground, dp(1))
+        }
+        button.addView(counter, FrameLayout.LayoutParams(dp(squareDp), dp(squareDp), Gravity.CENTER))
+        return button
+    }
+
+    private fun refreshTabsCounters() {
+        listOfNotNull(
+            if (::tabsBottomButton.isInitialized) tabsBottomButton else null,
+            if (::toolbarTabsButton.isInitialized) toolbarTabsButton else null,
+        ).forEach { it.findViewWithTag<TextView>("tabs_counter_text")?.text = tabs.size.toString() }
+    }
+
+    private fun recordHistoryEntry(url: String, title: String) {
+        if (url.isBlank() || url == "about:blank") return
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        val existing = runCatching { JSONArray(prefs.getString(PREF_HISTORY, "[]") ?: "[]") }.getOrDefault(JSONArray())
+        existing.put(org.json.JSONObject().apply { put("url", url); put("title", title); put("timestamp", System.currentTimeMillis()) })
+        val trimmed = JSONArray()
+        for (i in max(0, existing.length() - 500) until existing.length()) trimmed.put(existing.get(i))
+        prefs.edit().putString(PREF_HISTORY, trimmed.toString()).apply()
+    }
+
     private fun requestFaviconIfNeeded(tab: BrowserTab) {
         if (!isTabAlive(tab)) return
 
@@ -1395,25 +1490,13 @@ class MainActivity : AppCompatActivity() {
         emptyState.visibility = if (isHome) View.VISIBLE else View.GONE
         homeBottomBar.visibility = if (isHome) View.VISIBLE else View.GONE
 
-        backButton.visibility = if (isHome) View.GONE else View.VISIBLE
-        forwardButton.visibility = if (isHome) View.GONE else View.VISIBLE
         lockButton.visibility = if (isHome) View.GONE else View.VISIBLE
         menuButton.visibility = if (isHome) View.GONE else View.VISIBLE
+        toolbarTabsButton.visibility = if (isHome) View.GONE else View.VISIBLE
     }
 
     private fun updateNavigationButtons() {
-        if (!::backButton.isInitialized) return
-
-        val tab = tabs.activeTab
-
-        val canBack = tab?.webView?.canGoBack() == true
-        val canForward = tab?.webView?.canGoForward() == true
-
-        backButton.alpha = if (canBack) 1f else 0.38f
-        forwardButton.alpha = if (canForward) 1f else 0.38f
-
-        backButton.isEnabled = canBack
-        forwardButton.isEnabled = canForward
+        if (::tabsBottomButton.isInitialized) refreshTabsCounters()
     }
 
     private fun goBack() {
@@ -1633,7 +1716,7 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
             background = roundedBackground(
                 palette.pill,
-                dp(28).toFloat(),
+                dp(10).toFloat(),
             )
             setPadding(dp(12), 0, dp(7), 0)
         }
@@ -1706,10 +1789,11 @@ class MainActivity : AppCompatActivity() {
             0,
             dp(40),
             weight = 1f,
-            right = dp(8),
         )
 
-        val closeButton = makeIconButton(
+        /* O botão de limpar permanece dentro do input; o voltar do sistema fecha a pesquisa. */
+        /* closeButton separado removido para manter a largura do input. */
+        /*
             this,
             "close",
             40,
@@ -1720,12 +1804,7 @@ class MainActivity : AppCompatActivity() {
             closeSearch()
         }
 
-        addLinearChild(
-            top,
-            closeButton,
-            dp(40),
-            dp(40),
-        )
+        */
 
         content.addView(
             top,
@@ -2282,7 +2361,7 @@ class MainActivity : AppCompatActivity() {
             "Início",
         ) {
             closeBottomSheet()
-            navigateFromInput(HOME_URL)
+            navigateFromInput(currentHomeUrl())
         }
 
         sheet.addView(
@@ -2337,6 +2416,29 @@ class MainActivity : AppCompatActivity() {
         ) {
             closeBottomSheet()
             showThemeSelector()
+        }
+
+        addSheetListItem(
+            list,
+            "lock",
+            if (forceDarkSites) "Tema escuro forçado: Ativo" else "Tema escuro forçado: Inativo",
+        ) {
+            forceDarkSites = !forceDarkSites
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putBoolean(PREF_FORCE_DARK_SITES, forceDarkSites).apply()
+            tabs.activeTab?.webView?.let(::applyForceDarkTo)
+            closeBottomSheet()
+        }
+
+        addSheetListItem(
+            list,
+            "close",
+            if (adBlockEnabled) "Bloqueador de anúncios: Ativo" else "Bloqueador de anúncios: Inativo",
+        ) {
+            adBlockEnabled = !adBlockEnabled
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putBoolean(PREF_AD_BLOCK, adBlockEnabled).apply()
+            closeBottomSheet()
         }
 
         sheet.addView(
@@ -4252,7 +4354,7 @@ class MainActivity : AppCompatActivity() {
 
         addressPill.background = roundedBackground(
             palette.pill,
-            dp(28).toFloat(),
+            dp(10).toFloat(),
         )
 
         titleText.setTextColor(palette.foreground)
@@ -4265,10 +4367,10 @@ class MainActivity : AppCompatActivity() {
             palette.pressed,
         )
 
-        listOf(
-            backButton,
-            forwardButton,
-            menuButton,
+        listOfNotNull(
+            if (::homeButton.isInitialized) homeButton else null,
+            if (::toolbarTabsButton.isInitialized) toolbarTabsButton else null,
+            if (::menuButton.isInitialized) menuButton else null,
         ).forEach { button ->
             button.background = rippleBackground(
                 this,
